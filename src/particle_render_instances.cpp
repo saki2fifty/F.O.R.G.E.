@@ -9,29 +9,28 @@ void validate_particle_mesh_profile(const MeshResourceData& resource) {
     if (mesh.lods.size() != 1 || mesh.lods.front().parts.size() != 1 || mesh.material_slots != 1 ||
         resource.materials.size() != 1 || !mesh.morph_names.empty())
         throw std::runtime_error(
-            "CPU mesh particles require one static triangle part, one LOD and one material slot");
+            "Mesh particles require one static triangle part, one LOD and one material slot");
     const auto& part = mesh.lods.front().parts.front();
     if (part.topology != MeshTopology::Triangles || !part.morph_targets.empty() ||
         !part.joint_palette.empty())
-        throw std::runtime_error(
-            "CPU mesh particles do not support skinning, morphs, points or lines");
+        throw std::runtime_error("Mesh particles do not support skinning, morphs, points or lines");
     for (const auto& stream : part.streams)
         if (stream.semantic.starts_with("JOINTS") || stream.semantic.starts_with("WEIGHTS"))
-            throw std::runtime_error("CPU mesh particles do not support skinned vertex channels");
+            throw std::runtime_error("Mesh particles do not support skinned vertex channels");
     if (resource.model)
         for (const auto& node : resource.model->nodes)
             if (node.skin)
-                throw std::runtime_error("CPU mesh particles cannot bind an animated model skin");
+                throw std::runtime_error("Mesh particles cannot bind an animated model skin");
 }
 void validate_particle_material_profile(const MaterialResourceData& material) {
     validate_render_material(material);
     if (!material.render_textures.empty())
-        throw std::runtime_error("CPU mesh particles require source textures; camera render "
+        throw std::runtime_error("Mesh particles require source textures; camera render "
                                  "textures are supported by MeshRenderer materials");
     if (material.surface || material.values.alpha == MaterialAlpha::Blend ||
         material_transmits(prepare_pbr_material(material.values)))
         throw std::runtime_error(
-            "CPU mesh particles require built-in opaque/masked material models; Blend, "
+            "Mesh particles require built-in opaque/masked material models; Blend, "
             "transmission and custom Shader surfaces are unsupported");
 }
 std::vector<ParticleRenderInstance> particle_render_instances(const ParticleEffectData& data,

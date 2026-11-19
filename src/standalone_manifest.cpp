@@ -22,6 +22,7 @@
 #include <forge/input_message.hpp>
 #include <forge/mesh_wind.hpp>
 #include <forge/model_asset.hpp>
+#include <forge/particle_effect_source.hpp>
 #include <forge/project.hpp>
 #include <forge/shader_asset.hpp>
 #include <forge/ui_protocol.hpp>
@@ -136,6 +137,36 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
     }
     for (const auto& [id, record] : catalog.records()) {
         (void)id;
+        if (record.type == ParticleEffectAsset::type) {
+            const auto metadata = record.metadata.find("forge.particle_effect");
+            if (metadata != record.metadata.end()) {
+                const auto version = metadata->find("version");
+                require(version != metadata->end() && version->is_number_integer(),
+                        "Invalid Particle Effect cooked profile");
+                const auto cooked = version->get<std::uint64_t>();
+                require(cooked >= 1 && cooked <= particle_effect_cooked_version,
+                        "Unsupported Particle Effect cooked profile");
+                if (cooked == particle_effect_cooked_version) {
+                    const auto support = engine.find("runtime_particle_effect");
+                    require(support != engine.end() && support->is_number_integer() &&
+                                support->get<std::uint64_t>() == particle_effect_cooked_version,
+                            "Particle Effects require the runtime kit packaged with this editor");
+                    const auto value_version = metadata->find("value_version");
+                    require(value_version != metadata->end() && value_version->is_number_integer(),
+                            "Invalid Particle Effect value profile");
+                    const auto values = value_version->get<std::uint64_t>();
+                    require(values == 2 || values == 3,
+                            "Unsupported Particle Effect value profile");
+                    if (values == 3) {
+                        const auto gpu = engine.find("runtime_particle_gpu");
+                        require(gpu != engine.end() && gpu->is_number_integer() &&
+                                    gpu->get<std::uint64_t>() == particle_gpu_profile_version,
+                                "GPU Particle Effects require the runtime kit packaged with this "
+                                "editor");
+                    }
+                }
+            }
+        }
         if (record.type == ModelAsset::type) {
             const auto imported = record.metadata.find("forge.import");
             if (imported != record.metadata.end() &&

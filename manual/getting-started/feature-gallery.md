@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**238-gpu-mesh-particles** shows two fountains sharing a GPU effect with different
+seeds, sizes and tint. Open **Assets/Particles/GpuFountain.particles.json** to use
+**Evaluation**, shapes, drag and lifetime curves. Select an emitter during Play
+to tune its live appearance. Camera and light are included; no C++ module is
+required. Use the matching runtime kit when exporting. See [mesh particle effects](../editor/particles.md).
+
 **237-runtime-navigation-rebuild** moves its navigation floor once, then holds it.
 The cyan agent waits on stale geometry. After the floor stops, pause and open
 **Game → Runtime navigation**. Select **default**, click **Rebuild navigation**,

@@ -118,7 +118,7 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
             require(part.alpha != MaterialAlpha::Blend && !part.transmission &&
                         !entry->second.pose->skinned &&
                         entry->second.ready->supports_instances(0, 0),
-                    "CPU mesh particles require opaque/masked static instancing; "
+                    "Mesh particles require opaque/masked static instancing; "
                     "Blend/transmission is unsupported");
             for (const auto& [id, material] : prepared.materials)
                 validate_particle_material_profile(material.get());
@@ -135,6 +135,18 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
             each += draw.renderer.materials.capacity() * sizeof(MaterialSlotOverride);
             for (const auto& slot : draw.renderer.materials)
                 each += slot.slot.capacity();
+            if (data.version == 3) {
+                require(each <= byte_limit - bytes,
+                        "Particle instance CPU payload exceeds the 8 MiB frame budget");
+                if (!source->second.gpu)
+                    source->second.gpu =
+                        std::make_unique<ParticleGpuInstances>(host_->presentation_, data.capacity);
+                bytes += each;
+                // One proxy retains the admitted material/pose. Births, motion,
+                // appearance and per-particle transforms stay on the device.
+                particle_instances_.emplace_back(std::move(draw), *entry->second.pose);
+                continue;
+            }
             const auto values = particle_render_instances(
                 data, emitter.time, emitter.emitter.seed, emitter.world,
                 particle_scene_capacity - particle_instances_.size(),

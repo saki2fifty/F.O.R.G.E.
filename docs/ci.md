@@ -3437,3 +3437,28 @@ GPU/input/DPI and graphical EXE acceptance. Matching NativeSdk and GameRuntime i
 must contain the trusted sibling `forge_nav_build` and its admitted dependencies;
 the Windows install/relocation gates establish their actual platform executables.
 No dependency, persisted navigation profile or catalog identity migration is implied.
+
+## GPU mesh particle workflow checks
+
+`particle_gpu_vulkan` validates the private packet, independent birth/motion math
+and compute-written instance rows through production MeshDraw on software Vulkan.
+`particle_gpu_scene_vulkan` uses actual MeshSceneRenderer, retained resource selections,
+fixed-clock Worlds and source-hidden Windows-targeted runtime content. It covers
+capacity/batch limits, camera changes, failed-time recovery, visibility/layers,
+resize, PBR/tint/shape/lifetime controls and identical Gallery238 authored/export
+pixels. These checks establish no native Windows execution or physical performance.
+`particle_runtime` also checks pure GPU packet membership/relative ages and invalid
+profiles, times, size/tint, collapsed float stops and overflow without a device.
+Legacy CPU effect, lifetime/source/asset and frozen Gallery tests retain their
+original profile/recipe expectations; new publications use neutral cooked3.
+
+`particle_effect_editor` uses actual Evaluation widgets and history across scaled
+and compact layouts. It is shared by the existing portable source-editor CMake
+owner and the Windows editor selection. `mcp_particle_evaluation_stdio` runs both
+supported formats through the native source owner, exact sessions/revisions,
+grants, source/stop identity, extensions, Undo/Redo, no-op, async publication,
+refreshed catalog read and reopen. `standalone_manifest` rejects malformed,
+unsupported or missing particle cooked3/GPU1 capabilities, including integer widths
+that must not truncate. Offline manual and example-package checks include the new
+editable Scene, source/cook and canonical native capture. Physical Windows/GPU and
+full desktop review remain distinct acceptance evidence.

@@ -18,6 +18,7 @@
 #include <forge/game_settings.hpp>
 #include <forge/input_message.hpp>
 #include <forge/native_sdk_identity.h>
+#include <forge/particle_effect_source.hpp>
 #include <forge/project.hpp>
 #include <forge/scene.hpp>
 #include <forge/shader_asset.hpp>
@@ -45,6 +46,40 @@ int main(int argc, char** argv) {
         const auto project = scratch / "source", out = scratch / "game";
         audio_routing_package_tests(scratch, check, reject);
         sound_cue_package_tests(scratch, check, reject);
+        {
+            AssetCatalog particles(scratch / "particle-kit-compatibility");
+            AssetRecord effect{AssetId::generate(), ParticleEffectAsset::type,
+                               "Assets/Effect.particles.json", 1};
+            effect.metadata["forge.particle_effect"] = {{"version", 2}};
+            particles.add(effect);
+            validate_runtime_compatibility(particles, Json::object());
+            effect.metadata["forge.particle_effect"] = {{"version", particle_effect_cooked_version},
+                                                        {"value_version", 2}};
+            particles.replace(effect);
+            reject([&] { validate_runtime_compatibility(particles, Json::object()); });
+            Json engine{{"runtime_particle_effect", particle_effect_cooked_version}};
+            validate_runtime_compatibility(particles, engine);
+            effect.metadata["forge.particle_effect"]["value_version"] = 3;
+            particles.replace(effect);
+            reject([&] { validate_runtime_compatibility(particles, engine); });
+            engine["runtime_particle_gpu"] = particle_gpu_profile_version;
+            validate_runtime_compatibility(particles, engine);
+            for (const Json& invalid : {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"),
+                                        Json(2), Json((std::uint64_t{1} << 32) + 1)}) {
+                auto wrong = engine;
+                wrong["runtime_particle_gpu"] = invalid;
+                reject([&] { validate_runtime_compatibility(particles, wrong); });
+            }
+            for (const Json& invalid : {Json(), Json(true), Json(-1), Json(0), Json(3.), Json("3"),
+                                        Json(2), Json((std::uint64_t{1} << 32) + 3)}) {
+                auto wrong = engine;
+                wrong["runtime_particle_effect"] = invalid;
+                reject([&] { validate_runtime_compatibility(particles, wrong); });
+            }
+            effect.metadata["forge.particle_effect"].erase("value_version");
+            particles.replace(effect);
+            reject([&] { validate_runtime_compatibility(particles, engine); });
+        }
         {
             AssetCatalog fonts(scratch / "ui-font-collection-compatibility");
             AssetRecord font{AssetId::generate(), "ui_font", "Assets/Fonts/menu.ttc", 1};

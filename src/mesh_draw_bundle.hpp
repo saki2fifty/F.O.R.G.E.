@@ -105,7 +105,8 @@ class MeshDrawBundle {
                    std::span<const MeshDraw::LightImage> images = {},
                    std::span<const EnvironmentProbe> local_irradiance = {},
                    std::span<const FogVolumeSample> local_fog = {},
-                   const MeshDraw::IndirectArguments* visibility = nullptr);
+                   const MeshDraw::IndirectArguments* visibility = nullptr,
+                   const MeshDraw::InstanceBuffer* gpu_instances = nullptr);
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }

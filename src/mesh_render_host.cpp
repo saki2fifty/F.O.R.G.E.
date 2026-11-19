@@ -12,8 +12,10 @@
 #include "tile_map_pick.hpp"
 #include "tile_map_variants.hpp"
 #include "tile_map_view.hpp"
+#include <cmath>
 #include <forge/asset_build.hpp>
 #include <forge/engine_assets.hpp>
+#include <limits>
 #include <set>
 namespace forge {
 namespace {
@@ -1146,6 +1148,14 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         throw std::runtime_error("Mesh draw scene differs from prepared scene");
     validate_scene_distance_fog(scene.settings.distance_fog);
     const auto diagnostics_before = diagnostics_.size(), omitted_before = omitted_;
+    const auto restore_camera_target = [&] {
+        auto* target = color->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+        host_->context_->SetRenderTargets(1, &target, depth,
+                                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        const auto& v = camera.viewport;
+        Diligent::Viewport area{float(v.x), float(v.y), float(v.width), float(v.height), 0, 1};
+        host_->context_->SetViewports(1, &area, color->GetDesc().Width, color->GetDesc().Height);
+    };
     const auto view_fog = prepare_fog_view(
         scene.fog_volumes, camera.position, layers, [&](EntityId entity, std::string_view message) {
             Diagnostic value{Severity::Error, "render.fog.view", std::string(message), {}};
@@ -1244,6 +1254,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         std::vector<EntityId> decals{};
         RenderBounds bounds{};
         std::vector<MeshDraw::LightImage> images{};
+        ParticleGpuInstances* gpu = nullptr;
     };
     struct Item {
         RenderSortKey key;
@@ -1279,7 +1290,28 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         const auto& pose = instance_pose ? *instance_pose : *entry.pose;
         const auto queue_start = queue.size();
         try {
-            const auto bounds = mesh_instance_bounds(pose, camera.position);
+            auto* gpu = draw_scope == DrawScope::Particle
+                            ? particle_sources_.at(mesh.entity).gpu.get()
+                            : nullptr;
+            auto bounds = mesh_instance_bounds(pose, camera.position);
+            if (gpu) {
+                const auto found_bounds =
+                    std::find_if(particle_bounds_.begin(), particle_bounds_.end(),
+                                 [&](const auto& value) { return value.first == mesh.entity; });
+                if (found_bounds == particle_bounds_.end())
+                    throw std::runtime_error("GPU particle lifetime bounds are unavailable");
+                bounds = found_bounds->second;
+                // Enclose float instance evaluation around the double lifetime
+                // envelope, including this camera's relative translation.
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    const auto magnitude =
+                        std::max({1., std::abs(bounds.minimum[axis] - camera.position[axis]),
+                                  std::abs(bounds.maximum[axis] - camera.position[axis])});
+                    const auto padding = magnitude * 128 * std::numeric_limits<float>::epsilon();
+                    bounds.minimum[axis] -= padding;
+                    bounds.maximum[axis] += padding;
+                }
+            }
             if (!bounds_visible(bounds, camera))
                 return;
             const float coverage = bounds_screen_coverage(bounds, camera);
@@ -1291,6 +1323,37 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             object.bounds = bounds;
             object.world = &pose.world;
             object.scope = draw_scope;
+            object.gpu = gpu;
+            if (gpu) {
+                if (!color || !depth)
+                    throw std::runtime_error("GPU particles require explicit camera targets");
+                constexpr double headroom = double(std::numeric_limits<float>::max()) / 16;
+                for (unsigned axis = 0; axis < 3; ++axis)
+                    if (!std::isfinite(bounds.minimum[axis] - camera.position[axis]) ||
+                        !std::isfinite(bounds.maximum[axis] - camera.position[axis]) ||
+                        std::abs(bounds.minimum[axis] - camera.position[axis]) > headroom ||
+                        std::abs(bounds.maximum[axis] - camera.position[axis]) > headroom)
+                        throw std::runtime_error(
+                            "GPU particle mesh envelope exceeds finite view bounds");
+                const auto emitter =
+                    std::find_if(scene.particles.begin(), scene.particles.end(),
+                                 [&](const auto& value) { return value.entity == mesh.entity; });
+                if (emitter == scene.particles.end())
+                    throw std::runtime_error("GPU particle emitter selection is unavailable");
+                const auto values = prepare_particle_gpu_values(
+                    *particle_sources_.at(mesh.entity).data(), emitter->time, emitter->emitter.seed,
+                    emitter->world, camera, emitter->emitter.size_multiplier,
+                    {emitter->emitter.tint_r, emitter->emitter.tint_g, emitter->emitter.tint_b});
+                try {
+                    gpu->evaluate(host_->context_, values);
+                } catch (...) {
+                    restore_camera_target();
+                    throw;
+                }
+                restore_camera_target();
+                if (!gpu->count())
+                    return;
+            }
             if (draw_scope == DrawScope::Mesh && entry.previous_pose && entry.previous_mesh &&
                 *entry.previous_mesh == entry.ready->mesh_identity() &&
                 entry.previous_pose->skinned == pose.skinned &&
@@ -1337,7 +1400,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             const auto parts = entry.ready->parts(lod);
             for (unsigned i = 0; i < parts.size(); ++i) {
                 const auto& part = parts[i];
-                const auto part_bounds = mesh_part_bounds(pose, lod, i, camera.position);
+                const auto part_bounds =
+                    gpu ? bounds : mesh_part_bounds(pose, lod, i, camera.position);
                 if (!bounds_visible(part_bounds, camera))
                     continue;
                 if (object.area_lights) {
@@ -1715,14 +1779,14 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         const auto& item = queue[start];
         const auto& object = objects[item.object];
         auto cursor = start + 1;
-        const bool eligible = (item.key.alpha != MaterialAlpha::Blend || object.sprite) &&
-                              !item.transmission &&
-                              object.bundle->supports_instances(object.lod, item.key.part);
+        const bool eligible =
+            !object.gpu && (item.key.alpha != MaterialAlpha::Blend || object.sprite) &&
+            !item.transmission && object.bundle->supports_instances(object.lod, item.key.part);
         while (eligible && cursor < queue.size() && cursor - start < MeshDraw::instance_limit) {
             const auto& next_item = queue[cursor];
             const auto& next = objects[next_item.object];
             if (((temporal || post_mesh) && temporal_item(next_item) != temporal_item(item)) ||
-                next.bundle != object.bundle || next.lod != object.lod ||
+                next.gpu || next.bundle != object.bundle || next.lod != object.lod ||
                 bool(next.mip) != bool(object.mip) ||
                 (object.mip && next.mip->source() != object.mip->source()) ||
                 next_item.key.part != item.key.part || next_item.key.parity != item.key.parity ||
@@ -1743,14 +1807,6 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     draw_stats_ = {};
     std::vector<std::size_t> visibility_starts;
     bool visibility_ready = false;
-    const auto restore_camera_target = [&] {
-        auto* target = color->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
-        host_->context_->SetRenderTargets(1, &target, depth,
-                                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        const auto& v = camera.viewport;
-        Diligent::Viewport area{float(v.x), float(v.y), float(v.width), float(v.height), 0, 1};
-        host_->context_->SetViewports(1, &area, color->GetDesc().Width, color->GetDesc().Height);
-    };
     if (scene.settings.occlusion_culling.enabled && color && depth && !queue.empty()) {
         try {
             validate_scene_occlusion_culling(scene.settings.occlusion_culling);
@@ -2127,27 +2183,36 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             const auto motion = motion_for(object, item.key.part);
             std::span<const MeshDraw::LightImage> images;
             const auto decals = projected_surface(object, item.key.part, images);
-            object.bundle->draw_part(
-                host_->context_, *object.world, draw_view, object.lights, object.lod, item.key.part,
-                environment_.ready ? &lighting : nullptr,
-                object.mesh->legacy_tint ? &*object.mesh->legacy_tint : nullptr,
-                &shadows_->lighting(), object.shadow_slots,
-                transmission.background ? &transmission : nullptr, object.pose,
-                count > 1 ? std::span<const MeshDraw::Instance>(batch.data(), count)
-                          : std::span<const MeshDraw::Instance>{},
-                slot_parameters(object.parameters, object.bundle->slot(object.lod, item.key.part)),
-                object.sprite, &scene.settings.distance_fog, object.mip,
-                accumulated && temporal->motion_output ? &motion : nullptr,
-                accumulated && temporal->indirect_output,
-                accumulated && temporal->reflection_output,
-                accumulated && temporal->normal_only_output, decals,
-                weighted && item.key.alpha == MaterialAlpha::Blend, &batch_bounds, images,
-                local_irradiance(object, item.key.part), local_fog(object),
-                masked ? &visibility : nullptr);
-            draw_stats_.indirect_calls += masked;
-            ++draw_stats_.calls;
-            draw_stats_.instances += count;
-            draw_stats_.batched_calls += count > 1;
+            const unsigned total = object.gpu ? object.gpu->count() : unsigned(count);
+            for (unsigned first = 0; first < total; first += MeshDraw::instance_limit) {
+                const auto submitted = std::min(total - first, MeshDraw::instance_limit);
+                const MeshDraw::InstanceBuffer gpu_values{
+                    object.gpu ? object.gpu->buffer() : nullptr,
+                    std::uint64_t(first) * mesh_static_instance_rows * sizeof(MeshInstanceRow),
+                    submitted};
+                object.bundle->draw_part(
+                    host_->context_, *object.world, draw_view, object.lights, object.lod,
+                    item.key.part, environment_.ready ? &lighting : nullptr,
+                    object.mesh->legacy_tint ? &*object.mesh->legacy_tint : nullptr,
+                    &shadows_->lighting(), object.shadow_slots,
+                    transmission.background ? &transmission : nullptr, object.pose,
+                    count > 1 ? std::span<const MeshDraw::Instance>(batch.data(), count)
+                              : std::span<const MeshDraw::Instance>{},
+                    slot_parameters(object.parameters,
+                                    object.bundle->slot(object.lod, item.key.part)),
+                    object.sprite, &scene.settings.distance_fog, object.mip,
+                    accumulated && temporal->motion_output ? &motion : nullptr,
+                    accumulated && temporal->indirect_output,
+                    accumulated && temporal->reflection_output,
+                    accumulated && temporal->normal_only_output, decals,
+                    weighted && item.key.alpha == MaterialAlpha::Blend, &batch_bounds, images,
+                    local_irradiance(object, item.key.part), local_fog(object),
+                    masked ? &visibility : nullptr, object.gpu ? &gpu_values : nullptr);
+                draw_stats_.indirect_calls += masked;
+                ++draw_stats_.calls;
+                draw_stats_.instances += submitted;
+                draw_stats_.batched_calls += submitted > 1;
+            }
         } catch (const std::exception& e) {
             if (cursor == batch_start + 1) {
                 report(object.mesh->entity, e.what(), object.scope);

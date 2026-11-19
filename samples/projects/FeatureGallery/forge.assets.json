@@ -3144,6 +3144,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "203a5c2d-827a-4bfe-923d-9759ae8d75c2",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/238-gpu-mesh-particles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "20569d3a-2039-4e90-9716-46e182b2564d",
       "metadata": {
         "forge.import": {
@@ -18881,6 +18891,60 @@
       "source": "Assets/Planar/CubicOutline.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [
+        "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
+        "80c55df2-1abb-42b0-9591-502e783cdc97"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "cc59c42dc5a36670a8e1d95f1f47bad4a9013a5b8e592ddeeab82f510e1f2b17",
+          "role": "particles.material",
+          "target": "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "a8dda92bc55956bb8492474c466dab295b4ae88c7dfb8383d25f67e9cd46996b",
+          "role": "particles.mesh",
+          "target": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "type": "mesh"
+        }
+      ],
+      "id": "d9cbd4ed-7e64-4ded-a6d9-0b6ed5468a21",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "8604e105dda1109326921f47e807aa88173d34874af40a2c948816d36cb884b4",
+          "backend": "d3d12",
+          "dependency_digest": "9d8305e7243b120ad02e855eae87c8774ccc4429e840f4ce8b51eea1277714b2",
+          "generation": 1,
+          "importer": "forge.particles.cpu-mesh",
+          "importer_revision": "forge.particles.mesh.v3",
+          "key": "50ab4c324f009cc7c8a5fd2bb208627babc2be0e4e5234bf4da5b344c2854e05",
+          "output_format": "forge.particle-effect-cooked",
+          "output_version": 3,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "444ac2d218e8c2b4986d1807021b05b3c3215632f770dd40d32343c7ce342ad8",
+          "source_digest": "9881cc37eaba896432c6872aaea8a87888c2b4629439bbc16e04cc68a361130b",
+          "version": 1
+        },
+        "forge.particle_effect": {
+          "bytes": 1146,
+          "file": "effect.json",
+          "sha256": "65d3528f64eedbad04f529daae1f47c364c54fcb3e3aa7b7501e1f4b4b3e9c00",
+          "value_version": 3,
+          "version": 3
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Particles/GpuFountain.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],

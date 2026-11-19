@@ -43,6 +43,9 @@ AssetId ParticleEffectSource::asset() const { return document.at("asset_id").get
 ParticleEffectData ParticleEffectSource::compiled() const {
     if (!asset())
         throw std::runtime_error("Particle effect asset identity is empty");
+    if (!document.at("version").is_number_integer())
+        throw std::runtime_error("Invalid particle source version");
+    const auto version = document.at("version").get<std::uint64_t>();
     auto values = document;
     values.erase("asset_id");
     std::set<AssetId> identities;
@@ -50,7 +53,7 @@ ParticleEffectData ParticleEffectSource::compiled() const {
         if (!values.contains(name))
             continue;
         auto& stops = values.at(name);
-        if (document.at("version") != 2 || !stops.is_array() || stops.size() > 16)
+        if (version < 2 || !stops.is_array() || stops.size() > 16)
             throw std::runtime_error("Invalid particle source lifetime stops");
         for (auto& stop : stops) {
             if (!stop.is_object() || !stop.contains("id"))
@@ -71,17 +74,19 @@ void ParticleEffectSource::validate() const {
 std::vector<std::byte> ParticleEffectSource::cook() const {
     validate();
     auto data = compiled();
-    data.version = 2;
-    auto cooked = encode_particle_effect(data);
-    cooked["format"] = particle_effect_cooked_format;
-    cooked["asset_id"] = asset();
+    if (data.version == 1)
+        data.version = 2;
+    nlohmann::json cooked{{"format", particle_effect_cooked_format},
+                          {"version", 3},
+                          {"asset_id", asset()},
+                          {"values", encode_particle_effect(data)}};
     const auto text = cooked.dump();
     const auto bytes = std::as_bytes(std::span(text));
     return {bytes.begin(), bytes.end()};
 }
 void ParticleEffectSource::promote() {
     auto data = compiled();
-    if (data.version == 2)
+    if (data.version >= 2)
         return;
     data.version = 2;
     auto candidate = *this;
@@ -89,6 +94,17 @@ void ParticleEffectSource::promote() {
     for (const auto* name : {"shape", "shape_size", "shape_radius", "drag", "size_curve",
                              "color_gradient", "version", "profile"})
         candidate.document[name] = extended.at(name);
+    candidate.validate();
+    document = std::move(candidate.document);
+}
+void ParticleEffectSource::set_evaluation(ParticleEvaluation evaluation) {
+    if (evaluation != ParticleEvaluation::Cpu && evaluation != ParticleEvaluation::Gpu)
+        throw std::runtime_error("Unknown particle evaluation backend");
+    auto candidate = *this;
+    candidate.promote();
+    candidate.document["version"] = evaluation == ParticleEvaluation::Gpu ? 3 : 2;
+    candidate.document["profile"] =
+        evaluation == ParticleEvaluation::Gpu ? "gpu_mesh1" : "cpu_mesh2";
     candidate.validate();
     document = std::move(candidate.document);
 }
@@ -161,13 +177,30 @@ void ParticleEffectSource::remove_lifetime_stop(ParticleLifetimeChannel channel,
     candidate.validate();
     document = std::move(candidate.document);
 }
-ParticleEffectData decode_cooked_particle_effect(std::span<const std::byte> bytes, AssetId id) {
+ParticleEffectData decode_cooked_particle_effect(std::span<const std::byte> bytes, AssetId id,
+                                                 unsigned expected_envelope) {
     auto cooked = asset_detail::parse_bounded_json(bytes, particle_effect_byte_limit, 4096, 16);
     if (cooked.at("format") != particle_effect_cooked_format ||
-        cooked.at("asset_id").get<AssetId>() != id || !id || cooked.contains("extensions"))
+        !cooked.at("version").is_number_integer() || cooked.at("asset_id").get<AssetId>() != id ||
+        !id || cooked.contains("extensions"))
         throw std::runtime_error("Particle effect cooked format/identity/projection mismatch");
+    const auto version = cooked.at("version").get<std::uint64_t>();
+    if (expected_envelope && version != expected_envelope)
+        throw std::runtime_error("Particle effect cooked envelope/recipe mismatch");
+    if (version == 3) {
+        if (cooked.size() != 4 || !cooked.contains("values") ||
+            cooked.at("values").contains("extensions"))
+            throw std::runtime_error("Particle cooked envelope has unsupported fields");
+        const auto data = decode_particle_effect(cooked.at("values"));
+        if (data.version != 2 && data.version != 3)
+            throw std::runtime_error("Particle cooked envelope has an unsupported value profile");
+        return data;
+    }
     cooked["format"] = "forge.particle_effect";
     cooked.erase("asset_id");
-    return decode_particle_effect(cooked);
+    const auto data = decode_particle_effect(cooked);
+    if (data.version != 1 && data.version != 2)
+        throw std::runtime_error("Legacy particle artifact has an unsupported value profile");
+    return data;
 }
 } // namespace forge

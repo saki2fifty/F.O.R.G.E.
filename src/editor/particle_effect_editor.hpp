@@ -66,7 +66,7 @@ class ParticleEffectEditor {
     void content(SceneDocument& project, bool locked) {
         ImGui::BeginDisabled(locked || dirty());
         if (ui::button("New particle effect...",
-                       "Create a reusable CPU mesh effect in the Particle Effect document."))
+                       "Create a reusable mesh effect in the Particle Effect document."))
             ImGui::OpenPopup("New particle effect");
         FORGE_UI_PROBE("particles:new");
         ImGui::EndDisabled();
@@ -156,7 +156,7 @@ class ParticleEffectEditor {
         if (expanded && document_) {
             ImGui::TextUnformatted(path_utf8(document_->locator()).c_str());
             ImGui::TextWrapped(
-                "CPU mesh particles move in emitter-local space. Scene and exported games use the "
+                "Mesh particles move in emitter-local space. Scene and exported games use the "
                 "same cooked effect. Press Enter to commit numeric fields.");
             ImGui::BeginDisabled(locked || pending());
             if (ui::button(
@@ -177,6 +177,19 @@ class ParticleEffectEditor {
             FORGE_UI_PROBE("particles:redo");
             ImGui::EndDisabled();
             const auto data = document_->source().compiled();
+            int evaluation = data.version == 3 ? 1 : 0;
+            if (ImGui::Combo("Evaluation", &evaluation, "CPU\0GPU\0"))
+                mutate("Set particle evaluation", [&](auto& source) {
+                    ParticleEffectSource candidate{source};
+                    candidate.set_evaluation(evaluation ? ParticleEvaluation::Gpu
+                                                        : ParticleEvaluation::Cpu);
+                    source = std::move(candidate.document);
+                });
+            FORGE_UI_PROBE("particles:evaluation");
+            ui::help("GPU evaluates births, motion, lifetime appearance and instance transforms "
+                     "on a compute-capable rendering device. Changing evaluation preserves source "
+                     "IDs and curves; the profiles use different random patterns. Publish before "
+                     "Play or export. GPU lifetime stop times must remain distinct as floats.");
             Json mesh = data.mesh, material = data.material.id ? Json(data.material) : Json();
             if (asset_ref_picker(*catalog_, mesh, MeshAsset::type, "Mesh", false))
                 set("mesh", mesh);

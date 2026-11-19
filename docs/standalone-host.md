@@ -41,6 +41,17 @@ package owner. Pressed/default declarations retain legacy compatibility. Kit
 admission rejects missing or unsupported trigger profiles; SDK modules also need
 the exact current fingerprint. See [input messages](input-messages.md).
 
+Newly published Particle Effects require runtime-kit
+`engine.runtime_particle_effect:3`; GPU values also require
+`engine.runtime_particle_gpu:1`. These capabilities are derived from exact cooked
+ParticleEffect metadata in the reachable catalog closure. Existing immutable CPU1/2
+recipes keep their prior admission. Missing/mismatched kit profiles reject before
+export. The kit build reads the current profile constants from the source value
+header, while the graphical host checks actual enabled compute at rendering time.
+GPU effects retain the existing fixed-clock/runtime/resource owners; unsupported
+devices report diagnostics rather than silently selecting a CPU pattern. See
+[particle effects](particle-effects.md).
+
 Reachable Scene/Prefab wind intent requires runtime-kit
 `engine.runtime_mesh_wind:1`. The existing document package owner derives and
 checks the corresponding feature requirements against admitted saved bytes;

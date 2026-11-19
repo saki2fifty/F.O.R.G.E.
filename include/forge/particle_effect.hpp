@@ -5,7 +5,7 @@
 #include <vector>
 namespace forge {
 inline constexpr std::size_t particle_emitter_limit = 64, particle_scene_capacity = 8192;
-// CPU source/admission values, not an installed gameplay implementation API.
+// Source/admission values, not an installed gameplay implementation API.
 // Runtime emitter components will reference this logical asset through AssetRef.
 enum class ParticleEmission : std::uint32_t { Continuous, Burst };
 enum class ParticleSpawnShape : std::uint32_t { Point, Box, Sphere, Disc };
@@ -21,7 +21,7 @@ struct ParticleColorStop {
     bool operator==(const ParticleColorStop&) const = default;
 };
 struct ParticleEffectData {
-    std::uint32_t version = 1; // Exact legacy cpu_mesh1 or extended cpu_mesh2.
+    std::uint32_t version = 1; // cpu_mesh1, cpu_mesh2 or explicit gpu_mesh1.
     AssetRef<MeshAsset> mesh;
     AssetRef<MaterialAsset> material;
     ParticleEmission emission = ParticleEmission::Continuous;

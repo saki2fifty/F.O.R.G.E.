@@ -38,17 +38,25 @@ std::array<double, 3> normalized(std::array<double, 3> v) {
         coordinate /= length;
     return v;
 }
-template <class Stops> void validate_stops(const Stops& stops) {
+template <class Stops> void validate_stops(const Stops& stops, bool gpu) {
     if (stops.empty())
         return;
     if (stops.size() < 2 || stops.size() > 16 || stops.front().time != 0 || stops.back().time != 1)
         throw std::runtime_error("Particle lifetime values need 2–16 stops and endpoints 0/1");
     double previous = -1;
+    float previous_gpu = -1;
     for (const auto& stop : stops) {
         range(stop.time, 0, 1, "stop time");
         if (stop.time <= previous)
             throw std::runtime_error("Particle stop times must be distinct and ordered");
         previous = stop.time;
+        if (gpu) {
+            const auto time = float(stop.time);
+            if (time <= previous_gpu)
+                throw std::runtime_error(
+                    "GPU particle stop times must remain distinct at float precision");
+            previous_gpu = time;
+        }
         if constexpr (std::is_same_v<Stops, std::vector<ParticleSizeStop>>)
             range(stop.value, .001, 100, "size stop");
         else
@@ -88,7 +96,7 @@ bool stop_hold(const nlohmann::json& stop) {
 }
 } // namespace
 void validate_particle_effect(const ParticleEffectData& data) {
-    if (data.version != 1 && data.version != 2)
+    if (data.version != 1 && data.version != 2 && data.version != 3)
         throw std::runtime_error("Unknown particle value version");
     if (!data.mesh.id)
         throw std::runtime_error("Particle effect requires a Mesh");
@@ -124,8 +132,8 @@ void validate_particle_effect(const ParticleEffectData& data) {
         range(size, .001, 1000, "shape dimensions");
     range(data.shape_radius, .001, 1000, "shape radius");
     range(data.drag, 0, 64, "drag");
-    validate_stops(data.size_curve);
-    validate_stops(data.color_gradient);
+    validate_stops(data.size_curve, data.version == 3);
+    validate_stops(data.color_gradient, data.version == 3);
     if (data.version == 1 &&
         (data.shape != ParticleSpawnShape::Point || data.shape_size != std::array{1., 1., 1.} ||
          data.shape_radius != 1 || data.drag != 0 || !data.size_curve.empty() ||
@@ -134,9 +142,12 @@ void validate_particle_effect(const ParticleEffectData& data) {
 }
 ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
     if (!source.is_object() || source.at("format") != "forge.particle_effect" ||
-        !source.at("version").is_number_integer() ||
-        !((source.at("version") == 1 && source.at("profile") == "cpu_mesh1") ||
-          (source.at("version") == 2 && source.at("profile") == "cpu_mesh2")))
+        !source.at("version").is_number_integer())
+        throw std::runtime_error("Unsupported particle effect format/version/profile");
+    const auto version = source.at("version").get<std::uint64_t>();
+    const auto profile = source.at("profile").get<std::string>();
+    if (!((version == 1 && profile == "cpu_mesh1") || (version == 2 && profile == "cpu_mesh2") ||
+          (version == 3 && profile == "gpu_mesh1")))
         throw std::runtime_error("Unsupported particle effect format/version/profile");
     static const std::set<std::string> fields{
         "format",     "version",      "profile",     "mesh",       "material",
@@ -145,14 +156,13 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
         "size_start", "size_end",     "color_start", "color_end",  "extensions"};
     for (const auto& [name, value] : source.items())
         if (!fields.contains(name) &&
-            !(source.at("version") == 2 &&
-              (name == "shape" || name == "shape_size" || name == "shape_radius" ||
-               name == "drag" || name == "size_curve" || name == "color_gradient")))
+            !(version >= 2 && (name == "shape" || name == "shape_size" || name == "shape_radius" ||
+                               name == "drag" || name == "size_curve" || name == "color_gradient")))
             throw std::runtime_error("Unknown particle effect field: " + name);
     if (source.contains("extensions") && !source.at("extensions").is_object())
         throw std::runtime_error("Particle effect extensions must be an object");
     ParticleEffectData data;
-    data.version = source.at("version").get<std::uint32_t>();
+    data.version = std::uint32_t(version);
     data.mesh = source.at("mesh").get<AssetRef<MeshAsset>>();
     if (source.contains("material"))
         data.material = source.at("material").get<AssetRef<MaterialAsset>>();
@@ -194,7 +204,7 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
         vector_value(source.at("color_start"), data.color_start);
     if (source.contains("color_end"))
         vector_value(source.at("color_end"), data.color_end);
-    if (data.version == 2) {
+    if (data.version >= 2) {
         if (source.contains("shape")) {
             const auto& shape = source.at("shape");
             if (shape == "point")
@@ -242,7 +252,9 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
     nlohmann::json result{
         {"format", "forge.particle_effect"},
         {"version", data.version},
-        {"profile", data.version == 1 ? "cpu_mesh1" : "cpu_mesh2"},
+        {"profile", data.version == 1   ? "cpu_mesh1"
+                    : data.version == 2 ? "cpu_mesh2"
+                                        : "gpu_mesh1"},
         {"mesh", data.mesh},
         {"emission", data.emission == ParticleEmission::Burst ? "burst" : "continuous"},
         {"capacity", data.capacity},
@@ -260,7 +272,7 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
         {"color_end", data.color_end}};
     if (data.material.id)
         result["material"] = data.material;
-    if (data.version == 2) {
+    if (data.version >= 2) {
         constexpr const char* shapes[]{"point", "box", "sphere", "disc"};
         result["shape"] = shapes[unsigned(data.shape)];
         result["shape_size"] = data.shape_size;
@@ -282,6 +294,8 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
 std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData& data, double seconds,
                                                    std::uint32_t seed, std::size_t budget) {
     validate_particle_effect(data);
+    if (data.version == 3)
+        throw std::runtime_error("GPU particle samples require a rendering device");
     range(seconds, 0, 1e9, "sample time");
     const double phase = seconds * data.spawn_rate;
     const double window = data.lifetime * data.spawn_rate;

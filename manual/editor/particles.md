@@ -6,6 +6,16 @@ transparent smoke, trails and particle collision are not supported.
 
 ## Try the Gallery
 
+Open **Scenes/238-gpu-mesh-particles.scene.json** to see two fountains sharing
+**Assets/Particles/GpuFountain.particles.json**. Press **Play**. Select either
+emitter to adjust its live size and tint. Stop, open the effect from Content and
+use **Evaluation** to choose CPU or GPU, then **Save / Publish**. This scene
+includes a camera and light and needs no project C++ code.
+
+![Two GPU particle fountains with different seeds, sizes and tint](../images/gpu-particles.png)
+
+Two emitters share one effect while keeping their own appearance controls.
+
 Open **Scenes/54-cpu-mesh-particles.scene.json** in FeatureGallery. Press **Play**
 to see orange and blue fountains and an initial burst. Stop and restart Play to
 repeat the burst. Select an emitter in Hierarchy to change its seed, visibility,
@@ -21,11 +31,25 @@ shapes, damping, growth and color. These scenes need no C++ compiler.
 
 1. Stop Play. In **Content → Create / Register**, choose **Particle Effect**.
 2. Enter a project file such as `Assets/Particles/Sparks.particles.json` and create it. The **Particle Effect** document opens. Existing sources open from Content.
-3. Choose its **Mesh** and optional **Material**. Start with the built-in cube.
+3. Choose **Evaluation → CPU** or **GPU**, then its **Mesh** and optional **Material**. Start with the built-in cube.
 4. Choose Continuous or Burst. Set capacity, lifetime and either particles/second or burst count. Enter numeric values to commit them. Continuous capacity must accommodate rate times lifetime; errors retain the previous valid values.
 5. Choose Point, Box, Sphere or Disc. Box uses full dimensions in meters; Sphere fills its radius and Disc fills a plane perpendicular to Direction. Adjust direction, cone, speed, acceleration and drag. Zero drag preserves free motion.
 6. Use preview Play/Pause, time and Reset. Preview is independent of game Play and does not change the scene. Orbit/zoom its image. Undo/Redo edits source values.
 7. Choose **Save / Publish**. This saves and builds the runtime effect. A failed build reports the problem and retains the working published revision.
+
+## Choose CPU or GPU
+
+**CPU** evaluates particles on the processor. **GPU** evaluates births, motion,
+size, color and instance transforms on a compute-capable graphics device. Both
+use the same fixed game clock, effect controls and per-emitter appearance values.
+They use different seeded patterns; changing evaluation can change the arrangement.
+
+Use the effect document's preview to inspect a draft before publishing. Changing
+Evaluation retains the asset, curves and stop values and supports Undo/Redo.
+Choose **Save / Publish** before playing or exporting. GPU curves need stop times
+that remain distinct at float precision; increase the gap if an edit reports an
+error. If the rendering device cannot evaluate GPU effects, the renderer reports
+a diagnostic; choose CPU and publish to use processor evaluation.
 
 ## Size and color over life
 
@@ -54,7 +78,9 @@ save and press Play. Scene view uses a frozen sample while editing.
 
 Changes made during Play are temporary live values. Stop to edit and save the
 authored scene. Export through **Export Game** normally: selected effects, meshes
-and materials are included already built. Players need no compiler.
+and materials are included already built. Use the runtime kit packaged with this
+editor; an older kit can be rejected for an unsupported effect profile. Players
+need no compiler. GPU effects need compute support on the player's graphics device.
 
 ## Size and tint for each object
 

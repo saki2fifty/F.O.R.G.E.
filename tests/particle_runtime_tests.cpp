@@ -1,5 +1,6 @@
 #include "engine_render_resource.hpp"
 #include "particle_effect_authoring.hpp"
+#include "particle_gpu_plan.hpp"
 #include "particle_render_instances.hpp"
 #include "particle_runtime.hpp"
 #include <forge/application_state_components.hpp>
@@ -45,6 +46,42 @@ struct Fixture {
         }
     }
 };
+void gpu_packet_admission() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    source.set_evaluation(ParticleEvaluation::Gpu);
+    const auto data = source.compiled();
+    auto cpu = data;
+    cpu.version = 2;
+    const AffineTransform world;
+    CameraView camera{};
+    for (double time : {0., .5, 2., 3., 1000000000.}) {
+        const auto values = prepare_particle_gpu_values(data, time, 17, world, camera);
+        const auto samples = sample_particle_effect(cpu, time, 17);
+        require(values.births[0] == samples.size(),
+                "GPU packet changed fixed-clock birth membership");
+        if (!samples.empty()) {
+            const auto ordinal =
+                std::uint64_t(values.births[1]) | (std::uint64_t(values.births[2]) << 32);
+            require(ordinal == samples.front().birth &&
+                        std::abs(double(values.timing[0]) - samples.front().age) < 1e-5,
+                    "GPU packet lost the exact ordinal or short relative age");
+        }
+    }
+    reject([&] { (void)prepare_particle_gpu_values(cpu, .5, 17, world, camera); });
+    for (double time : {-1., 1000000001., std::numeric_limits<double>::infinity(),
+                        std::numeric_limits<double>::quiet_NaN()})
+        reject([&] { (void)prepare_particle_gpu_values(data, time, 17, world, camera); });
+    auto oversized = world;
+    oversized.m[3] = 1e300;
+    reject([&] { (void)prepare_particle_gpu_values(data, .5, 17, oversized, camera); });
+    reject([&] { (void)prepare_particle_gpu_values(data, .5, 17, world, camera, .001); });
+    reject(
+        [&] { (void)prepare_particle_gpu_values(data, .5, 17, world, camera, 1, {1, 1.1f, 1}); });
+    auto collapsed = data;
+    collapsed.size_curve = {
+        {0, .1, false}, {.5, .2, false}, {std::nextafter(.5, 1.), .3, false}, {1, .1, false}};
+    reject([&] { (void)prepare_particle_gpu_values(collapsed, .5, 17, world, camera); });
+}
 void affine_and_envelope() {
     auto source = ParticleEffectSource::create(AssetId::generate());
     auto data = source.compiled();
@@ -206,6 +243,7 @@ int main(int argc, char** argv) {
             reject([&] { particles->prepare(); });
         }
         require(argc == 2, "Need particle runtime scratch root");
+        gpu_packet_admission();
         affine_and_envelope();
         instance_parameters();
         resource_profile();

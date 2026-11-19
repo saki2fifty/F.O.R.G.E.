@@ -239,6 +239,24 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     frame();
     require(editor.document()->source().document == with_gradient,
             "Undo of disable lost gradient identity/history");
+    const auto cpu_profile = editor.document()->source().document;
+    const auto cpu_revision = editor.document()->revision();
+    choose("particles:evaluation", 1);
+    const auto gpu_profile = editor.document()->source().document;
+    auto expected_gpu = cpu_profile;
+    expected_gpu["version"] = 3;
+    expected_gpu["profile"] = "gpu_mesh1";
+    require(gpu_profile == expected_gpu && editor.document()->revision() == cpu_revision + 1,
+            "Evaluation control lost source identity or created multiple history entries");
+    click("particles:undo");
+    require(editor.document()->source().document == cpu_profile,
+            "Evaluation Undo lost the original CPU source");
+    click("particles:redo");
+    require(editor.document()->source().document == gpu_profile,
+            "Evaluation Redo lost the GPU source");
+    choose("particles:evaluation", 0);
+    require(editor.document()->source().document == cpu_profile,
+            "Evaluation control lost source/stop identity when returning to CPU");
     // Keep the original lifecycle/close checks applicable, including start-size editing.
     for (unsigned i = 0; i < 32 && editor.document()->source().document != before_extended; ++i)
         editor.undo();

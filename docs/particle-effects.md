@@ -1,4 +1,4 @@
-# CPU mesh particle effects
+# CPU and GPU mesh particle effects
 
 ParticleEffect is a reusable logical asset. A native `ParticleEmitter` references
 it. Particles are transient render instances, with no Scene entities or saved
@@ -8,7 +8,8 @@ the shared MeshSceneRenderer owns drawing and GPU residency.
 ## Source and publication
 
 Sources use `.particles.json`, format `forge.particle_effect`. Existing version 1,
-`cpu_mesh1` sources remain valid. New sources use version 2, `cpu_mesh2`.
+`cpu_mesh1` sources remain valid. New sources start with version 2, `cpu_mesh2`;
+explicit GPU evaluation uses source3/profile `gpu_mesh1`.
 Values include a Mesh reference, optional Material override, emission
 mode, capacity, burst count, rate, lifetime, direction/cone half-angle, speed range,
 constant acceleration, start/end size and linear RGB. Version 2 adds spawn shape,
@@ -24,17 +25,22 @@ generation are verified. Failed publication retains the selected working revisio
 Runtime packages include selected cooks and dependencies, requiring neither
 editable sources nor a compiler.
 
-New cooking uses the exact `forge.particles.cpu-mesh.v2` recipe and version 2
-values, including when the authored source remains version 1. Cooking never
-rewrites that source. Existing immutable v1 artifacts are admitted only with
-`forge.particles.cpu-mesh.v1` and output/metadata/value version 1; new artifacts
-require all three versions to be 2. Mixed combinations reject. Existing Gallery54
-sources, cooks, records and UUIDs are retained. Editing an extended field in a
-legacy document explicitly promotes the source to version 2 in that Undo step.
-The existing source-update service can recook an older selected recipe into v2;
-this retains its root/source identity and the old immutable artifact. Built-in
-Mesh/Material dependency freshness compares exact engine revisions, without
-requiring project catalog records for engine-owned assets.
+New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope containing
+`format`, `version`, `asset_id` and `values`. Values are explicit CPU2 or GPU3;
+legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
+metadata carries envelope `version:3` and the exact `value_version`. Source/stop
+UUIDs and extensions remain source-only. The persisted importer identifier remains
+`forge.particles.cpu-mesh`: selecting evaluation must not change saved source
+settings or sidecar identity.
+
+Existing immutable v1/v2 artifacts retain their exact original recipes and raw
+value profiles. Resource admission checks recipe/envelope/metadata/value versions,
+source/dependency digests and selected generation together; mixed combinations
+reject. Publishing creates a new immutable selection through the same existing
+owner. It does not migrate earlier sources or overwrite old artifacts. New
+publications require `runtime_particle_effect:3`; GPU values additionally require
+`runtime_particle_gpu:1` in the selected runtime kit. The exporter rejects a
+missing/mismatched capability before delivery. See [ADR060](decisions/060-gpu-particle-profile.md).
 
 Source lifetime stops contain `id`, `time`, `value` and `interpolation`. Each
 nonempty channel has 2–16 stops, strictly ordered distinct times and endpoints
@@ -47,7 +53,7 @@ are opaque source metadata, with no runtime interpretation or reference guessing
 The initial profile admits one static triangle part, one LOD and one material
 slot, with built-in opaque/masked PBR or Unlit materials. Skinning, morphs,
 point/line topology, Blend, transmission and custom Shader surfaces reject with
-diagnostics. Graphs, GPU simulation, collision, trails, texture-sheet animation
+diagnostics. Authored VFX graphs, collision, trails, texture-sheet animation
 and per-particle opacity are outside this profile.
 
 ## Equations and time
@@ -97,8 +103,8 @@ fallback fields; Undo restores the exact previous stop identities and values.
 Burst births are at time 0 and expire at `a >= L`. Continuous ordinal
 `n = 1,2,...` is born at `n/rate`. Admission compares time and lifetime in the same
 emission-phase units, avoiding rounded birth-boundary ambiguity. Only the bounded
-active ordinal window is sampled, including at large times. Seed and the 64-bit
-emitter-scoped ordinal initialize a standard-library random engine per birth.
+active ordinal window is admitted, including at large times. In CPU profiles,
+seed and the 64-bit emitter-scoped ordinal initialize a standard-library random engine per birth.
 Repeated local evaluations agree; cross-platform lockstep is not a contract.
 
 Fixed ticks advance previous/current age by `fixed_dt * playback_speed`.
@@ -108,6 +114,40 @@ generation changes restart or retire it. Recovery restarts visual emission from
 restored native values, without serializing particle arrays. Captures contain
 compact time, revision/generation and seed; selection mismatch or seed overflow
 rejects before rendering.
+
+## GPU evaluation and renderer lifetime
+
+Source3 uses a separately specified mathematical generator. FNV-1a hashes the
+little-endian seed32/ordinal64 bytes; a48271/2147483647 linear congruential sequence
+produces birth samples. The independently authored HLSL implements bounded32bit
+Schrage arithmetic, checked against a64bit modular reference. It evaluates Point,
+Box, Sphere and Disc origins, cone velocity, analytic acceleration/drag, lifetime
+Step/Linear size/RGB and complete affine instance transforms. CPU profiles retain
+their original standard-library sequence; backend/profile visual patterns differ.
+Float GPU evaluation does not provide cross-device lockstep.
+
+CPU double precision determines only the active ordinal window and short relative
+ages from the existing presentation clock. No billion-second float clock, second
+World, per-particle entity, CPU transform array or independent simulation manager
+is introduced. Source3 stop times must remain distinct as floats; malformed or
+unrepresentable packets reject before publication or drawing.
+
+The existing renderer's ParticleSource retains strong effect/Mesh/Material leases,
+selection epoch/revision/generation and one bounded per-emitter vertex/UAV buffer
+realization. Presentation retains shared compute shader/pipeline caches. One proxy
+per emitter uses the existing seven-row static instance layout; MeshDraw accepts
+an exclusive validated buffer range and preserves the64-instance draw bound.
+Each camera gets its own compute evaluation and target/viewport restoration.
+Lifetime bounds, including the admitted mesh and float view padding, govern GPU
+culling. Compute cannot be merged with CPU batches, temporal meshes or indirect
+visibility packets. Particles continue to exclude shadow casting and temporal
+Mesh accumulation. Unsupported compute is an explicit diagnostic, without a
+silent CPU profile substitution. Failed submissions never queue old rows as new
+time; removal, Scene replacement and source epochs retire the same renderer owners.
+
+Native **Evaluation** and `asset.document.particle_evaluation` both call the source
+operation under AssetSourceDocument history. Both preserve source/stop IDs,
+extensions, curves and normal revision/grant/Undo/publication semantics.
 
 ## Per-emitter appearance
 
@@ -163,7 +203,7 @@ Ordinary meshes and emitters may coexist on an entity. Camera culling, visibilit
 and layers apply; hidden effects keep aging. This profile does not cast particle
 shadows. A conservative outward-rounded lifetime envelope includes maximum speed,
 acceleration, origin extent, peak curve size and the full emitter affine for preview framing; actual
-instances are culled during drawing. Unsupported profiles and overflow produce
+CPU instances are culled during drawing; GPU emitters use their lifetime envelope. Unsupported profiles and overflow produce
 diagnostics instead of successful silent truncation.
 
 The central Particle Effect document owns source controls and isolated playback,
@@ -172,9 +212,35 @@ override; it does not mutate or tick live Play. Assignment is one Scene Undo
 operation. C++ edits the native value through the matching SDK. Public value/header
 changes require matching module rebuilds; ABI 1/C function-table layouts remain.
 
-Version 2 source/evaluator values do not add native ParticleEmitter fields,
+Version2/3 source/evaluator values do not add native ParticleEmitter fields,
 installed SDK inputs or ABI changes. Existing matching C++ modules still adjust
 the emitter component; they do not need access to source stop arrays.
 
-See [the user guide](../manual/editor/particles.md) and Gallery scenes 54 and 56. Native
-Vulkan readback evidence is separate from Windows/editor physical acceptance.
+See [the user guide](../manual/editor/particles.md) and Gallery scenes54,56 and238.
+Native Vulkan readback evidence is separate from Windows/editor physical acceptance.
+
+## Focused validation and capture provenance
+
+`particle_gpu_vulkan` checks1,344parameter configurations and89,376particles against
+independent uint64/double reference math, with maximum observed absolute row error
+5.34058e-5 on software Vulkan. It also compares two exact CPU/compute-written
+MeshDraw pixel pairs and rejects malformed buffer ranges. `particle_gpu_scene_vulkan`
+uses actual MeshSceneRenderer and fixed-clock World presentation for source-hidden
+Windows-targeted content, without claiming native Windows execution. The Gallery
+portion checks576instances in10draws sharing one bundle; authored and source-hidden
+package images match exactly. Existing CPU scene and codec tests retain compatibility.
+`particle_effect_editor` uses actual widgets/history at regular/compact and scaled
+layouts; `mcp_particle_evaluation_stdio` exercises both supported MCP formats.
+
+The canonical manual image `manual/images/gpu-particles.png` is a lossless P6→PNG
+conversion of `particle_vulkan_probe --gpu` Gallery238 at1.5fixed-clock seconds,
+960×540, using the production MeshSceneRenderer and pinned Diligent Vulkan backend.
+It depicts rendered content, without editor chrome or retouched controls. Capture
+provenance: local focused native build31/check32 before source-only documentation
+and sample promotion; software Vulkan, DX Shader Compiler1.9 observed in native logs.
+The sample's source/cook bytes are exactly those exercised by that candidate gate.
+Final build44/check45 uses expanded low-drag coverage and produces a Gallery image
+byte-identical to that canonical capture; unchanged capture bytes are retained.
+This establishes neither physical hardware performance nor Windows/whole-editor
+visual acceptance. General VFX graphs and complete particle-system equivalence
+are not claimed.

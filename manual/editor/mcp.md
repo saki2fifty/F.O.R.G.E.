@@ -493,6 +493,17 @@ nested occurrence. The agent can place a returned reference in an admitted sourc
 field through the existing source patch operation. It follows the same source,
 Scene, history and export rules as the editor. See [Nested assemblies](prefabs.md).
 
+## Choose particle evaluation
+
+Use `forge_asset_particles_catalog` to inspect CPU/GPU profiles and current limits.
+Create or open `editor: "particle_effect"` with the usual asset document tools.
+Call `forge_asset_document_particle_evaluation` with `evaluation: "cpu"` or `"gpu"`
+and the current document session/revision. The operation preserves the effect's
+identity, lifetime stops and extensions and creates one Undo step. Read the source
+to inspect the selected profile, then save and wait for publication before assigning
+or exporting it. GPU evaluation requires compute support and the matching runtime
+kit; it has different random patterns from CPU evaluation. See [mesh particle effects](particles.md).
+
 ## See navigation in the editor
 
 With asset authoring enabled, an agent can use `forge_navigation_overlay` with

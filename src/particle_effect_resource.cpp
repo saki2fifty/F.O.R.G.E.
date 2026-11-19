@@ -14,10 +14,14 @@ void selection(const AssetRecord& record) {
     const auto& imported = record.metadata.at("forge.import");
     const bool legacy = imported.at("importer_revision") == particle_effect_legacy_recipe &&
                         imported.at("output_version") == 1;
-    const bool extended = imported.at("importer_revision") == particle_effect_recipe &&
+    const bool extended = imported.at("importer_revision") == particle_effect_extended_recipe &&
                           imported.at("output_version") == 2;
+    const auto& output_version = imported.at("output_version");
+    const bool current = imported.at("importer_revision") == particle_effect_recipe &&
+                         output_version.is_number_integer() &&
+                         output_version.get<std::uint64_t>() == particle_effect_cooked_version;
     require(imported.at("version") == 1 && imported.at("importer") == particle_effect_importer &&
-                (legacy || extended) &&
+                (legacy || extended || current) &&
                 imported.at("output_format") == particle_effect_cooked_format &&
                 imported.at("generation").get<std::uint64_t>() != 0 &&
                 valid_content_digest(imported.at("key").get<std::string>()),
@@ -55,7 +59,8 @@ ParticleEffectData admit_particle_effect_artifact(const CachedArtifact& artifact
                 artifact.files.size() == 1 && artifact.files.front().name == "effect.json",
             "Particle Effect artifact identity/files mismatch");
     const auto& file = artifact.files.front();
-    auto value = decode_cooked_particle_effect(file.bytes, record.id);
+    auto value = decode_cooked_particle_effect(file.bytes, record.id,
+                                               selected.at("output_version").get<unsigned>());
     const auto& input = artifact.manifest.at("inputs");
     for (const auto* field : {"importer", "importer_revision", "output_format", "output_version",
                               "platform", "backend", "profile"})
@@ -64,14 +69,25 @@ ParticleEffectData admit_particle_effect_artifact(const CachedArtifact& artifact
     auto edges = record.dependency_edges;
     std::sort(edges.begin(), edges.end());
     std::sort(cooked_edges.begin(), cooked_edges.end());
-    require(
-        cooked_edges == edges && input.at("source") == selected.at("source_digest") &&
-            selected.at("artifact_digest") == asset_build_digest(artifact.manifest.at("files")) &&
-            metadata.at("version") == value.version &&
-            selected.at("output_version") == value.version && metadata.at("file") == file.name &&
-            metadata.at("sha256") == asset_detail::content_digest(file.bytes) &&
-            metadata.at("bytes") == file.bytes.size(),
-        "Particle Effect artifact/provenance mismatch");
+    const bool current = selected.at("importer_revision") == particle_effect_recipe;
+    bool versions = false;
+    if (current) {
+        const auto& version = metadata.at("version");
+        const auto& value_version = metadata.at("value_version");
+        versions = version.is_number_integer() &&
+                   version.get<std::uint64_t>() == particle_effect_cooked_version &&
+                   value_version.is_number_integer() &&
+                   value_version.get<std::uint64_t>() == value.version;
+    } else
+        versions = metadata.at("version") == value.version &&
+                   selected.at("output_version") == value.version;
+    require(cooked_edges == edges && input.at("source") == selected.at("source_digest") &&
+                selected.at("artifact_digest") ==
+                    asset_build_digest(artifact.manifest.at("files")) &&
+                versions && metadata.at("file") == file.name &&
+                metadata.at("sha256") == asset_detail::content_digest(file.bytes) &&
+                metadata.at("bytes") == file.bytes.size(),
+            "Particle Effect artifact/provenance mismatch");
     dependencies(value, edges);
     return value;
 }

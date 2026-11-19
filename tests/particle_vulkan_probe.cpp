@@ -3,7 +3,9 @@
 #include "particle_effect_authoring.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_entity_creation.hpp"
+#include "runtime_package.hpp"
 #include <forge/animation.hpp>
+#include <forge/authoring.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/game_content.hpp>
 #include <forge/physics.hpp>
@@ -91,11 +93,16 @@ void image(const std::filesystem::path& path, unsigned width, unsigned height,
         out.write(reinterpret_cast<const char*>(pixel.data()), 3);
     check(bool(out.flush()), "Native particle evidence image write failed");
 }
-void execute(const std::filesystem::path& root, const std::filesystem::path& gallery = {}) {
+void execute(const std::filesystem::path& root, const std::filesystem::path& gallery, bool gpu) {
     std::filesystem::create_directories(root / "Assets");
     auto lease = std::make_shared<ProjectLease>(root);
     auto document = ParticleEffectDocument::create(lease, "Assets/Native.particles.json");
-    document->edit(document->revision(), "Native original colors/motion", [](auto& source) {
+    document->edit(document->revision(), "Native original colors/motion", [&](auto& source) {
+        if (gpu) {
+            ParticleEffectSource candidate{source};
+            candidate.set_evaluation(ParticleEvaluation::Gpu);
+            source = std::move(candidate.document);
+        }
         source["acceleration"] = {0., 0., 0.};
         source["cone_angle"] = 80.;
         source["size_start"] = source["size_end"] = .25;
@@ -103,12 +110,16 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
         source["color_end"] = {0., .1, 1.};
     });
     document->save();
-    AssetImportService importer(lease, particle_effect_import_registry(), {"linux", "none", "cpu"});
+    AssetImportService importer(lease, particle_effect_import_registry(),
+                                gpu ? ImportTarget{"windows", "d3d12", "desktop"}
+                                    : ImportTarget{"linux", "none", "cpu"});
     publish(importer, *document);
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
     EngineVkCreateInfo create;
     create.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;
+    create.Features.ComputeShaders =
+        gpu ? DEVICE_FEATURE_STATE_ENABLED : DEVICE_FEATURE_STATE_OPTIONAL;
     GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
     check(device && context, "Native particle Vulkan device/context unavailable");
     std::cout << "Particle native adapter: " << device->GetAdapterInfo().Description << '\n';
@@ -144,7 +155,8 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
         } while (active_renderer->pending());
     };
-    auto draw = [&](Target& target, std::uint32_t layers = UINT32_MAX) {
+    auto draw = [&](Target& target, std::uint32_t layers = UINT32_MAX,
+                    bool rejected_submission = false) {
         admit();
         auto* color = target.color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
         auto* depth = target.depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
@@ -158,7 +170,8 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
         context->SetViewports(1, &viewport, size.Width, size.Height);
         active_renderer->draw(scene, camera_view(camera, camera_world, size.Width, size.Height),
                               layers, target.color, depth);
-        check(active_renderer->diagnostics().empty(), "Native particle draw reported an error");
+        check(active_renderer->diagnostics().empty() != rejected_submission,
+              "Native particle submission diagnostic differs from expectation");
         active_host->submit();
         context->Flush();
         return read(device, context, target.color);
@@ -179,6 +192,76 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
           "Native particle instances were absent or were expanded into individual draw calls");
     check(dominant(colored, 0) > 20, "Particle instance RGB tint was absent from native pixels");
     image(root / "continuous.ppm", 256, 256, colored);
+    if (gpu) {
+        scene.particles[0].time = -1;
+        const auto rejected_pixels = draw(square, UINT32_MAX, true);
+        check(visible(rejected_pixels) == 0 && renderer.draw_stats().instances == 0,
+              "Rejected GPU time exposed the previous submission's instances");
+        scene.particles[0].time = 1;
+        check(draw(square) == colored, "GPU recovery changed a deterministic same-time submission");
+        camera_world.m[3] = 2;
+        const auto shifted = draw(square);
+        check(shifted != colored && visible(shifted) > 10,
+              "A second camera reused the first view's GPU transforms");
+        camera_world.m[3] = 0;
+        check(draw(square) == colored, "GPU view change did not restore the original image");
+    }
+    if (gpu) {
+        const auto package = root / "Export";
+        const std::array roots{document->source().asset()};
+        (void)package_runtime_content(root, package, roots, {"windows", "d3d12"});
+        const auto packaged = std::make_shared<const AssetCatalog>(
+            open_runtime_content(package, {"windows", "d3d12"}));
+        check(!std::filesystem::exists(package / document->locator()),
+              "GPU runtime package retained an editable Particle Effect source");
+        const auto original_source = root / document->locator();
+        const auto hidden_source = root / "hidden-particle-source.json";
+        std::filesystem::rename(original_source, hidden_source);
+        EngineContext author;
+        Scene authored(author.world());
+        const auto actor =
+            authoring_command(authored, "entity.create", {{"recipe", "render.particles"}})
+                .at("selected")
+                .get<std::string>();
+        authoring_command(authored, "property.set",
+                          {{"entity", actor},
+                           {"component", "forge.particle_emitter"},
+                           {"field", "effect"},
+                           {"value", document->source().asset()}});
+        EngineContext runtime(WorldRole::Runtime, false, {particle_module(package)});
+        Scene live(runtime.world());
+        live.restore_snapshot(authored.snapshot());
+        RuntimeSimulation simulation(runtime.world(), live);
+        const auto particles = particle_runtime(runtime.world());
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+        while (!particles->prepare()) {
+            check(std::chrono::steady_clock::now() < deadline,
+                  "Packaged GPU effect fixed-clock admission timed out");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        simulation.reset_presentation();
+        simulation.tick(.25f);
+        simulation.tick(.25f);
+        auto packaged_host = std::make_shared<MeshResourceHost>(presentation, context, package);
+        packaged_host->catalog(packaged);
+        MeshSceneRenderer packaged_renderer(packaged_host);
+        const auto saved_scene = scene;
+        scene = extract_render_scene(simulation.presentation(1));
+        check(scene.diagnostics.empty() && scene.particles.size() == 1 &&
+                  scene.particles[0].time == .5,
+              "Packaged GPU effect did not use the actual fixed-clock World presentation");
+        active_host = packaged_host;
+        active_renderer = &packaged_renderer;
+        const auto pixels = draw(square);
+        check(visible(pixels) > 0 && packaged_renderer.draw_stats().instances == 16,
+              "Source-hidden GPU package did not render actual fixed-clock instances");
+        image(root / "source-hidden-runtime.ppm", 256, 256, pixels);
+        scene = saved_scene;
+        active_host = host;
+        active_renderer = &renderer;
+        std::filesystem::rename(hidden_source, original_source);
+        context->WaitForIdle();
+    }
     // One entity may own an ordinary mesh and an emitter without replacing either cache entry.
     RenderMesh ordinary;
     ordinary.entity = emitter.entity;
@@ -422,7 +505,65 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
               AssetCatalog::open_project(root).records().at(document->source().asset()).metadata ==
                   saved_selection,
           "Extended private previews changed source or selected catalog metadata");
-    if (!gallery.empty())
+    if (gpu && !gallery.empty()) {
+        const auto source_path = "Scenes/238-gpu-mesh-particles.scene.json";
+        Json source;
+        std::ifstream(gallery / source_path) >> source;
+        const auto scene_id = source.at("asset_id").get<AssetId>();
+        const auto package = root / "GalleryExport";
+        const std::array roots{scene_id};
+        (void)package_runtime_content(gallery, package, roots, {"windows", "d3d12"});
+        check(!std::filesystem::exists(package / "Assets/Particles/GpuFountain.particles.json"),
+              "Gallery GPU export retained editable effect source");
+        std::vector<std::array<std::uint8_t, 4>> authored_pixels;
+        for (const auto& project : {gallery, package}) {
+            EngineContext runtime(WorldRole::Runtime, false, {particle_module(project)});
+            Scene live(runtime.world());
+            live.restore_snapshot(source);
+            RuntimeSimulation simulation(runtime.world(), live);
+            const auto particles = particle_runtime(runtime.world());
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+            while (!particles->prepare()) {
+                check(std::chrono::steady_clock::now() < deadline,
+                      "GPU Gallery runtime admission timed out");
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            simulation.reset_presentation();
+            for (unsigned tick = 0; tick < 6; ++tick)
+                simulation.tick(.25f);
+            scene = extract_render_scene(simulation.presentation(1));
+            check(scene.diagnostics.empty() && scene.cameras.size() == 1 &&
+                      scene.particles.size() == 2,
+                  "GPU Gallery fixed-clock presentation is incomplete");
+            camera = scene.cameras.front().camera;
+            camera_world = scene.cameras.front().world;
+            const auto selected = std::make_shared<const AssetCatalog>(
+                project == gallery ? AssetCatalog::open_project(project)
+                                   : open_runtime_content(project, {"windows", "d3d12"}));
+            auto gallery_host = std::make_shared<MeshResourceHost>(presentation, context, project);
+            gallery_host->catalog(selected);
+            MeshSceneRenderer gallery_renderer(gallery_host);
+            active_host = gallery_host;
+            active_renderer = &gallery_renderer;
+            Target wide(device, 960, 540);
+            const auto pixels = draw(wide);
+            check(visible(pixels) > 500 && gallery_renderer.draw_stats().instances == 576 &&
+                      gallery_renderer.draw_stats().calls == 10 &&
+                      gallery_renderer.bundle_count() == 1,
+                  "GPU Gallery lost native geometry, instancing or shared-resource ownership");
+            image(root / (project == gallery ? "gallery238.ppm" : "gallery238-source-hidden.ppm"),
+                  960, 540, pixels);
+            if (project == gallery)
+                authored_pixels = pixels;
+            else
+                check(pixels == authored_pixels,
+                      "Source-hidden GPU Gallery export differs from its authored native pixels");
+            context->WaitForIdle();
+        }
+        active_host = host;
+        active_renderer = &renderer;
+    }
+    if (!gpu && !gallery.empty())
         for (unsigned number : {60u, 61u}) {
             const bool curves = number == 61;
             const auto scene_path =
@@ -495,7 +636,7 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
                   "Native observation changed scene identity");
             context->WaitForIdle();
         }
-    if (!gallery.empty() &&
+    if (!gpu && !gallery.empty() &&
         std::filesystem::exists(gallery / "Scenes/62-coordinated-animation.scene.json")) {
         Json source;
         std::ifstream(gallery / "Scenes/62-coordinated-animation.scene.json") >> source;
@@ -546,7 +687,7 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
         }
         context->WaitForIdle();
     }
-    if (!gallery.empty() &&
+    if (!gpu && !gallery.empty() &&
         std::filesystem::exists(gallery / "Scenes/63-portable-prefab-rigs.scene.json")) {
         Json document;
         std::ifstream(gallery / "Scenes/63-portable-prefab-rigs.scene.json") >> document;
@@ -601,7 +742,7 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
         }
         context->WaitForIdle();
     }
-    if (!gallery.empty() &&
+    if (!gpu && !gallery.empty() &&
         std::filesystem::exists(gallery / "Scenes/64-runtime-prefab-creation.scene.json")) {
         const auto asset = AssetId::parse("fab9f548-3f22-4fbc-a5e0-bd0a2cffd9a1");
         const auto prefab = AssetId::parse("3f95b972-aa2a-4fab-999a-8857a5a35e11");
@@ -660,7 +801,7 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
         }
         context->WaitForIdle();
     }
-    if (!gallery.empty() &&
+    if (!gpu && !gallery.empty() &&
         std::filesystem::exists(gallery / "Scenes/65-two-dimensional-blend-spaces.scene.json")) {
         Json source;
         std::ifstream(gallery / "Scenes/65-two-dimensional-blend-spaces.scene.json") >> source;
@@ -726,9 +867,12 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2 || argc == 3, "Need native particle scratch root and optional Gallery");
+        check(argc >= 2 && argc <= 4,
+              "Need native particle scratch root, optional Gallery and optional --gpu");
+        const bool gpu = argc >= 3 && std::string_view(argv[argc - 1]) == "--gpu";
+        const bool has_gallery = argc == (gpu ? 4 : 3);
         execute(std::filesystem::absolute(argv[1]) / AssetId::generate().str(),
-                argc == 3 ? std::filesystem::absolute(argv[2]) : std::filesystem::path{});
+                has_gallery ? std::filesystem::absolute(argv[2]) : std::filesystem::path{}, gpu);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

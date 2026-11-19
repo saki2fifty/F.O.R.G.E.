@@ -124,7 +124,7 @@ int main(int argc, char** argv) {
                 const auto& selected = record.metadata.at("forge.import");
                 check(selected.at("platform") == "windows" && selected.at("backend") == "d3d12" &&
                           selected.at("output_version") == 2 &&
-                          selected.at("importer_revision") == particle_effect_recipe,
+                          selected.at("importer_revision") == particle_effect_extended_recipe,
                       "Gallery56 selected the wrong effect target/recipe");
                 const auto document = read(root / record.source);
                 values.emplace(effect.id, ParticleEffectSource{document}.compiled());

@@ -11,6 +11,7 @@
 #include "document_workspace.hpp"
 #include <forge/editable_mesh.hpp>
 #include <forge/material_graph.hpp>
+#include <forge/particle_effect_source.hpp>
 #include <forge/transform_animation.hpp>
 #include <type_traits>
 
@@ -489,7 +490,27 @@ struct AssetDocumentAutomation {
                     throw AuthoringError(
                         "document_busy",
                         "Wait for publication or settle the active source gesture/close request");
-                if (action == "patch") {
+                if (action == "particle_evaluation") {
+                    if constexpr (std::is_same_v<Source, ParticleEffectSource>) {
+                        const auto previous = doc.revision();
+                        const auto evaluation = request.at("evaluation").get<std::string>();
+                        if (evaluation != "cpu" && evaluation != "gpu")
+                            throw AuthoringError("invalid_argument",
+                                                 "Choose cpu or gpu evaluation");
+                        doc.edit_source(previous, "Set particle evaluation", [&](Source& source) {
+                            source.set_evaluation(evaluation == "gpu" ? ParticleEvaluation::Gpu
+                                                                      : ParticleEvaluation::Cpu);
+                            if (!doc.retains_history(source))
+                                throw AuthoringError(
+                                    "history_limit",
+                                    "Particle edit exceeds the Undo and Redo budget");
+                        });
+                        if (doc.revision() != previous)
+                            changed(editor);
+                    } else
+                        throw AuthoringError("wrong_document_type",
+                                             "Particle evaluation requires a Particle Effect");
+                } else if (action == "patch") {
                     const auto previous = doc.revision();
                     doc.edit_source(previous,
                                     request.value("label", std::string("MCP source edit")),

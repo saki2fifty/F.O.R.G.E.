@@ -70,7 +70,7 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
     input.importer = particle_effect_importer;
     input.importer_revision = particle_effect_recipe;
     input.output_format = particle_effect_cooked_format;
-    input.output_version = 2;
+    input.output_version = 3;
     input.platform = request.target.platform;
     input.backend = request.target.backend;
     input.profile = request.target.profile;
@@ -106,7 +106,7 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
 const ArtifactFile& effect_file(const std::vector<ArtifactFile>& files, AssetId id) {
     require(files.size() == 1 && files.front().name == "effect.json",
             "Particle effect artifact needs one effect.json");
-    (void)decode_cooked_particle_effect(files.front().bytes, id);
+    (void)decode_cooked_particle_effect(files.front().bytes, id, 3);
     return files.front();
 }
 class ParticleEffectImporter final : public AssetImporter {
@@ -118,12 +118,12 @@ class ParticleEffectImporter final : public AssetImporter {
                   d.id = particle_effect_importer;
                   d.revision = particle_effect_recipe;
                   d.label = "Particle Effect";
-                  d.description = "Cook a reusable bounded CPU mesh-particle effect.";
+                  d.description = "Cook a reusable bounded CPU or GPU mesh-particle effect.";
                   d.extensions = {".json"};
                   d.source_kinds = {"forge.particle_effect"};
                   d.output_types = {ParticleEffectAsset::type};
                   d.output_format = particle_effect_cooked_format;
-                  d.output_version = 2;
+                  d.output_version = 3;
                   d.targets = {{"windows", "d3d12", "desktop"}, {"linux", "none", "cpu"}};
                   d.execution = ImportExecution::TrustedCpuTask;
                   d.limits.output_files = 1;
@@ -180,10 +180,10 @@ void prepare_particle_effect_publication(AssetPublicationCandidate& candidate,
                 candidate.sidecar.identity.entries.empty(),
             "Particle effect publication identity/family mismatch");
     const auto& file = effect_file(candidate.files, candidate.ticket.owner);
+    const auto values = decode_cooked_particle_effect(file.bytes, candidate.ticket.owner);
     require(plan.input.importer_revision == particle_effect_recipe &&
                 plan.input.output_format == particle_effect_cooked_format &&
-                plan.input.output_version == 2 &&
-                decode_cooked_particle_effect(file.bytes, candidate.ticket.owner).version == 2,
+                plan.input.output_version == 3 && (values.version == 2 || values.version == 3),
             "Particle publication recipe/value version mismatch");
     auto& identity = candidate.sidecar.identity;
     identity.owner = candidate.ticket.owner;
@@ -196,7 +196,8 @@ void prepare_particle_effect_publication(AssetPublicationCandidate& candidate,
                           1,
                           {},
                           {{"forge.particle_effect",
-                            {{"version", 2},
+                            {{"version", 3},
+                             {"value_version", values.version},
                              {"file", file.name},
                              {"sha256", asset_detail::content_digest(file.bytes)},
                              {"bytes", file.bytes.size()}}}}}};

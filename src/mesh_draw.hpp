@@ -31,6 +31,13 @@ class MeshDraw {
         const MeshWindSample* wind = nullptr;
         const MeshWindSample* previous_wind = nullptr;
     };
+    // Borrowed only for this submission. The renderer retains the realization;
+    // bytes already contain the base static mesh's seven-row instance layout.
+    struct InstanceBuffer {
+        Diligent::IBuffer* buffer = nullptr;
+        std::uint64_t offset = 0;
+        unsigned count = 0;
+    };
     struct Motion {
         const CameraView* previous_view = nullptr;
         const AffineTransform* previous_world = nullptr;
@@ -103,7 +110,8 @@ class MeshDraw {
               std::span<const LightImage> light_images = {},
               std::span<const EnvironmentProbe> local_irradiance = {},
               const MeshWindSample* wind = nullptr, std::span<const FogVolumeSample> local_fog = {},
-              const IndirectArguments* visibility = nullptr);
+              const IndirectArguments* visibility = nullptr,
+              const InstanceBuffer* gpu_instances = nullptr);
 
   private:
     unsigned instance_rows() const;

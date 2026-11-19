@@ -4,6 +4,7 @@
 #include "mesh_pick.hpp"
 #include "mesh_texture_surface.hpp"
 #include "particle_effect_resource.hpp"
+#include "particle_gpu.hpp"
 #include "render_bounds.hpp"
 #include "runtime_reflection_gpu.hpp"
 #include "shadow_renderer.hpp"
@@ -417,6 +418,7 @@ class MeshSceneRenderer {
         ResourceLease<ParticleEffectAsset> effect_lease;
         ResourceLease<MeshAsset> mesh_lease;
         std::shared_ptr<const ParticleEffectData> preview;
+        std::unique_ptr<ParticleGpuInstances> gpu;
         std::string error;
         const ParticleEffectData* data() const {
             return preview ? preview.get() : effect_lease ? &effect_lease.get() : nullptr;

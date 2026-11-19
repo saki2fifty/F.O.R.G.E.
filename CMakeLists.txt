@@ -98,7 +98,7 @@ add_library(forge_render_bounds src/decal_clusters.cpp src/render_bounds.cpp src
 target_sources(forge_render_bounds PRIVATE src/mesh_wind.cpp src/mesh_occlusion_bounds.cpp)
 target_include_directories(forge_render_bounds PUBLIC src)
 target_link_libraries(forge_render_bounds PUBLIC forge_core forge_mesh)
-add_library(forge_particle_render src/particle_render_instances.cpp)
+add_library(forge_particle_render src/particle_render_instances.cpp src/particle_gpu_plan.cpp)
 target_include_directories(forge_particle_render PUBLIC src)
 target_link_libraries(forge_particle_render PUBLIC forge_particle_effect forge_render_bounds)
 target_link_libraries(forge_particle_render PRIVATE forge_material_resources)

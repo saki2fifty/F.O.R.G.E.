@@ -5,6 +5,7 @@
 #include "decal_shader.hpp"
 #include "material_parameter_values.hpp"
 #include "mesh_draw_shader.hpp"
+#include "mesh_instance_layout.hpp"
 #include "render_backend.hpp"
 #include "shader_runtime_backend.hpp"
 #include "sprite_material_profile.hpp"
@@ -49,7 +50,8 @@ RefCntAutoPtr<IBuffer> buffer(IRenderDevice* device, const char* name, Uint64 by
 using Row = std::array<float, 4>;
 constexpr std::array decal_storage_names{"g_ForgeDecalRows", "g_ForgeDecalRanges",
                                          "g_ForgeDecalIndices"};
-constexpr unsigned mesh_instance_rows = 7, sprite_instance_rows = 10;
+constexpr unsigned mesh_instance_rows = unsigned(mesh_static_instance_rows),
+                   sprite_instance_rows = 10;
 constexpr unsigned wind_instance_rows = 8, wind_temporal_instance_rows = temporal_instance_rows + 2;
 
 using IrradianceValues = std::array<Row, environment_probe_rows>;
@@ -987,8 +989,24 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     std::span<const Decal> decals, const RenderBounds* decal_bounds,
                     std::span<const LightImage> images,
                     std::span<const EnvironmentProbe> local_irradiance, const MeshWindSample* wind,
-                    std::span<const FogVolumeSample> local_fog,
-                    const IndirectArguments* visibility) {
+                    std::span<const FogVolumeSample> local_fog, const IndirectArguments* visibility,
+                    const InstanceBuffer* gpu_instances) {
+    if (gpu_instances) {
+        require(gpu_instances->buffer && gpu_instances->count >= 1 &&
+                    gpu_instances->count <= instance_limit && instances.empty() && instances_ &&
+                    !sprite_ && !temporal_ && !wind_ && !visibility,
+                "GPU instance input requires an exclusive bounded base static mesh batch");
+        const auto& desc = gpu_instances->buffer->GetDesc();
+        constexpr auto stride = mesh_instance_rows * sizeof(Row);
+        require((desc.BindFlags & BIND_VERTEX_BUFFER) != 0 &&
+                    gpu_instances->offset % sizeof(Row) == 0 &&
+                    gpu_instances->offset <= desc.Size &&
+                    gpu_instances->count <= (desc.Size - gpu_instances->offset) / stride,
+                "GPU instance buffer range exceeds its vertex allocation");
+    }
+    const Uint32 draw_instance_count = gpu_instances       ? gpu_instances->count
+                                       : instances.empty() ? 1
+                                                           : Uint32(instances.size());
     if (visibility)
         require(visibility->buffer && visibility->offset % 4 == 0 &&
                     (visibility->buffer->GetDesc().BindFlags & BIND_INDIRECT_DRAW_ARGS) != 0 &&
@@ -1495,7 +1513,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         }
         bind_transmission(transmission);
     }
-    if (instances_) {
+    if (instances_ && !gpu_instances) {
         // Prepare the complete bounded batch before publishing any mapped bytes.
         std::array<Row, wind_temporal_instance_rows * instance_limit> copied{};
         const unsigned rows = instance_rows();
@@ -1587,8 +1605,13 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
             for (std::size_t i = 0; i < selected.size(); ++i)
                 std::copy_n(copied.data() + i * rows, rows, static_cast<Row*>(mapped) + i * rows);
         }
-        IBuffer* vertices[]{instances_};
-        const Uint64 offset = 0;
+    }
+    if (instances_) {
+        IBuffer* selected = instances_;
+        if (gpu_instances)
+            selected = gpu_instances->buffer;
+        IBuffer* vertices[]{selected};
+        const Uint64 offset = gpu_instances ? gpu_instances->offset : 0;
         context->SetVertexBuffers(0, 1, vertices, &offset,
                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                                   SET_VERTEX_BUFFERS_FLAG_RESET);
@@ -1610,7 +1633,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         }
         DrawIndexedAttribs draw;
         draw.NumIndices = mesh_.index_count;
-        draw.NumInstances = instances.empty() ? 1 : Uint32(instances.size());
+        draw.NumInstances = draw_instance_count;
         draw.IndexType = mesh_.index_type;
         draw.Flags = DRAW_FLAG_VERIFY_ALL;
         context->DrawIndexed(draw);
@@ -1627,7 +1650,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         }
         DrawAttribs draw;
         draw.NumVertices = mesh_.vertex_count;
-        draw.NumInstances = instances.empty() ? 1 : Uint32(instances.size());
+        draw.NumInstances = draw_instance_count;
         draw.Flags = DRAW_FLAG_VERIFY_ALL;
         context->Draw(draw);
     }

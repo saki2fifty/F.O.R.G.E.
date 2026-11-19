@@ -3514,3 +3514,19 @@ constitute direct MCP event-stream access: project C++ reads copied Begin/End
 events through the existing `Physics2D` SDK observer, and live edits retain the
 current per-field live-tuning restrictions. See [2D physics](physics-2d.md) for
 the native overlap, query and recovery limits.
+
+## Particle evaluation through the source owner
+
+`asset.particles.catalog` describes `cpu_mesh2` and `gpu_mesh1`, static mesh/material
+limits and required runtime-kit capabilities. `asset.document.particle_evaluation`
+requires `asset.write`, the Particle Effect editor, exact document session/revision
+and `evaluation: cpu|gpu`. It calls `ParticleEffectSource::set_evaluation` inside the
+same source document history operation used by the native Evaluation control.
+Validation/history limits reject atomically; no-op selection retains the revision.
+Ordinary source read/patch/Undo/Redo/save and asynchronous publication apply.
+The MCP adapter derives `forge_asset_document_particle_evaluation` from that same
+live method and schema; it owns no alternative implementation. Read-only clients
+see the catalog, without receiving mutation tools. Both supported protocol formats
+exercise schema, permissions, source/stop IDs, extensions, stale-session/revision,
+Undo/Redo, no-op, publication, refreshed asset reads and reopen in
+`mcp_particle_evaluation_stdio`.

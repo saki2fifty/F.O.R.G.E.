@@ -177,8 +177,9 @@ int main(int argc, char** argv) {
                 "Particle publication omitted mesh/material dependency projection");
         require(record.metadata.at("forge.import").at("importer_revision") ==
                         particle_effect_recipe &&
-                    record.metadata.at("forge.import").at("output_version") == 2 &&
-                    record.metadata.at("forge.particle_effect").at("version") == 2,
+                    record.metadata.at("forge.import").at("output_version") == 3 &&
+                    record.metadata.at("forge.particle_effect").at("version") == 3 &&
+                    record.metadata.at("forge.particle_effect").at("value_version") == 2,
                 "Extended publication selected an incorrect value recipe/version");
         require(load(root, catalog, id) == document->source().compiled(),
                 "Particle pool loaded different values");
@@ -186,6 +187,37 @@ int main(int argc, char** argv) {
         require(second.published && second.cache_hit,
                 "Unchanged particle import did not reuse admitted cache");
         catalog = std::make_shared<const AssetCatalog>(second.publication->catalog);
+        document->edit(document->revision(), "GPU evaluation", [](auto& value) {
+            ParticleEffectSource source{value};
+            source.set_evaluation(ParticleEvaluation::Gpu);
+            value = std::move(source.document);
+        });
+        const auto gpu_source = document->source().document;
+        document->save();
+        auto gpu = publish(service, document->locator(), id);
+        require(gpu.published, "GPU profile publication failed: " + gpu.diagnostic);
+        const auto& gpu_record = gpu.publication->catalog.records().at(id);
+        require(gpu_record.metadata.at("forge.import").at("importer") == particle_effect_importer &&
+                    gpu_record.metadata.at("forge.import").at("output_version") == 3 &&
+                    gpu_record.metadata.at("forge.particle_effect").at("value_version") == 3 &&
+                    gpu_record.source == record.source && gpu_record.id == record.id,
+                "Backend selection changed durable source settings/identity or lost its profile");
+        require(load(root, std::make_shared<const AssetCatalog>(gpu.publication->catalog), id) ==
+                    document->source().compiled(),
+                "GPU artifact resource did not retain its selected values");
+        document->undo();
+        require(document->source().document == changed,
+                "GPU profile Undo changed prior source data");
+        document->redo();
+        require(document->source().document == gpu_source,
+                "GPU profile Redo lost local source identity");
+        document->undo();
+        document->save();
+        auto cpu = publish(service, document->locator(), id);
+        require(cpu.published && cpu.cache_hit &&
+                    load(root, std::make_shared<const AssetCatalog>(cpu.publication->catalog),
+                         id) == document->source().compiled(),
+                "CPU profile restoration lost source settings, cache reuse or immutable values");
         const auto copied_id = AssetId::generate();
         const auto copied = nlohmann::json::parse(rewrite_authored_asset(
             record, changed.dump(), "Assets/Copy.particles.json", {{id, copied_id}}));
@@ -223,6 +255,19 @@ int main(int argc, char** argv) {
         altered.metadata["forge.particle_effect"]["sha256"] = std::string(64, '0');
         invalid.replace(altered);
         reject([&] { load(root, std::make_shared<const AssetCatalog>(invalid), id); });
+        for (const auto* field : {"output_version", "version", "value_version"})
+            for (const nlohmann::json& number :
+                 {nlohmann::json(3.), nlohmann::json(2.), nlohmann::json(true), nlohmann::json(-1),
+                  nlohmann::json((std::uint64_t{1} << 32) + 3)}) {
+                auto wrong = *catalog;
+                auto bad = wrong.records().at(id);
+                const auto group = std::string_view(field) == "output_version"
+                                       ? "forge.import"
+                                       : "forge.particle_effect";
+                bad.metadata[group][field] = number;
+                wrong.replace(bad);
+                reject([&] { load(root, std::make_shared<const AssetCatalog>(wrong), id); });
+            }
         for (unsigned mismatch = 0; mismatch < 3; ++mismatch) {
             auto wrong = *catalog;
             auto bad = wrong.records().at(id);

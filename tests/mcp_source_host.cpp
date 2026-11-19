@@ -228,6 +228,8 @@ int main(int argc, char** argv) {
             collision.poll(files.document, files.status);
             mesh.poll(files.document, files.status);
             particles.poll(files.document, files.status);
+            if (auto catalog = particles.take_catalog())
+                imports.catalog_changed(std::move(catalog));
             terrain.poll(files.document, files.status);
             tiles.poll(files.document, files.status);
             map.poll(files.document, files.status);

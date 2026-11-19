@@ -73,6 +73,35 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
     const auto paint_point = automation_array(coordinate, 2, 2);
     std::vector<LiveAuthoringMethod> methods;
     methods.push_back(automation_method(
+        "asset.particles.catalog",
+        "Describe mesh-particle evaluation profiles, device requirements and source publication.",
+        "asset.read", automation_object(), false, [](const Json&) {
+            return Json{
+                {"editor", "particle_effect"},
+                {"suffix", ".particles.json"},
+                {"profiles", {{"cpu", "cpu_mesh2"}, {"gpu", "gpu_mesh1"}}},
+                {"limits",
+                 {{"emitters", particle_emitter_limit},
+                  {"effect_capacity", 1024},
+                  {"scene_capacity", particle_scene_capacity}}},
+                {"gpu",
+                 "Births, analytic motion, lifetime appearance and instance transforms "
+                 "execute on a compute-capable rendering device. There is no CPU fallback. "
+                 "Stop times must remain distinct at float precision. CPU and GPU random "
+                 "patterns differ; neither profile provides collisions, trails or VFX graphs."},
+                {"mesh", "One static triangle part, one LOD, one material slot; built-in "
+                         "opaque/masked materials. No Blend, transmission, custom surfaces, "
+                         "skinning, morphs or camera render textures."},
+                {"workflow", "Use asset.document template/create/open/read/patch and "
+                             "particle_evaluation with editor particle_effect. The typed "
+                             "evaluation edit preserves asset/stop IDs, curves and extensions in "
+                             "one Undo step. Save publishes asynchronously; poll status before "
+                             "Play/export. Source1/2 remain CPU. New publication requires a "
+                             "runtime_particle_effect profile3 kit; GPU additionally requires "
+                             "runtime_particle_gpu profile1. Source textures/meshes/materials "
+                             "remain owned by the existing asset pipeline."}};
+        }));
+    methods.push_back(automation_method(
         "asset.animation_graph.catalog",
         "Describe animation pose graphs, stable node/input identity, playback and publication "
         "limits.",
@@ -697,15 +726,19 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                     return invoke(std::string("preview_") + action, request);
                 }));
         }
-    for (const auto* action :
-         {"patch", "paint", "tile_collision", "tile_animation", "tile_autotile", "stroke",
-          "mesh_stroke", "fill", "copy_pixels", "cancel_pixels", "undo", "redo", "save", "close"}) {
+    for (const auto* action : {"patch", "particle_evaluation", "paint", "tile_collision",
+                               "tile_animation", "tile_autotile", "stroke", "mesh_stroke", "fill",
+                               "copy_pixels", "cancel_pixels", "undo", "redo", "save", "close"}) {
         auto properties = fields;
         auto needed = required;
         if (std::string_view(action) == "patch") {
             properties["patch"] = patch;
             properties["label"] = automation_text(256, 1);
             needed.push_back("patch");
+        } else if (std::string_view(action) == "particle_evaluation") {
+            properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
+            properties["evaluation"] = {{"type", "string"}, {"enum", {"cpu", "gpu"}}};
+            needed.push_back("evaluation");
         } else if (std::string_view(action) == "paint") {
             auto write_cell = cell;
             write_cell["required"].push_back("tile");

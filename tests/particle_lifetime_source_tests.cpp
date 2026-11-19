@@ -51,6 +51,72 @@ void legacy_and_promotion() {
     legacy.promote();
     require(legacy.document == promoted, "Repeated promotion changed the source");
 }
+void backend_profiles_and_envelopes() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    source.document["extensions"] = {{"label", "retained"}};
+    source.enable_lifetime(ParticleLifetimeChannel::Size, true);
+    source.enable_lifetime(ParticleLifetimeChannel::Color, true);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Size, .25);
+    const auto cpu = source.document;
+    source.set_evaluation(ParticleEvaluation::Gpu);
+    auto expected = cpu;
+    expected["version"] = 3;
+    expected["profile"] = "gpu_mesh1";
+    for (const nlohmann::json& version :
+         {nlohmann::json(3.), nlohmann::json(true), nlohmann::json(-1),
+          nlohmann::json((std::uint64_t{1} << 32) + 3)}) {
+        auto invalid = source;
+        invalid.document["version"] = version;
+        reject([&] { invalid.validate(); });
+    }
+    require(source.document == expected, "GPU selection changed source UUIDs, stops or extensions");
+    source.promote();
+    require(source.document == expected, "Extended-field promotion changed the GPU profile");
+    reject([&] { source.set_evaluation(ParticleEvaluation(-1)); });
+    require(source.document == expected, "Rejected evaluation changed source data");
+    const auto gpu_values = source.compiled();
+    require(gpu_values.version == 3 &&
+                decode_particle_effect(encode_particle_effect(gpu_values)) == gpu_values,
+            "GPU value codec failed its explicit version/profile");
+    reject([&] { (void)sample_particle_effect(gpu_values, .5, 1); });
+    require(decode_cooked_particle_effect(source.cook(), source.asset(), 3) == gpu_values,
+            "GPU cooked envelope lost its value profile");
+    reject([&] { (void)decode_cooked_particle_effect(source.cook(), source.asset(), 2); });
+    auto wrapper = nlohmann::json::parse(source.cook());
+    require(wrapper.at("version") == 3 && !wrapper.at("values").contains("extensions"),
+            "GPU envelope shipped opaque source metadata");
+    wrapper["version"] = 3.0;
+    auto bytes = wrapper.dump();
+    reject([&] {
+        (void)decode_cooked_particle_effect(std::as_bytes(std::span(bytes)), source.asset());
+    });
+    wrapper["version"] = 3;
+    wrapper["extra"] = true;
+    bytes = wrapper.dump();
+    reject([&] {
+        (void)decode_cooked_particle_effect(std::as_bytes(std::span(bytes)), source.asset());
+    });
+    source.set_evaluation(ParticleEvaluation::Cpu);
+    require(source.document == cpu, "Returning to CPU changed source identity or values");
+    const auto cpu_values = source.compiled();
+    require(decode_cooked_particle_effect(source.cook(), source.asset(), 3) == cpu_values,
+            "Neutral cooked envelope changed CPU values");
+    auto legacy = encode_particle_effect(cpu_values);
+    legacy["format"] = particle_effect_cooked_format;
+    legacy["asset_id"] = source.asset();
+    bytes = legacy.dump();
+    require(decode_cooked_particle_effect(std::as_bytes(std::span(bytes)), source.asset(), 2) ==
+                cpu_values,
+            "Existing immutable v2 artifact was rejected");
+    reject([&] {
+        (void)decode_cooked_particle_effect(std::as_bytes(std::span(bytes)), source.asset(), 3);
+    });
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Size, .5);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Size, std::nextafter(.5, 1.));
+    const auto close_times = source.document;
+    reject([&] { source.set_evaluation(ParticleEvaluation::Gpu); });
+    require(source.document == close_times, "GPU float-time collision changed the CPU source");
+}
 void lifetime_identity_and_projection() {
     auto source = ParticleEffectSource::create(AssetId::generate());
     source.document["size_start"] = .2;
@@ -84,7 +150,7 @@ void lifetime_identity_and_projection() {
     const auto cooked = source.cook();
     const auto projection = nlohmann::json::parse(cooked.begin(), cooked.end());
     for (const auto* name : {"size_curve", "color_gradient"})
-        for (const auto& stop : projection.at(name))
+        for (const auto& stop : projection.at("values").at(name))
             require(!stop.contains("id"), "Cooked evaluator retained a source-only stop UUID");
     require(decode_cooked_particle_effect(cooked, source.asset()) == source.compiled(),
             "Cooked lifetime values differ from source projection");
@@ -134,6 +200,7 @@ void lifetime_identity_and_projection() {
 int main() {
     try {
         legacy_and_promotion();
+        backend_profiles_and_envelopes();
         lifetime_identity_and_projection();
         std::cout << "Legacy normalization, stable local stops and bounded projection passed\n";
         return 0;

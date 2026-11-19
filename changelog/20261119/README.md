@@ -1,5 +1,18 @@
 # 2026-11-19
 
+## GPU mesh particle effects
+
+Particle Effects offer an explicit CPU/GPU Evaluation control. The GPU profile
+creates birth inputs, evaluates shapes, analytic motion/drag and lifetime size/RGB,
+and writes instance transforms on the device. Fixed clocks, logical assets, source
+history, material/resource admission and renderer batching keep their existing
+owners. Native source controls and automation/MCP use the same validated operation.
+Older CPU sources and cooked effects remain readable with their original meaning.
+New publications require a matching runtime kit; GPU effects require compute support.
+Gallery238 contains an editable shared fountain example and the manual includes
+its controls, export requirements and authentic rendered output. General VFX graphs,
+particle collision, transparency and trails remain outside this profile.
+
 ## Live movies across Scenes
 
 **Run → Record game…** can follow game-requested Scene changes during current

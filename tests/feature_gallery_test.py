@@ -12,6 +12,36 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+# A shared GPU source remains editable and publishes one explicit neutral envelope.
+gpu_path = 'Scenes/238-gpu-mesh-particles.scene.json'
+gpu_scene = json.loads((project_root / gpu_path).read_bytes())
+assert gpu_scene['asset_id'] == by_source[gpu_path]['id']
+gpu_emitters = [e for e in gpu_scene['entities'] if 'forge.particle_emitter' in e['components']]
+assert len(gpu_emitters) == 2
+assert sum('forge.camera' in e['components'] for e in gpu_scene['entities']) == 1
+assert sum('forge.light' in e['components'] for e in gpu_scene['entities']) == 1
+gpu_source_path = 'Assets/Particles/GpuFountain.particles.json'
+gpu_effect = json.loads((project_root / gpu_source_path).read_bytes())
+gpu_record = by_source[gpu_source_path]
+assert gpu_effect['asset_id'] == gpu_record['id']
+assert gpu_effect['version'] == 3 and gpu_effect['profile'] == 'gpu_mesh1'
+assert gpu_effect['shape'] == 'disc' and gpu_effect['capacity'] == 1024
+assert gpu_effect['spawn_rate'] == 192 and gpu_effect['lifetime'] == 3
+assert gpu_effect['size_curve'] and gpu_effect['color_gradient']
+assert all(e['components']['forge.particle_emitter']['effect'] == gpu_record['id'] for e in gpu_emitters)
+assert sorted(e['components']['forge.particle_emitter']['size_multiplier'] for e in gpu_emitters) == [1, 1.5]
+assert gpu_record['metadata']['forge.import']['importer'] == 'forge.particles.cpu-mesh'
+assert gpu_record['metadata']['forge.import']['importer_revision'] == 'forge.particles.mesh.v3'
+assert gpu_record['metadata']['forge.particle_effect']['version'] == 3
+assert gpu_record['metadata']['forge.particle_effect']['value_version'] == 3
+gpu_cache = project_root / '.forge/cache/derived' / gpu_record['metadata']['forge.import']['key']
+gpu_cooked = json.loads((gpu_cache / 'effect.json').read_bytes())
+assert gpu_cooked['version'] == 3 and gpu_cooked['asset_id'] == gpu_record['id']
+assert gpu_cooked['values']['version'] == 3 and gpu_cooked['values']['profile'] == 'gpu_mesh1'
+assert 'extensions' not in gpu_cooked['values']
+assert all('id' not in stop for channel in ('size_curve', 'color_gradient')
+           for stop in gpu_cooked['values'][channel])
+
 # The runtime demonstration ships a one-shot editable source and a saved initial
 # basis. Only a game/Play rebuild request releases the stale Agent after the move.
 rebuild_path = 'Scenes/237-runtime-navigation-rebuild.scene.json'

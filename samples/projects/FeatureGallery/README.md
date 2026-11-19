@@ -1,5 +1,15 @@
 # Feature Gallery
 
+## GPU mesh particles
+
+Open **Scenes/238-gpu-mesh-particles.scene.json** and press Play. Two emitters
+share **Assets/Particles/GpuFountain.particles.json**, with their own seed, size
+and RGB tint. The effect uses GPU evaluation, a Disc origin, drag and lifetime
+size/color controls. Open it from Content to edit **Evaluation**, preview, Undo
+and **Save / Publish**. GPU and CPU patterns differ. This scene needs compute
+support and includes a Camera and light, without project C++ code. Set it as
+startup and export with the runtime kit packaged with this editor.
+
 ## Runtime navigation rebuilding
 
 Open **Scenes/237-runtime-navigation-rebuild.scene.json**. Its ordinary navigation
