@@ -1,5 +1,15 @@
 # 2026-11-19
 
+## Particle opacity over life
+
+CPU sorted-alpha effects offer start/end opacity and editable Step/Linear lifetime
+curves. The multiplier shares existing Material alpha, per-particle sorting and
+seven-row rendering without per-particle Material copies. Source6 preserves settings
+across evaluation changes; old profiles and the gameplay C ABI keep their meanings.
+Native controls and MCP share the typed source/history owner. Gallery241 reuses
+the existing glass Material for a fading effect. Export requires the matching
+opacity-capable runtime kit. GPU/Graph opacity remains unsupported.
+
 ## Sorted-alpha CPU particles
 
 Particle effects offer **CPU (sorted alpha)** evaluation for built-in transparent

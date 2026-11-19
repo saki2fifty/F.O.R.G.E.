@@ -1,5 +1,15 @@
 # Feature Gallery
 
+## Particle opacity over life
+
+Open **Scenes/241-particle-opacity.scene.json** and press Play. The teal and amber
+emitters share **Assets/Particles/Alpha/FadingCloud.particles.json**, with a curve
+that fades in after birth and fades out toward death. Both reuse the glass Material
+from the sorted-alpha example below. Open the effect for **Use opacity over life**,
+start/end values and editable **Use opacity curve** stops. Save / Publish the effect,
+save the scene and export using the matching kit. Camera and light are included;
+no C++ module is needed. See [particle opacity](../../../manual/editor/particles.md).
+
 ## Sorted-alpha mesh particles
 
 Open **Scenes/240-sorted-alpha-particles.scene.json** and press Play. Teal and

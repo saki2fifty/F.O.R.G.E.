@@ -3537,3 +3537,22 @@ runs the alpha preparer with its existing Material/particle importers and matchi
 platform target; no source compiler is shipped for the example. These registrations
 are not an assertion of native Windows execution or physical hardware acceptance;
 use the exact run evidence. Software fixtures do not establish physical performance.
+
+The same numerical alpha fixture also checks values6 opacity multiplied by
+Material alpha, exact full-opacity compatibility, zero opacity, Step/Linear fades,
+independent birth ages, weighted fallback, reversed cameras, opaque occlusion and
+return to values5. Original values5 expected pixels remain unchanged.
+`particle_opacity_gallery` and `particle_opacity_gallery_export` use the shared
+Gallery factory for Scene241, its new fading Effect and Gallery240's unchanged
+glass Material. Source-hidden fixed-clock sampling verifies independent opacity;
+native `particle_opacity_gallery_game` and software-Vulkan
+`particle_opacity_gallery_game_vulkan` compare production Game output with particle
+removal. The isolated numerical fixture owns comparison with full opacity; the
+Game fixture consumes published assets through its regular host. The ordinary alpha Gallery preparer stages
+both examples with one Material publication. Existing shader/full-editor scopes
+select these cases; registrations alone do not establish Windows execution.
+
+The particle document-control fixture creates one unique project per layout.
+Its exercise closes the UI, SceneDocument, project writer and World/resource owners
+before the caller removes the project folder. This preserves the normal project
+lock lifetime on every platform while retaining all six control/history layouts.

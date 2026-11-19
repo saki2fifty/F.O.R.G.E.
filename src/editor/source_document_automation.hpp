@@ -499,30 +499,38 @@ struct AssetDocumentAutomation {
                     throw AuthoringError(
                         "document_busy",
                         "Wait for publication or settle the active source gesture/close request");
-                if (action == "particle_evaluation") {
+                if (action == "particle_evaluation" || action == "particle_opacity") {
                     if constexpr (std::is_same_v<Source, ParticleEffectSource>) {
                         const auto previous = doc.revision();
-                        const auto evaluation = request.at("evaluation").get<std::string>();
-                        if (evaluation != "cpu" && evaluation != "gpu" && evaluation != "graph" &&
-                            evaluation != "cpu_alpha")
+                        const bool opacity = action == "particle_opacity";
+                        const auto evaluation =
+                            opacity ? std::string{} : request.at("evaluation").get<std::string>();
+                        if (!opacity && evaluation != "cpu" && evaluation != "gpu" &&
+                            evaluation != "graph" && evaluation != "cpu_alpha")
                             throw AuthoringError("invalid_argument",
                                                  "Choose cpu, cpu_alpha, gpu or graph evaluation");
-                        doc.edit_source(previous, "Set particle evaluation", [&](Source& source) {
-                            source.set_evaluation(
-                                evaluation == "cpu_alpha" ? ParticleEvaluation::CpuAlpha
-                                : evaluation == "graph"   ? ParticleEvaluation::Graph
-                                : evaluation == "gpu"     ? ParticleEvaluation::Gpu
-                                                          : ParticleEvaluation::Cpu);
-                            if (!doc.retains_history(source))
-                                throw AuthoringError(
-                                    "history_limit",
-                                    "Particle edit exceeds the Undo and Redo budget");
-                        });
+                        doc.edit_source(
+                            previous,
+                            opacity ? "Toggle particle opacity" : "Set particle evaluation",
+                            [&](Source& source) {
+                                if (opacity)
+                                    source.enable_opacity(request.at("enabled").get<bool>());
+                                else
+                                    source.set_evaluation(
+                                        evaluation == "cpu_alpha" ? ParticleEvaluation::CpuAlpha
+                                        : evaluation == "graph"   ? ParticleEvaluation::Graph
+                                        : evaluation == "gpu"     ? ParticleEvaluation::Gpu
+                                                                  : ParticleEvaluation::Cpu);
+                                if (!doc.retains_history(source))
+                                    throw AuthoringError(
+                                        "history_limit",
+                                        "Particle edit exceeds the Undo and Redo budget");
+                            });
                         if (doc.revision() != previous)
                             changed(editor);
                     } else
                         throw AuthoringError("wrong_document_type",
-                                             "Particle evaluation requires a Particle Effect");
+                                             "Particle settings require a Particle Effect");
                 } else if (action == "particle_program") {
                     if constexpr (std::is_same_v<Source, ParticleEffectSource>) {
                         const auto previous = doc.revision();

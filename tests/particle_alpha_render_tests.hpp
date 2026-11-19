@@ -180,6 +180,67 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     data.version = 5;
     host->preview_particle_effect(effect, data);
     check(draw() == sorted, "Restoring CPU alpha did not restore sorted pixels");
+    data.version = 6;
+    host->preview_particle_effect(effect, data);
+    check(draw() == sorted, "Full particle opacity changed the prior alpha profile's pixels");
+    data.opacity_start = data.opacity_end = 0;
+    host->preview_particle_effect(effect, data);
+    assert_center(draw(), {0, 0, 0});
+    data.opacity_start = 1;
+    host->preview_particle_effect(effect, data);
+    for (unsigned c = 0; c < 3; ++c)
+        expected[c] = front[c] * .25f + back[c] * .1875f;
+    const auto fading = draw();
+    assert_center(fading, expected);
+    check(fading != sorted, "Opacity over life did not reach the actual Material alpha path");
+    data.opacity_curve = {{0, 0, false}, {1, 1, false}};
+    host->preview_particle_effect(effect, data);
+    assert_center(draw(), expected);
+    data.opacity_curve = {{0, .2, true}, {1, 1, false}};
+    host->preview_particle_effect(effect, data);
+    for (unsigned c = 0; c < 3; ++c)
+        expected[c] = front[c] * .1f + back[c] * .09f;
+    assert_center(draw(), expected);
+    data.opacity_curve.clear();
+    data.emission = ParticleEmission::Continuous;
+    data.capacity = 2;
+    data.spawn_rate = 1;
+    for (auto& emitter : scene.particles)
+        emitter.time = 2.5;
+    host->preview_particle_effect(effect, data);
+    // Birth ages1.5/.5 give opacity.25/.75, times Material alpha.5.
+    // Same-color layers combine to A=.125+.375*(1-.125)=.453125.
+    constexpr float combined = .453125f;
+    for (unsigned c = 0; c < 3; ++c)
+        expected[c] = front[c] * combined + back[c] * combined * (1 - combined);
+    const auto multiple = draw();
+    assert_center(multiple, expected);
+    check(renderer.draw_stats().instances == 4 && renderer.draw_stats().calls == 4,
+          "Per-birth opacity merged transparent particles or lost their membership");
+    scene.settings.weighted_transparency = true;
+    check(draw(true) == multiple, "Weighted fallback lost per-birth opacity");
+    scene.settings.weighted_transparency = false;
+    camera_world.m = {-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 6};
+    for (unsigned c = 0; c < 3; ++c)
+        expected[c] = back[c] * combined + front[c] * combined * (1 - combined);
+    assert_center(draw(), expected);
+    camera_world = {};
+    middle.renderer.materials = {{slot, engine_material(EngineMaterial::TwoSided)}};
+    middle.renderer.material_parameters.clear();
+    scene.meshes.push_back(middle);
+    for (unsigned c = 0; c < 3; ++c)
+        expected[c] =
+            front[c] * combined + opaque[height / 2 * width + width / 2][c] * (1 - combined);
+    assert_center(draw(), expected);
+    scene.meshes.clear();
+    data.version = 5;
+    data.opacity_start = data.opacity_end = 1;
+    data.emission = ParticleEmission::Burst;
+    data.capacity = 1;
+    for (auto& emitter : scene.particles)
+        emitter.time = 1;
+    host->preview_particle_effect(effect, data);
+    check(draw() == sorted, "Opacity profile recovery changed earlier sorted-alpha pixels");
     context->WaitForIdle();
     std::ofstream receipt(root / "particle-alpha.json");
     receipt << nlohmann::json{{"frames", frames},
@@ -192,7 +253,8 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
               << " analytical blend/sort/cameras/opaque/weighted/profile recovery passed\n";
 }
 inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
-                    const std::filesystem::path& content, const std::filesystem::path& images) {
+                    const std::filesystem::path& content, const std::filesystem::path& images,
+                    bool opacity = false) {
     using test_bloom::check;
 #ifdef _WIN32
     const RuntimePackageTarget target{"windows", "d3d12"};
@@ -214,7 +276,7 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     const auto ticket = request_particle_effect(effects, content, catalog, {effect});
     check(effects.wait(ticket, std::chrono::seconds(15)), "Source-free alpha Effect load stalled");
     const auto selected = effects.acquire(ticket);
-    check(selected && selected->version == 5 && !selected->program,
+    check(selected && selected->version == (opacity ? 6u : 5u) && !selected->program,
           "Source-free alpha content selected another evaluation profile");
     RuntimeWorld world({}, {}, std::nullopt, content, false);
     world.scene.restore_snapshot(load_game_scene(content, {scene}));
@@ -267,7 +329,8 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
         changed += rendered[i] != empty[i];
     check(changed > 100, "Source-free alpha Game did not draw its particles");
     std::filesystem::create_directories(images);
-    save_view_png(images / "sorted-alpha-particles.png", 640, 360,
+    save_view_png(images / (opacity ? "particle-opacity.png" : "sorted-alpha-particles.png"), 640,
+                  360,
                   {reinterpret_cast<const std::uint8_t*>(rendered.data()), rendered.size() * 4});
     context->WaitForIdle();
     std::cout << "PARTICLE_ALPHA_SOURCE_HIDDEN emitters=2 changed_pixels=" << changed << '\n';

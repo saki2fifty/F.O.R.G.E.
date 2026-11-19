@@ -269,11 +269,13 @@ void resource_profile() {
     reject([&] { validate_particle_material_profile(material, true); });
     material.values.depth_write = false;
     validate_particle_material_profile(material, true);
+    validate_particle_material_profile(material, true, true);
     reject([&] { validate_particle_material_profile(material); });
     material.values.depth_test = false;
     reject([&] { validate_particle_material_profile(material, true); });
     material.values.depth_test = true;
     material.values.alpha = MaterialAlpha::Opaque;
+    reject([&] { validate_particle_material_profile(material, true, true); });
     material.values.parameters["transmissionFactor"] = {MaterialParameterType::Scalar, {.5}};
     validate_render_material(material);
     reject([&] { validate_particle_material_profile(material); });

@@ -3539,6 +3539,26 @@ Catalog discovery advertises `runtime_particle_alpha:1`; GPU and graph support
 are not required for it. Both protocols cover CPU5 publication, refreshed metadata
 and exact source reopen through the same source owner.
 
+## Particle opacity through the source owner
+
+`asset.document.particle_opacity` requires `asset.write`, `editor:"particle_effect"`,
+the exact document session/revision and boolean `enabled`. Enabling it selects
+CPU sorted-alpha values6/`cpu_alpha2`; disabling retains opacity settings and
+projects values5 when that backend remains selected. Source6 preserves the
+enabled state and local opacity-stop UUIDs across CPU/GPU/Graph changes. These
+other backends do not apply opacity. Invalid, stale, wrong-document and busy
+requests reject through the existing source owner. A no-op retains its revision.
+
+`asset.particles.catalog` describes opacity fields, requirements and limits. Use
+ordinary validated source patches for `opacity_start`, `opacity_end` and
+`opacity_curve` (2–16 normalized time/value Step/Linear stops with local UUIDs).
+The built-in Material must use Blend, depth testing and no depth writes. Save
+publishes through the existing asset pipeline; poll status before Play/export.
+Values6 require effect3/alpha1 plus `runtime_particle_opacity:1`; GPU/Graph support
+is unnecessary. Both MCP protocols exercise discovery, capability filtering,
+revision/session errors, no-op/Undo/Redo, invalid curve refusal, backend retention,
+actual Material/Effect publication, refreshed metadata and exact source reopen.
+
 ## Particle graph authoring
 
 The existing `editor:"material.graph"` owner accepts `domain:"particle"` for

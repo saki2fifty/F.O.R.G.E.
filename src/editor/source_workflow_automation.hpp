@@ -84,6 +84,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                   {"gpu", "gpu_mesh1"},
                   {"graph", "gpu_graph1"},
                   {"cpu_alpha", "cpu_alpha1"}}},
+                {"opacity", "asset.document.particle_opacity enables CPU values6/cpu_alpha2; "
+                            "opacity_start/end and optional opacity_curve multiply Material alpha. "
+                            "Source6 retains settings when another backend is selected. "
+                            "Opacity stops use local UUIDs, normalized0–1 time/value and "
+                            "Step/Linear interpolation, like size stops. GPU/Graph do not apply "
+                            "opacity. Requires runtime_particle_opacity1 and alpha1."},
                 {"limits",
                  {{"emitters", particle_emitter_limit},
                   {"effect_capacity", 1024},
@@ -758,9 +764,9 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 }));
         }
     for (const auto* action :
-         {"patch", "particle_evaluation", "particle_program", "paint", "tile_collision",
-          "tile_animation", "tile_autotile", "stroke", "mesh_stroke", "fill", "copy_pixels",
-          "cancel_pixels", "undo", "redo", "save", "close"}) {
+         {"patch", "particle_evaluation", "particle_opacity", "particle_program", "paint",
+          "tile_collision", "tile_animation", "tile_autotile", "stroke", "mesh_stroke", "fill",
+          "copy_pixels", "cancel_pixels", "undo", "redo", "save", "close"}) {
         auto properties = fields;
         auto needed = required;
         if (std::string_view(action) == "patch") {
@@ -772,6 +778,13 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["evaluation"] = {{"type", "string"},
                                         {"enum", {"cpu", "gpu", "graph", "cpu_alpha"}}};
             needed.push_back("evaluation");
+        } else if (std::string_view(action) == "particle_opacity") {
+            properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
+            properties["enabled"] = {{"type", "boolean"},
+                                     {"description",
+                                      "Enable opacity over life and select CPU sorted-alpha. False "
+                                      "retains opacity settings."}};
+            needed.push_back("enabled");
         } else if (std::string_view(action) == "particle_program") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
             properties["program"] = automation_object(

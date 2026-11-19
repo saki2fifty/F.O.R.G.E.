@@ -102,6 +102,20 @@ int main(int argc, char** argv) {
                 wrong["runtime_particle_alpha"] = invalid;
                 reject([&] { validate_runtime_compatibility(particles, wrong); });
             }
+            effect.metadata["forge.particle_effect"]["value_version"] = 6;
+            particles.replace(effect);
+            reject([&] { validate_runtime_compatibility(particles, cpu_alpha_kit); });
+            auto opacity_kit = cpu_alpha_kit;
+            opacity_kit["runtime_particle_opacity"] = particle_opacity_profile_version;
+            validate_runtime_compatibility(particles, opacity_kit);
+            for (const Json& invalid : {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"),
+                                        Json(2), Json((std::uint64_t{1} << 32) + 1)}) {
+                auto wrong = opacity_kit;
+                wrong["runtime_particle_opacity"] = invalid;
+                reject([&] { validate_runtime_compatibility(particles, wrong); });
+            }
+            opacity_kit.erase("runtime_particle_alpha");
+            reject([&] { validate_runtime_compatibility(particles, opacity_kit); });
             effect.metadata["forge.particle_effect"]["value_version"] = 4;
             particles.replace(effect);
             AssetRecord graph_shader{AssetId::generate(), ShaderAsset::type,

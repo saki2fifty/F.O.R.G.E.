@@ -8,15 +8,18 @@ parser = argparse.ArgumentParser(description=__doc__)
 for name in ('fixture', 'gallery', 'renderer', 'scratch'):
     parser.add_argument(name, type=Path)
 parser.add_argument('--vulkan', action='store_true')
+parser.add_argument('--opacity', action='store_true')
 arguments = parser.parse_args()
 fixture, gallery, renderer, scratch = (getattr(arguments, name).resolve()
     for name in ('fixture', 'gallery', 'renderer', 'scratch'))
 scratch.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as temporary:
-    subprocess.run([str(fixture), '--verify-export', str(gallery), temporary],
+    action = '--verify-export-opacity' if arguments.opacity else '--verify-export'
+    subprocess.run([str(fixture), action, str(gallery), temporary],
                    check=True, timeout=120)
     content = list(Path(temporary).glob('*/relocated-content'))
     assert len(content) == 1, content
-    mode = '--alpha-gallery' if arguments.vulkan else 'particle-alpha-gallery'
+    mode = (('--opacity-gallery' if arguments.opacity else '--alpha-gallery') if arguments.vulkan
+            else ('particle-opacity-gallery' if arguments.opacity else 'particle-alpha-gallery'))
     subprocess.run([str(renderer), str(scratch / 'native'), mode, str(content[0])],
                    check=True, timeout=150)

@@ -459,3 +459,9 @@ CPU5/`cpu_alpha1` requires `runtime_particle_alpha:1` in addition to
 Material edges retain selected revisions and alpha/depth state. Source5 and an
 inactive retained program are not runtime compilation inputs. Older kits reject
 values5; existing recipe/envelope3 and values1–4 retain their meanings.
+
+CPU6/`cpu_alpha2` also requires `runtime_particle_opacity:1`. Its start/end/curve
+projection is cooked through the same effect owner and retains the ordinary
+Mesh/Material closure. It needs neither source files nor GPU/graph support.
+Source6's inactive opacity or program settings do not add runtime dependency edges.
+Older kits reject values6 before packaging; values1–5 retain their meanings.

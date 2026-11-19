@@ -12,6 +12,8 @@ Sources use `.particles.json`, format `forge.particle_effect`. Existing version 
 explicit GPU evaluation uses source3/profile `gpu_mesh1`. Authored particle
 graphs use source4 and active values4/profile `gpu_graph1` (see below). Source5
 adds explicit CPU values5/profile `cpu_alpha1` for sorted transparent meshes.
+Source6 adds CPU values6/`cpu_alpha2` for opacity over life while retaining inactive
+opacity and graph settings across evaluation changes.
 Values include a Mesh reference, optional Material override, emission
 mode, capacity, burst count, rate, lifetime, direction/cone half-angle, speed range,
 constant acceleration, start/end size and linear RGB. Version 2 adds spawn shape,
@@ -29,7 +31,7 @@ editable sources nor a compiler.
 
 New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope containing
 `format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3, graph4
-or sorted-alpha CPU5;
+or sorted-alpha CPU5/opacity CPU6;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -55,9 +57,10 @@ are opaque source metadata, with no runtime interpretation or reference guessing
 
 All profiles admit one static triangle part, one LOD and one material slot with
 built-in PBR or Unlit Materials. CPU1/2 and GPU3/4 require opaque/masked Materials.
-CPU5 additionally admits Blend with depth testing and no depth writes. Skinning,
+CPU5 additionally admits Blend with depth testing and no depth writes; CPU6
+requires this Blend profile for opacity. Skinning,
 morphs, point/line topology, transmission and custom Shader surfaces reject with
-diagnostics. Collision, trails, texture-sheet animation and per-particle opacity
+diagnostics. Collision, trails and texture-sheet animation
 are outside these profiles. The bounded stateless graph profile below extends
 position, size and RGB without adding those capabilities.
 
@@ -82,6 +85,28 @@ Publication and renderer admission call the same Material profile validator.
 Export requires `engine.runtime_particle_alpha:1` for values5, independently of
 GPU/graph support. Older kits reject CPU5; old cooks keep their original bytes.
 Gallery240 supplies a shared translucent Material and two colored emitters.
+
+## CPU opacity over life
+
+[ADR063](decisions/063-particle-opacity.md) extends sorted-alpha evaluation with
+explicit values6/`cpu_alpha2`. The existing CPU sampler evaluates normalized
+start/end opacity or 2–16 Step/Linear stops at age/lifetime. Material, texture and
+vertex alpha multiply this per-birth value; RGB and size remain independent.
+Opacity does not consume random numbers or change births, motion or clocks.
+
+Source6 retains `opacity_enabled`, `opacity_start`, `opacity_end`, `opacity_curve`
+and local stop UUIDs, including across GPU/Graph switches. The compiled projection
+contains opacity fields only for active values6. Disabled CPU alpha projects values5.
+Inactive opacity remains validated with double CPU precision. Enabling opacity
+selects CPU sorted-alpha through one shared native/MCP source operation; ordinary
+validated patch/history operations edit its start/end and curve fields.
+
+The seven-row packet remains unchanged: new tint flag3 admits opacity in the first
+lighting-basis row's unused W lane; the vertex path multiplies Color.a. Existing
+flags0/1/2, Sprite/wind/temporal profiles and GPU cooked output keep their meaning.
+No per-particle Material copy or second queue is introduced. Values6 require the
+independent `runtime_particle_opacity:1` capability plus effect3/alpha1. Gallery241
+reuses Gallery240's glass Material with a separate editable fading effect.
 
 ## Equations and time
 

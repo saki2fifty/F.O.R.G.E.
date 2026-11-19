@@ -177,10 +177,10 @@ class ParticleEffectEditor {
             FORGE_UI_PROBE("particles:redo");
             ImGui::EndDisabled();
             const auto data = document_->source().compiled();
-            int evaluation = data.version == 5   ? 3
-                             : data.version == 4 ? 2
-                             : data.version == 3 ? 1
-                                                 : 0;
+            int evaluation = particle_uses_sorted_alpha(data) ? 3
+                             : data.version == 4              ? 2
+                             : data.version == 3              ? 1
+                                                              : 0;
             if (ImGui::Combo("Evaluation", &evaluation, "CPU\0GPU\0Graph\0CPU (sorted alpha)\0"))
                 mutate("Set particle evaluation", [&](auto& source) {
                     ParticleEffectSource candidate{source};
@@ -312,6 +312,27 @@ class ParticleEffectEditor {
             ImGui::EndDisabled();
             lifetime_channel(ParticleLifetimeChannel::Size);
             lifetime_channel(ParticleLifetimeChannel::Color);
+            bool opacity = document_->source().document.value("opacity_enabled", false);
+            if (ImGui::Checkbox("Use opacity over life", &opacity))
+                mutate("Toggle particle opacity", [&](auto& value) {
+                    ParticleEffectSource candidate{value};
+                    candidate.enable_opacity(opacity);
+                    value = std::move(candidate.document);
+                });
+            FORGE_UI_PROBE("particles:opacity");
+            ui::help("Enabling opacity selects CPU (sorted alpha). Opacity multiplies Material "
+                     "and texture alpha. GPU/Graph retain these settings without applying them. "
+                     "Use a built-in Blend Material with depth testing and no depth writes.");
+            if (document_->source().document.value("opacity_enabled", false)) {
+                const auto settings = document_->source().document;
+                ImGui::BeginDisabled(!settings.at("opacity_curve").empty());
+                number("Start opacity (0–1)", "opacity_start",
+                       settings.at("opacity_start").get<double>());
+                number("End opacity (0–1)", "opacity_end",
+                       settings.at("opacity_end").get<double>());
+                ImGui::EndDisabled();
+                lifetime_channel(ParticleLifetimeChannel::Opacity);
+            }
             ImGui::BeginDisabled(needs_publish_ || document_->dirty() || !ui::editor_context ||
                                  ui::editor_context->selection.entity().empty());
             if (ui::button("Assign to selected Particle Emitter",
@@ -477,11 +498,15 @@ class ParticleEffectEditor {
     }
     void lifetime_channel(ParticleLifetimeChannel channel) {
         const bool size = channel == ParticleLifetimeChannel::Size;
-        const char* name = size ? "size_curve" : "color_gradient";
+        const bool color = channel == ParticleLifetimeChannel::Color;
+        const char* name = size ? "size_curve" : color ? "color_gradient" : "opacity_curve";
         const std::string probe = std::string("particles:") + name;
         const auto& source = document_->source().document;
         bool enabled = source.contains(name) && !source.at(name).empty();
-        if (ImGui::Checkbox(size ? "Use size curve" : "Use color gradient", &enabled))
+        if (ImGui::Checkbox(size    ? "Use size curve"
+                            : color ? "Use color gradient"
+                                    : "Use opacity curve",
+                            &enabled))
             mutate(std::string("Toggle particle ") + name, [&](auto& value) {
                 ParticleEffectSource candidate{value};
                 candidate.enable_lifetime(channel, enabled);
@@ -529,10 +554,10 @@ class ParticleEffectEditor {
                 set_stop(name, id, "time", at);
             FORGE_UI_PROBE(stop_probe + ":time");
             ImGui::EndDisabled();
-            if (size) {
+            if (!color) {
                 double value = stops[i].at("value").get<double>();
-                if (ImGui::InputDouble("Size (meters)", &value, 0, 0, "%.5g",
-                                       ImGuiInputTextFlags_EnterReturnsTrue))
+                if (ImGui::InputDouble(size ? "Size (meters)" : "Opacity (0–1)", &value, 0, 0,
+                                       "%.5g", ImGuiInputTextFlags_EnterReturnsTrue))
                     set_stop(name, id, "value", value);
             } else {
                 auto value = stops[i].at("value").get<std::array<float, 3>>();

@@ -22,7 +22,8 @@ void validate_particle_mesh_profile(const MeshResourceData& resource) {
             if (node.skin)
                 throw std::runtime_error("Mesh particles cannot bind an animated model skin");
 }
-void validate_particle_material_profile(const MaterialResourceData& material, bool sorted_alpha) {
+void validate_particle_material_profile(const MaterialResourceData& material, bool sorted_alpha,
+                                        bool opacity) {
     validate_render_material(material);
     if (!material.render_textures.empty())
         throw std::runtime_error("Mesh particles require source textures; camera render "
@@ -33,6 +34,8 @@ void validate_particle_material_profile(const MaterialResourceData& material, bo
             "Shader surfaces");
     if (!sorted_alpha && material.values.alpha == MaterialAlpha::Blend)
         throw std::runtime_error("Blend particle materials require CPU (sorted alpha) evaluation");
+    if (opacity && (!sorted_alpha || material.values.alpha != MaterialAlpha::Blend))
+        throw std::runtime_error("Particle opacity requires a CPU sorted-alpha Blend Material");
     if (material.values.alpha == MaterialAlpha::Blend &&
         (!material.values.depth_test || material.values.depth_write))
         throw std::runtime_error(
@@ -59,7 +62,7 @@ std::vector<ParticleRenderInstance> particle_render_instances(const ParticleEffe
         for (const auto value : world.m)
             if (!std::isfinite(value))
                 throw std::runtime_error("Particle instance has a nonfinite world transform");
-        result.push_back({sample.birth, world, sample.color});
+        result.push_back({sample.birth, world, sample.color, sample.opacity});
     }
     return result;
 }

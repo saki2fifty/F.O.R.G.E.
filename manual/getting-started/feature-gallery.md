@@ -1,5 +1,10 @@
 # Explore the Feature Gallery
 
+**241-particle-opacity** shows independent fade-in/fade-out across particle ages.
+Its two emitters share **Assets/Particles/Alpha/FadingCloud.particles.json** and
+the existing **Glass.material.json**. Open the effect for **Use opacity over life**,
+start/end values and editable Step/Linear stops. See [particle opacity](../editor/particles.md).
+
 **240-sorted-alpha-particles** shows overlapping teal and amber mesh particles
 with a solid depth marker. Open **Assets/Particles/Alpha/GlassCloud.particles.json**
 to use **CPU (sorted alpha)**; its shared **Glass.material.json** controls alpha.

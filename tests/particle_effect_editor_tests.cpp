@@ -10,8 +10,7 @@ void require(bool value, const std::string& message) {
     if (!value)
         throw std::runtime_error(message);
 }
-void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
-    const auto root = scratch / AssetId::generate().str();
+void exercise(const std::filesystem::path& root, float scale, bool compact) {
     std::filesystem::create_directories(root / "Assets");
     EngineContext engine;
     Scene scene(engine.world());
@@ -317,6 +316,32 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     click("particles:redo");
     require(editor.document()->source().document == alpha_profile,
             "Native sorted-alpha Redo lost its source selection");
+    const auto opacity_revision = editor.document()->revision();
+    click("particles:opacity");
+    require(editor.document()->source().compiled().version == 6 &&
+                editor.document()->source().document.at("program") == graph_profile.at("program") &&
+                editor.document()->revision() == opacity_revision + 1,
+            "Native opacity activation lost retained settings or one-step history");
+    number("particles:opacity_end", ".25");
+    require(editor.document()->source().compiled().opacity_end == .25,
+            "Native end-opacity input did not commit");
+    click("particles:opacity_curve:enable");
+    click("particles:opacity_curve:add");
+    number("particles:opacity_curve:stop:1:value", ".75");
+    choose("particles:opacity_curve:stop:1:interpolation", 1);
+    const auto opacity_source = editor.document()->source().document;
+    require(editor.document()->source().compiled().opacity_curve.size() == 3 &&
+                editor.document()->source().compiled().opacity_curve[1].value == .75 &&
+                editor.document()->source().compiled().opacity_curve[1].hold,
+            "Native opacity curve inputs did not share source/history ownership");
+    number("particles:opacity_curve:stop:1:time", "1");
+    require(editor.document()->source().document == opacity_source && !editor.diagnostic().empty(),
+            "Invalid opacity stop entered native source history");
+    for (unsigned i = 0; i < 16 && editor.document()->source().document != alpha_profile; ++i)
+        editor.undo();
+    frame();
+    require(editor.document()->source().document == alpha_profile,
+            "Native opacity Undo did not restore the exact earlier alpha source");
     click("particles:undo");
     // Keep the original lifecycle/close checks applicable, including start-size editing.
     for (unsigned i = 0; i < 32 && editor.document()->source().document != before_extended; ++i)
@@ -397,7 +422,6 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     require(!editor.is_open() && previews > 0 && releases > 0,
             "Particle discard retained document/preview ownership");
     ImGui::DestroyContext();
-    std::filesystem::remove_all(root);
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -405,8 +429,12 @@ int main(int argc, char** argv) {
         require(argc == 2, "Need particle UI scratch root");
         const auto scratch = std::filesystem::absolute(argv[1]);
         for (float scale : {1.f, 1.5f, 2.f})
-            for (bool compact : {false, true})
-                exercise(scratch, scale, compact);
+            for (bool compact : {false, true}) {
+                const auto root = scratch / AssetId::generate().str();
+                exercise(root, scale, compact);
+                // The exercise's project writer and resource owners have closed.
+                std::filesystem::remove_all(root);
+            }
         std::cout
             << "Particle actual mouse/key controls at100/150/200%, full/compact panes, "
                "history, preview clock isolation, publication, attach and dirty close passed\n";

@@ -32,6 +32,7 @@ class MeshDraw {
         const MeshWindSample* previous_wind = nullptr;
         // RGB modulation without the legacy blockout light on built-in Unlit.
         bool material_tint_only = false;
+        std::optional<float> opacity = std::nullopt; // CPU6; multiply Material/vertex alpha.
     };
     // Borrowed only for this submission. The renderer retains the realization;
     // bytes already contain the base static mesh's seven-row instance layout.

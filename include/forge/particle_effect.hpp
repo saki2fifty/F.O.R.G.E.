@@ -21,6 +21,11 @@ struct ParticleColorStop {
     bool hold = false;
     bool operator==(const ParticleColorStop&) const = default;
 };
+struct ParticleOpacityStop {
+    double time = 0, value = 1; // Normalized lifetime and opacity multiplier.
+    bool hold = false;
+    bool operator==(const ParticleOpacityStop&) const = default;
+};
 inline constexpr unsigned particle_graph_profile_version = 1;
 struct ParticleGraphProgram {
     AssetRef<ShaderAsset> shader;
@@ -33,7 +38,7 @@ void validate_particle_graph_program(const ParticleGraphProgram&);
 ParticleGraphProgram decode_particle_graph_program(const nlohmann::json&);
 nlohmann::json encode_particle_graph_program(const ParticleGraphProgram&);
 struct ParticleEffectData {
-    std::uint32_t version = 1; // CPU1/2, GPU3, graph GPU4, or sorted-alpha CPU5.
+    std::uint32_t version = 1; // CPU1/2, GPU3/4, sorted-alpha CPU5, or opacity CPU6.
     AssetRef<MeshAsset> mesh;
     AssetRef<MaterialAsset> material;
     ParticleEmission emission = ParticleEmission::Continuous;
@@ -49,10 +54,15 @@ struct ParticleEffectData {
     std::vector<ParticleSizeStop> size_curve;
     std::vector<ParticleColorStop> color_gradient;
     std::optional<ParticleGraphProgram> program;
+    double opacity_start = 1, opacity_end = 1;
+    std::vector<ParticleOpacityStop> opacity_curve;
     bool operator==(const ParticleEffectData&) const = default;
 };
 constexpr bool particle_uses_gpu(const ParticleEffectData& data) {
     return data.version == 3 || data.version == 4;
+}
+constexpr bool particle_uses_sorted_alpha(const ParticleEffectData& data) {
+    return data.version == 5 || data.version == 6;
 }
 struct ParticleSample {
     // Emitter-scoped transient ordinal; never an entity UUID or saved handle.
@@ -60,6 +70,7 @@ struct ParticleSample {
     std::array<double, 3> position{}, velocity{};
     std::array<float, 3> color{};
     double age = 0, size = 0;
+    double opacity = 1;
     bool operator==(const ParticleSample&) const = default;
 };
 void validate_particle_effect(const ParticleEffectData&);

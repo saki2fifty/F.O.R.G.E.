@@ -1570,7 +1570,15 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                             "invalid instance blockout color");
                     output[6][c] = value;
                 }
-                output[6][3] = item.material_tint_only ? 2 : 1;
+                output[6][3] = item.opacity ? 3 : item.material_tint_only ? 2 : 1;
+            }
+            if (item.opacity) {
+                require(!sprite_ && item.material_tint_only && item.legacy_tint &&
+                            std::isfinite(*item.opacity) && *item.opacity >= 0 &&
+                            *item.opacity <= 1,
+                        "invalid sorted-alpha instance opacity");
+                // Static basis uses XYZ; flag3 alone admits opacity in this spare W lane.
+                output[3][3] = *item.opacity;
             }
             if (wind_) {
                 require(item.wind && item.wind->enabled,

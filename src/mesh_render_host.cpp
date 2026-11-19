@@ -1330,8 +1330,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             object.world = &pose.world;
             object.scope = draw_scope;
             object.gpu = gpu;
-            object.material_tint_only = draw_scope == DrawScope::Particle &&
-                                        particle_sources_.at(mesh.entity).data()->version == 5;
+            object.material_tint_only =
+                draw_scope == DrawScope::Particle &&
+                particle_uses_sorted_alpha(*particle_sources_.at(mesh.entity).data());
             if (gpu) {
                 if (!color || !depth)
                     throw std::runtime_error("GPU particles require explicit camera targets");
@@ -1987,7 +1988,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 previous ? &object.previous_pose->world : nullptr,
                 object.pose ? &object.pose->wind : nullptr,
                 previous ? &object.previous_pose->wind : nullptr,
-                object.material_tint_only};
+                object.material_tint_only,
+                object.mesh->particle_opacity};
     };
     const auto motion_for = [&](const Object& object, unsigned part) {
         MeshDraw::Motion motion;

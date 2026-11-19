@@ -93,6 +93,34 @@ Export with the runtime kit packaged with this editor. An older kit that lacks
 the sorted-alpha profile is rejected. The player needs no compiler or compute
 support for CPU evaluation.
 
+## Opacity over life
+
+Open **Scenes/241-particle-opacity.scene.json** in the Gallery and press **Play**.
+New particles fade in, then fade out as they age. The two emitters share
+**Assets/Particles/Alpha/FadingCloud.particles.json** and the same glass Material
+used by the sorted-alpha example. The camera, light and solid depth marker are
+included; no C++ module is needed.
+
+![Teal and amber mesh particles with different opacities around a solid gray marker](../images/particle-opacity.png)
+
+The fading Gallery scene at three seconds in the Game renderer.
+
+1. Stop Play and open the effect in Content. Enable **Use opacity over life**. This selects **CPU (sorted alpha)**.
+2. Use a built-in **Alpha → Blend** Material with **Depth test** enabled and **Depth write** disabled.
+3. Set **Start opacity (0–1)** and **End opacity (0–1)**. A value of 0 is invisible; 1 retains the Material's original alpha. Values blend across each particle's lifetime.
+4. For a shaped fade, enable **Use opacity curve**. Use **Add stop**, edit each stop's **Time (0–1)** and **Opacity (0–1)**, and choose **Linear** or **Step** under **To next stop**. Endpoints remain at birth (0) and death (1); interior stops can be removed. The curve supports 2–16 stops and replaces start/end interpolation.
+5. Choose **Save / Publish**, save the scene and press Play. Export using the matching runtime kit packaged with this editor.
+
+Opacity multiplies Material, texture and mesh-vertex alpha. For example, Material
+alpha 0.4 and particle opacity 0.5 give alpha 0.2 before any texture or vertex alpha.
+RGB tint and RGB lifetime gradients continue to control color independently.
+
+Disabling **Use opacity over life** retains its values and curve for later use.
+Switching to **CPU**, **GPU** or **Graph** also retains them; these modes do not
+apply opacity. Select **CPU (sorted alpha)** to use enabled opacity again. Undo/Redo
+restores the settings and stop identities. An older runtime kit without the opacity
+profile is rejected during export.
+
 ## Size and color over life
 
 Use start/end size and color for a simple fade in size or RGB. Enable **Use size
@@ -149,7 +177,8 @@ slot. Built-in PBR and Unlit surfaces work. **CPU (sorted alpha)** additionally
 accepts Blend Materials with depth testing and no depth writes; other evaluation
 modes require opaque/masked Materials. Skinned/morphing meshes, transmission and
 custom Shader surfaces report errors. Particles do not cast shadows. Per-particle
-opacity curves and transparent GPU particles are not supported.
+opacity is supported by CPU sorted-alpha evaluation; transparent GPU particles
+are not supported.
 
 Changing the seed restarts the effect with a different pattern. C++ can adjust the
 native component; `sdk/sample/particle_probe.cpp` demonstrates seed/speed changes

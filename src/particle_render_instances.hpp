@@ -5,11 +5,13 @@
 #include <forge/particle_effect.hpp>
 namespace forge {
 void validate_particle_mesh_profile(const MeshResourceData&);
-void validate_particle_material_profile(const MaterialResourceData&, bool sorted_alpha = false);
+void validate_particle_material_profile(const MaterialResourceData&, bool sorted_alpha = false,
+                                        bool opacity = false);
 struct ParticleRenderInstance {
     std::uint64_t birth;
     AffineTransform world;
     std::array<float, 3> color;
+    double opacity = 1;
 };
 std::vector<ParticleRenderInstance>
 particle_render_instances(const ParticleEffectData&, double, std::uint32_t, const AffineTransform&,

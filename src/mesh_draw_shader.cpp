@@ -190,6 +190,8 @@ previous=mul(float3x3(previousRows[0].xyz,previousRows[1].xyz,previousRows[2].xy
     }
     if (!sprite_profile) {
         vs += instanced ? "o.LegacyTint=instance.Tint;\n" : "o.LegacyTint=g_Object[14];\n";
+        if (instanced)
+            vs += "if(instance.Tint.w==3)o.Color.a*=instance.B0.w;\n";
         if (fetch.wind)
             vs += R"(
     ForgeSurfaceFrame frame=ForgeMakeSurfaceFrame(basis,v.Normal,v.Tangent);

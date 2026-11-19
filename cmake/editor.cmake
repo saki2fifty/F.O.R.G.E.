@@ -37,6 +37,8 @@ if(BUILD_TESTING)
  copy_required_dlls(forge_particle_alpha_gallery_tests)
  add_test(NAME particle_alpha_gallery_game COMMAND ${Python3_EXECUTABLE} "${PROJECT_SOURCE_DIR}/tests/particle_alpha_gallery_test.py" $<TARGET_FILE:forge_particle_alpha_gallery_tests> "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" $<TARGET_FILE:forge_viewport_tests> "${CMAKE_BINARY_DIR}/grid-test-images/particle-alpha-gallery")
  set_tests_properties(particle_alpha_gallery_game PROPERTIES TIMEOUT 300)
+ add_test(NAME particle_opacity_gallery_game COMMAND ${Python3_EXECUTABLE} "${PROJECT_SOURCE_DIR}/tests/particle_alpha_gallery_test.py" $<TARGET_FILE:forge_particle_alpha_gallery_tests> "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" $<TARGET_FILE:forge_viewport_tests> "${CMAKE_BINARY_DIR}/grid-test-images/particle-opacity-gallery" --opacity)
+ set_tests_properties(particle_opacity_gallery_game PROPERTIES TIMEOUT 300)
  # Program cooking belongs to the native editor profile. CPU source admission is
  # shared with the existing cross-platform Sprite Gallery test.
  add_executable(forge_sprite_material_gallery_tests tests/sprite_material_gallery_tests.cpp)

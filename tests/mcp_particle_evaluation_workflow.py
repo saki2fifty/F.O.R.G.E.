@@ -13,11 +13,15 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     tool = next(t for t in tools if t['name'] == 'forge_asset_document_particle_evaluation')
     assert tool['inputSchema']['properties']['editor']['const'] == owner
     assert tool['inputSchema']['properties']['evaluation']['enum'] == ['cpu', 'gpu', 'graph', 'cpu_alpha']
-    def save():
-        assert edit('forge_asset_document_save', owner)['ok']
+    opacity_tool = next(t for t in tools if t['name'] == 'forge_asset_document_particle_opacity')
+    assert opacity_tool['inputSchema']['properties']['editor']['const'] == owner
+    assert opacity_tool['inputSchema']['properties']['enabled']['type'] == 'boolean'
+    assert 'cpu_alpha2' in catalog['opacity'] and 'runtime_particle_opacity1' in catalog['opacity']
+    def save(editor=owner):
+        assert edit('forge_asset_document_save', editor)['ok']
         deadline = time.monotonic() + 35
         while True:
-            settled = status(owner)
+            settled = status(editor)
             if not settled['save_requested'] and not settled['publishing']:
                 break
             assert time.monotonic() < deadline, settled
@@ -34,6 +38,8 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     assert created['ok'], created
     before = content(owner)
     old = status(owner)
+    assert edit('forge_asset_document_particle_opacity', owner, enabled=False)['ok']
+    assert content(owner) == before and status(owner)['revision'] == old['revision']
     assert edit('forge_asset_document_particle_evaluation', owner, evaluation='gpu')['ok']
     gpu = content(owner)
     expected = dict(before, version=3, profile='gpu_mesh1')
@@ -79,6 +85,61 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     assert edit('forge_asset_document_close', owner)['ok']
     assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
     assert content(owner) == alpha
+    # A real published Blend Material is required by the opacity profile.
+    material_path = 'Assets/Opacity.material.json'
+    assert mutate('forge_asset_document_create', editor='material', path=material_path, patch=[
+        dict(op='replace', path='/overrides', value=dict(model='forge.gltf.unlit.v1',
+                                                        alpha=2, depth_test=True, depth_write=False))])['ok']
+    material = content('material')['asset_id']
+    save('material')
+    assert edit('forge_asset_document_close', 'material')['ok']
+    assert edit('forge_asset_document_patch', owner, patch=[
+        dict(op='replace', path='/material', value=material)])['ok']
+    bound_alpha = content(owner)
+    old = status(owner)
+    assert edit('forge_asset_document_particle_opacity', owner, enabled=True)['ok']
+    opacity = dict(bound_alpha, version=6, profile='cpu_alpha2', opacity_enabled=True,
+                   opacity_start=1, opacity_end=0, opacity_curve=[])
+    assert content(owner) == opacity
+    failed(mutate('forge_asset_document_particle_opacity', editor=owner,
+                  document_session=old['session'], document_revision=old['revision'],
+                  enabled=False), 'stale_document')
+    failed(mutate('forge_asset_document_particle_opacity', editor=owner,
+                  document_session=old['session'] + 1000,
+                  document_revision=status(owner)['revision'], enabled=False), 'wrong_document')
+    unchanged = status(owner)['revision']
+    assert edit('forge_asset_document_particle_opacity', owner, enabled=True)['ok']
+    assert status(owner)['revision'] == unchanged
+    for invalid in (None, 0, 1, 'true', []):
+        assert not edit('forge_asset_document_particle_opacity', owner, enabled=invalid)['ok']
+        assert content(owner) == opacity and status(owner)['revision'] == unchanged
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == bound_alpha
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == opacity
+    opacity_stops = [dict(id=str(uuid4()), time=t, value=v, interpolation=mode)
+                     for t, v, mode in ((0, 0, 'linear'), (.4, 1, 'step'), (1, 0, 'linear'))]
+    assert edit('forge_asset_document_patch', owner, patch=[
+        dict(op='replace', path='/opacity_curve', value=opacity_stops)])['ok']
+    opacity = content(owner)
+    unchanged = status(owner)['revision']
+    assert not edit('forge_asset_document_patch', owner, patch=[
+        dict(op='replace', path='/opacity_curve/1/time', value=0)])['ok']
+    assert content(owner) == opacity and status(owner)['revision'] == unchanged
+    assert edit('forge_asset_document_particle_evaluation', owner, evaluation='gpu')['ok']
+    assert content(owner)['opacity_curve'] == opacity_stops
+    assert edit('forge_asset_document_particle_evaluation', owner, evaluation='cpu_alpha')['ok']
+    assert content(owner) == opacity
+    assert edit('forge_asset_document_particle_opacity', owner, enabled=False)['ok']
+    assert content(owner)['profile'] == 'cpu_alpha1'
+    assert content(owner)['opacity_curve'] == opacity_stops
+    assert edit('forge_asset_document_particle_opacity', owner, enabled=True)['ok']
+    assert content(owner) == opacity
+    settled = save()
+    metadata = read('forge_asset_read', asset=settled['asset'])['metadata']['forge.particle_effect']
+    assert metadata['version'] == 3 and metadata['value_version'] == 6
+    assert json.loads((root / 'Game' / path).read_text()) == opacity
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
+    assert content(owner) == opacity
     assert edit('forge_asset_document_particle_evaluation', owner, evaluation='cpu')['ok']
     assert edit('forge_asset_document_close', owner, discard=True)['ok']
 

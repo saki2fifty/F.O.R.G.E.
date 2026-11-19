@@ -68,6 +68,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 
 | [061](061-particle-graph-programs.md) | Bounded particle programs share graph, Shader, Effect and renderer ownership |
 | [062](062-sorted-alpha-particles.md) | Explicit CPU alpha uses existing source, Material and sorted rendering owners |
+| [063](063-particle-opacity.md) | CPU lifetime opacity shares source, sampler and existing instance/Material alpha |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

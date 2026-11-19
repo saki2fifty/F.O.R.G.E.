@@ -57,9 +57,12 @@ template <class Stops> void validate_stops(const Stops& stops, bool gpu) {
                     "GPU particle stop times must remain distinct at float precision");
             previous_gpu = time;
         }
-        if constexpr (std::is_same_v<Stops, std::vector<ParticleSizeStop>>)
-            range(stop.value, .001, 100, "size stop");
-        else
+        if constexpr (std::is_arithmetic_v<decltype(stop.value)>) {
+            if constexpr (std::is_same_v<Stops, std::vector<ParticleSizeStop>>)
+                range(stop.value, .001, 100, "size stop");
+            else
+                range(stop.value, 0, 1, "opacity stop");
+        } else
             for (const auto value : stop.value)
                 range(value, 0, 1, "color stop");
     }
@@ -75,7 +78,7 @@ template <class Stops> auto sample_stops(const Stops& stops, double time) {
     if (previous.hold)
         return previous.value;
     const auto fraction = (time - previous.time) / (next->time - previous.time);
-    if constexpr (std::is_same_v<Stops, std::vector<ParticleSizeStop>>)
+    if constexpr (std::is_arithmetic_v<decltype(previous.value)>)
         return std::lerp(previous.value, next->value, fraction);
     else {
         auto value = previous.value;
@@ -127,7 +130,7 @@ nlohmann::json encode_particle_graph_program(const ParticleGraphProgram& program
             {"maximum_size", program.maximum_size}};
 }
 void validate_particle_effect(const ParticleEffectData& data) {
-    if (data.version < 1 || data.version > 5)
+    if (data.version < 1 || data.version > 6)
         throw std::runtime_error("Unknown particle value version");
     if (!data.mesh.id)
         throw std::runtime_error("Particle effect requires a Mesh");
@@ -165,6 +168,12 @@ void validate_particle_effect(const ParticleEffectData& data) {
     range(data.drag, 0, 64, "drag");
     validate_stops(data.size_curve, particle_uses_gpu(data));
     validate_stops(data.color_gradient, particle_uses_gpu(data));
+    range(data.opacity_start, 0, 1, "start opacity");
+    range(data.opacity_end, 0, 1, "end opacity");
+    validate_stops(data.opacity_curve, false);
+    if (data.version != 6 &&
+        (data.opacity_start != 1 || data.opacity_end != 1 || !data.opacity_curve.empty()))
+        throw std::runtime_error("Particle opacity requires the CPU opacity profile");
     if (data.version == 4) {
         if (!data.program)
             throw std::runtime_error("Particle graph requires a program");
@@ -185,7 +194,7 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
     const auto profile = source.at("profile").get<std::string>();
     if (!((version == 1 && profile == "cpu_mesh1") || (version == 2 && profile == "cpu_mesh2") ||
           (version == 3 && profile == "gpu_mesh1") || (version == 4 && profile == "gpu_graph1") ||
-          (version == 5 && profile == "cpu_alpha1")))
+          (version == 5 && profile == "cpu_alpha1") || (version == 6 && profile == "cpu_alpha2")))
         throw std::runtime_error("Unsupported particle effect format/version/profile");
     static const std::set<std::string> fields{
         "format",     "version",      "profile",     "mesh",       "material",
@@ -197,7 +206,9 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
             !(version >= 2 &&
               (name == "shape" || name == "shape_size" || name == "shape_radius" ||
                name == "drag" || name == "size_curve" || name == "color_gradient")) &&
-            !(version == 4 && name == "program"))
+            !(version == 4 && name == "program") &&
+            !(version == 6 &&
+              (name == "opacity_start" || name == "opacity_end" || name == "opacity_curve")))
             throw std::runtime_error("Unknown particle effect field: " + name);
     if (source.contains("extensions") && !source.at("extensions").is_object())
         throw std::runtime_error("Particle effect extensions must be an object");
@@ -236,6 +247,16 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
     number("speed_max", data.speed_max);
     number("size_start", data.size_start);
     number("size_end", data.size_end);
+    if (data.version == 6) {
+        data.opacity_start = scalar(source.at("opacity_start"));
+        data.opacity_end = scalar(source.at("opacity_end"));
+        const auto& stops = source.at("opacity_curve");
+        if (!stops.is_array() || stops.size() > 16)
+            throw std::runtime_error("Particle opacity stop count exceeds limit");
+        for (const auto& stop : stops)
+            data.opacity_curve.push_back(
+                {scalar(stop.at("time")), scalar(stop.at("value")), stop_hold(stop)});
+    }
     if (source.contains("direction"))
         vector_value(source.at("direction"), data.direction);
     if (source.contains("acceleration"))
@@ -298,7 +319,8 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
                     : data.version == 2 ? "cpu_mesh2"
                     : data.version == 3 ? "gpu_mesh1"
                     : data.version == 4 ? "gpu_graph1"
-                                        : "cpu_alpha1"},
+                    : data.version == 5 ? "cpu_alpha1"
+                                        : "cpu_alpha2"},
         {"mesh", data.mesh},
         {"emission", data.emission == ParticleEmission::Burst ? "burst" : "continuous"},
         {"capacity", data.capacity},
@@ -335,6 +357,15 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
     }
     if (data.program)
         result["program"] = encode_particle_graph_program(*data.program);
+    if (data.version == 6) {
+        result["opacity_start"] = data.opacity_start;
+        result["opacity_end"] = data.opacity_end;
+        result["opacity_curve"] = nlohmann::json::array();
+        for (const auto& stop : data.opacity_curve)
+            result["opacity_curve"].push_back({{"time", stop.time},
+                                               {"value", stop.value},
+                                               {"interpolation", stop.hold ? "step" : "linear"}});
+    }
     return result;
 }
 std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData& data, double seconds,
@@ -409,6 +440,10 @@ std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData& dat
                 origin[i] = radius * (side[i] * std::cos(angle) + up[i] * std::sin(angle));
         }
         const auto fraction = particle.age / data.lifetime;
+        if (data.version == 6)
+            particle.opacity = data.opacity_curve.empty()
+                                   ? std::lerp(data.opacity_start, data.opacity_end, fraction)
+                                   : sample_stops(data.opacity_curve, fraction);
         particle.size = data.size_curve.empty()
                             ? std::lerp(data.size_start, data.size_end, fraction)
                             : sample_stops(data.size_curve, fraction);

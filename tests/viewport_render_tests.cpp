@@ -247,7 +247,8 @@ int main(int argc, char** argv) {
     try {
         require(argc == 2 || argc == 3 ||
                     (argc == 4 && (std::string_view(argv[2]) == "particle-graphs" ||
-                                   std::string_view(argv[2]) == "particle-alpha-gallery")),
+                                   std::string_view(argv[2]) == "particle-alpha-gallery" ||
+                                   std::string_view(argv[2]) == "particle-opacity-gallery")),
                 "Expected image output directory, optional render case and graph content root");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
@@ -291,9 +292,11 @@ int main(int argc, char** argv) {
                 forge::test_particle_graph_render::exercise(isolated, context, argv[3], images);
             } else if (selected == "particle-alpha")
                 forge::test_particle_alpha::exercise(isolated, context, images);
-            else if (selected == "particle-alpha-gallery") {
+            else if (selected == "particle-alpha-gallery" ||
+                     selected == "particle-opacity-gallery") {
                 require(argc == 4, "Sorted-alpha render needs relocated cooked content");
-                forge::test_particle_alpha::gallery(isolated, context, argv[3], images);
+                forge::test_particle_alpha::gallery(isolated, context, argv[3], images,
+                                                    selected == "particle-opacity-gallery");
             } else if (selected == "lightmaps")
                 forge::lightmap_test::exercise_gpu(
                     isolated, context,

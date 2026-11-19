@@ -50,7 +50,8 @@ CPU5 does not require GPU or graph capability. Older kits reject the new values.
 The ParticleEmitter layout, gameplay C ABI and asset/importer identities do not
 change; no source or identity migration is required.
 
-Per-particle opacity curves, transparent GPU particles, billboards, collision and
-trails remain outside this profile. Verification must cover actual cross-emitter
+Per-particle opacity uses the separate CPU6 profile in
+[ADR063](063-particle-opacity.md). Transparent GPU particles, billboards, collision
+and trails remain outside this profile. Verification must cover actual cross-emitter
 and ordinary-Mesh ordering, weighted fallback, source-hidden relocated content,
 native controls, both MCP envelopes and exact kit refusal before completion.

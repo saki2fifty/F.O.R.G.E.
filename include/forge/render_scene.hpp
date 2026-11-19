@@ -58,6 +58,7 @@ struct RenderMesh {
     bool selectable = true;
     bool particle_source = false; // Derived draw-owner scope, not another entity.
     std::uint64_t birth = 0;      // Transient ordering within a particle emitter.
+    std::optional<float> particle_opacity = std::nullopt; // Derived CPU6 multiplier only.
 };
 struct RenderParticleEmitter {
     EntityId entity;

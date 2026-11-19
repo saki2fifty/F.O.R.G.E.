@@ -1,5 +1,25 @@
 # README screenshots
 
+## Particle opacity Game view
+
+Canonical image: [particle-opacity.png](../../../manual/images/particle-opacity.png).
+The original640 by360 output shows Gallery241 at three seconds, with independently
+fading teal/amber particles and an opaque marker. It reuses Gallery240's glass
+Material. The native fixture publishes the real Effect/Material closure, hides its
+source, relocates it, evaluates the fixed-clock RuntimeWorld and draws through the
+production Game FrameRenderer. Removing particles must change more than100pixels;
+the separate numerical fixture verifies alpha multiplication, zero/full opacity,
+Step/Linear curves, independent ages, ordering/cameras/depth and recovery.
+
+Reproduce with `particle_opacity_gallery_game_vulkan` and
+`tests/particle_alpha_gallery_test.py --opacity`. The capture was personally viewed
+and copied byte-for-byte, with no crop, resize, retouch or inserted controls.
+Image SHA-256: `6c26e647416b7993587235c9d51d42f33db51a9a480714255c87f80b9b651446`.
+Compiled source-input SHA-256: `2c3e59c17f9127c27735aa84be4a3bfd69fbd01943250525233f5d06d219bcdc`.
+This is unassigned development working-tree output on software Vulkan/lavapipe,
+not an editor-controls screenshot or physical GPU, Windows or standalone-EXE
+acceptance. Its real Game/source-hidden assertions passed in the recorded fixture.
+
 ## Sorted-alpha particle Game view
 
 Canonical image: [sorted-alpha-particles.png](../../../manual/images/sorted-alpha-particles.png).

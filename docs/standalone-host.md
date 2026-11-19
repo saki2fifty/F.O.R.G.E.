@@ -48,6 +48,9 @@ Newly published Particle Effects require runtime-kit
 Sorted-alpha CPU values5 additionally require `engine.runtime_particle_alpha:1`;
 they do not require GPU or graph capabilities. Existing CPU1/2 and GPU3/4 meanings
 and ParticleEmitter layouts are unchanged.
+CPU opacity values6 additionally require `engine.runtime_particle_opacity:1`, with
+effect3/alpha1 and no GPU/graph requirement. The new multiplier preserves older
+particle value meanings and the gameplay C ABI.
 These capabilities are derived from exact cooked
 ParticleEffect metadata in the reachable catalog closure. Existing immutable CPU1/2
 recipes keep their prior admission. Missing/mismatched kit profiles reject before

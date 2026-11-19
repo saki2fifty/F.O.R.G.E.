@@ -1,0 +1,71 @@
+{
+  "acceleration": [
+    0,
+    0,
+    0
+  ],
+  "asset_id": "a16bdf58-d856-4ae5-a3a6-60a07dfc3c2f",
+  "burst_count": 32,
+  "capacity": 128,
+  "color_end": [
+    1,
+    1,
+    1
+  ],
+  "color_gradient": [],
+  "color_start": [
+    1,
+    1,
+    1
+  ],
+  "cone_angle": 15.0,
+  "direction": [
+    0.0,
+    1.0,
+    0.0
+  ],
+  "drag": 0.0,
+  "emission": "continuous",
+  "format": "forge.particle_effect",
+  "lifetime": 4,
+  "material": "ef4d0a73-7171-4392-8ab3-24080a160781",
+  "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+  "opacity_curve": [
+    {
+      "id": "26a730eb-6086-405e-b4df-8baaf547ccd4",
+      "interpolation": "linear",
+      "time": 0.0,
+      "value": 0.0
+    },
+    {
+      "id": "5adadbd2-b484-41c5-9d96-da9af4751b92",
+      "interpolation": "linear",
+      "time": 0.15,
+      "value": 1
+    },
+    {
+      "id": "aa69efbf-f600-4f3b-bd2e-51507258c310",
+      "interpolation": "linear",
+      "time": 1.0,
+      "value": 0.0
+    }
+  ],
+  "opacity_enabled": true,
+  "opacity_end": 0,
+  "opacity_start": 0,
+  "profile": "cpu_alpha2",
+  "shape": "box",
+  "shape_radius": 1.0,
+  "shape_size": [
+    2.5,
+    1.5,
+    2
+  ],
+  "size_curve": [],
+  "size_end": 0.1,
+  "size_start": 0.35,
+  "spawn_rate": 32,
+  "speed_max": 0.5,
+  "speed_min": 0.2,
+  "version": 6
+}

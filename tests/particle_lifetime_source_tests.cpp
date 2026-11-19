@@ -323,10 +323,97 @@ void sorted_alpha_profiles() {
     invalid["version"] = 4;
     reject([&] { (void)decode_particle_effect(invalid); });
 }
+void opacity_profiles() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    ParticleGraphProgram program;
+    program.shader.id = AssetId::generate();
+    source.set_graph_program(program, false);
+    source.set_evaluation(ParticleEvaluation::CpuAlpha);
+    const auto before = source.document;
+    source.enable_opacity(false);
+    require(source.document == before, "Disabling absent opacity changed older source bytes");
+    source.enable_opacity(true);
+    auto data = source.compiled();
+    require(data.version == 6 && !particle_uses_gpu(data) && particle_uses_sorted_alpha(data) &&
+                source.document.at("version").get<unsigned>() == 6 &&
+                source.document.at("asset_id") == before.at("asset_id") &&
+                source.document.at("profile").get<std::string>() == "cpu_alpha2" &&
+                data.opacity_start == 1 && data.opacity_end == 0,
+            "Opacity activation lost CPU ownership, identity or default fade");
+    data.emission = ParticleEmission::Burst;
+    data.capacity = data.burst_count = 1;
+    data.lifetime = 4;
+    for (const auto time : {0., .5, 1., 2., 3.5, std::nextafter(4., 0.)}) {
+        auto values = sample_particle_effect(data, time, 42);
+        require(values.size() == 1 && values.front().opacity == 1 - time / 4,
+                "Start/end opacity differs from normalized lifetime interpolation");
+        auto original = data;
+        original.version = 5;
+        original.opacity_end = 1;
+        values.front().opacity = 1;
+        require(values == sample_particle_effect(original, time, 42),
+                "Opacity changed birth membership, motion, size or RGB");
+    }
+    require(sample_particle_effect(data, 4, 42).empty(), "Opacity resurrected a dead birth");
+    data.opacity_curve = {{0, 0, false}, {.5, 1, true}, {1, 0, false}};
+    for (auto [time, expected] : {std::pair{0., 0.}, {1., .5}, {2., 1.}, {3., 1.}})
+        require(sample_particle_effect(data, time, 42).front().opacity == expected,
+                "Opacity Step/Linear boundaries differ from independent expected values");
+    require(decode_particle_effect(encode_particle_effect(data)) == data,
+            "Opacity runtime values did not roundtrip");
+    auto invalid = data;
+    invalid.opacity_curve[1].value = std::numeric_limits<double>::quiet_NaN();
+    reject([&] { validate_particle_effect(invalid); });
+    invalid = data;
+    invalid.opacity_curve[1].time = 0;
+    reject([&] { validate_particle_effect(invalid); });
+    invalid = data;
+    invalid.opacity_end = 1.01;
+    reject([&] { validate_particle_effect(invalid); });
+    invalid = data;
+    invalid.version = 5;
+    reject([&] { validate_particle_effect(invalid); });
+    auto document = encode_particle_effect(data);
+    document["opacity_curve"][0]["interpolation"] = "cubic";
+    reject([&] { (void)decode_particle_effect(document); });
+    source.enable_lifetime(ParticleLifetimeChannel::Opacity, true);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Opacity, .5);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Opacity, std::nextafter(.5, 1.));
+    const auto retained = source.document;
+    for (auto backend : {ParticleEvaluation::Gpu, ParticleEvaluation::Cpu,
+                         ParticleEvaluation::Graph, ParticleEvaluation::CpuAlpha}) {
+        source.set_evaluation(backend);
+        require(source.document.at("opacity_curve") == retained.at("opacity_curve") &&
+                    source.document.at("opacity_enabled").get<bool>() &&
+                    source.graph_program() == program &&
+                    source.compiled().version == (backend == ParticleEvaluation::Gpu     ? 3u
+                                                  : backend == ParticleEvaluation::Cpu   ? 2u
+                                                  : backend == ParticleEvaluation::Graph ? 4u
+                                                                                         : 6u),
+                "Backend transition lost inactive CPU opacity or applied GPU precision to it");
+        require(decode_cooked_particle_effect(source.cook(), source.asset(), 3) ==
+                    source.compiled(),
+                "Source6 cooked projection retained inactive opacity fields");
+    }
+    require(source.document == retained, "Returning to opacity changed retained source/stop IDs");
+    source.enable_opacity(false);
+    require(source.compiled().version == 5 &&
+                source.document.at("opacity_curve") == retained.at("opacity_curve"),
+            "Disabling opacity lost retained stops or changed the older alpha projection");
+    source.enable_opacity(true);
+    require(source.document == retained, "Re-enabling opacity did not restore source bytes");
+    document = source.document;
+    document["opacity_enabled"] = false;
+    reject([&] { ParticleEffectSource{document}.validate(); });
+    document = source.document;
+    document["opacity_curve"][1]["id"] = document["opacity_curve"][0]["id"];
+    reject([&] { ParticleEffectSource{document}.validate(); });
+}
 int main() {
     try {
         graph_program_profiles();
         sorted_alpha_profiles();
+        opacity_profiles();
         legacy_and_promotion();
         backend_profiles_and_envelopes();
         lifetime_identity_and_projection();

@@ -136,7 +136,8 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                     "Mesh particles require static instancing without transmission");
             const auto& data = *source->second.data();
             for (const auto& [id, material] : prepared.materials)
-                validate_particle_material_profile(material.get(), data.version == 5);
+                validate_particle_material_profile(material.get(), particle_uses_sorted_alpha(data),
+                                                   data.version == 6);
             const auto bounds =
                 particle_effect_bounds(data, prepared.mesh->mesh.lods.front().parts.front().bounds,
                                        emitter.world, emitter.emitter.size_multiplier);
@@ -190,6 +191,8 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                 draw.world = instance.world;
                 draw.legacy_tint = instance.color;
                 draw.birth = instance.birth;
+                if (data.version == 6)
+                    draw.particle_opacity = float(instance.opacity);
                 particle_instances_.emplace_back(draw, std::move(pose));
             }
         } catch (const std::exception& error) {

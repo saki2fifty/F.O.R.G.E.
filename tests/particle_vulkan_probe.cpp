@@ -871,7 +871,8 @@ int main(int argc, char** argv) {
         check(argc >= 2 && argc <= 4,
               "Need native particle scratch root, optional Gallery and optional --gpu");
         if ((argc == 3 && std::string_view(argv[2]) == "--alpha") ||
-            (argc == 4 && std::string_view(argv[2]) == "--alpha-gallery")) {
+            (argc == 4 && (std::string_view(argv[2]) == "--alpha-gallery" ||
+                           std::string_view(argv[2]) == "--opacity-gallery"))) {
             RefCntAutoPtr<IRenderDevice> device;
             RefCntAutoPtr<IDeviceContext> context;
             EngineVkCreateInfo create;
@@ -881,7 +882,8 @@ int main(int argc, char** argv) {
             DiligentPresentation presentation(device);
             if (argc == 4)
                 test_particle_alpha::gallery(presentation, context,
-                                             std::filesystem::absolute(argv[3]), argv[1]);
+                                             std::filesystem::absolute(argv[3]), argv[1],
+                                             std::string_view(argv[2]) == "--opacity-gallery");
             else
                 test_particle_alpha::exercise(presentation, context,
                                               std::filesystem::absolute(argv[1]) /
