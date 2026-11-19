@@ -66,8 +66,10 @@ The default `all` retains all seven cases. The recorded audit scope
 identifies the exact diagnostic selection. It does not
 replace the complete editor or Windows package gate; unchanged renderer evidence
 can retain its original source and environment attribution.
-Selections containing the input walkthrough install the matching standalone
-runtime kit before testing so its real export steps use the built host. The
+Selections containing the input walkthrough, including shader diagnostics, build
+the production game host and install the matching standalone runtime kit before
+testing so real export steps use the built host. Shader targets build before kit
+installation with or without the optional input workflow. The
 `captures` Inspector group omits this unused prerequisite.
 
 Root-motion captures reveal the complete required control range before accepting
@@ -651,10 +653,11 @@ limit cancelled it. The full test selection and individual guards remain intact.
 Combined rendering/capture diagnostics retain240 minutes; other focused source
 audits retain150 minutes. Compiler host metadata is retained with the numbered
 viewport diagnostics so native compile measurements can be attributed to their
-runner hardware and image. Windows Debug/core and both native SDK jobs
-allow 180 minutes; Linux Debug/core retains 120 minutes. The same Debug run used
+runner hardware and image. Windows Debug/core allows 240 minutes and both native
+SDK jobs allow 180 minutes; Linux Debug/core retains 120 minutes. The same Debug run used
 about 52 minutes for setup/build and 68 minutes for 310 of 398 tests before its former 120-minute
-job limit expired. These overall budgets cover compilation, complete testing,
+job limit expired. A later Windows Debug run completed 437 of 448 tests before its
+180-minute job deadline. These overall budgets cover compilation, complete testing,
 installation and cleanup; the test selection and individual guards remain explicit.
 The core/SDK CTest invocation gives otherwise unbounded tests a default of 600 seconds.
 

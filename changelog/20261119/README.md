@@ -1,5 +1,12 @@
 # 2026-11-19
 
+## Native validation prerequisites
+
+Shader diagnostics build the production game host and install its matching runtime
+kit before export checks. Both shader-only and combined input selections use the
+same prerequisite ordering. Windows Debug validation allows 240 minutes for its full
+build, test and installation sequence; individual test guards remain unchanged.
+
 ## Native MCP acceptance inputs
 
 The project-to-game fixture authors a Camera through MCP before graphical export
