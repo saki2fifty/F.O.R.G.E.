@@ -90,25 +90,92 @@ std::vector<AssetSourceDependency> source_edges(const AssetRecord& record) {
     result.push_back({record.source, "forge.primary", {}});
     return result;
 }
+void validate_catalog_sources(
+    const std::map<AssetId, AssetRecord>& records, const ProjectPaths& paths,
+    const std::map<AssetId, std::filesystem::path>* normalized = nullptr) {
+    std::map<std::filesystem::path, AssetId, ProjectLocatorLess> locators;
+    std::map<std::string, AssetId> file_identities;
+    std::map<AssetId, std::filesystem::path> observed;
+    const auto& resolved = normalized ? *normalized : observed;
+    for (const auto& [id, record] : records) {
+        const auto absolute = normalized ? normalized->at(id) : paths.resolve(record.source);
+        if (!normalized) {
+            for (const auto& source : record.source_dependencies)
+                (void)paths.resolve(source.source);
+            observed.emplace(id, absolute);
+        }
+        const auto family = record.subasset ? record.subasset->owner : id;
+        const auto [location, fresh] = locators.emplace(absolute, family);
+        if (!fresh && location->second != family)
+            throw std::runtime_error("Asset source already has a different identity");
+        if (fresh && std::filesystem::exists(asset_detail::native_io_path(absolute))) {
+            const auto [file, unique] =
+                file_identities.emplace(paths.file_identity(record.source), family);
+            if (!unique && file->second != family)
+                throw std::runtime_error("Asset sources alias the same filesystem object");
+        }
+    }
+    const ProjectLocatorLess less;
+    for (const auto& [id, record] : records) {
+        if (!record.subasset)
+            continue;
+        const auto& member = *record.subasset;
+        const auto parent = records.find(member.owner);
+        if (parent == records.end() || parent->second.subasset)
+            throw std::runtime_error("Subasset owner must be a registered root asset container: " +
+                                     id.str() + " -> " + member.owner.str());
+        const auto& source = resolved.at(id);
+        const auto& parent_source = resolved.at(member.owner);
+        if (less(source, parent_source) || less(parent_source, source))
+            throw std::runtime_error(
+                "Subasset must share its container's canonical source locator: " + id.str());
+    }
+}
 } // namespace
 std::filesystem::path AssetCatalog::project_index(const std::filesystem::path& root) {
     return ProjectPaths(root).resolve("forge.assets.json");
 }
 AssetCatalog AssetCatalog::open_project(const std::filesystem::path& root) {
     AssetCatalog result(root);
-    const auto index = project_index(root);
+    result.refresh_project();
+    // One-shot callers retain only catalog records. Persistent readers opt in
+    // through refresh_project(), rather than retaining index bytes everywhere.
+    result.invalidate_observation();
+    return result;
+}
+bool AssetCatalog::refresh_project() {
+    const auto index = project_index(project_);
+    std::optional<std::vector<std::byte>> bytes;
     if (std::filesystem::exists(
-            asset_detail::native_io_path(root / "forge.runtime-content.json"))) {
-        RuntimeContentAccess access(root);
-        result.restore(parse_index(access.read("forge.assets.json", max_asset_index_bytes)));
-        return result;
-    }
-    if (std::filesystem::exists(asset_detail::native_io_path(index))) {
+            asset_detail::native_io_path(project_ / "forge.runtime-content.json"))) {
+        RuntimeContentAccess access(project_);
+        bytes = access.read("forge.assets.json", max_asset_index_bytes);
+    } else if (std::filesystem::exists(asset_detail::native_io_path(index))) {
         if (std::filesystem::file_size(asset_detail::native_io_path(index)) > max_asset_index_bytes)
             throw std::runtime_error("Asset index exceeds 64 MiB");
-        result.load(index);
+        bytes = asset_detail::read_bytes(index, max_asset_index_bytes);
     }
-    return result;
+    if (index_observed_ && ((!bytes && !observed_index_) ||
+                            (bytes && observed_index_ && *bytes == *observed_index_))) {
+        // Index bytes do not witness live path containment or physical aliases.
+        // Reuse only metadata/graph validation; retain the owner's live checks.
+        validate_catalog_sources(records_, ProjectPaths(project_));
+        return false;
+    }
+    AssetCatalog next(project_);
+    if (bytes) {
+        next.restore(parse_index(*bytes));
+        next.observed_index_ = std::make_shared<const std::vector<std::byte>>(std::move(*bytes));
+    }
+    // The complete new index validates before either records or observation
+    // changes. A read-only observation never publishes catalog metadata.
+    next.index_observed_ = true;
+    *this = std::move(next);
+    return true;
+}
+void AssetCatalog::invalidate_observation() noexcept {
+    observed_index_.reset();
+    index_observed_ = false;
 }
 AssetRecord AssetCatalog::register_audio_clip(const std::filesystem::path& root,
                                               const std::filesystem::path& source) {
@@ -187,6 +254,7 @@ void AssetCatalog::add(AssetRecord record) {
     candidate_graph.replace_sources(record.id, source_edges(record));
     records_.emplace(record.id, std::move(record));
     graph_ = std::move(candidate_graph);
+    invalidate_observation();
 }
 void AssetCatalog::replace(AssetRecord record) {
     auto candidate = *this;
@@ -198,15 +266,14 @@ void AssetCatalog::replace(AssetRecord record) {
     candidate.add(std::move(record));
     records_.swap(candidate.records_);
     std::swap(graph_, candidate.graph_);
+    invalidate_observation();
 }
 void AssetCatalog::replace_all(std::vector<AssetRecord> records) {
     if (records.size() > 100000)
         throw std::runtime_error("Asset catalog exceeds 100000 records");
     AssetCatalog candidate(project_);
     ProjectPaths paths(project_);
-    std::map<std::filesystem::path, AssetId, ProjectLocatorLess> locators;
-    std::map<std::string, AssetId> file_identities;
-    std::map<AssetId, std::filesystem::path> resolved;
+    std::map<AssetId, std::filesystem::path> normalized_sources;
     std::map<std::pair<AssetId, std::string>, AssetId> member_keys;
     auto graph_records = Json::array();
     for (auto& record : records) {
@@ -214,38 +281,20 @@ void AssetCatalog::replace_all(std::vector<AssetRecord> records) {
         if (const auto previous = records_.find(record.id); previous != records_.end())
             preserve_identity(previous->second, record);
         const auto family = record.subasset ? record.subasset->owner : record.id;
-        const auto [location, fresh] = locators.emplace(absolute, family);
-        if (!fresh && location->second != family)
-            throw std::runtime_error("Asset source already has a different identity");
-        if (fresh && std::filesystem::exists(asset_detail::native_io_path(absolute))) {
-            const auto [file, unique] =
-                file_identities.emplace(paths.file_identity(record.source), family);
-            if (!unique && file->second != family)
-                throw std::runtime_error("Asset sources alias the same filesystem object");
-        }
         if (record.subasset &&
             !member_keys.emplace(std::make_pair(family, record.subasset->key), record.id).second)
             throw std::runtime_error(
                 "Subasset mapping key already has an identity (including tombstones)");
-        resolved.emplace(record.id, absolute);
+        normalized_sources.emplace(record.id, absolute);
         if (!candidate.records_.emplace(record.id, std::move(record)).second)
             throw std::runtime_error("Duplicate asset identity");
     }
     std::map<AssetId, std::vector<AssetDependency>> member_edges;
-    const ProjectLocatorLess less;
+    validate_catalog_sources(candidate.records_, paths, &normalized_sources);
     for (const auto& [id, record] : candidate.records_) {
         if (!record.subasset)
             continue;
         const auto& member = *record.subasset;
-        const auto parent = candidate.records_.find(member.owner);
-        if (parent == candidate.records_.end() || parent->second.subasset)
-            throw std::runtime_error("Subasset owner must be a registered root asset container: " +
-                                     id.str() + " -> " + member.owner.str());
-        const auto& source = resolved.at(id);
-        const auto& parent_source = resolved.at(member.owner);
-        if (less(source, parent_source) || less(parent_source, source))
-            throw std::runtime_error(
-                "Subasset must share its container's canonical source locator: " + id.str());
         if (!member.removed)
             member_edges[member.owner].push_back({id,
                                                   record.type,
@@ -272,6 +321,7 @@ void AssetCatalog::replace_all(std::vector<AssetRecord> records) {
     }
     records_.swap(candidate.records_);
     std::swap(graph_, candidate.graph_);
+    invalidate_observation();
 }
 std::vector<AssetId> AssetCatalog::members(AssetId owner, bool include_removed) const {
     std::vector<AssetId> result;
@@ -388,6 +438,7 @@ void AssetCatalog::relocate(AssetId id, const std::filesystem::path& source) {
         throw std::runtime_error(resolved.diagnostic);
     records_.swap(candidate.records_);
     std::swap(graph_, candidate.graph_);
+    invalidate_observation();
 }
 Json AssetCatalog::document() const {
     auto records = Json::array();

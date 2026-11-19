@@ -8,7 +8,7 @@ offline run. Both preserve the authored scene and its Undo history.
 
 - Finish pending project operations and save and build changed Project Code.
 - Select the matching **Native SDK folder** in Build and enable the project's game runtime settings.
-- Give the scene an enabled game camera and any lighting it needs.
+- Give every Scene you will record an enabled game camera and any lighting it needs.
 - Check the camera image in Game and the sound in ordinary Play first.
 
 ## Record the current Play session
@@ -17,13 +17,15 @@ offline run. Both preserve the authored scene and its Undo history.
 2. Open **Run → Record game…**. **Record current Play** is selected when Play is active.
 3. Choose an existing **Parent folder** and enter a **New recording folder** name. Use a new folder for every clip.
 4. Set **Frames per second**, **Frame count**, **Width (pixels)** and **Height (pixels)**. For a six-second movie at 30 FPS, use 180 frames.
-5. Set **JPEG quality**, then choose **Start recording**. Higher quality usually retains more image detail and produces a larger movie.
-6. Keep Game visible and its resources ready until recording finishes.
+5. Set **JPEG quality**. Higher quality usually retains more image detail and produces a larger movie.
+6. Enable **Across scenes** to follow game-requested Scene changes, or leave it off to record only the current Scene.
+7. Choose **Start recording** and keep Game visible and its resources ready until recording finishes.
 
-![Record game window with Record current Play selected, output settings and disabled offline input and Scene options](../images/game-recording-live-options.png)
+![Record game window with Record current Play and Across scenes selected, output settings and a disabled saved-input field](../images/game-recording-live-options.png)
 
-The live options attach to the current Play session. Saved-input selection and
-**Across scenes** apply to fresh offline runs and are disabled here.
+The live options attach to the current Play session. **Across scenes** follows
+the game's existing Scene-loading requests. Saved-input selection applies to a
+fresh offline run and remains disabled here.
 
 Play continues with its existing world and user data. Capture gameplay input as
 usual to interact with the game; Pause and Resume remain available. Recording
@@ -36,10 +38,13 @@ project's normal pause policy; the recording duration continues to follow audio
 device progress. Selecting a new saved input take during live recording is
 unavailable. A replay already running in Play continues normally.
 
-The clip covers the current runtime Scene. A Scene change stops the clip and
-retains partial output; it does not publish a complete AVI. The game's Scene
-change continues. To include Scene changes in a movie, use a fresh offline run
-with **Across scenes**.
+With **Across scenes** off, a runtime Scene change stops the clip and retains
+partial output without publishing a complete AVI. The game's Scene change
+continues. With **Across scenes** on, the clip follows up to 64 admitted Scene
+visits, including the initial Scene and returns to an earlier Scene. Recording does not load those
+Scenes itself. Cancelled or rejected loading leaves the current Scene and
+recording in use. A recording preparation failure or the visit limit stops only
+the recording; ordinary game loading continues.
 
 ## Record a fresh offline run
 
@@ -81,7 +86,9 @@ movie interval, the movie repeats the last eligible saved image. It does not
 advance the game to manufacture a missing image. The receipt lists actual
 images separately from movie frames, including repeated image references and
 observed audio positions. A completed live movie trims its audio to the chosen
-movie duration.
+movie duration. Live clips across Scenes also list their Scene/source visits
+and audio boundaries in **recording.json**. Each actual image retains the Scene
+and gameplay tick it showed, including when the movie repeats that image.
 
 Choose **Cancel** to keep completed output without publishing an incomplete AVI.
 A file already being written must settle. A complete movie already published
@@ -110,6 +117,10 @@ queue fails capture if the editor cannot drain it quickly enough; completed
 output remains available. Offline native audio events are sampled in bounded
 mixing intervals and also lack sample-accurate event scheduling.
 
+A Scene change before a pending Game image becomes available stops capture.
+Keep Game visible and its resources ready before retrying. Images already copied
+can finish saving after a Scene change and retain their original Scene details.
+
 Source edits, runtime faults and process loss stop capture. For offline session
 movies, failed or cancelled Scene loading and game-requested Pause or Quit also
 stop the run. A saved input take does not guarantee identical game state when
@@ -126,7 +137,9 @@ motion, a falling red cube, three timed tones and a moving HUD pulse. A fresh
 six-second recording at 30 FPS includes its full sequence. For a silent Timeline
 preview, use [sequence frame and movie export](animation-sequences.md). For an
 example that loads another Scene, follow the Room A/Room B setup in
-[gameplay input recording](input-recording.md).
+[gameplay input recording](input-recording.md). After verifying that Tab changes
+Rooms in ordinary Play, use **Record current Play** with **Across scenes** to
+record those transitions while you control the game.
 
 ![Captured Game frame with the red cube on the floor, moving gold panel and timed HUD pulse](../images/game-recording-frame.png)
 

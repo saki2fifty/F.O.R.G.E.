@@ -15,6 +15,7 @@ struct CaptureAutomationProviders {
     std::function<ui::SequenceFrameSource&()> sequence;
     std::function<std::unique_ptr<ui::ViewImageWork>(const ui::GameRecordingRequest&)> record_game;
     std::function<std::string(const std::string&)> recording_unavailable;
+    std::function<bool()> live_session_supported;
     std::function<std::string(bool)> unavailable;
     std::function<void(const std::string&, const ui::ReflectionCaptureRequest&)> reflection;
     std::function<ui::ViewImageTask::PixelInput(AssetRef<TextureAsset>,
@@ -234,7 +235,10 @@ struct CaptureAutomation {
                           {"live",
                            {{"ready", !owner.busy() && live_reason.empty()},
                             {"reason", live_reason}}}}},
-                        {"live_capture_scopes", {"scene"}},
+                        {"live_capture_scopes",
+                         providers.live_session_supported && providers.live_session_supported()
+                             ? Json{"scene", "session"}
+                             : Json{"scene"}},
                         {"capture_scopes", {"scene", "session"}},
                         {"maximum_scene_visits", input_recording_scene_limit},
                         {"maximum_frames", FORGE_SEQUENCE_FRAME_MAX_COUNT},
@@ -588,8 +592,11 @@ struct CaptureAutomation {
                 "Scene "
                 "visits and an optional v2 session input take; scene is the default. Live mode "
                 "attaches current ordinary SDK Play with input/time controls and existing user "
-                "data. It requires scene scope and no input_recording path; repeated frame "
-                "references retain actual capture provenance. Scene changes stop capture. Poll "
+                "data. It accepts no new input_recording path. When live_capture_scopes includes "
+                "session, that scope follows up to64 game-requested Scene visits; default scene "
+                "scope stops on a Scene change. Repeated frame references retain actual capture "
+                "provenance. A World change before an outstanding Game copy fails capture; "
+                "submitted pixels retain their original Scene through file retirement. Poll "
                 "capture.status "
                 "and use capture.cancel; completed files "
                 "remain. "

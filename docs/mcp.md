@@ -2005,14 +2005,21 @@ Game code must request the take's Scene sequence. Discovery advertises
 Scene/generation/local-tick identities and observed Scene/sample boundaries.
 
 Discovery also reports `recording_modes`, per-mode `mode_readiness` and
-`live_capture_scopes:["scene"]`; existing top-level readiness/scopes refer to
-fresh offline recording. `recording_mode:"live"` attaches to ready ordinary SDK
-Play with its current device/world/user data. Only scene scope and no new saved
-input path are accepted. Normal live input, Pause and Resume remain available;
-completion/Cancel leaves Play running. A runtime Scene change fails the clip,
-retains completed output and drains the original audio lease while the game
-continues. Live receipts separate actual PNGs from logical movie frames that
-can repeat a previously saved image. Mixer/render timing is observed, without
+`live_capture_scopes`; existing top-level readiness/scopes refer to fresh offline
+recording. `recording_mode:"live"` attaches to ready ordinary SDK Play with its
+current device/world/user data and accepts no new saved input path. When the
+matching current host supports it, `live_capture_scopes` is `["scene","session"]`;
+otherwise it remains `["scene"]`. Normal live input, Pause and Resume remain
+available; completion/Cancel leaves Play running. Default scene scope fails the
+clip on a Scene change, preserving partial output while the game continues.
+Explicit session scope follows up to64 game-requested Scene visits through the
+same game/PCM owners. Rejected/cancelled candidates add no visit; observer failure
+or the visit limit stops recording without rejecting gameplay adoption. A World
+change before an outstanding Game copy is submitted fails capture. Submitted
+private pixels finish retirement with their original Scene provenance.
+Live receipts separate actual PNGs from logical movie frames that can repeat a
+previously saved image. Live session version4 receipts retain raw source visits
+and movie-origin-relative boundaries. Mixer/render timing is observed, without
 a physical sample-accurate audiovisual guarantee.
 
 Poll `capture_status.game_recording` until retirement. Success retains PNGs,

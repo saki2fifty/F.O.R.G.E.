@@ -47,8 +47,14 @@ void live_movie_workflow(const std::filesystem::path& runtime, const std::filesy
     request.output.width = 7;
     request.output.height = 5;
     std::filesystem::create_directory(root / "LiveMovies");
-    for (const bool cancel : {false, true}) {
-        request.destination = root / "LiveMovies" / (cancel ? "Cancelled" : "Complete");
+    for (unsigned scenario = 0; scenario < 4; ++scenario) {
+        const bool cancel = scenario % 2;
+        request.capture_scope = scenario >= 2 ? "session" : "scene";
+        request.destination = root / "LiveMovies" /
+                              (scenario == 0   ? "Complete"
+                               : scenario == 1 ? "Cancelled"
+                               : scenario == 2 ? "SessionComplete"
+                                               : "SessionCancelled");
         request.frames = cancel ? 600 : 9;
         ui::ViewImageTask images(worker);
         std::string message;
@@ -72,7 +78,8 @@ void live_movie_workflow(const std::filesystem::path& runtime, const std::filesy
               "Live movie did not settle: " + recording->state().dump() + " | " + play.status());
         const auto receipt =
             Json::parse(asset_storage::read(request.destination / "recording.json").value());
-        check(receipt.at("version") == 3 && receipt.at("mode") == "live_game" &&
+        check(receipt.at("version") == (scenario >= 2 ? 4 : 3) &&
+                  receipt.at("mode") == "live_game" &&
                   receipt.at("state") == (cancel ? "cancelled" : "complete") && play.active() &&
                   play.launch_id() == launch && !play.paused() &&
                   play.user_data_override() == user_data && !restarted && !stopped &&
@@ -85,6 +92,20 @@ void live_movie_workflow(const std::filesystem::path& runtime, const std::filesy
               "Live image provenance differs from its saved PNG count");
         check(receipt.at("frames").size() == receipt.at("completed_frames").get<unsigned>(),
               "Live receipt counted an image reference without its retained audio interval");
+        if (scenario >= 2) {
+            check(receipt.at("profile") == "live-session-game-v4" &&
+                      receipt.at("source_visits").size() == 1 &&
+                      receipt.at("visits").at(0).at("audio_frame") == 0u &&
+                      receipt.at("visits").at(0).at("source_audio_frame") == 0u &&
+                      receipt.at("source_visits").at(0).at("generation") ==
+                          receipt.at("world_generation") &&
+                      receipt.at("source_visits").at(0).at("scene").get<AssetId>() ==
+                          scene.asset_id(),
+                  "Live session receipt lost source visits or normalized its origin incorrectly");
+            for (const auto& image : receipt.at("images"))
+                check(image.at("source") == receipt.at("source_visits").at(0).at("source"),
+                      "Live session image lost its admitted Scene source");
+        }
         if (cancel)
             check(!std::filesystem::exists(request.destination / "game.avi"),
                   "Cancelled live movie was published");
@@ -110,6 +131,7 @@ void live_movie_workflow(const std::filesystem::path& runtime, const std::filesy
             check(repeated, "Delayed image IO did not exercise repeated video references");
         }
     }
+    request.capture_scope = "scene";
     for (const std::string failure : {"SourceChanged", "OwnerClosed", "PlayStopped"}) {
         request.destination = root / "LiveMovies" / failure;
         request.frames = 600;

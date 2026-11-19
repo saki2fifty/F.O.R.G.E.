@@ -22,6 +22,9 @@ std::string GameRecordingTask::unavailable(const PlaySession& play, const std::s
 }
 void GameRecordingTask::sample_live_frame() {
     require_launch();
+    if (!live_world_ready())
+        throw std::runtime_error(
+            "The live recording World changed before its Game image was copied");
     const auto observed = play_.live_audio_status().at("captured_frames").get<std::uint64_t>();
     if (!live_->origin) {
         if (observed > 2 * asset_detail::movie_audio_sample_rate)
@@ -40,6 +43,16 @@ void GameRecordingTask::sample_live_frame() {
     row["audio_start_frame"] = observed - *live_->origin;
     row["time_seconds"] = double(observed - *live_->origin) / asset_detail::movie_audio_sample_rate;
     row["captured_at"] = event_time_local();
+}
+bool GameRecordingTask::live_world_ready() const {
+    const auto& progress = play_.live_audio_status();
+    if (!progress.is_object() || progress.at("active_generation") != play_.world_generation())
+        return false;
+    if (request_.capture_scope == "scene")
+        return true;
+    const auto& visits = progress.at("visits");
+    return !visits.empty() && visits.back().at("generation") == play_.world_generation() &&
+           visits.back().at("scene") == play_.snapshot().at("asset_id");
 }
 void GameRecordingTask::fill_live_frames(unsigned until) {
     if (live_->last_image.is_null())
@@ -97,7 +110,7 @@ bool GameRecordingTask::service_live_audio() {
             return true;
         throw std::runtime_error("The live audio capture was replaced");
     }
-    observed_audio_frames_ = progress.at("captured_frames").get<std::uint64_t>();
+    remember_recording_progress(progress);
     if (live_->end_requested && !live_->end_submitted && !play_.live_audio_pending() &&
         play_.live_audio_ready()) {
         if (!play_.submit_live_audio("end"))
@@ -142,7 +155,9 @@ void GameRecordingTask::poll_live() {
     require_launch();
     if (phase_ == Phase::Launch) {
         if ((live_->render_ready || host_.pixels) && play_.control_ready()) {
-            if (!play_.submit_live_audio("begin"))
+            if (play_.world_generation() != world_generation_)
+                throw std::runtime_error("The live recording World changed before capture Begin");
+            if (!play_.submit_live_audio("begin", 4096, request_.capture_scope))
                 throw std::runtime_error("Live mixer recording could not begin");
             live_->begin_submitted = true;
             phase_ = Phase::Begin;
@@ -153,7 +168,8 @@ void GameRecordingTask::poll_live() {
             if (!play_.live_audio_error().empty())
                 throw std::runtime_error(play_.live_audio_error());
             live_->capture = play_.live_audio_status().at("generation").get<std::uint64_t>();
-            begin_frame();
+            if (live_world_ready())
+                begin_frame();
         }
     } else if (phase_ == Phase::Image) {
         const auto settled = service_live_audio();
@@ -172,7 +188,7 @@ void GameRecordingTask::poll_live() {
                     fill_live_frames(unsigned(request_.frames));
                     normalize_live_audio();
                 } else if (!live_->end_requested && due > live_->requested_frame &&
-                           captured_ < unsigned(request_.frames)) {
+                           captured_ < unsigned(request_.frames) && live_world_ready()) {
                     live_->requested_frame = due;
                     begin_frame();
                 }

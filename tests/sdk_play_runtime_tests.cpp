@@ -16,8 +16,10 @@
 // receive/handle/send loop is exercised end-to-end without any test
 // hooks inside the shipped runtime.
 
+#include "audio_capture_access.hpp"
 #include "base64.hpp"
 #include "input_recording_protocol.hpp"
+#include "live_audio_capture.hpp"
 #include "play_schema_reference.hpp"
 #include "sdk_play_runtime.hpp"
 #include <atomic>
@@ -35,6 +37,7 @@
 #include <forge/input.hpp>
 #include <forge/navigation_components.hpp>
 #include <forge/runtime.hpp>
+#include <forge/runtime_world.hpp>
 #include <forge/services.hpp>
 #include <forge/transform_components.hpp>
 #include <fstream>
@@ -2840,6 +2843,8 @@ int main(int argc, char** argv) {
     (void)forge::detail::initialize_native_system_tracing();
     if (argc == 3 && std::strcmp(argv[1], "--mode=backpressure") == 0)
         return forge::test::run_backpressure_mode(argv[2]);
+    if (argc == 2 && std::strcmp(argv[1], "--mode=live-session") == 0)
+        return forge::test::run_live_audio_session_tests();
     // --mode=process [user_base]
     if (argc >= 2 && std::strcmp(argv[1], "--mode=process") == 0) {
         std::filesystem::path user_base;

@@ -51,6 +51,38 @@ void live_audio_protocol() {
                 {"maximum_queued_frames", 96000u},
                 {"error", ""}};
     validate_live_audio_status(status, 7, scene, 2);
+    auto session_status = status;
+    session_status["capture_scope"] = "session";
+    session_status["profile"] = "live-session-game-v1";
+    session_status["visits"] = Json::array({{{"generation", 7u},
+                                             {"scene", scene},
+                                             {"source", std::string(64, 'a')},
+                                             {"audio_frame", 0u}}});
+    validate_live_audio_status(session_status, 7, scene, 2, "session");
+    rejects([&] { validate_live_audio_status(session_status, 7, scene, 2); });
+    const auto initial_session = session_status;
+    const auto next_scene = AssetId::generate();
+    session_status["active_generation"] = 9u;
+    session_status["visits"].push_back({{"generation", 9u},
+                                        {"scene", next_scene},
+                                        {"source", std::string(64, 'b')},
+                                        {"audio_frame", 12u}});
+    validate_live_audio_status(session_status, 7, scene, 2, "session", initial_session);
+    for (const auto& changes :
+         {Json{{"profile", "offline-session-game-v2"}}, Json{{"active_generation", 8u}},
+          Json{{"active_generation", 10u}}, Json{{"capture_scope", "scene"}}}) {
+        auto bad = session_status;
+        bad.update(changes);
+        rejects([&] { validate_live_audio_status(bad, 7, scene, 2, "session", initial_session); });
+    }
+    auto rewritten = session_status;
+    rewritten["visits"][0]["source"] = std::string(64, 'c');
+    rejects(
+        [&] { validate_live_audio_status(rewritten, 7, scene, 2, "session", initial_session); });
+    session_status["state"] = "failed";
+    session_status["error"] = "Only the recording observer failed";
+    session_status["active_generation"] = 10u;
+    validate_live_audio_status(session_status, 7, scene, 2, "session", initial_session);
     rejects([&] { validate_live_audio_status(status, 8, scene, 2); });
     rejects([&] { validate_live_audio_status(status, 7, AssetId::generate(), 2); });
     rejects([&] { validate_live_audio_status(status, 7, scene, 1); });

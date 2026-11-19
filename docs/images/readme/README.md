@@ -2890,13 +2890,14 @@ separate.
 ## Game recording
 
 `manual/images/game-recording-options.png` shows fresh offline recording;
-`manual/images/game-recording-live-options.png` shows current Play recording;
+`manual/images/game-recording-live-options.png` shows current Play recording with
+**Across scenes** selected and the input-recording field disabled;
 `manual/images/game-recording-frame.png` is the recorded Gallery182 Game display.
 All three are unretouched canonical PNGs. [Game recording](../../game-recording.md)
 records hashes, capture sources, independent movie/audio validation and software
 Vulkan limitations. The fixture exercises production scoped recording,
-PlayPresentation, runtime UI, fourteen native control/movie cases and private cross-Scene movie
-copies with real SDK behavior and sound; complete Windows Main,
+PlayPresentation, runtime UI, native layouts, completed/cancelled movies and
+private live/offline cross-Scene movies with real SDK behavior and sound; complete Windows Main,
 physical GPU/input/DPI, external client and player review remain separate.
 
 ## Skeletal sequence tracks

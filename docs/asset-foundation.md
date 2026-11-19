@@ -22,6 +22,19 @@ processing produces platform-independent derived data; cooking selects platform/
 representation; validators check structure, limits, semantics and dependency compatibility;
 publisher alone changes the selected revision. No worker writes the catalog directly.
 
+Repeated metadata readers can retain an ordinary `AssetCatalog` value and call
+`refresh_project()`. Every call reads the current source index or verified runtime
+content through the existing boundary. Identical complete bytes reuse validated
+records and graph indexes; timestamps and file size alone never establish reuse.
+The same catalog-owned location validator rechecks current source/dependency
+containment, physical aliases and subasset/container source bindings on every
+observation, including unchanged-index reuse.
+Changed bytes validate transactionally, and failed refreshes retry without replacing
+the prior value. Callers must handle that error before treating records as current.
+Local catalog edits invalidate the observation; refresh restores the published
+project data. `open_project()` remains a one-shot read and retains no byte witness.
+The observation neither publishes metadata nor caches runtime resources.
+
 ## Identity, revision and subassets
 
 AssetId survives a same-logical-asset move, rename and reimport. Source digest,

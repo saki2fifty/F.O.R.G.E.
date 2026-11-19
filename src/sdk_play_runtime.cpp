@@ -1,7 +1,6 @@
 #include "sdk_play_runtime.hpp"
 #include "animation_playback_access.hpp"
 #include "application_state_access.hpp"
-#include "audio_capture_access.hpp"
 #include "audio_mix.hpp"
 #include "audio_source_access.hpp"
 #include "cpu_profile_control.hpp"
@@ -9,10 +8,10 @@
 #include "game_recording_protocol.hpp"
 #include "input_recording_protocol.hpp"
 #include "json_document.hpp"
+#include "live_audio_capture.hpp"
 #include "navigation_rebuild_access.hpp"
 #include "play_scene_admission.hpp"
 #include "play_schema_reference.hpp"
-#include "recorded_pcm.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
 #include "runtime_scene_content.hpp"
@@ -88,6 +87,7 @@ Json contract() {
                 {"session_input_recording", true},
                 {"session_game_recording", true},
                 {"live_audio_capture", true},
+                {"live_audio_session_capture", true},
                 {"tile_projection", tile_map_play_protocol}};
 }
 } // namespace
@@ -116,6 +116,7 @@ struct SdkPlayRuntime::State {
     std::shared_ptr<GameControlQueue> queue;
     std::unique_ptr<GameStorage> storage;
     std::unique_ptr<PlaySceneAdmission> admission;
+    LiveAudioCapture live_audio; // Outlives the session's preparation adapters.
     std::unique_ptr<GameSession> game;
     std::optional<GameRecording> recording;
     enum class RecordingWork { Idle, Prepare, Advance };
@@ -123,9 +124,6 @@ struct SdkPlayRuntime::State {
     bool recording_session = false;
     Json recording_visits = Json::array();
     std::string recording_error;
-    std::shared_ptr<AudioRuntime> captured_audio;
-    std::uint64_t captured_audio_world = 0;
-    AssetId captured_audio_scene;
     mutable TileMapPlaySource active_tiles, prepared_tiles;
     mutable Json prepared_tile_manifest = nullptr;
     std::unique_ptr<GameHostControls> host;
@@ -188,7 +186,7 @@ struct SdkPlayRuntime::State {
     // observed release. A field on a hidden/deleted record is useless.
     bool release_required_root = false;
 
-    explicit State(Config c) : config(std::move(c)) {
+    explicit State(Config c) : config(std::move(c)), live_audio(config.project) {
         if (config.project.empty())
             throw std::runtime_error("sdk-play: Project root is required");
         if (config.user_base.empty() || !config.user_base.is_absolute())
@@ -232,12 +230,13 @@ struct SdkPlayRuntime::State {
             return input_recording_source(scene.snapshot(), project);
         };
         session_config.preparation = [this](std::uint64_t ticket) {
-            return admission->prepare(
-                ticket,
-                [this](RuntimeWorld& world, std::uint64_t t) {
-                    validate_candidate_publication(world, t);
-                },
-                [this] { return prepared_tile_manifest; });
+            return live_audio.prepare(admission->prepare(
+                                          ticket,
+                                          [this](RuntimeWorld& world, std::uint64_t t) {
+                                              validate_candidate_publication(world, t);
+                                          },
+                                          [this] { return prepared_tile_manifest; }),
+                                      ticket);
         };
         game = std::make_unique<GameSession>(std::move(session_config));
         configure_platform();
@@ -1304,76 +1303,24 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             return snapshot();
         }
         if (command == "audio_capture") {
-            const auto operation = request.value("operation", std::string{});
-            if (s.config.recording || (operation == "begin" && !s.active_generation) ||
-                (operation != "begin" && operation != "read" && operation != "end") ||
-                !request.contains("generation") || !is_unsigned_int(request.at("generation")))
-                return s.build_error(id, "Live audio capture requires an active ordinary Play "
-                                         "world, generation and begin/read/end operation");
-            if (operation == "begin") {
-                if (request.at("generation").get<std::uint64_t>() != s.active_generation ||
-                    request.contains("capture_generation") || s.initial_ticket ||
-                    s.game->status().at("prepared_ticket") != 0)
-                    return s.build_error(id, "Begin live audio capture in the current settled "
-                                             "world without an earlier capture generation");
-                if (s.captured_audio) {
-                    const auto prior = AudioCaptureAccess::status(*s.captured_audio);
-                    if (prior.at("state") == "recording" || prior.at("queued_frames") != 0)
-                        return s.build_error(id, "End and drain the earlier live audio capture "
-                                                 "before starting another");
-                }
-                auto audio = std::static_pointer_cast<AudioRuntime>(
-                    s.game->active().engine.services().audio());
-                if (!audio)
-                    return s.build_error(id, "Live audio capture requires runtime audio output");
-                AudioCaptureAccess::begin(*audio);
-                s.captured_audio = std::move(audio);
-                s.captured_audio_world = s.active_generation;
-                s.captured_audio_scene = s.game->active().scene.asset_id();
-            } else {
-                if (!s.captured_audio ||
-                    request.at("generation").get<std::uint64_t>() != s.captured_audio_world ||
-                    !request.contains("capture_generation") ||
-                    !is_unsigned_int(request.at("capture_generation")) ||
-                    request.at("capture_generation") !=
-                        AudioCaptureAccess::status(*s.captured_audio).at("generation"))
-                    return s.build_error(id, "Live audio capture has a stale world or capture "
-                                             "generation");
-                if (operation == "read" &&
-                    (!request.contains("maximum_frames") ||
-                     !is_unsigned_int(request.at("maximum_frames")) ||
-                     request.at("maximum_frames").get<std::uint64_t>() < 1 ||
-                     request.at("maximum_frames").get<std::uint64_t>() > 4096 ||
-                     !request.contains("audio_frame") ||
-                     !is_unsigned_int(request.at("audio_frame")) ||
-                     request.at("audio_frame") !=
-                         AudioCaptureAccess::status(*s.captured_audio).at("read_frames")))
-                    return s.build_error(id, "Live audio reads require1..4096 frames and the "
-                                             "current sequential audio cursor");
-                if (operation == "end")
-                    AudioCaptureAccess::end(*s.captured_audio);
+            if (s.config.recording)
+                return s.build_error(id, "Live audio capture requires ordinary Play");
+            const bool begin = request.value("operation", "") == "begin";
+            std::shared_ptr<AudioRuntime> audio;
+            const Scene* scene = nullptr;
+            if (begin && s.active_generation && s.game) {
+                auto& world = s.game->active();
+                audio = std::static_pointer_cast<AudioRuntime>(world.engine.services().audio());
+                scene = &world.scene;
             }
-            // A copied media reply does not republish a potentially16MiB world.
-            // Ordinary snapshots retain ownership of input, presentation and time.
+            const bool settled =
+                begin && s.game && !s.initial_ticket && s.game->status().at("prepared_ticket") == 0;
+            auto media = s.live_audio.command(request, s.active_generation, audio, scene, settled);
+            // Media reads do not republish a potentially16MiB World.
             Json response{{"protocol", 2}, {"session", s.session},
                           {"id", id},      {"runtime_contract", contract()},
                           {"ok", true},    {"quit_requested", s.quit || s.quit_latched}};
-            if (operation == "read") {
-                const auto cursor = AudioCaptureAccess::status(*s.captured_audio).at("read_frames");
-                const auto samples = AudioCaptureAccess::read(
-                    *s.captured_audio, request.at("maximum_frames").get<unsigned>());
-                std::vector<std::byte> pcm;
-                pcm.reserve(samples.size() * 2);
-                append_recorded_pcm(pcm, samples);
-                response["audio_capture_chunk"] = {{"format", "s16le-stereo-48000-v1"},
-                                                   {"start_audio_frame", cursor},
-                                                   {"audio_frames", samples.size() / 2},
-                                                   {"data", encode_base64(pcm)}};
-            }
-            response["audio_capture"] = AudioCaptureAccess::status(*s.captured_audio);
-            response["audio_capture"]["world_generation"] = s.captured_audio_world;
-            response["audio_capture"]["scene"] = s.captured_audio_scene;
-            response["audio_capture"]["active_generation"] = s.active_generation;
+            response.update(media);
             return response;
         }
         if (command == "input_recording") {

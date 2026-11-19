@@ -341,6 +341,8 @@ class GameRecordingTask final : public ViewImageWork {
     void poll_live();
     bool service_live_audio();
     void sample_live_frame();
+    bool live_world_ready() const;
+    void remember_recording_progress(const Json&);
     void fill_live_frames(unsigned);
     void complete_live_image(std::size_t);
     void normalize_live_audio();

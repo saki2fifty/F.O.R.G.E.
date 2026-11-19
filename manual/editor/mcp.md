@@ -896,10 +896,14 @@ Scene changes and requires a session take if **input_recording** is supplied.
 
 With **recording_mode: "live"**, start ordinary Play first. The tool attaches to
 that launch, keeps its user data and allows normal input, Pause and Resume.
-Only **capture_scope: "scene"** is available and a new **input_recording** cannot
-be supplied. Completing or cancelling the clip leaves Play running. A runtime
-Scene change fails the clip while the game continues. Missed movie intervals
-repeat saved images; live timing follows observed mixer/render progress.
+Read **live_capture_scopes**: when it includes **session**, use
+**capture_scope: "session"** to follow up to 64 game-requested Scene visits.
+Default **scene** scope stops the clip on a Scene change. A new
+**input_recording** cannot be supplied in live mode. Completing or cancelling
+the clip leaves Play running. Missed movie intervals repeat saved images; live
+timing follows observed mixer/render progress. Session receipts retain the
+original Scene/source visits and audio boundaries. A Scene change before a
+pending Game image is copied stops capture and keeps partial output.
 
 Poll **forge_capture_status** and read **game_recording**. Use its active
 **operation** with **forge_capture_cancel**. The completed folder includes

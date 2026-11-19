@@ -2,6 +2,7 @@
 #include <atomic>
 #include <cstdint>
 #include <miniaudio.h>
+#include <optional>
 #include <vector>
 
 namespace forge::asset_detail {
@@ -12,7 +13,7 @@ class AudioCaptureBuffer {
     static constexpr unsigned sample_rate = 48000, channels = 2;
     static constexpr unsigned maximum_queued_frames = 2 * sample_rate;
     static constexpr unsigned maximum_read_frames = 4096;
-    enum class Failure : unsigned { None, Overflow, Nonfinite, Queue };
+    enum class Failure : unsigned { None, Overflow, Nonfinite, Queue, Handoff };
     struct Progress {
         bool active = false;
         Failure failure = Failure::None;
@@ -24,6 +25,11 @@ class AudioCaptureBuffer {
     AudioCaptureBuffer(const AudioCaptureBuffer&) = delete;
     AudioCaptureBuffer& operator=(const AudioCaptureBuffer&) = delete;
     void start();
+    // Owner-thread allocation before an unpublished World can be activated.
+    void prepare_storage();
+    // Preserve the stopped source's unread prefix in a prepared fresh buffer.
+    // No allocation or pointer replacement occurs at this publication boundary.
+    std::optional<std::uint64_t> continue_from(AudioCaptureBuffer&) noexcept;
     void stop();
     // Device shutdown already joins the producer; retain its final copied prefix.
     void disable() noexcept;
@@ -33,6 +39,7 @@ class AudioCaptureBuffer {
 
   private:
     ma_pcm_rb queue_{};
+    std::vector<float> storage_;
     unsigned capacity_;
     bool initialized_ = false;
     std::uint64_t generation_ = 0, read_frames_ = 0;
@@ -40,5 +47,6 @@ class AudioCaptureBuffer {
     std::atomic<unsigned> callbacks_{0};
     std::atomic<Failure> failure_{Failure::None};
     void fail(Failure) noexcept;
+    bool retire_callbacks() noexcept;
 };
 } // namespace forge::asset_detail

@@ -64,17 +64,26 @@ void GameRecordingTask::require_launch() {
         (play_.session() != session_ ||
          (request_.capture_scope == "scene" && play_.world_generation() != world_generation_)))
         throw std::runtime_error("The recording runtime session or world changed");
-    if (request_.capture_scope == "session" && play_.recording_status().is_object() &&
-        play_.recording_status().value("started", false)) {
-        const auto& status = play_.recording_status();
-        // PlaySession admits the append-only wire witnesses. Retain only the
-        // receipt copy here; unchanged visits need no per-UI-frame copy.
-        if (visits_.size() != status.at("visits").size())
-            visits_ = status.at("visits");
-        observed_audio_frames_ = status.at("audio_frames").get<std::uint64_t>();
-        if (phase_ == Phase::Image && frame_generation_ != play_.world_generation())
+    const auto& status = live_ ? play_.live_audio_status() : play_.recording_status();
+    if (request_.capture_scope == "session" && status.is_object() &&
+        (!live_ || (live_->capture && status.at("generation") == live_->capture)) &&
+        (live_ || status.value("started", false))) {
+        remember_recording_progress(status);
+        // Once the Game copy is submitted, its private pixels and receipt stay
+        // with their original World while readback/file retirement finishes.
+        if (phase_ == Phase::Image && (!live_ || live_->image_requested) &&
+            (frame_generation_ != play_.world_generation() ||
+             (live_ && frame_generation_ != status.at("active_generation"))))
             throw std::runtime_error("The recording world changed while its PNG was in flight");
     }
+}
+void GameRecordingTask::remember_recording_progress(const Json& status) {
+    // PlaySession admits the append-only wire witnesses. This receipt copy must
+    // also follow media replies during End/drain, after image work has retired.
+    if (request_.capture_scope == "session" && visits_.size() != status.at("visits").size())
+        visits_ = status.at("visits");
+    observed_audio_frames_ =
+        status.at(live_ ? "captured_frames" : "audio_frames").get<std::uint64_t>();
 }
 void GameRecordingTask::stop_play() noexcept {
     if (live_) {
@@ -111,6 +120,8 @@ void GameRecordingTask::start() {
     require_source();
     rate_ = request_.rate();
     if (request_.recording_mode == "live") {
+        if (request_.capture_scope == "session" && !play_.live_audio_session_supported())
+            throw std::runtime_error("Current Play does not support live recording across Scenes");
         live_.emplace();
         launch_ = play_.launch_id();
         session_ = play_.session();
@@ -357,7 +368,7 @@ Json GameRecordingTask::receipt() const {
     for (unsigned i = 0; i < (live_ ? completed_media_frames() : captured_); ++i)
         frames.push_back(frame_rows_.at(i));
     Json value{{"format", "forge.game-recording"},
-               {"version", live_                                 ? 3
+               {"version", live_ ? (request_.capture_scope == "session" ? 4 : 3)
                            : request_.capture_scope == "session" ? 2
                                                                  : 1},
                {"mode", live_ ? "live_game" : "offline_game"},
@@ -396,8 +407,21 @@ Json GameRecordingTask::receipt() const {
     }
     if (live_) {
         value["recording_mode"] = "live";
-        value["capture_scope"] = "scene";
-        value["profile"] = "live-scene-game-v3";
+        value["capture_scope"] = request_.capture_scope;
+        value["profile"] =
+            request_.capture_scope == "session" ? "live-session-game-v4" : "live-scene-game-v3";
+        if (request_.capture_scope == "session") {
+            value["source_visits"] = visits_;
+            // Wire boundaries use the original capture cursor. The movie drops
+            // its warm-up prefix, so retain both coordinate systems explicitly.
+            for (auto& visit : value["visits"]) {
+                const auto source = visit.at("audio_frame").get<std::uint64_t>();
+                visit["source_audio_frame"] = source;
+                visit["audio_frame"] =
+                    live_->origin ? Json(source > *live_->origin ? source - *live_->origin : 0)
+                                  : Json();
+            }
+        }
         value["capture_scene"] = frame_scene_id_;
         value["observed_audio_frames"] = observed_audio_frames_;
         value["audio_source_start_frame"] = live_->origin ? Json(*live_->origin) : Json();
@@ -475,7 +499,7 @@ void GameRecordingTask::draw() {
     }
     ImGui::TextWrapped(request_.recording_mode == "live"
                            ? "Record the current Play session with live input and sound. The "
-                             "current Scene defines this recording's scope."
+                             "Across scenes option follows game-requested Scene changes."
                            : "Fresh offline game run with synchronized audio. Game logic and "
                              "physics run at the project's fixed rate.");
     if (phase_ == Phase::Configure && !retiring_) {
@@ -483,7 +507,6 @@ void GameRecordingTask::draw() {
         if (ImGui::Checkbox("Record current Play", &live)) {
             request_.recording_mode = live ? "live" : "offline";
             if (live) {
-                request_.capture_scope = "scene";
                 request_.input_recording.clear();
             }
         }
@@ -534,6 +557,8 @@ void GameRecordingTask::draw() {
         FORGE_UI_PROBE("game-recording:input");
         ImGui::TextWrapped(
             "Use Recordings/<name>.json from this project to replay saved fixed gameplay actions.");
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(live && !play_.live_audio_session_supported());
         bool across = request_.capture_scope == "session";
         if (ImGui::Checkbox("Across scenes", &across))
             request_.capture_scope = across ? "session" : "scene";
@@ -547,6 +572,8 @@ void GameRecordingTask::draw() {
                     throw std::runtime_error(reason);
             if (const auto reason = unavailable(play_, request_.recording_mode); !reason.empty())
                 throw std::runtime_error(reason);
+            if (live && across && !play_.live_audio_session_supported())
+                throw std::runtime_error("Current Play does not support recording across Scenes");
             const auto name = std::filesystem::u8path(name_.data());
             if (name.empty() || name.has_parent_path() || name == "." || name == ".." ||
                 !parent_[0])
@@ -565,9 +592,9 @@ void GameRecordingTask::draw() {
         ImGui::TextWrapped(
             live
                 ? "Includes actual PNG captures, stereo 48 kHz PCM16, a movie and timing metadata. "
-                  "Missed video intervals repeat the last saved image. Scene changes stop the "
-                  "clip; "
-                  "Play and its user data stay in use."
+                  "Missed video intervals repeat the last saved image. Across scenes follows up "
+                  "to 64 Scene visits; otherwise a Scene change stops the clip. Play and its "
+                  "user data stay in use."
                 : "Includes PNG frames, stereo 48 kHz PCM16, a movie and a recording receipt. "
                   "This run uses fresh user data. Across scenes admits up to 64 game-requested "
                   "Scene visits; optional input must be an Across Scenes take.");

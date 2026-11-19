@@ -2445,6 +2445,24 @@ void AudioCaptureAccess::begin(AudioRuntime& runtime) {
         throw std::runtime_error("Live audio capture requires an existing device mixer");
     runtime.impl_->capture.start();
 }
+void AudioCaptureAccess::prepare(AudioRuntime& runtime) {
+    runtime.impl_->check();
+    if (!runtime.impl_->engine_ready || runtime.impl_->config.output == AudioOutput::Offline)
+        throw std::runtime_error("Live audio capture requires an existing device mixer");
+    runtime.impl_->capture.prepare_storage();
+}
+std::optional<std::uint64_t> AudioCaptureAccess::handoff(AudioRuntime& from,
+                                                         AudioRuntime& to) noexcept {
+    auto& source = *from.impl_;
+    auto& target = *to.impl_;
+    const auto owner = std::this_thread::get_id();
+    if (&from == &to || source.owner != owner || target.owner != owner || source.stopped ||
+        target.stopped || !source.engine_ready || !target.engine_ready || !source.is_paused ||
+        !target.is_paused || source.config.output == AudioOutput::Offline ||
+        source.config.output != target.config.output)
+        return {};
+    return target.capture.continue_from(source.capture);
+}
 void AudioCaptureAccess::end(AudioRuntime& runtime) {
     check_owner(runtime);
     runtime.impl_->capture.stop();
@@ -2468,6 +2486,9 @@ Json AudioCaptureAccess::status(const AudioRuntime& runtime) {
         break;
     case asset_detail::AudioCaptureBuffer::Failure::Queue:
         error = "Live audio capture queue failed; completed prefix retained";
+        break;
+    case asset_detail::AudioCaptureBuffer::Failure::Handoff:
+        error = "Live audio capture Scene handoff failed; completed prefix retained";
         break;
     }
     return {{"state", !error.empty()        ? "failed"

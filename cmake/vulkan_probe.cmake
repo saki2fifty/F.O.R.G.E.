@@ -594,6 +594,15 @@ if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
     "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" $<TARGET_FILE:forge_runtime>
     $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_BINARY_DIR}/game-recording-vulkan" $<TARGET_FILE:forge_sdk_session_input>)
    set_tests_properties(game_recording_vulkan PROPERTIES TIMEOUT 180)
+   add_test(NAME game_recording_live_session_vulkan COMMAND forge_game_recording_vulkan_probe
+    "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" $<TARGET_FILE:forge_runtime>
+    $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_BINARY_DIR}/live-session-recording-vulkan"
+    $<TARGET_FILE:forge_sdk_session_input> --live-session-only)
+   set_tests_properties(game_recording_live_session_vulkan PROPERTIES TIMEOUT 120)
+   # Software rasterization shares the host CPU with real-time mixer/IPC work.
+   # Keep its worker budget explicit without relaxing any recording limits.
+   set_property(TEST game_recording_vulkan game_recording_live_session_vulkan
+    APPEND PROPERTY ENVIRONMENT "LP_NUM_THREADS=2")
   endif()
  endif()
  add_executable(forge_view_image_vulkan_probe tests/view_image_vulkan_probe.cpp)

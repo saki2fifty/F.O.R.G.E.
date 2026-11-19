@@ -12,6 +12,14 @@ import time
 from mcp_test_client import Client, failed, test_symlink, finish_host, write_capture, protocol_cases
 from mcp_clip_frames_workflow import check_clip_frames
 
+# A bounded test polling allowance can be selected for instrumented native
+# consumers. Engine request/queue/retirement limits are never changed here.
+OPERATION_TIMEOUT = 15
+if len(sys.argv) >= 3 and sys.argv[-2] == '--operation-timeout':
+    OPERATION_TIMEOUT = int(sys.argv[-1])
+    assert 15 <= OPERATION_TIMEOUT <= 120, 'Capture test polling allowance must be15..120s'
+    del sys.argv[-2:]
+
 TOOLS, HOST = sys.argv[1:3]
 GAME_ONLY = len(sys.argv) == 7 and sys.argv[6] == '--game-only'
 CLIP_ONLY = len(sys.argv) == 7 and sys.argv[6] == '--clip-only'
@@ -34,7 +42,7 @@ def editor(mode='output'):
             finish_host(process, root)
 
 
-def until(fn,predicate,timeout=15):
+def until(fn,predicate,timeout=OPERATION_TIMEOUT):
     end=time.monotonic()+timeout
     while time.monotonic()<end:
         value=fn()
@@ -197,8 +205,8 @@ for legacy in protocol_cases():
                 return ok(tool,**{key:current[key] for key in ('launch','session','generation')})
             modes=until(lambda:read('forge_capture_game_read'),lambda p:p['mode_readiness']['live']['ready'])
             assert not modes['ready'] and modes['mode_readiness']['live']['ready']
-            for name,overrides in [('LiveSession',dict(capture_scope='session')),
-                                   ('LiveTake',dict(input_recording='Recordings/session.json'))]:
+            assert modes['live_capture_scopes']==['scene','session']
+            for name,overrides in [('LiveTake',dict(input_recording='Recordings/session.json'))]:
                 failed(mutate('forge_capture_game_start',**game_arguments(name,recording_mode='live',**overrides)),
                        'invalid_arguments')
                 assert not (root/'Output'/name).exists()
@@ -217,6 +225,15 @@ for legacy in protocol_cases():
             assert live['active'] and live['launch']==launch and not live['paused']
             assert not (root/'Output/LiveMovie/UserData').exists()
             assert read('forge_scene_read')==game_authored
+            accepted=ok('forge_capture_game_start',**game_arguments('LiveSession',recording_mode='live',
+                        capture_scope='session',frames_per_second=10,frame_count=3))
+            live_session=settled()['game_recording']
+            receipt=json.loads((root/'Output/LiveSession/recording.json').read_text())
+            assert live_session['state']=='complete' and receipt['version']==4,live_session
+            assert receipt['profile']=='live-session-game-v4' and len(receipt['source_visits'])==1
+            assert receipt['visits'][0]['audio_frame']==receipt['visits'][0]['source_audio_frame']==0
+            assert all(row['source']==receipt['source_visits'][0]['source'] for row in receipt['images'])
+            assert read('forge_play_status')['launch']==launch and read('forge_scene_read')==game_authored
             accepted=ok('forge_capture_game_start',**game_arguments('LiveCancelled',recording_mode='live',
                                                                     frames_per_second=10,frame_count=600))
             until(lambda:read('forge_capture_status'),

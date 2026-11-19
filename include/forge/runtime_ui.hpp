@@ -1,5 +1,6 @@
 #pragma once
 #include <deque>
+#include <forge/assets.hpp>
 #include <forge/scene.hpp>
 #include <forge/ui_components.hpp>
 #include <forge/ui_protocol.hpp>
@@ -27,6 +28,7 @@ class UiRuntime final : public UiService {
     std::thread::id owner_ = std::this_thread::get_id();
     ServiceAccess services_;
     std::filesystem::path project_;
+    std::optional<AssetCatalog> catalog_;
     struct Instance {
         AssetId asset;
         flecs::entity_t entity;

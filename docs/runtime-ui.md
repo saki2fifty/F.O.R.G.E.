@@ -234,10 +234,17 @@ Main-only snapshots retain private protocol1; a positive output assignment requi
 
 Model snapshots admit the project catalog only when an enabled document has an
 assigned asset. Empty scenes, disabled documents and unassigned documents require
-no UI asset lookup. Each snapshot with active documents still admits a fresh
-catalog, including hidden documents, and retries after a previous failure. A failed
-catalog is attempted once for that snapshot; each affected document retains its
-own diagnostic. Live file availability and document incarnations remain distinct.
+no UI asset lookup. Each snapshot with active documents observes the current
+project index, including for hidden documents, through AssetCatalog. Its persistent
+value reuses validated records only when the entire current index bytes match.
+Same-size/same-time edits still trigger validation. Every observation rechecks
+source/dependency containment, physical-file aliases and subasset/container source
+bindings through the catalog owner; source or verified runtime
+content reads remain mandatory. Failed reads/validation retry on the next snapshot
+and do not expose retained records as current UI admission. A failed catalog is
+attempted once for that snapshot; each affected document retains its own diagnostic.
+Live source availability is resolved each time and remains distinct from document
+incarnations. This read-only observation does not publish catalog metadata.
 
 Scene supplies copied entity IDs, Prefab flags and UI components through its
 existing effective projection and sibling ordering. The UI read retains unresolved

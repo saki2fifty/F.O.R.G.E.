@@ -128,6 +128,35 @@ int main(int argc, char** argv) {
             std::ofstream(unused / "hud.rml") << rml;
             state = copied->snapshot(no_ui, "isolated", 1, 0, true);
             check(state.at("errors").empty(), "UI did not retry a repaired catalog");
+            const auto index = AssetCatalog::project_index(unused);
+            const auto stamp = std::filesystem::last_write_time(index);
+            std::ifstream index_input(index, std::ios::binary);
+            const std::string valid_index((std::istreambuf_iterator<char>(index_input)), {});
+            auto changed_index = Json::parse(valid_index);
+            for (auto& row : changed_index.at("assets"))
+                if (row.at("id").get<AssetId>() == asset.id)
+                    row["schema_version"] = 2;
+            const auto changed_bytes = changed_index.dump(2);
+            check(changed_bytes.size() == valid_index.size(),
+                  "UI catalog fixture must preserve index size");
+            std::ofstream(index, std::ios::binary) << changed_bytes;
+            std::filesystem::last_write_time(index, stamp);
+            state = copied->snapshot(no_ui, "isolated", 1, 0, true);
+            check(state.at("errors").size() == 2,
+                  "UI retained stale catalog metadata after an equal-size/equal-time edit");
+            auto invalid_index = valid_index;
+            invalid_index.front() = '!';
+            std::ofstream(index, std::ios::binary) << invalid_index;
+            std::filesystem::last_write_time(index, stamp);
+            for (unsigned attempt = 0; attempt < 2; ++attempt) {
+                state = copied->snapshot(no_ui, "isolated", 1, 0, true);
+                check(state.at("errors").size() == 3,
+                      "UI used retained records after catalog validation failed");
+            }
+            std::ofstream(index, std::ios::binary) << valid_index;
+            std::filesystem::last_write_time(index, stamp);
+            state = copied->snapshot(no_ui, "isolated", 1, 0, true);
+            check(state.at("errors").empty(), "UI failed to observe repaired catalog bytes");
             const auto incarnation = state.at("documents")[0].at("instance");
             std::filesystem::remove(unused / "hud.rml");
             state = copied->snapshot(no_ui, "isolated", 1, 0, true);

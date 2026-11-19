@@ -185,6 +185,7 @@ int main(int argc, char** argv) {
         providers.recording_unavailable = [&](const std::string& mode) {
             return forge::ui::GameRecordingTask::unavailable(play, mode);
         };
+        providers.live_session_supported = [&] { return play.live_audio_session_supported(); };
         if (argc == 6)
             providers.record_game = [&](const forge::ui::GameRecordingRequest& request) {
                 forge::ui::GameRecordingHost host;

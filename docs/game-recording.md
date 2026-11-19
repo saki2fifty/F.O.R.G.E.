@@ -97,13 +97,16 @@ policy. A replacement launch's selection is never overwritten.
 
 ## Current Play capture
 
-Live mode accepts only `capture_scope:"scene"` and no new `input_recording` path.
+Live mode defaults to `capture_scope:"scene"`; explicit `session` scope follows
+correlated game-requested Scene activations. Neither scope accepts a new
+`input_recording` path.
 Admission requires settled ordinary SDK Play with its existing device output.
 A NullDeviceTest backend is accepted by native test fixtures; Offline output is
 refused. The task binds the original launch/session and current runtime Scene/
 world without restarting, rewinding, pausing or redirecting user data. Ordinary
-input and time controls retain their owners. Scene/world changes fail the clip,
-retain partial output and retire its old audio lease while game loading continues.
+input and time controls retain their owners. In scene scope, Scene/world changes
+fail the clip, retain partial output and retire its old audio lease while game
+loading continues.
 
 `AudioRuntime`'s existing final48kHz stereo float callback observes output through
 a private miniaudio `ma_pcm_rb` SPSC buffer. The exact dependency pin/options are
@@ -115,6 +118,26 @@ without overwriting the earlier complete prefix. Progress derives from the
 committed queue plus the consumer's read cursor. Runtime shutdown joins the
 producer before storage destruction; copied PCM can outlive world retirement.
 
+Session capture keeps that same SDK Play lease and each World's stable buffer.
+The trusted GameScenePreparation adapter prepares incoming storage and the next
+Scene/source witness before publication. Activation quiesces the old observer,
+copies its entire unread prefix without consuming it, carries its capture token
+and read cursor, and enables the new observer. Audio suspension stops a sound
+group, not device callbacks; it is not used as proof of callback quiescence.
+No mixer, native queue object or callback pointer is moved. The existing bounded
+callback retirement protocol is authoritative. The preparation/activation owner
+still controls gameplay. Cancelled or rejected candidates append no visits;
+recording preparation/handoff failure or a65th visit fails only recording and
+retains its completed prefix. Ordinary gameplay adoption continues.
+
+Session wire status uses `live-session-game-v1`, append-only `visits` containing
+Scene/generation/source/absolute `audio_frame`, and `captured_frames`. Repeated
+Scenes retain distinct increasing generation witnesses. The initial Scene/world
+and capture generation remain the read/end identity after replacement; current
+`active_generation` remains separate. Ending recording freezes its visit list,
+while subsequent gameplay can continue changing Worlds. Discovery negotiates
+`live_audio_session_capture` separately from single-Scene `live_audio_capture`.
+
 Private SDK `audio_capture` begin/read/end replies include original Scene/world,
 fresh capture generation, state, coherent captured/read/queued counts and bounded
 PCM16 chunks with exact sequential cursors. They do not republish a complete
@@ -123,7 +146,7 @@ world. `live_audio_capture` advertises this backend primitive, not a separate
 public SDK callback ABI. The existing PCM16 conversion is shared by both modes.
 
 PlaySession validates identities, types, cursor, monotonic progress and payload
-bounds. Media commands have lower priority than observations, admission and
+bounds, scope and append-only visit identity. Media commands have lower priority than observations, admission and
 ordinary controls. A normal snapshot follows every media reply so input/epoch/
 acknowledgement traffic continues. Pause/Resume can queue behind a bounded media
 read. Ending the observer leaves the device and game clock running. Cancel and
@@ -138,7 +161,11 @@ last observed captured mixer cursor. The first actual image establishes the
 movie's audio source origin. These are observed transport/render boundaries:
 they do not establish physical device latency or sample-accurate audiovisual
 alignment. Ordinary live rendering and Runtime UI keep their existing clocks;
-no offline temporal sample is substituted.
+no offline temporal sample is substituted. Session capture waits for copied media
+status, cached runtime Scene and current World generation to agree before
+requesting a new image. A World change before an outstanding Game copy is submitted fails capture.
+After submission, private pixels and frozen image provenance can finish readback
+and file retirement across a Scene change; an old image is never relabeled.
 
 Actual saved PNGs have contiguous image indices. Logical movie frames reference
 the latest saved image whose observed source cursor is at/before the nominal
@@ -147,7 +174,7 @@ existing sequence encoder; no extra PNGs, simulated ticks or fabricated captures
 are created. The encoder's expanded snapshot budget counts repeated references.
 At the planned audio end, the task ends/drains the tap, settles pending PNG IO
 and crops its owned raw PCM to exact container duration before encoding. No
-complete AVI is published for Cancel, Scene change or other failure.
+complete AVI is published for Cancel, a scene-scope Scene change or other failure.
 
 Live receipts use version3/profile `live-scene-game-v3`. `images` lists actual
 saved PNG observations and `frames` lists logical movie references with image
@@ -158,6 +185,17 @@ remains the authored baseline. `audio_source_start_frame`, `raw_audio_frames`
 and `audio_normalized` identify trimmed complete output versus a partial raw
 prefix. Warm-up and retirement each allow two extra seconds beyond the128MiB
 normalized PCM bound, still within the combined256MiB snapshot limit.
+
+Live session receipts use version4/profile `live-session-game-v4`, retaining all
+live image/reference fields and source provenance per image. `source_visits`
+preserves wire witnesses exactly. `visits` additionally retains each original
+`source_audio_frame` and expresses `audio_frame` relative to
+`audio_source_start_frame`, clamped to zero for visits before the first image.
+Before a first image exists that normalized value is null. Visits beyond the
+chosen movie interval may remain in the observation history; they do not create
+images or extend the encoded movie. Partial unnormalized PCM remains identified
+by the existing normalization/raw-frame fields. Versions1/2/3 retain their prior
+scene/offline-session/live-scene meanings.
 
 ## Media contract
 
@@ -205,7 +243,8 @@ and media bounds. `capture.game.start` requires execution and output grants plus
 current Scene/revision/document baselines, a new scoped folder and bounded
 FPS/count/extent/quality. Optional `recording_mode` defaults to `offline`; `live`
 uses the same current-Play task path. Discovery lists `recording_modes`,
-`mode_readiness` and `live_capture_scopes:["scene"]`. The legacy top-level `ready`
+`mode_readiness` and host-negotiated `live_capture_scopes` (`scene`, plus `session`
+when supported by current Play). The legacy top-level `ready`
 and `capture_scopes` describe the offline workflow. Optional `capture_scope` uses the same scene/session
 values and task factory as the native **Across scenes** control. Discovery lists
 those scopes and the64-visit bound. MCP derives its schemas and open-world annotation from
@@ -230,24 +269,45 @@ do not add a codec dependency or a runtime media-player capability.
 
 The guide's options PNGs are unretouched native development captures from the
 production recording window and Diligent ImGui renderer at100% scale. Offline
-and live controls pass wide/narrow100/150/200% layouts. Completion, active GPU
-cancellation, an offline session movie and a live Scene-change guard make up
-fourteen native fixture cases. Live capture uses the real renderer/runtime UI
-and the existing clocked null test device with a private Gallery copy.
-Software Vulkan does not establish Windows/full Main, physical GPU/input/DPI,
-speaker latency or external player acceptance.
+and live controls pass wide/narrow100/150/200% layouts. The recording fixture
+also covers completion, active GPU cancellation, offline session recording,
+live cross-Scene recording and rejection of an outstanding Game copy at Scene
+replacement. Live capture uses the real renderer/runtime UI and the existing
+clocked null test device with a private Gallery copy. Software Vulkan does not
+establish Windows/full Main, physical GPU/input/DPI, speaker latency or external
+player acceptance.
 
 | Canonical manual image | SHA-256 |
 | --- | --- |
 | `game-recording-options.png` | `95e0dcb50577c9457af58702382ddda4aa7d0433249cbf74f1a93c421a467fe5` |
-| `game-recording-live-options.png` | `ccbb0331e18fc6d0cf1653655618be8607b4f1400fdd8a63e331556d50712584` |
+| `game-recording-live-options.png` | `254f0a619a300b7fe86705fbab23726fde7fa2c67c6cec28736718411a0c6c54` |
 | `game-recording-frame.png` | `9f66928482c8f1d02961c0303a592d964c9bdbbf3237a93a77bec55d91b747df` |
 
-The options captures use source-input digest
+The unchanged offline options capture uses source-input digest
 `152d22b050d0ffcf5e68e9654d3698d18c84c4f32da6e98c420f6eb03112336b`.
-The configured local identity is `unassigned` with source metadata
-`d70e63a360dd422c211e0d323c3c90567b001eb5`, rather than a numbered Windows delivery.
-The unchanged Game image retains its existing provenance.
+The current live options capture shows **Record current Play** and **Across scenes**
+selected, with input recording disabled. Its native source-input digest is
+`d161ea398648cc0f1d6cdbdfeb8e7df1d802593e98423d561ff0210bc51d0f01`.
+The configured local identity is `unassigned`; cached source metadata
+`d70e63a360dd422c211e0d323c3c90567b001eb5` is not the tested working-tree revision
+or a numbered Windows delivery. The unchanged Game image retains its existing
+provenance.
+
+The live session fixture records actual A→B→A gameplay with the original SDK
+Scene example, Gallery182 HUD and autoplay tones. Independent GPU readbacks
+match all26 saved PNGs and their Scene/tick/presentation metadata. The60-frame,
+10FPS movie contains288000 stereo sample frames; independent decoding recovers
+the exact retained PCM, including non-silent channels. Its36 repeated video
+references preserve the latest eligible image. Raw Scene visit boundaries are
+0/79200/157920; the first-image audio origin is3360. Receipts retain both raw and
+origin-relative boundaries. Maximum decoded JPEG RGB mean absolute error is2.47
+levels for this fixture, not a general quality guarantee. A negative fixture
+holds the first Game copy through Scene replacement: recording fails with no
+images/movie, a null image/audio origin and a retained55200-frame PCM prefix,
+while gameplay continues. Software rasterization uses two worker threads; the
+normal recording queue, read, callback-retirement and request limits remain.
+These checks establish observed media behavior, not physical sample-accurate
+synchronization or player acceptance. Test-only decoders are not redistributed.
 
 The live fixture independently compares every actual PNG with a Game readback
 and Scene/tick/presentation metadata. Logical movie frames retain causal image

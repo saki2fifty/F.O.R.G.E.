@@ -2953,6 +2953,7 @@ int main(int argc, char** argv) {
                     return reason;
                 return forge::ui::GameRecordingTask::unavailable(play, mode);
             };
+            capturing.live_session_supported = [&] { return play.live_audio_session_supported(); };
             capturing.texture = [&](forge::AssetRef<forge::TextureAsset> texture,
                                     std::optional<forge::TextureSemantic> semantic,
                                     forge::TextureImageSlice slice) {

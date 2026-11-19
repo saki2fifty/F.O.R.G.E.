@@ -125,7 +125,7 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
     check();
     auto profile = services_.profile("ui", "ModelSnapshot", tick);
     Json docs = Json::array(), errors = Json::array();
-    std::optional<AssetCatalog> catalog;
+    const AssetCatalog* catalog = nullptr;
     bool catalog_requested = false;
     std::set<EntityId> live, documents;
     auto conditions = scene.state_conditions();
@@ -158,7 +158,10 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
         if (!catalog_requested) {
             catalog_requested = true;
             try {
-                catalog.emplace(AssetCatalog::open_project(project_));
+                if (!catalog_)
+                    catalog_.emplace(project_);
+                catalog_->refresh_project();
+                catalog = &*catalog_;
             } catch (const std::exception& e) {
                 errors.push_back({{"error", std::string(e.what()).substr(0, 256)}});
             }
@@ -332,6 +335,7 @@ void UiRuntime::shutdown() {
         throw std::runtime_error("UI shutdown requires owner thread");
     active_ = false;
     instances_.clear();
+    catalog_.reset();
     models_.clear();
     actions_.clear();
     value_actions_.clear();

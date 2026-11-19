@@ -16,9 +16,8 @@ struct GameRecordingRequest {
     asset_detail::MovieFrameRate rate() const {
         if (recording_mode != "offline" && recording_mode != "live")
             throw std::runtime_error("Recording mode must be offline or live");
-        if (recording_mode == "live" && (capture_scope != "scene" || !input_recording.empty()))
-            throw std::runtime_error(
-                "Live recording uses the current Scene and its existing input");
+        if (recording_mode == "live" && !input_recording.empty())
+            throw std::runtime_error("Live recording uses the current Play input");
         output.validate();
         if (capture_scope != "scene" && capture_scope != "session")
             throw std::runtime_error("Recording capture scope must be scene or session");

@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-11-19](20261119/README.md) — Current-Play movies across Scene changes, bounded audio handoff and repeated-visit receipts, shared native/MCP controls, illustrated recording instructions and validated runtime UI catalog reuse.
+
 - [2026-11-18](20261118/README.md) — Single-clip PNG/WebP/silent AVI output, exported-game GPU reports, single-clip Game/UI preview, live Play movie capture, offline game movies and fixed input across Scene visits, Input Message source inspection, avoidance membership/masks and yielding priority, independent navigation areas/costs, physical character drops and grounded XY jumps, shared Inspector/MCP/SDK workflows, private runtime recovery, editable/exportable Gallery228–236 and illustrated manual instructions.
 
 - [2026-11-17](20261117/README.md) — Physical 3D character jump links and Floating XY navigation characters, stopped Scene-sequence UI preview and frame output, optional collision checks on navigation crossings, Camera Follow/Aim and their Timeline field tracks, composed camera inspection, camera-only shot blends, C++ rename across open sources and authored navigation arcs.

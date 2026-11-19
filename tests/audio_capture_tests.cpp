@@ -66,6 +66,66 @@ void bounded_prefix() {
           "Oversized callback was dereferenced or restart generation was lost");
     queue.stop();
 }
+void scene_handoffs() {
+    AudioCaptureBuffer source(8), target(8);
+    source.start();
+    auto first = ramp(0, 6);
+    source.observe(first.data(), 6);
+    check(source.read(4) == ramp(0, 4), "Handoff initial cursor changed");
+    auto wrapped = ramp(6, 5);
+    source.observe(wrapped.data(), 5);
+    check(!target.continue_from(source) && source.progress().active,
+          "An unprepared handoff stopped the current producer");
+    target.prepare_storage();
+    target.prepare_storage();
+    const auto boundary = target.continue_from(source);
+    check(boundary && *boundary == 11 && !source.progress().active &&
+              source.progress().read_frames == 4 && source.progress().queued_frames == 7 &&
+              target.progress().active && target.progress().generation == 1 &&
+              target.progress().read_frames == 4 && target.progress().captured_frames == 11,
+          "Prepared handoff lost its wrapped prefix, cursor or capture identity");
+    source.observe(first.data(), 6);
+    const auto final = ramp(11, 1);
+    target.observe(final.data(), 1);
+    check(target.read(8) == ramp(4, 8) && source.read(8) == ramp(4, 7),
+          "Handoff invented/reordered PCM or consumed the retained source prefix");
+    check(!target.continue_from(source), "An existing capture was replaced by a handoff");
+    target.stop();
+    target.start();
+    check(target.progress().generation == 2 && target.progress().captured_frames == 0,
+          "A normal restart lost its generation after a Scene handoff");
+    target.stop();
+
+    AudioCaptureBuffer empty(8), next(8), third(8);
+    empty.start();
+    next.prepare_storage();
+    const auto zero = next.continue_from(empty);
+    check(zero.has_value() && *zero == 0 && next.progress().generation == 1,
+          "A valid empty-prefix handoff was confused with failure");
+    next.observe(first.data(), 3);
+    third.prepare_storage();
+    const auto again = third.continue_from(next);
+    check(again && *again == 3 && third.read(8) == ramp(0, 3) && third.progress().generation == 1,
+          "Repeated Scene handoffs reset the capture or lost the cumulative prefix");
+    third.stop();
+
+    AudioCaptureBuffer live(8), small(4), failed(8), fresh(8);
+    live.start();
+    live.observe(first.data(), 2);
+    small.prepare_storage();
+    check(!small.continue_from(live) && live.progress().active &&
+              live.progress().captured_frames == 2 && small.progress().generation == 0,
+          "A smaller replacement silently reduced the queue budget or stopped the producer");
+    live.stop();
+    failed.start();
+    failed.observe(first.data(), 6);
+    failed.observe(first.data(), 3);
+    fresh.prepare_storage();
+    check(!fresh.continue_from(failed) &&
+              failed.progress().failure == AudioCaptureBuffer::Failure::Overflow &&
+              failed.read(8) == first && fresh.progress().generation == 0,
+          "A handoff hid an earlier failure or destroyed its retained prefix");
+}
 void concurrent_prefix() {
     AudioCaptureBuffer queue(512);
     constexpr unsigned total = 200000;
@@ -135,6 +195,7 @@ void concurrent_restarts() {
 void device_capture(const std::filesystem::path& root, AssetId clip) {
     Fixture offline(root);
     reject([&] { AudioCaptureAccess::begin(*offline.audio); });
+    reject([&] { AudioCaptureAccess::prepare(*offline.audio); });
     Fixture device(root, 1, false, {}, AudioOutput::NullDeviceTest);
     device.load(source(clip));
     device.simulation.audio_paused(false);
@@ -192,11 +253,65 @@ void device_capture(const std::filesystem::path& root, AssetId clip) {
     while (AudioCaptureAccess::status(*device.audio).at("queued_frames") != 0)
         (void)AudioCaptureAccess::read(*device.audio, 4096);
 }
+void device_handoff(const std::filesystem::path& root, AssetId clip) {
+    Fixture old_world(root, 1, false, {}, AudioOutput::NullDeviceTest);
+    Fixture next_world(root, 1, false, {}, AudioOutput::NullDeviceTest);
+    old_world.load(source(clip));
+    next_world.load(source(clip));
+    old_world.simulation.audio_paused(false);
+    AudioCaptureAccess::begin(*old_world.audio);
+    AudioCaptureAccess::prepare(*next_world.audio);
+    check(!AudioCaptureAccess::handoff(*old_world.audio, *next_world.audio),
+          "A running audio group crossed the publication boundary");
+    std::atomic<bool> refused{false};
+    std::thread foreign(
+        [&] { refused.store(!AudioCaptureAccess::handoff(*old_world.audio, *next_world.audio)); });
+    foreign.join();
+    check(refused.load(), "A foreign thread transferred live capture ownership");
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (AudioCaptureAccess::status(*old_world.audio).at("captured_frames") < 256u) {
+        check(std::chrono::steady_clock::now() < deadline, "Old mixer did not produce PCM");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    old_world.audio->paused(true);
+    const auto boundary = AudioCaptureAccess::handoff(*old_world.audio, *next_world.audio);
+    check(boundary.has_value() && *boundary >= 256 &&
+              AudioCaptureAccess::status(*old_world.audio).at("state") == "stopped" &&
+              AudioCaptureAccess::status(*next_world.audio).at("generation") == 1,
+          "Actual device handoff lost the source boundary or capture identity");
+    next_world.simulation.audio_paused(false);
+    deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (AudioCaptureAccess::status(*next_world.audio).at("captured_frames") < *boundary + 256) {
+        check(std::chrono::steady_clock::now() < deadline, "New mixer did not continue PCM");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    AudioCaptureAccess::end(*next_world.audio);
+    const auto drain = [](AudioRuntime& audio) {
+        std::vector<float> result;
+        while (AudioCaptureAccess::status(audio).at("queued_frames") != 0) {
+            auto samples = AudioCaptureAccess::read(audio, 4096);
+            result.insert(result.end(), samples.begin(), samples.end());
+        }
+        return result;
+    };
+    const auto prefix = drain(*old_world.audio), combined = drain(*next_world.audio);
+    check(prefix.size() == *boundary * 2 && combined.size() >= prefix.size() + 512 &&
+              std::equal(prefix.begin(), prefix.end(), combined.begin()) &&
+              combined.size() == AudioCaptureAccess::status(*next_world.audio)
+                                         .at("captured_frames")
+                                         .get<std::uint64_t>() *
+                                     2,
+          "Device replacement lost, duplicated or reordered the retained PCM prefix");
+    check(std::ranges::any_of(combined.begin() + prefix.size(), combined.end(),
+                              [](float value) { return std::abs(value) > .001f; }),
+          "The incoming World did not contribute its actual mixed sound");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
         check(argc == 2, "Need a temporary audio project directory");
         bounded_prefix();
+        scene_handoffs();
         concurrent_prefix();
         concurrent_restarts();
         const auto root = std::filesystem::path(argv[1]) / AssetId::generate().str();
@@ -204,6 +319,7 @@ int main(int argc, char** argv) {
         wav(root / "Assets/tone.wav");
         const auto clip = AssetCatalog::register_audio_clip(root, "Assets/tone.wav");
         device_capture(root, clip.id);
+        device_handoff(root, clip.id);
         std::filesystem::remove_all(root);
         std::cout
             << "Bounded concurrent capture, actual null-test mix, retained prefix and shutdown "

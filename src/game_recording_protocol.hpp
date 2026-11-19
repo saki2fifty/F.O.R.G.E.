@@ -31,8 +31,12 @@ inline LiveAudioChunk read_live_audio(const nlohmann::json& value, std::uint64_t
         throw std::runtime_error("Live recording PCM length does not match its interval");
     return {cursor, std::move(pcm)};
 }
+inline void validate_recording_visits(const nlohmann::json&, const nlohmann::json&, std::uint64_t,
+                                      AssetId, bool live = false);
 inline void validate_live_audio_status(const nlohmann::json& value, std::uint64_t world,
-                                       AssetId scene, std::uint64_t capture = 0) {
+                                       AssetId scene, std::uint64_t capture = 0,
+                                       std::string_view scope = "scene",
+                                       const nlohmann::json& previous = nlohmann::json()) {
     if (!world || !scene || !value.is_object() || !value.at("generation").is_number_unsigned() ||
         value.at("generation") == 0 || (capture && value.at("generation") != capture) ||
         !value.at("world_generation").is_number_unsigned() ||
@@ -55,15 +59,32 @@ inline void validate_live_audio_status(const nlohmann::json& value, std::uint64_
         (state != "recording" && state != "stopped" && state != "failed") ||
         ((state == "failed") != !value.at("error").get_ref<const std::string&>().empty()))
         throw std::runtime_error("Live recording progress does not match its committed PCM");
+    if ((scope != "scene" && scope != "session") || value.value("capture_scope", "scene") != scope)
+        throw std::runtime_error("Live recording returned an incompatible capture scope");
+    if (scope == "session") {
+        const auto& visits = value.at("visits");
+        if (!visits.is_array() || visits.empty())
+            throw std::runtime_error("Live session recording has no Scene visits");
+        const auto last = visits.back().at("generation").get<std::uint64_t>();
+        validate_recording_visits(value, previous, last, visits.back().at("scene").get<AssetId>(),
+                                  true);
+        if (visits.front().at("generation") != world ||
+            visits.front().at("scene").get<AssetId>() != scene ||
+            last > value.at("active_generation").get<std::uint64_t>() ||
+            (state == "recording" && last != value.at("active_generation")))
+            throw std::runtime_error(
+                "Live session visits do not match its capture and active World");
+    }
 }
 inline void validate_recording_visits(const nlohmann::json& value, const nlohmann::json& previous,
-                                      std::uint64_t generation, AssetId scene) {
+                                      std::uint64_t generation, AssetId scene, bool live) {
+    const auto* counter = live ? "captured_frames" : "audio_frames";
     if (value.value("capture_scope", "") != "session" ||
-        value.value("profile", "") != "offline-session-game-v2")
+        value.value("profile", "") != (live ? "live-session-game-v1" : "offline-session-game-v2"))
         throw std::runtime_error("Runtime returned an incompatible session movie profile");
     const auto& visits = value.at("visits");
     if (!visits.is_array() || visits.empty() || visits.size() > input_recording_scene_limit ||
-        !value.at("audio_frames").is_number_unsigned())
+        !value.at(counter).is_number_unsigned())
         throw std::runtime_error("Recording has invalid Scene visit progress");
     std::uint64_t last_generation = 0, last_audio = 0;
     for (const auto& visit : visits) {
@@ -75,9 +96,8 @@ inline void validate_recording_visits(const nlohmann::json& value, const nlohman
         const auto audio = visit.at("audio_frame").get<std::uint64_t>();
         const auto& source = visit.at("source").get_ref<const std::string&>();
         if (next <= last_generation || audio < last_audio ||
-            audio > value.at("audio_frames").get<std::uint64_t>() ||
-            (!last_generation && audio != 0) || !visit.at("scene").get<AssetId>() ||
-            source.size() != 64 ||
+            audio > value.at(counter).get<std::uint64_t>() || (!last_generation && audio != 0) ||
+            !visit.at("scene").get<AssetId>() || source.size() != 64 ||
             source.find_first_not_of("0123456789abcdef") != std::string::npos)
             throw std::runtime_error(
                 "Recording Scene visit identity or sample boundary is invalid");
@@ -86,7 +106,7 @@ inline void validate_recording_visits(const nlohmann::json& value, const nlohman
     }
     if (last_generation != generation || visits.back().at("scene").get<AssetId>() != scene)
         throw std::runtime_error("Recording Scene visits do not match the admitted world");
-    if (previous.value("capture_scope", "") == "session") {
+    if (previous.is_object() && previous.value("capture_scope", "") == "session") {
         const auto& prior = previous.at("visits");
         if (prior.size() > visits.size() || !std::equal(prior.begin(), prior.end(), visits.begin()))
             throw std::runtime_error("Recording rewrote an already observed Scene visit");

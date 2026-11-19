@@ -447,6 +447,9 @@ class PlaySession {
     bool live_audio_supported() const {
         return sdk_game_ && !offline_recording_ && live_audio_supported_;
     }
+    bool live_audio_session_supported() const {
+        return live_audio_supported() && live_audio_session_supported_;
+    }
     bool live_audio_ready() const {
         return live_audio_supported() && active() &&
                (stage_ == Stage::Preparing || stage_ == Stage::Running) && control_queue_ready();
@@ -463,13 +466,16 @@ class PlaySession {
             live_audio_supported() && (live_audio_pending() || live_audio_status_.is_object());
         live_audio_frame_.reset();
     }
-    bool submit_live_audio(const std::string& operation, unsigned maximum_frames = 4096) {
+    bool submit_live_audio(const std::string& operation, unsigned maximum_frames = 4096,
+                           const std::string& scope = "scene") {
         if (!(operation == "begin"
                   ? live_audio_supported() && control_ready() && !live_audio_retiring_
                   : live_audio_ready()) ||
             live_audio_pending() || (live_audio_frame_ && operation != "end") ||
             (operation != "begin" && operation != "read" && operation != "end") ||
-            !maximum_frames || maximum_frames > 4096)
+            !maximum_frames || maximum_frames > 4096 ||
+            (operation == "begin" && ((scope != "scene" && scope != "session") ||
+                                      (scope == "session" && !live_audio_session_supported()))))
             return false;
         if (operation != "begin" && !live_audio_status_.is_object())
             return false;
@@ -480,6 +486,7 @@ class PlaySession {
         live_audio_requested_operation_ = operation;
         live_audio_error_.clear();
         if (operation == "begin") {
+            live_audio_requested_scope_ = scope;
             live_audio_requested_world_ = world_generation();
             live_audio_requested_scene_ = snapshot_.at("asset_id").get<AssetId>();
             live_audio_requested_capture_ = live_audio_requested_cursor_ = 0;
@@ -496,7 +503,9 @@ class PlaySession {
         live_audio_command_ = {{"command", "audio_capture"},
                                {"operation", operation},
                                {"generation", live_audio_requested_world_}};
-        if (operation != "begin")
+        if (operation == "begin")
+            live_audio_command_["capture_scope"] = scope;
+        else
             live_audio_command_["capture_generation"] = live_audio_requested_capture_;
         if (operation == "read") {
             live_audio_command_["audio_frame"] = live_audio_requested_cursor_;
@@ -1125,9 +1134,11 @@ class PlaySession {
                         live_audio_error_ = response.value("error", "Live audio capture failed");
                     else {
                         const auto& progress = response.at("audio_capture");
-                        validate_live_audio_status(progress, live_audio_requested_world_,
-                                                   live_audio_requested_scene_,
-                                                   live_audio_requested_capture_);
+                        validate_live_audio_status(
+                            progress, live_audio_requested_world_, live_audio_requested_scene_,
+                            live_audio_requested_capture_, live_audio_requested_scope_,
+                            live_audio_requested_operation_ == "begin" ? Json()
+                                                                       : live_audio_status_);
                         if (live_audio_requested_operation_ == "end" &&
                             progress.at("state") == "recording")
                             throw std::runtime_error("Live audio End left its capture active");
@@ -1394,6 +1405,9 @@ class PlaySession {
                         live_audio_supported_ =
                             sdk_game_ && response.value("runtime_contract", Json::object())
                                              .value("live_audio_capture", false);
+                        live_audio_session_supported_ =
+                            sdk_game_ && response.value("runtime_contract", Json::object())
+                                             .value("live_audio_session_capture", false);
                     }
                     const auto generation =
                         sdk_game_ ? response.at("activation").value("generation", std::uint64_t{})
@@ -1827,8 +1841,10 @@ class PlaySession {
         live_audio_frame_.reset();
         live_audio_error_.clear();
         live_audio_supported_ = false;
+        live_audio_session_supported_ = false;
         live_audio_retiring_ = false;
         live_audio_requested_operation_.clear();
+        live_audio_requested_scope_ = "scene";
         live_audio_requested_world_ = live_audio_requested_capture_ = live_audio_requested_cursor_ =
             0;
         live_audio_requested_scene_ = {};
@@ -2175,10 +2191,12 @@ class PlaySession {
         return control_.empty() &&
                (!waiting_ || sent_command_ == "snapshot" || sent_command_ == "audio_capture");
     }
-    bool live_audio_supported_ = false, live_audio_retiring_ = false;
+    bool live_audio_supported_ = false, live_audio_session_supported_ = false,
+         live_audio_retiring_ = false;
     Json live_audio_command_, live_audio_status_;
     std::optional<LiveAudioChunk> live_audio_frame_;
     std::string live_audio_error_, live_audio_requested_operation_;
+    std::string live_audio_requested_scope_ = "scene";
     std::uint64_t live_audio_requested_world_ = 0, live_audio_requested_capture_ = 0,
                   live_audio_requested_cursor_ = 0;
     AssetId live_audio_requested_scene_;

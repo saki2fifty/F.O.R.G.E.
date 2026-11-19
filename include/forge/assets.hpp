@@ -1,8 +1,10 @@
 #pragma once
+#include <cstddef>
 #include <filesystem>
 #include <forge/asset_build.hpp>
 #include <forge/asset_ref.hpp>
 #include <map>
+#include <memory>
 #include <optional>
 #include <vector>
 namespace forge {
@@ -66,6 +68,11 @@ class AssetCatalog {
     void set_dependencies(AssetId consumer, std::vector<AssetDependency> edges);
     void set_source_dependencies(AssetId consumer, std::vector<AssetSourceDependency> sources);
     static AssetCatalog open_project(const std::filesystem::path& root);
+    // Observe the current source/content index through the same read boundary.
+    // Reuse validated records only for identical bytes; failed reads/validation
+    // retain this value and are retried on the next call. Local edits invalidate
+    // the observation, so refreshing still restores the published project data.
+    bool refresh_project();
     static std::filesystem::path project_index(const std::filesystem::path& root);
     static AssetRecord register_audio_clip(const std::filesystem::path& project,
                                            const std::filesystem::path& source);
@@ -85,5 +92,8 @@ class AssetCatalog {
     std::filesystem::path project_;
     std::map<AssetId, AssetRecord> records_;
     AssetDependencyGraph graph_;
+    std::shared_ptr<const std::vector<std::byte>> observed_index_;
+    bool index_observed_ = false;
+    void invalidate_observation() noexcept;
 };
 } // namespace forge
