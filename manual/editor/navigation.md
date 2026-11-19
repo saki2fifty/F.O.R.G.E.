@@ -19,12 +19,10 @@ the active world's private navigation basis, and agents plan new routes from it.
 
 Try **237-runtime-navigation-rebuild** in the Feature Gallery:
 
-1. Open the Scene and press Play. The floor moves two metres, then stops after one
-second. The cyan agent waits because its original NavMesh is stale.
+1. Open the Scene and press Play. The floor moves two metres, then stops after one second. The cyan agent waits because its original NavMesh is stale.
 2. Pause after the floor stops. Open the **Game** tab and expand **Runtime navigation**.
 3. Select **Profile → default**, then click **Rebuild navigation**.
-4. Wait for **Rebuild: Applied**. Preparation and rebuilding also work while paused;
-the agent stays in place until gameplay advances.
+4. Wait for **Rebuild: Applied**. Preparation and rebuilding also work while paused; the agent stays in place until gameplay advances.
 5. Resume or Step. The agent continues to the green destination.
 6. Stop. The authored floor and agent return to their saved starting positions.
 
