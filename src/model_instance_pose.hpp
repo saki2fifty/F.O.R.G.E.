@@ -49,6 +49,10 @@ MeshInstancePose prepare_mesh_instance_pose(const MeshResourceData&, const MeshP
                                             double simulation_seconds = .5);
 std::uint64_t mesh_pose_bytes(const MeshPoseGeometry&);
 std::uint64_t mesh_pose_bytes(const MeshInstancePose&);
-RenderBounds mesh_part_bounds(const MeshInstancePose&, unsigned lod, unsigned part, Double3 origin);
-RenderBounds mesh_instance_bounds(const MeshInstancePose&, Double3 origin);
+// A detached static world is used for view-dependent particle geometry only.
+// Skinning and wind retain their own pose/bounds authority and reject overrides.
+RenderBounds mesh_part_bounds(const MeshInstancePose&, unsigned lod, unsigned part, Double3 origin,
+                              const AffineTransform* static_world = nullptr);
+RenderBounds mesh_instance_bounds(const MeshInstancePose&, Double3 origin,
+                                  const AffineTransform* static_world = nullptr);
 } // namespace forge

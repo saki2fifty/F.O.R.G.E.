@@ -2,8 +2,8 @@
 
 A particle effect is a reusable stream or burst of small meshes. Use it for
 stylized sparks, debris or fountains. Effects can use solid or masked meshes, or
-sorted transparent meshes with CPU evaluation. Smoke billboards, trails and
-particle collision are not supported.
+sorted transparent meshes and camera-aligned quads with CPU evaluation. Trails
+and particle collision are not supported.
 
 ## Try the Gallery
 
@@ -92,6 +92,39 @@ masked Materials; a failed publication retains the working selected effect.
 Export with the runtime kit packaged with this editor. An older kit that lacks
 the sorted-alpha profile is rejected. The player needs no compiler or compute
 support for CPU evaluation.
+
+## Camera-aligned quads
+
+Open **Scenes/242-camera-aligned-particles.scene.json** in the Gallery and press
+**Play**. Two emitters share a soft alpha image, Material and Effect. Their
+reflected/nonuniform scales change quad dimensions while each view sets orientation.
+Open **Assets/Particles/Billboards/SoftCloud.particles.json** to edit the effect or
+**SoftCloud.paint-texture.json** to paint its image. The camera and light are included.
+
+![Blue and amber soft textured particle quads overlapping around a solid marker](../images/camera-aligned-particles.png)
+
+The Gallery scene at three seconds in the Game renderer.
+
+Use **Camera-aligned quads** in the Particle Effect document for flat particles
+that follow each camera's view plane. Enabling it selects **CPU (sorted alpha)**
+and displays **Engine / Quad** in the disabled **Mesh** field.
+
+1. Stop Play and open or create a Particle Effect in Content.
+2. Enable **Camera-aligned quads**. Choose a built-in Material. Use **Alpha → Blend**, **Depth test** enabled and **Depth write** disabled for a transparent image.
+3. Assign a color texture with an alpha channel in the Material to give each quad its shape. Save the Material. Opaque and masked Materials also work when particle opacity stays at 1.
+4. Adjust particle size and the emitter's X/Y scale for width and height. The full emitter transform still positions particle motion; each camera sets the visible quad orientation.
+5. Optionally enable **Use opacity over life** to fade particles. A changing opacity requires a Blend Material.
+6. Choose **Save / Publish**, save the scene and press Play. Export using the runtime kit packaged with this editor.
+
+Disabling **Camera-aligned quads** restores the original Mesh selection and retains
+opacity settings. Choosing **CPU**, **GPU** or **Graph** retains alignment without
+applying it. Return to **CPU (sorted alpha)** to apply it again. Undo/Redo restores
+the source settings. Each camera aligns its own view independently.
+
+Quads stay parallel to the camera plane, including in perspective views. They do
+not rotate toward each particle's eye direction, face along velocity or support
+axis locks. Particle spin, GPU alignment, collision and trails are unavailable.
+Transparent quads share the sorting and particle-count limits described above.
 
 ## Opacity over life
 

@@ -155,7 +155,7 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                     require(value_version != metadata->end() && value_version->is_number_integer(),
                             "Invalid Particle Effect value profile");
                     const auto values = value_version->get<std::uint64_t>();
-                    require(values >= 2 && values <= 6,
+                    require(values >= 2 && values <= 7,
                             "Unsupported Particle Effect value profile");
                     if (values == 3 || values == 4) {
                         const auto gpu = engine.find("runtime_particle_gpu");
@@ -171,19 +171,27 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                 "Particle graph Effects require the runtime kit packaged with this "
                                 "editor");
                     }
-                    if (values == 5 || values == 6) {
+                    if (values >= 5 && values <= 7) {
                         const auto alpha = engine.find("runtime_particle_alpha");
                         require(alpha != engine.end() && alpha->is_number_integer() &&
                                     alpha->get<std::uint64_t>() == particle_alpha_profile_version,
                                 "Sorted-alpha Particle Effects require the runtime kit packaged "
                                 "with this editor");
                     }
-                    if (values == 6) {
+                    if (values == 6 || values == 7) {
                         const auto opacity = engine.find("runtime_particle_opacity");
                         require(
                             opacity != engine.end() && opacity->is_number_integer() &&
                                 opacity->get<std::uint64_t>() == particle_opacity_profile_version,
                             "Particle opacity requires the runtime kit packaged with this editor");
+                    }
+                    if (values == 7) {
+                        const auto billboard = engine.find("runtime_particle_billboard");
+                        require(billboard != engine.end() && billboard->is_number_integer() &&
+                                    billboard->get<std::uint64_t>() ==
+                                        particle_billboard_profile_version,
+                                "Camera-aligned particles require the runtime kit packaged with "
+                                "this editor");
                     }
                 }
             }

@@ -409,8 +409,85 @@ void opacity_profiles() {
     document["opacity_curve"][1]["id"] = document["opacity_curve"][0]["id"];
     reject([&] { ParticleEffectSource{document}.validate(); });
 }
+void billboard_profiles() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    const auto original = source.document;
+    source.enable_billboards(false);
+    require(source.document == original, "Disabling absent alignment promoted an old source");
+    const ParticleGraphProgram program{AssetRef<ShaderAsset>{AssetId::generate()}, {3, 4, 5}, 2};
+    source.set_graph_program(program, false);
+    const auto retained_mesh = source.document.at("mesh");
+    source.enable_billboards(true);
+    auto data = source.compiled();
+    require(data.version == 7 && data.mesh == engine_primitive(8) &&
+                source.document.at("mesh") == retained_mesh && data.opacity_start == 1 &&
+                data.opacity_end == 1 && data.opacity_curve.empty() && !data.program,
+            "Camera alignment did not project Quad with identity opacity and retained source Mesh");
+    require(decode_particle_effect(encode_particle_effect(data)) == data &&
+                decode_cooked_particle_effect(source.cook(), source.asset(), 3) == data,
+            "Billboard values/source cook did not roundtrip");
+    const auto baseline = source.document;
+    for (auto backend : {ParticleEvaluation::Gpu, ParticleEvaluation::Cpu,
+                         ParticleEvaluation::Graph, ParticleEvaluation::CpuAlpha}) {
+        source.set_evaluation(backend);
+        const auto selected = source.compiled();
+        require(source.document.at("billboard_enabled").get<bool>() &&
+                    source.document.at("mesh") == retained_mesh &&
+                    source.graph_program() == program &&
+                    selected.version == (backend == ParticleEvaluation::Gpu     ? 3u
+                                         : backend == ParticleEvaluation::Cpu   ? 2u
+                                         : backend == ParticleEvaluation::Graph ? 4u
+                                                                                : 7u) &&
+                    selected.mesh == (backend == ParticleEvaluation::CpuAlpha
+                                          ? engine_primitive(8)
+                                          : baseline.at("mesh").get<AssetRef<MeshAsset>>()),
+                "Backend switch lost retained alignment or projected Quad into another backend");
+    }
+    require(source.document == baseline, "Roundtrip backend switch changed billboard source");
+    source.enable_opacity(true);
+    source.enable_lifetime(ParticleLifetimeChannel::Opacity, true);
+    const auto fade = source.document;
+    require(source.compiled().version == 7 && source.compiled().opacity_end == 0,
+            "Enabling opacity replaced alignment or lost its retained fade");
+    source.enable_opacity(false);
+    require(source.compiled().version == 7 && source.compiled().opacity_end == 1 &&
+                source.compiled().opacity_curve.empty() &&
+                source.document.at("opacity_curve") == fade.at("opacity_curve"),
+            "Disabling opacity did not project identity while retaining stops");
+    source.enable_opacity(true);
+    require(source.document == fade, "Opacity toggle changed stop UUIDs or retained source");
+    source.enable_billboards(false);
+    require(source.compiled().version == 6 &&
+                source.compiled().mesh == retained_mesh.get<AssetRef<MeshAsset>>(),
+            "Disabling alignment did not restore Mesh opacity");
+    source.enable_opacity(false);
+    require(source.compiled().version == 5,
+            "Disabling both controls lost old CPU alpha projection");
+    source.enable_billboards(true);
+    auto invalid = source.document;
+    invalid["billboard_enabled"] = false;
+    reject([&] { (void)parse(invalid); });
+    invalid = source.document;
+    invalid["billboard_enabled"] = 1;
+    reject([&] { (void)parse(invalid); });
+    invalid = encode_particle_effect(source.compiled());
+    invalid["mesh"] = engine_primitive(0);
+    reject([&] { (void)decode_particle_effect(invalid); });
+    for (unsigned old = 1; old <= 6; ++old) {
+        auto values = source.compiled();
+        values.version = old;
+        values.opacity_start = values.opacity_end = 1;
+        values.opacity_curve.clear();
+        if (old == 4)
+            values.program = program;
+        const auto encoded = encode_particle_effect(values);
+        require(decode_particle_effect(encoded) == values,
+                "Billboard support changed older value profile roundtrip");
+    }
+}
 int main() {
     try {
+        billboard_profiles();
         graph_program_profiles();
         sorted_alpha_profiles();
         opacity_profiles();

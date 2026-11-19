@@ -55,8 +55,7 @@ void admit_draw_profile(const AssetImportRequest& request, const AssetCatalog& c
     require(!candidate.ready()->has_fallbacks() && candidate.ready()->selection.unresolved.empty(),
             "Particle draw profile needs complete mesh/material bindings");
     for (const auto& [id, material] : candidate.ready()->materials)
-        validate_particle_material_profile(material.get(), particle_uses_sorted_alpha(values),
-                                           values.version == 6);
+        validate_particle_material_profile(material.get(), values);
     if (values.program) {
         require(request.target.platform == "windows" && request.target.backend == "d3d12" &&
                     request.target.profile == "desktop",
@@ -206,7 +205,7 @@ void prepare_particle_effect_publication(AssetPublicationCandidate& candidate,
     const auto values = decode_cooked_particle_effect(file.bytes, candidate.ticket.owner);
     require(plan.input.importer_revision == particle_effect_recipe &&
                 plan.input.output_format == particle_effect_cooked_format &&
-                plan.input.output_version == 3 && (values.version >= 2 && values.version <= 6),
+                plan.input.output_version == 3 && (values.version >= 2 && values.version <= 7),
             "Particle publication recipe/value version mismatch");
     auto& identity = candidate.sidecar.identity;
     identity.owner = candidate.ticket.owner;

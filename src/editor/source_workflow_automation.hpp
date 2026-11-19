@@ -90,6 +90,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                             "Opacity stops use local UUIDs, normalized0–1 time/value and "
                             "Step/Linear interpolation, like size stops. GPU/Graph do not apply "
                             "opacity. Requires runtime_particle_opacity1 and alpha1."},
+                {"billboards", "asset.document.particle_billboards selects CPU camera-plane "
+                               "quads (values7/cpu_billboard1). Source7 retains the original Mesh "
+                               "and opacity settings across backend changes. Quad width/height "
+                               "use world X/Y scale; orientation follows each camera. Opaque and "
+                               "masked Materials require identity opacity. Requires "
+                               "runtime_particle_billboard1, opacity1 and alpha1."},
                 {"limits",
                  {{"emitters", particle_emitter_limit},
                   {"effect_capacity", 1024},
@@ -763,10 +769,10 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                     return invoke(std::string("preview_") + action, request);
                 }));
         }
-    for (const auto* action :
-         {"patch", "particle_evaluation", "particle_opacity", "particle_program", "paint",
-          "tile_collision", "tile_animation", "tile_autotile", "stroke", "mesh_stroke", "fill",
-          "copy_pixels", "cancel_pixels", "undo", "redo", "save", "close"}) {
+    for (const auto* action : {"patch", "particle_evaluation", "particle_opacity",
+                               "particle_billboards", "particle_program", "paint", "tile_collision",
+                               "tile_animation", "tile_autotile", "stroke", "mesh_stroke", "fill",
+                               "copy_pixels", "cancel_pixels", "undo", "redo", "save", "close"}) {
         auto properties = fields;
         auto needed = required;
         if (std::string_view(action) == "patch") {
@@ -778,11 +784,16 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["evaluation"] = {{"type", "string"},
                                         {"enum", {"cpu", "gpu", "graph", "cpu_alpha"}}};
             needed.push_back("evaluation");
-        } else if (std::string_view(action) == "particle_opacity") {
+        } else if (std::string_view(action) == "particle_opacity" ||
+                   std::string_view(action) == "particle_billboards") {
+            const bool billboards = std::string_view(action) == "particle_billboards";
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
-            properties["enabled"] = {{"type", "boolean"},
-                                     {"description",
-                                      "Enable opacity over life and select CPU sorted-alpha. False "
+            properties["enabled"] = {
+                {"type", "boolean"},
+                {"description", billboards
+                                    ? "Enable camera-plane quads and select CPU sorted-alpha. "
+                                      "False restores the retained Mesh projection."
+                                    : "Enable opacity over life and select CPU sorted-alpha. False "
                                       "retains opacity settings."}};
             needed.push_back("enabled");
         } else if (std::string_view(action) == "particle_program") {

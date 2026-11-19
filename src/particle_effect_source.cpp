@@ -6,6 +6,14 @@
 #include <set>
 namespace forge {
 namespace {
+const char* cpu_alpha_profile(const nlohmann::json& document) {
+    return document.value("billboard_enabled", false) ? "cpu_billboard1"
+           : document.value("opacity_enabled", false) ? "cpu_alpha2"
+                                                      : "cpu_alpha1";
+}
+bool cpu_alpha_profile(std::string_view profile) {
+    return profile == "cpu_alpha1" || profile == "cpu_alpha2" || profile == "cpu_billboard1";
+}
 const char* channel_name(ParticleLifetimeChannel channel) {
     switch (channel) {
     case ParticleLifetimeChannel::Size:
@@ -66,40 +74,55 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             stop.erase("id");
         }
     }
-    if (version < 4 || version > 6)
+    if (version < 4 || version > 7)
         return decode_particle_effect(values);
-    // Source4–6 retain settings while another evaluation backend is active.
+    // Source4–7 retain settings while another evaluation backend is active.
     // Only the active backend contributes runtime values and dependency edges.
     const auto profile = values.at("profile").get<std::string>();
     if (profile != "cpu_mesh2" && profile != "gpu_mesh1" && profile != "gpu_graph1" &&
-        !(version >= 5 && profile == "cpu_alpha1") && !(version == 6 && profile == "cpu_alpha2"))
+        !(version >= 5 && profile == "cpu_alpha1") && !(version >= 6 && profile == "cpu_alpha2") &&
+        !(version == 7 && profile == "cpu_billboard1"))
         throw std::runtime_error("Unknown Particle Effect evaluation profile");
-    if (version == 6) {
+    if (version == 7) {
+        if (!values.at("billboard_enabled").is_boolean())
+            throw std::runtime_error("Particle camera alignment must be boolean");
+        values.erase("billboard_enabled");
+    }
+    if (version >= 6) {
         const auto& enabled = values.at("opacity_enabled");
-        if (!enabled.is_boolean() || ((profile == "cpu_alpha1" || profile == "cpu_alpha2") &&
-                                      enabled.get<bool>() != (profile == "cpu_alpha2")))
-            throw std::runtime_error("Particle opacity enabled state/profile mismatch");
+        if (!enabled.is_boolean() || (cpu_alpha_profile(std::string_view(profile)) &&
+                                      profile != cpu_alpha_profile(document)))
+            throw std::runtime_error("Particle appearance enabled state/profile mismatch");
+        const bool opacity_enabled = enabled.get<bool>();
         values.erase("opacity_enabled");
         // Validate retained inactive opacity with CPU precision before projecting
         // the selected backend. It must never acquire GPU stop restrictions.
         auto opacity = values;
         opacity.erase("program");
+        opacity["version"] = 6;
         opacity["profile"] = "cpu_alpha2";
         (void)decode_particle_effect(opacity);
-        if (profile != "cpu_alpha2")
+        if (profile != "cpu_alpha2" && profile != "cpu_billboard1")
             for (const auto* field : {"opacity_start", "opacity_end", "opacity_curve"})
                 values.erase(field);
+        if (profile == "cpu_billboard1" && !opacity_enabled) {
+            values["opacity_start"] = values["opacity_end"] = 1;
+            values["opacity_curve"] = nlohmann::json::array();
+        }
     }
     if (version == 4 || values.contains("program"))
         (void)decode_particle_graph_program(values.at("program"));
     if (profile != "gpu_graph1") {
         values.erase("program");
-        values["version"] = profile == "cpu_mesh2"    ? 2
-                            : profile == "cpu_alpha1" ? 5
-                            : profile == "cpu_alpha2" ? 6
-                                                      : 3;
+        values["version"] = profile == "cpu_mesh2"        ? 2
+                            : profile == "cpu_alpha1"     ? 5
+                            : profile == "cpu_alpha2"     ? 6
+                            : profile == "cpu_billboard1" ? 7
+                                                          : 3;
     } else
         values["version"] = 4;
+    if (profile == "cpu_billboard1")
+        values["mesh"] = engine_primitive(8);
     return decode_particle_effect(values);
 }
 void ParticleEffectSource::validate() const {
@@ -147,12 +170,11 @@ void ParticleEffectSource::set_evaluation(ParticleEvaluation evaluation) {
         candidate.document["version"] = 5;
     else if (candidate.document.at("version").get<unsigned>() < 4)
         candidate.document["version"] = evaluation == ParticleEvaluation::Gpu ? 3 : 2;
-    candidate.document["profile"] =
-        evaluation == ParticleEvaluation::Graph ? "gpu_graph1"
-        : evaluation == ParticleEvaluation::Gpu ? "gpu_mesh1"
-        : evaluation == ParticleEvaluation::CpuAlpha
-            ? (candidate.document.value("opacity_enabled", false) ? "cpu_alpha2" : "cpu_alpha1")
-            : "cpu_mesh2";
+    candidate.document["profile"] = evaluation == ParticleEvaluation::Graph ? "gpu_graph1"
+                                    : evaluation == ParticleEvaluation::Gpu ? "gpu_mesh1"
+                                    : evaluation == ParticleEvaluation::CpuAlpha
+                                        ? cpu_alpha_profile(candidate.document)
+                                        : "cpu_mesh2";
     candidate.validate();
     document = std::move(candidate.document);
 }
@@ -163,6 +185,7 @@ void ParticleEffectSource::enable_opacity(bool enabled) {
     }
     auto candidate = *this;
     candidate.promote();
+    const auto previous_profile = candidate.document.at("profile").get<std::string>();
     if (candidate.document.at("version").get<unsigned>() < 6) {
         candidate.document["version"] = 6;
         candidate.document["opacity_start"] = 1;
@@ -170,10 +193,29 @@ void ParticleEffectSource::enable_opacity(bool enabled) {
         candidate.document["opacity_curve"] = nlohmann::json::array();
     }
     candidate.document["opacity_enabled"] = enabled;
-    if (enabled)
-        candidate.document["profile"] = "cpu_alpha2";
-    else if (candidate.document.at("profile").get<std::string>() == "cpu_alpha2")
-        candidate.document["profile"] = "cpu_alpha1";
+    if (enabled || cpu_alpha_profile(std::string_view(previous_profile)))
+        candidate.document["profile"] = cpu_alpha_profile(candidate.document);
+    candidate.validate();
+    document = std::move(candidate.document);
+}
+void ParticleEffectSource::enable_billboards(bool enabled) {
+    if (!enabled && !document.contains("billboard_enabled")) {
+        validate();
+        return;
+    }
+    auto candidate = *this;
+    candidate.promote();
+    const auto previous_profile = candidate.document.at("profile").get<std::string>();
+    if (candidate.document.at("version").get<unsigned>() < 6) {
+        candidate.document["opacity_enabled"] = false;
+        candidate.document["opacity_start"] = 1;
+        candidate.document["opacity_end"] = 0;
+        candidate.document["opacity_curve"] = nlohmann::json::array();
+    }
+    candidate.document["version"] = 7;
+    candidate.document["billboard_enabled"] = enabled;
+    if (enabled || cpu_alpha_profile(std::string_view(previous_profile)))
+        candidate.document["profile"] = cpu_alpha_profile(candidate.document);
     candidate.validate();
     document = std::move(candidate.document);
 }
@@ -286,7 +328,7 @@ ParticleEffectData decode_cooked_particle_effect(std::span<const std::byte> byte
             cooked.at("values").contains("extensions"))
             throw std::runtime_error("Particle cooked envelope has unsupported fields");
         const auto data = decode_particle_effect(cooked.at("values"));
-        if (data.version < 2 || data.version > 6)
+        if (data.version < 2 || data.version > 7)
             throw std::runtime_error("Particle cooked envelope has an unsupported value profile");
         return data;
     }

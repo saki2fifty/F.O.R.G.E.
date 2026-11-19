@@ -114,6 +114,23 @@ int main(int argc, char** argv) {
                 wrong["runtime_particle_opacity"] = invalid;
                 reject([&] { validate_runtime_compatibility(particles, wrong); });
             }
+            effect.metadata["forge.particle_effect"]["value_version"] = 7;
+            particles.replace(effect);
+            reject([&] { validate_runtime_compatibility(particles, opacity_kit); });
+            auto billboard_kit = opacity_kit;
+            billboard_kit["runtime_particle_billboard"] = particle_billboard_profile_version;
+            validate_runtime_compatibility(particles, billboard_kit);
+            for (const Json& invalid : {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"),
+                                        Json(2), Json((std::uint64_t{1} << 32) + 1)}) {
+                auto wrong = billboard_kit;
+                wrong["runtime_particle_billboard"] = invalid;
+                reject([&] { validate_runtime_compatibility(particles, wrong); });
+            }
+            for (const auto* missing : {"runtime_particle_alpha", "runtime_particle_opacity"}) {
+                auto wrong = billboard_kit;
+                wrong.erase(missing);
+                reject([&] { validate_runtime_compatibility(particles, wrong); });
+            }
             opacity_kit.erase("runtime_particle_alpha");
             reject([&] { validate_runtime_compatibility(particles, opacity_kit); });
             effect.metadata["forge.particle_effect"]["value_version"] = 4;

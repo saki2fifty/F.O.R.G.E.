@@ -337,6 +337,40 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
     number("particles:opacity_curve:stop:1:time", "1");
     require(editor.document()->source().document == opacity_source && !editor.diagnostic().empty(),
             "Invalid opacity stop entered native source history");
+    const auto billboard_revision = editor.document()->revision();
+    click("particles:billboards");
+    frame(); // Reconcile widgets that used the prior frame's compiled values.
+    const auto billboard_source = editor.document()->source().document;
+    require(editor.document()->source().compiled().version == 7 &&
+                editor.document()->source().compiled().mesh == engine_primitive(8) &&
+                billboard_source.at("mesh") == opacity_source.at("mesh") &&
+                billboard_source.at("opacity_curve") == opacity_source.at("opacity_curve") &&
+                editor.document()->revision() == billboard_revision + 1 &&
+                !test::ui_targets.at("particles:mesh").enabled,
+            "Native alignment lost retained source/history or enabled the fixed Quad picker");
+    click("particles:undo");
+    require(editor.document()->source().document == opacity_source &&
+                test::ui_targets.at("particles:mesh").enabled,
+            "Native alignment Undo did not restore the original source and Mesh control");
+    click("particles:redo");
+    require(editor.document()->source().document == billboard_source,
+            "Native alignment Redo changed retained settings");
+    choose("particles:evaluation", 0);
+    frame();
+    require(editor.document()->source().compiled().version == 2 &&
+                editor.document()->source().document.at("billboard_enabled").get<bool>() &&
+                test::ui_targets.at("particles:mesh").enabled,
+            "Ordinary CPU applied retained alignment or disabled its Mesh selection");
+    choose("particles:evaluation", 3);
+    frame();
+    require(editor.document()->source().document == billboard_source &&
+                !test::ui_targets.at("particles:mesh").enabled,
+            "CPU sorted-alpha did not restore retained alignment");
+    click("particles:billboards");
+    require(editor.document()->source().compiled().version == 6 &&
+                editor.document()->source().document.at("opacity_curve") ==
+                    opacity_source.at("opacity_curve"),
+            "Disabling native alignment lost opacity or failed to restore Mesh projection");
     for (unsigned i = 0; i < 16 && editor.document()->source().document != alpha_profile; ++i)
         editor.undo();
     frame();

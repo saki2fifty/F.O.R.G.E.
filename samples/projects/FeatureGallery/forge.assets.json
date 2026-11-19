@@ -4911,6 +4911,53 @@
     },
     {
       "dependencies": [
+        "581dc579-3047-4c41-985f-90ca8191cbec"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "86ce38eef0d1ce77e564df5b5b6d2b2c2ea67e3d3076f2bccf3e5b3e68a5922e",
+          "role": "material.texture:baseColorTexture",
+          "target": "581dc579-3047-4c41-985f-90ca8191cbec",
+          "type": "texture"
+        }
+      ],
+      "id": "302ccb2e-4c2f-4e45-b686-e0a09a6ecaa7",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "93fad2e748c91ddeca7e569e29c651713f25420691a0a3bc406600fc37089c6e",
+          "backend": "none",
+          "dependency_digest": "267723f3eabdb9b27989caaef9933ed4e17215fc7362de8a680e7690c8b585f8",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "71d6183b0e9c691bb5c91169e4b67933f77ad1e1224b129af502ea856b427d8f",
+          "key": "347566bd07e81e60c3f58aeb4a0b813268b4c62605b9dc71b674f1e2f8013528",
+          "output_format": "forge.material-bundle",
+          "output_version": 3,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "9eb8c706d1be284afea810a12bb38e5097fdce259bd947bc7acbdc0a70ebb2cf",
+          "source_digest": "bbbd41fe89818b12c53a43cf44a448e8d30ba5f3a040e7909fed412f0dcb8cfd",
+          "version": 1
+        },
+        "forge.material": {
+          "render_textures": {},
+          "shader": null,
+          "textures": {
+            "baseColorTexture": "581dc579-3047-4c41-985f-90ca8191cbec"
+          },
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Particles/Billboards/SoftCloud.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
+      "dependencies": [
         "b78ea324-266f-490e-94e1-8159d010302a"
       ],
       "dependency_edges": [
@@ -8284,6 +8331,35 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "581dc579-3047-4c41-985f-90ca8191cbec",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7cdb56fd5a3a1f434d3d01557006b20fee47cecd068bc9fafe614e095966db8b",
+          "backend": "none",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.texture.paint",
+          "importer_revision": "918e8d8bdd55d74bc30a622dd929539bde19e65138897b5597f0b002f524e269",
+          "key": "86ce38eef0d1ce77e564df5b5b6d2b2c2ea67e3d3076f2bccf3e5b3e68a5922e",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "6e500d6e7e08e5b11f498e154d26275d6288d83ed4b295b9c56c95d747c76521",
+          "settings_version": 1,
+          "sidecar_digest": "558825dd42a35241a8c4ba8eef06bc7f75d0ebcb3b3c88cc76181b4db27cec53",
+          "source_digest": "229f0d2e15f32f0ef8e1725c48022984c2b0e3cd068d1693c9d95f84fb3ca93a",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Particles/Billboards/SoftCloud.paint-texture.json",
+      "source_dependencies": [],
+      "type": "texture"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "58355f97-2f43-4c40-9bd4-af5ac3ab891a",
       "metadata": {
         "forge.audio": {
@@ -10920,6 +10996,60 @@
         "removed": false
       },
       "type": "material"
+    },
+    {
+      "dependencies": [
+        "05420c39-1aa8-46ae-b73e-f61680bea5db",
+        "302ccb2e-4c2f-4e45-b686-e0a09a6ecaa7"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "2c7900a13115b653595a499a04f09bec23f82c8bda4da3a6871a606d2371a48b",
+          "role": "particles.mesh",
+          "target": "05420c39-1aa8-46ae-b73e-f61680bea5db",
+          "type": "mesh"
+        },
+        {
+          "kind": "runtime",
+          "revision": "347566bd07e81e60c3f58aeb4a0b813268b4c62605b9dc71b674f1e2f8013528",
+          "role": "particles.material",
+          "target": "302ccb2e-4c2f-4e45-b686-e0a09a6ecaa7",
+          "type": "material"
+        }
+      ],
+      "id": "78d06968-83f2-45b2-b57d-01c2fb3e5696",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "c42f97010b49f89e77670c048188edda30e94b40dbc071351c0da5573fd4eade",
+          "backend": "none",
+          "dependency_digest": "76ecb480aa00c1ed2c35044f4feca9116cab93084aca63dc30429098839624df",
+          "generation": 1,
+          "importer": "forge.particles.cpu-mesh",
+          "importer_revision": "forge.particles.mesh.v3",
+          "key": "25a447fa79451ac752f445551c2d8dbe37be7f4fa24f1cffe21de9971164e469",
+          "output_format": "forge.particle-effect-cooked",
+          "output_version": 3,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "0f6d2d6122416f8dd4ae8d6895813dbb1ec032e7de1bbae7aef3d86f08bdacec",
+          "source_digest": "5876916643dd128f32fd5f8bf93177bcc21d8516c0e5bc7d26396700e642ca0e",
+          "version": 1
+        },
+        "forge.particle_effect": {
+          "bytes": 877,
+          "file": "effect.json",
+          "sha256": "4a0be0331e155d3740191f990b5c19238767f0619e5cd46685ef077e89b71c8d",
+          "value_version": 7,
+          "version": 3
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Particles/Billboards/SoftCloud.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [
@@ -17795,6 +17925,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c99eff55-48f4-49e7-896d-5cc8c719ded4",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/242-camera-aligned-particles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

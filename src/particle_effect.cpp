@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <forge/engine_assets.hpp>
 #include <forge/particle_effect.hpp>
 #include <numbers>
 #include <random>
@@ -130,10 +131,12 @@ nlohmann::json encode_particle_graph_program(const ParticleGraphProgram& program
             {"maximum_size", program.maximum_size}};
 }
 void validate_particle_effect(const ParticleEffectData& data) {
-    if (data.version < 1 || data.version > 6)
+    if (data.version < 1 || data.version > 7)
         throw std::runtime_error("Unknown particle value version");
     if (!data.mesh.id)
         throw std::runtime_error("Particle effect requires a Mesh");
+    if (particle_uses_billboards(data) && data.mesh != engine_primitive(8))
+        throw std::runtime_error("Camera-aligned particles require Engine/Quad geometry");
     if (data.emission > ParticleEmission::Burst)
         throw std::runtime_error("Unknown particle emission mode");
     range(data.capacity, 1, 1024, "capacity");
@@ -171,7 +174,7 @@ void validate_particle_effect(const ParticleEffectData& data) {
     range(data.opacity_start, 0, 1, "start opacity");
     range(data.opacity_end, 0, 1, "end opacity");
     validate_stops(data.opacity_curve, false);
-    if (data.version != 6 &&
+    if (!particle_uses_opacity(data) &&
         (data.opacity_start != 1 || data.opacity_end != 1 || !data.opacity_curve.empty()))
         throw std::runtime_error("Particle opacity requires the CPU opacity profile");
     if (data.version == 4) {
@@ -194,7 +197,8 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
     const auto profile = source.at("profile").get<std::string>();
     if (!((version == 1 && profile == "cpu_mesh1") || (version == 2 && profile == "cpu_mesh2") ||
           (version == 3 && profile == "gpu_mesh1") || (version == 4 && profile == "gpu_graph1") ||
-          (version == 5 && profile == "cpu_alpha1") || (version == 6 && profile == "cpu_alpha2")))
+          (version == 5 && profile == "cpu_alpha1") || (version == 6 && profile == "cpu_alpha2") ||
+          (version == 7 && profile == "cpu_billboard1")))
         throw std::runtime_error("Unsupported particle effect format/version/profile");
     static const std::set<std::string> fields{
         "format",     "version",      "profile",     "mesh",       "material",
@@ -207,7 +211,7 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
               (name == "shape" || name == "shape_size" || name == "shape_radius" ||
                name == "drag" || name == "size_curve" || name == "color_gradient")) &&
             !(version == 4 && name == "program") &&
-            !(version == 6 &&
+            !((version == 6 || version == 7) &&
               (name == "opacity_start" || name == "opacity_end" || name == "opacity_curve")))
             throw std::runtime_error("Unknown particle effect field: " + name);
     if (source.contains("extensions") && !source.at("extensions").is_object())
@@ -247,7 +251,7 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
     number("speed_max", data.speed_max);
     number("size_start", data.size_start);
     number("size_end", data.size_end);
-    if (data.version == 6) {
+    if (particle_uses_opacity(data)) {
         data.opacity_start = scalar(source.at("opacity_start"));
         data.opacity_end = scalar(source.at("opacity_end"));
         const auto& stops = source.at("opacity_curve");
@@ -320,7 +324,8 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
                     : data.version == 3 ? "gpu_mesh1"
                     : data.version == 4 ? "gpu_graph1"
                     : data.version == 5 ? "cpu_alpha1"
-                                        : "cpu_alpha2"},
+                    : data.version == 6 ? "cpu_alpha2"
+                                        : "cpu_billboard1"},
         {"mesh", data.mesh},
         {"emission", data.emission == ParticleEmission::Burst ? "burst" : "continuous"},
         {"capacity", data.capacity},
@@ -357,7 +362,7 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
     }
     if (data.program)
         result["program"] = encode_particle_graph_program(*data.program);
-    if (data.version == 6) {
+    if (particle_uses_opacity(data)) {
         result["opacity_start"] = data.opacity_start;
         result["opacity_end"] = data.opacity_end;
         result["opacity_curve"] = nlohmann::json::array();
@@ -440,7 +445,7 @@ std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData& dat
                 origin[i] = radius * (side[i] * std::cos(angle) + up[i] * std::sin(angle));
         }
         const auto fraction = particle.age / data.lifetime;
-        if (data.version == 6)
+        if (particle_uses_opacity(data))
             particle.opacity = data.opacity_curve.empty()
                                    ? std::lerp(data.opacity_start, data.opacity_end, fraction)
                                    : sample_stops(data.opacity_curve, fraction);

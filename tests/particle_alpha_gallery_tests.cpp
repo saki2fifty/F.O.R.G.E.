@@ -3,11 +3,14 @@
 #include "gallery_asset_publication.hpp"
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
+#include "paint_texture_source.hpp"
 #include "particle_effect_authoring.hpp"
 #include "particle_effect_resource.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_package.hpp"
+#include "texture_authoring.hpp"
 #include <algorithm>
+#include <cmath>
 #include <forge/authoring.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/primitive_catalog.hpp>
@@ -21,12 +24,23 @@ struct Example {
     const char* scene;
     const char* effect;
     bool opacity;
+    bool billboards = false;
 };
 constexpr Example alpha{"Scenes/240-sorted-alpha-particles.scene.json",
                         "Assets/Particles/Alpha/GlassCloud.particles.json", false};
 constexpr Example fading{"Scenes/241-particle-opacity.scene.json",
                          "Assets/Particles/Alpha/FadingCloud.particles.json", true};
-constexpr const char* material_path = "Assets/Particles/Alpha/Glass.material.json";
+constexpr Example quads{"Scenes/242-camera-aligned-particles.scene.json",
+                        "Assets/Particles/Billboards/SoftCloud.particles.json", true, true};
+constexpr const char* alpha_material = "Assets/Particles/Alpha/Glass.material.json";
+constexpr const char* quad_material = "Assets/Particles/Billboards/SoftCloud.material.json";
+constexpr const char* quad_texture = "Assets/Particles/Billboards/SoftCloud.paint-texture.json";
+const char* material_source(const Example& example) {
+    return example.billboards ? quad_material : alpha_material;
+}
+unsigned value_version(const Example& example) {
+    return example.billboards ? 7u : example.opacity ? 6u : 5u;
+}
 void check(bool value, const std::string& why) {
     if (!value)
         throw std::runtime_error(why);
@@ -43,14 +57,16 @@ RuntimePackageTarget target() {
 #endif
 }
 void author(const std::filesystem::path& root, const Example& example) {
+    const auto* material_path = material_source(example);
+    const bool reuse_material = example.opacity && !example.billboards;
     for (const auto* path : {example.scene, example.effect})
         check(!std::filesystem::exists(root / path), "Sorted-alpha Gallery source already exists");
-    check(example.opacity == std::filesystem::exists(root / material_path),
+    check(reuse_material == std::filesystem::exists(root / material_path),
           "Alpha Material must already exist only for the fading example");
-    auto material = example.opacity ? MaterialSource::parse(asset_detail::read_bytes(
-                                          root / material_path, material_source_byte_limit))
-                                    : MaterialSource::create(AssetId::generate());
-    if (!example.opacity) {
+    auto material = reuse_material ? MaterialSource::parse(asset_detail::read_bytes(
+                                         root / material_path, material_source_byte_limit))
+                                   : MaterialSource::create(AssetId::generate());
+    if (!reuse_material) {
         auto& overrides = material.document["overrides"];
         overrides["model"] = "forge.gltf.unlit.v1";
         overrides["alpha"] = unsigned(MaterialAlpha::Blend);
@@ -58,6 +74,37 @@ void author(const std::filesystem::path& root, const Example& example) {
         overrides["depth_write"] = false;
         overrides["parameters"]["baseColorFactor"] = {
             {"type", unsigned(MaterialParameterType::LinearColor4)}, {"value", {1, 1, 1, .4}}};
+        if (example.billboards) {
+            const auto texture_id = AssetId::generate();
+            Rgba8Pixels pixels;
+            pixels.width = pixels.height = 32;
+            pixels.rgba.resize(32 * 32 * 4);
+            for (unsigned y = 0; y < 32; ++y)
+                for (unsigned x = 0; x < 32; ++x) {
+                    const double px = (double(x) + .5 - 16) / 15;
+                    const double py = (double(y) + .5 - 16) / 15;
+                    const auto index = (y * 32 + x) * 4;
+                    pixels.rgba[index] = std::uint8_t(128 + 127 * double(x) / 31);
+                    pixels.rgba[index + 1] = std::uint8_t(128 + 127 * double(y) / 31);
+                    pixels.rgba[index + 2] = 255;
+                    pixels.rgba[index + 3] = std::uint8_t(
+                        std::lround(255 * std::clamp((1 - px * px - py * py) * 2, 0., 1.)));
+                }
+            const auto texture =
+                PaintTextureValue::create(texture_id, 32, 32).replace_pixels(pixels);
+            std::filesystem::create_directories((root / quad_texture).parent_path());
+            asset_storage::replace(root / quad_texture, texture.dump(2) + "\n");
+            MaterialData shape;
+            shape.model = "forge.gltf.unlit.v1";
+            auto& slot = shape.textures["baseColorTexture"];
+            slot.semantic = TextureSemantic::Color;
+            slot.sampler.u = slot.sampler.v = TextureWrap::ClampEdge;
+            overrides["double_sided"] = false;
+            overrides["textures"]["baseColorTexture"] = {
+                {"asset", texture_id},
+                {"slot", material_values_document(shape).at("textures").at("baseColorTexture")}};
+            overrides["parameters"]["baseColorFactor"]["value"] = {1, 1, 1, .7};
+        }
         material.validate();
         write(root / material_path, material.document);
     }
@@ -82,11 +129,18 @@ void author(const std::filesystem::path& root, const Example& example) {
         effect.insert_lifetime_stop(ParticleLifetimeChannel::Opacity, .15);
         effect.document["opacity_curve"][1]["value"] = 1;
     }
+    if (example.billboards)
+        effect.enable_billboards(true);
     effect.validate();
     write(root / example.effect, effect.document);
     auto catalog = AssetCatalog::open_project(root);
-    if (!example.opacity)
+    if (!reuse_material)
         catalog.add({material.asset(), MaterialAsset::type, material_path, 1, {}});
+    if (example.billboards) {
+        const auto texture = PaintTextureSource::parse(
+            asset_detail::read_bytes(root / quad_texture, paint_texture_source_byte_limit));
+        catalog.add({texture.asset(), TextureAsset::type, quad_texture, 1, {}});
+    }
     catalog.add({effect.asset(), ParticleEffectAsset::type, example.effect, 1, {}});
     catalog.save(AssetCatalog::project_index(root));
     EngineContext engine;
@@ -107,6 +161,8 @@ void author(const std::filesystem::path& root, const Example& example) {
     emitter.tint_r = .15f;
     emitter.tint_g = .8f;
     teal.set<ParticleEmitter>(emitter);
+    if (example.billboards)
+        teal.set<LocalScale>({1.4f, 1, 0});
     auto amber = actor(example.opacity ? "Amber fade - shared opacity effect"
                                        : "Amber glass - shared sorted-alpha effect");
     amber.set<LocalTranslation>({.7f, 1, -.5f});
@@ -115,6 +171,8 @@ void author(const std::filesystem::path& root, const Example& example) {
     emitter.tint_g = .4f;
     emitter.tint_b = .1f;
     amber.set<ParticleEmitter>(emitter);
+    if (example.billboards)
+        amber.set<LocalScale>({-.8f, 1.3f, 1});
     auto marker = actor("Opaque depth marker");
     MeshRenderer mesh;
     mesh.mesh = engine_primitive(0);
@@ -132,7 +190,8 @@ void author(const std::filesystem::path& root, const Example& example) {
     catalog.add_scene(example.scene);
     catalog.save(AssetCatalog::project_index(root));
 }
-std::array<AssetId, 3> inspect(const std::filesystem::path& root, const Example& example) {
+std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& example) {
+    const auto* material_path = material_source(example);
     const auto material = MaterialSource::parse(
         asset_detail::read_bytes(root / material_path, material_source_byte_limit));
     const auto resolved = resolve_material_source(material);
@@ -142,7 +201,7 @@ std::array<AssetId, 3> inspect(const std::filesystem::path& root, const Example&
           "Sorted-alpha example lost its reusable transparent Material");
     const auto effect = ParticleEffectSource::parse(
         asset_detail::read_bytes(root / example.effect, particle_effect_byte_limit));
-    check(effect.compiled().version == (example.opacity ? 6u : 5u) &&
+    check(effect.compiled().version == value_version(example) &&
               effect.compiled().material.id == material.asset() && !effect.compiled().program &&
               effect.compiled().capacity == 128,
           "Sorted-alpha example lost CPU evaluation or its shared Material");
@@ -167,15 +226,31 @@ std::array<AssetId, 3> inspect(const std::filesystem::path& root, const Example&
               catalog.records().at(effect.asset()).source == example.effect &&
               catalog.records().at(scene.asset_id()).source == example.scene,
           "Sorted-alpha example identity/catalog mismatch");
-    return {scene.asset_id(), effect.asset(), material.asset()};
+    std::vector<AssetId> ids{scene.asset_id(), effect.asset(), material.asset()};
+    if (example.billboards) {
+        const auto texture = PaintTextureSource::parse(
+            asset_detail::read_bytes(root / quad_texture, paint_texture_source_byte_limit));
+        check(!resolved.values.double_sided && effect.compiled().mesh == engine_primitive(8) &&
+                  resolved.textures.at("baseColorTexture").id == texture.asset() &&
+                  catalog.records().at(texture.asset()).source == quad_texture,
+              "Camera-plane example lost its single-sided textured Quad closure");
+        ids.push_back(texture.asset());
+    }
+    return ids;
 }
 void prepare(const std::filesystem::path& root, const Example& example,
-             bool publish_material = true) {
+             bool publish_material = true, const std::filesystem::path& worker = {}) {
+    const auto* material_path = material_source(example);
     const auto ids = inspect(root, example);
     const auto runtime = target();
     const ImportTarget import{runtime.platform, runtime.backend,
                               runtime.platform == "windows" ? "desktop" : "cpu"};
     auto lease = std::make_shared<ProjectLease>(root);
+    if (example.billboards) {
+        check(!worker.empty(), "Textured camera-plane publication requires its asset worker");
+        AssetImportService textures(lease, texture_import_registry(worker), import);
+        test::publish_gallery_asset(textures, quad_texture, prepare_texture_publication);
+    }
     AssetImportService materials(lease, material_import_registry(), import);
     if (publish_material)
         test::publish_gallery_asset(materials, material_path, prepare_material_publication);
@@ -187,9 +262,11 @@ void prepare(const std::filesystem::path& root, const Example& example,
     const std::array roots{ids[0]};
     prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
 }
-void verify_export(const std::filesystem::path& root, const Example& example) {
+void verify_export(const std::filesystem::path& root, const Example& example,
+                   const std::filesystem::path& worker = {}) {
+    const auto* material_path = material_source(example);
     const auto ids = inspect(root, example);
-    prepare(root, example);
+    prepare(root, example, true, worker);
     const auto output = root.parent_path() / "content";
     const auto relocated = root.parent_path() / "relocated-content";
     const std::array roots{ids[0]};
@@ -204,14 +281,15 @@ void verify_export(const std::filesystem::path& root, const Example& example) {
     }
     check(actual == std::set<AssetId>(ids.begin(), ids.end()) &&
               !std::filesystem::exists(relocated / material_path) &&
-              !std::filesystem::exists(relocated / example.effect),
+              !std::filesystem::exists(relocated / example.effect) &&
+              (!example.billboards || !std::filesystem::exists(relocated / quad_texture)),
           "Sorted-alpha relocation lost its exact source-hidden closure");
     ResourcePool<ParticleEffectAsset> effects;
     const auto ticket = request_particle_effect(
         effects, relocated, std::make_shared<const AssetCatalog>(catalog), {ids[1]});
     check(effects.wait(ticket, std::chrono::seconds(15)), "Relocated alpha effect load timed out");
     const auto selected = effects.acquire(ticket);
-    check(bool(selected) && selected->version == (example.opacity ? 6u : 5u) &&
+    check(bool(selected) && selected->version == value_version(example) &&
               selected->material.id == ids[2],
           "Relocated source-free alpha effect has different values");
     const auto material = asset_detail::load_material_selection(relocated, catalog, {ids[2]});
@@ -255,7 +333,14 @@ int main(int argc, char** argv) {
         check(argc >= 3, "Need sorted-alpha Gallery action and project root");
         const auto root = std::filesystem::absolute(argv[2]);
         const std::string_view action = argv[1];
-        if (action == "--author" || action == "--author-opacity")
+        if (action == "--author-billboards")
+            author(root, quads);
+        else if (action == "--inspect-billboards")
+            (void)inspect(root, quads);
+        else if (action == "--prepare-billboards") {
+            check(argc == 4, "Need the texture publication worker");
+            prepare(root, quads, true, std::filesystem::absolute(argv[3]));
+        } else if (action == "--author" || action == "--author-opacity")
             author(root, action == "--author" ? alpha : fading);
         else if (action == "--inspect" || action == "--inspect-opacity")
             (void)inspect(root, action == "--inspect" ? alpha : fading);
@@ -263,17 +348,36 @@ int main(int argc, char** argv) {
             prepare(root, alpha);
             if (std::filesystem::exists(root / fading.effect))
                 prepare(root, fading, false);
+            if (std::filesystem::exists(root / quads.effect)) {
+                check(argc == 4, "Need the matching worker directory for textured particles");
+#ifdef _WIN32
+                const auto worker =
+                    std::filesystem::absolute(argv[3]).parent_path() / "forge_asset_build.exe";
+#else
+                const auto worker =
+                    std::filesystem::absolute(argv[3]).parent_path() / "forge_asset_build";
+#endif
+                prepare(root, quads, true, worker);
+            }
         } else if (action == "--prepare-opacity") {
             // Author the new Effect against the already selected shared Material.
             // Full staging/relocation above republishes the complete target closure.
             prepare(root, fading, false);
-        } else if (action == "--verify-export" || action == "--verify-export-opacity") {
-            check(argc == 4, "Need private verification scratch root");
+        } else if (action == "--verify-export" || action == "--verify-export-opacity" ||
+                   action == "--verify-export-billboards") {
+            check(argc == (action == "--verify-export-billboards" ? 5 : 4),
+                  "Need private verification scratch root and optional texture worker");
             const auto copy =
                 std::filesystem::absolute(argv[3]) / AssetId::generate().str() / "source";
             std::filesystem::create_directories(copy.parent_path());
             std::filesystem::copy(root, copy, std::filesystem::copy_options::recursive);
-            verify_export(copy, action == "--verify-export" ? alpha : fading);
+            const bool billboards = action == "--verify-export-billboards";
+            verify_export(copy,
+                          billboards                    ? quads
+                          : action == "--verify-export" ? alpha
+                                                        : fading,
+                          billboards ? std::filesystem::absolute(argv[4])
+                                     : std::filesystem::path{});
         } else
             throw std::runtime_error("Unknown sorted-alpha Gallery action");
         return 0;

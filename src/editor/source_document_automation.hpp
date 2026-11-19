@@ -499,21 +499,28 @@ struct AssetDocumentAutomation {
                     throw AuthoringError(
                         "document_busy",
                         "Wait for publication or settle the active source gesture/close request");
-                if (action == "particle_evaluation" || action == "particle_opacity") {
+                if (action == "particle_evaluation" || action == "particle_opacity" ||
+                    action == "particle_billboards") {
                     if constexpr (std::is_same_v<Source, ParticleEffectSource>) {
                         const auto previous = doc.revision();
                         const bool opacity = action == "particle_opacity";
+                        const bool billboards = action == "particle_billboards";
+                        const bool toggle = opacity || billboards;
                         const auto evaluation =
-                            opacity ? std::string{} : request.at("evaluation").get<std::string>();
-                        if (!opacity && evaluation != "cpu" && evaluation != "gpu" &&
+                            toggle ? std::string{} : request.at("evaluation").get<std::string>();
+                        if (!toggle && evaluation != "cpu" && evaluation != "gpu" &&
                             evaluation != "graph" && evaluation != "cpu_alpha")
                             throw AuthoringError("invalid_argument",
                                                  "Choose cpu, cpu_alpha, gpu or graph evaluation");
                         doc.edit_source(
                             previous,
-                            opacity ? "Toggle particle opacity" : "Set particle evaluation",
+                            billboards ? "Toggle camera-aligned particles"
+                            : opacity  ? "Toggle particle opacity"
+                                       : "Set particle evaluation",
                             [&](Source& source) {
-                                if (opacity)
+                                if (billboards)
+                                    source.enable_billboards(request.at("enabled").get<bool>());
+                                else if (opacity)
                                     source.enable_opacity(request.at("enabled").get<bool>());
                                 else
                                     source.set_evaluation(

@@ -13,7 +13,8 @@ explicit GPU evaluation uses source3/profile `gpu_mesh1`. Authored particle
 graphs use source4 and active values4/profile `gpu_graph1` (see below). Source5
 adds explicit CPU values5/profile `cpu_alpha1` for sorted transparent meshes.
 Source6 adds CPU values6/`cpu_alpha2` for opacity over life while retaining inactive
-opacity and graph settings across evaluation changes.
+opacity and graph settings across evaluation changes. Source7 adds camera-plane
+CPU values7/`cpu_billboard1` with retained original Mesh and alignment selection.
 Values include a Mesh reference, optional Material override, emission
 mode, capacity, burst count, rate, lifetime, direction/cone half-angle, speed range,
 constant acceleration, start/end size and linear RGB. Version 2 adds spawn shape,
@@ -31,7 +32,7 @@ editable sources nor a compiler.
 
 New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope containing
 `format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3, graph4
-or sorted-alpha CPU5/opacity CPU6;
+or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -58,7 +59,8 @@ are opaque source metadata, with no runtime interpretation or reference guessing
 All profiles admit one static triangle part, one LOD and one material slot with
 built-in PBR or Unlit Materials. CPU1/2 and GPU3/4 require opaque/masked Materials.
 CPU5 additionally admits Blend with depth testing and no depth writes; CPU6
-requires this Blend profile for opacity. Skinning,
+requires this Blend profile for opacity. CPU7 also permits opaque/masked Materials
+with identity opacity; nonidentity opacity requires the same Blend profile. Skinning,
 morphs, point/line topology, transmission and custom Shader surfaces reject with
 diagnostics. Collision, trails and texture-sheet animation
 are outside these profiles. The bounded stateless graph profile below extends
@@ -107,6 +109,27 @@ flags0/1/2, Sprite/wind/temporal profiles and GPU cooked output keep their meani
 No per-particle Material copy or second queue is introduced. Values6 require the
 independent `runtime_particle_opacity:1` capability plus effect3/alpha1. Gallery241
 reuses Gallery240's glass Material with a separate editable fading effect.
+
+## Camera-plane CPU profile
+
+[ADR064](decisions/064-camera-plane-particles.md) adds explicit values7 and source7.
+The shared CPU sampler remains unchanged; detached per-view transforms align the
+fixed Engine/Quad with admitted camera right/up axes. Width/height retain original
+world X/Y column lengths, while the complete emitter affine still positions births.
+The source Mesh, enabled opacity and graph selection survive backend switches.
+Disabled opacity projects identity values without discarding source stops.
+
+Instance and part culling, sorting/parity and actual geometry share one view-local
+world matrix. The lifetime envelope pads transformed motion with an isotropic
+quad radius, covering reflected/sheared and zero-Z-scale emitters from every view.
+Static overrides reject skin/wind consumers. Matrix storage belongs to each view,
+counts toward the existing CPU budget and never mutates cached simulation poses.
+
+The native **Camera-aligned quads** control and
+`asset.document.particle_billboards` share validation/revision/Undo/Redo ownership.
+The active Mesh picker is read-only; toggling alignment restores the original Mesh.
+Values7 require effect3/alpha1/opacity1 and `runtime_particle_billboard:1` in the kit.
+No dependency, gameplay ABI, importer or earlier immutable artifact changes.
 
 ## Equations and time
 

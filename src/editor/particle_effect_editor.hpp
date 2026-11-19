@@ -248,10 +248,24 @@ class ParticleEffectEditor {
                     "They also control visibility bounds. Nonfinite outputs use bounded analytic "
                     "values.");
             }
+            bool billboards = document_->source().document.value("billboard_enabled", false);
+            if (ImGui::Checkbox("Camera-aligned quads", &billboards))
+                mutate("Toggle camera-aligned particles", [&](auto& value) {
+                    ParticleEffectSource candidate{value};
+                    candidate.enable_billboards(billboards);
+                    value = std::move(candidate.document);
+                });
+            FORGE_UI_PROBE("particles:billboards");
+            ui::help("Enabling selects CPU (sorted alpha) with Engine / Quad. Each camera "
+                     "sets the quad orientation; world X/Y scale sets width and height. "
+                     "Other evaluation backends retain this setting without applying it. "
+                     "Disabling restores the original Mesh selection.");
             Json mesh = data.mesh, material = data.material.id ? Json(data.material) : Json();
+            ImGui::BeginDisabled(particle_uses_billboards(data));
             if (asset_ref_picker(*catalog_, mesh, MeshAsset::type, "Mesh", false))
                 set("mesh", mesh);
             FORGE_UI_PROBE("particles:mesh");
+            ImGui::EndDisabled();
             if (asset_ref_picker(*catalog_, material, MaterialAsset::type, "Material", true)) {
                 mutate("Set particle material", [&](auto& source) {
                     if (material.is_null())

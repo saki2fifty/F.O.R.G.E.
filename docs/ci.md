@@ -3556,3 +3556,41 @@ The particle document-control fixture creates one unique project per layout.
 Its exercise closes the UI, SceneDocument, project writer and World/resource owners
 before the caller removes the project folder. This preserves the normal project
 lock lifetime on every platform while retaining all six control/history layouts.
+
+
+## CPU camera-plane particle verification
+
+`particle_lifetime_source`, `particle_runtime`, `particle_effect_asset` and
+`standalone_manifest` cover values7/source7 admission, retained Mesh/graph/opacity
+settings, old-profile projections, source-only flags, identical CPU sampling and
+exact runtime-kit capability refusal. Runtime geometry checks enclose reflected,
+sheared and flattened emitters across both view bases, camera roll and lens flips.
+The shared model-pose fixture verifies static world overrides and rejects
+skin/wind ownership bypasses.
+
+`particle_effect_editor` drives the actual alignment control, disabled Quad picker,
+backend switches and Undo/Redo at100/150/200% in full/compact layouts.
+`mcp_particle_evaluation_stdio` covers the same source workflow through both MCP
+protocols, including permissions, schema/refusal, stale session/revision, no-op,
+history, publication and reopen. Its bounded300s guard includes native shutdown
+and complete compressed transcript output; the expanded normal workflow measured
+204.01s. Instrumented runs separate the two protocols and require graceful native
+exit with clean diagnostics.
+
+`particle_billboard_vulkan` and native `editor_render_particle-billboards` exercise
+actual single-sided geometry, independent camera views without updating source
+poses, opaque batching, both view bases/all lens flips, texture orientation,
+orthographic/perspective frustum edges, opacity and failed-resource recovery.
+Other CPU/GPU/alpha/opacity, weighted transparency, Sprite and Tile fixtures cover
+the changed shared renderer consumers. Graphics execution through software devices
+is not a physical-device performance claim.
+
+`particle_billboard_gallery` inspects the original textured Gallery242 closure.
+`particle_billboard_gallery_export` publishes Texture, Material, Effect and Scene,
+hides editable sources, relocates runtime content and checks the actual fixed-clock
+World. `particle_billboard_gallery_game_vulkan` and native
+`particle_billboard_gallery_game` draw production Game output from this closure.
+The existing alpha preparer also stages this example for the combined Windows ZIP
+using matching native workers; source preparation publishes only the new assets.
+The native shader acceptance selector includes these cases. Registrations alone
+are not Windows acceptance; use the immutable run evidence.

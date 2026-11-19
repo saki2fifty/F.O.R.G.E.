@@ -17,6 +17,10 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     assert opacity_tool['inputSchema']['properties']['editor']['const'] == owner
     assert opacity_tool['inputSchema']['properties']['enabled']['type'] == 'boolean'
     assert 'cpu_alpha2' in catalog['opacity'] and 'runtime_particle_opacity1' in catalog['opacity']
+    billboard_tool = next(t for t in tools if t['name'] == 'forge_asset_document_particle_billboards')
+    assert billboard_tool['inputSchema']['properties']['editor']['const'] == owner
+    assert billboard_tool['inputSchema']['properties']['enabled']['type'] == 'boolean'
+    assert 'cpu_billboard1' in catalog['billboards'] and 'runtime_particle_billboard1' in catalog['billboards']
     def save(editor=owner):
         assert edit('forge_asset_document_save', editor)['ok']
         deadline = time.monotonic() + 35
@@ -39,6 +43,8 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     before = content(owner)
     old = status(owner)
     assert edit('forge_asset_document_particle_opacity', owner, enabled=False)['ok']
+    assert content(owner) == before and status(owner)['revision'] == old['revision']
+    assert edit('forge_asset_document_particle_billboards', owner, enabled=False)['ok']
     assert content(owner) == before and status(owner)['revision'] == old['revision']
     assert edit('forge_asset_document_particle_evaluation', owner, evaluation='gpu')['ok']
     gpu = content(owner)
@@ -140,6 +146,42 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     assert edit('forge_asset_document_close', owner)['ok']
     assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
     assert content(owner) == opacity
+    old = status(owner)
+    assert edit('forge_asset_document_particle_billboards', owner, enabled=True)['ok']
+    billboard = dict(opacity, version=7, profile='cpu_billboard1', billboard_enabled=True)
+    assert content(owner) == billboard
+    failed(mutate('forge_asset_document_particle_billboards', editor=owner,
+                  document_session=old['session'], document_revision=old['revision'],
+                  enabled=False), 'stale_document')
+    failed(mutate('forge_asset_document_particle_billboards', editor=owner,
+                  document_session=old['session'] + 1000,
+                  document_revision=status(owner)['revision'], enabled=False), 'wrong_document')
+    unchanged = status(owner)['revision']
+    assert edit('forge_asset_document_particle_billboards', owner, enabled=True)['ok']
+    assert status(owner)['revision'] == unchanged
+    for invalid in (None, 0, 1, 'true', []):
+        assert not edit('forge_asset_document_particle_billboards', owner, enabled=invalid)['ok']
+        assert content(owner) == billboard and status(owner)['revision'] == unchanged
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == opacity
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == billboard
+    for evaluation, profile in (('gpu', 'gpu_mesh1'), ('cpu', 'cpu_mesh2'), ('cpu_alpha', 'cpu_billboard1')):
+        assert edit('forge_asset_document_particle_evaluation', owner, evaluation=evaluation)['ok']
+        assert content(owner) == dict(billboard, profile=profile)
+    assert edit('forge_asset_document_particle_billboards', owner, enabled=False)['ok']
+    assert content(owner) == dict(billboard, profile='cpu_alpha2', billboard_enabled=False)
+    assert edit('forge_asset_document_particle_billboards', owner, enabled=True)['ok']
+    assert content(owner) == billboard
+    assert edit('forge_asset_document_particle_opacity', owner, enabled=False)['ok']
+    assert content(owner) == dict(billboard, opacity_enabled=False)
+    assert edit('forge_asset_document_particle_opacity', owner, enabled=True)['ok']
+    assert content(owner) == billboard
+    settled = save()
+    metadata = read('forge_asset_read', asset=settled['asset'])['metadata']['forge.particle_effect']
+    assert metadata['version'] == 3 and metadata['value_version'] == 7
+    assert json.loads((root / 'Game' / path).read_text()) == billboard
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
+    assert content(owner) == billboard
     assert edit('forge_asset_document_particle_evaluation', owner, evaluation='cpu')['ok']
     assert edit('forge_asset_document_close', owner, discard=True)['ok']
 

@@ -3187,3 +3187,14 @@ start export. `animation.avi` is silent, with lossy opaque sRGB frames; the orig
 PNG frames and `frames.json` remain available. The capture worker is required.
 See the packaged manual's sequence export guide for timing, cancellation and limits.
 No C++ module is required. See the [graph guide](../../../manual/editor/animation-graphs.md).
+
+
+### Camera-aligned particles
+
+Open `Scenes/242-camera-aligned-particles.scene.json` and press Play. The blue and
+amber emitters share `Assets/Particles/Billboards/SoftCloud.particles.json` and its
+single-sided textured Material. Open the Effect in Content to adjust emission,
+lifetime, opacity and **Camera-aligned quads**; publish before playing/exporting.
+Open `SoftCloud.paint-texture.json` to paint the original soft alpha image.
+Emitter X/Y scale changes quad dimensions; each camera controls orientation.
+The scene includes a camera, light and opaque depth marker; no C++ code is required.

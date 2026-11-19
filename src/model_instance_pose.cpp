@@ -211,18 +211,22 @@ MeshInstancePose prepare_mesh_instance_pose(const MeshResourceData& resource,
     return result;
 }
 RenderBounds mesh_part_bounds(const MeshInstancePose& pose, unsigned lod, unsigned part,
-                              Double3 origin) {
+                              Double3 origin, const AffineTransform* static_world) {
     const auto& selected = pose.lods.at(lod).at(part);
+    require(!static_world || (!pose.skinned && !selected.skin && !pose.wind.enabled),
+            "A view-dependent world requires a static pose without wind");
     const auto bounds = selected.skin ? skin_bounds_for_camera(*selected.skin, origin)
-                                      : transform_bounds(selected.local_bounds, pose.world);
+                                      : transform_bounds(selected.local_bounds,
+                                                         static_world ? *static_world : pose.world);
     return wind_bounds(pose.wind, bounds, origin);
 }
-RenderBounds mesh_instance_bounds(const MeshInstancePose& pose, Double3 origin) {
+RenderBounds mesh_instance_bounds(const MeshInstancePose& pose, Double3 origin,
+                                  const AffineTransform* static_world) {
     RenderBounds result;
     bool first = true;
     for (unsigned l = 0; l < pose.lods.size(); ++l)
         for (unsigned p = 0; p < pose.lods[l].size(); ++p) {
-            const auto bounds = mesh_part_bounds(pose, l, p, origin);
+            const auto bounds = mesh_part_bounds(pose, l, p, origin, static_world);
             for (unsigned c = 0; c < 3; ++c) {
                 result.minimum[c] =
                     first ? bounds.minimum[c] : std::min(result.minimum[c], bounds.minimum[c]);

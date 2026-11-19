@@ -3543,8 +3543,9 @@ and exact source reopen through the same source owner.
 
 `asset.document.particle_opacity` requires `asset.write`, `editor:"particle_effect"`,
 the exact document session/revision and boolean `enabled`. Enabling it selects
-CPU sorted-alpha values6/`cpu_alpha2`; disabling retains opacity settings and
-projects values5 when that backend remains selected. Source6 preserves the
+CPU sorted-alpha values6/`cpu_alpha2` for Mesh geometry; active camera alignment
+keeps values7/`cpu_billboard1`. Disabling retains opacity settings and projects
+values5 for Mesh geometry, or identity opacity in values7 for aligned quads. Source6 preserves the
 enabled state and local opacity-stop UUIDs across CPU/GPU/Graph changes. These
 other backends do not apply opacity. Invalid, stale, wrong-document and busy
 requests reject through the existing source owner. A no-op retains its revision.
@@ -3592,3 +3593,24 @@ bindings from these automation definitions. Both protocol envelopes exercise the
 source/settings/discovery/validation/history workflow under
 mcp_particle_evaluation_stdio, with real native SourceHost graceful exit0. These
 CPU transport checks are separate from cooked native Windows shader execution.
+
+
+## Camera-plane particles through the source owner
+
+`asset.document.particle_billboards` requires `asset.write`,
+`editor:"particle_effect"`, the current document session/revision and boolean
+`enabled`. Enabling selects CPU camera-plane values7/`cpu_billboard1` through the
+same source operation as **Camera-aligned quads**. Source7 retains the original
+Mesh, opacity and optional graph settings. Other evaluation backends retain but
+do not apply alignment. Disabling returns to ordinary Mesh projection, preserving
+enabled opacity. The active Quad geometry cannot be replaced through the picker;
+source Mesh edits still belong to the source owner and take effect when alignment
+is disabled. No separate agent geometry or history implementation exists.
+
+`asset.particles.catalog` describes this capability. MCP discovers
+`forge_asset_document_particle_billboards` from the live method/schema. Read-only
+clients do not receive this mutation tool. No-op, invalid, stale-session/revision,
+Undo/Redo, publication and reopen use the existing source rules. Nonidentity opacity
+requires Blend/depth-test/no-depth-write; identity opacity permits opaque/masked
+Materials. Save and wait for publication before Play/export. Values7 require the
+matching effect3/alpha1/opacity1/billboard1 runtime kit, without GPU/graph support.

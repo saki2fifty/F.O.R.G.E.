@@ -4419,3 +4419,15 @@ actual MaterialGraphCanvas/ImGui widget and SDL software renderer,1440×1000.
 Local build21/check21 produces the image without editing graph source; it was
 visually reviewed. This is a native widget capture, without retouch. It does not
 claim a complete editor window, native Windows execution or physical GPU review.
+
+
+## Camera-aligned particle Gallery
+
+`manual/images/camera-aligned-particles.png` is an unmodified640×360 capture of
+Gallery242 at fixed simulation time3s through the production Game renderer. The
+`particle_billboard_gallery_game_vulkan` fixture publishes the Texture/Material/
+Effect/Scene closure in a private project, hides its editable source and relocates
+runtime content before rendering. Captured2026-11-19 with Linux software Vulkan;
+this is visual workflow evidence, not physical GPU/Windows acceptance. The native
+Game path has a matching `particle_billboard_gallery_game` fixture. The original
+procedural alpha image belongs to the Gallery; no external image is used.

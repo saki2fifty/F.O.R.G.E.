@@ -136,8 +136,7 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                     "Mesh particles require static instancing without transmission");
             const auto& data = *source->second.data();
             for (const auto& [id, material] : prepared.materials)
-                validate_particle_material_profile(material.get(), particle_uses_sorted_alpha(data),
-                                                   data.version == 6);
+                validate_particle_material_profile(material.get(), data);
             const auto bounds =
                 particle_effect_bounds(data, prepared.mesh->mesh.lods.front().parts.front().bounds,
                                        emitter.world, emitter.emitter.size_multiplier);
@@ -150,6 +149,8 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
             each += draw.renderer.materials.capacity() * sizeof(MaterialSlotOverride);
             for (const auto& slot : draw.renderer.materials)
                 each += slot.slot.capacity();
+            if (particle_uses_billboards(data))
+                each += sizeof(AffineTransform); // Reserved view-local aligned matrix.
             if (particle_uses_gpu(data)) {
                 require(each <= byte_limit - bytes,
                         "Particle instance CPU payload exceeds the 8 MiB frame budget");
@@ -191,7 +192,7 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                 draw.world = instance.world;
                 draw.legacy_tint = instance.color;
                 draw.birth = instance.birth;
-                if (data.version == 6)
+                if (particle_uses_opacity(data))
                     draw.particle_opacity = float(instance.opacity);
                 particle_instances_.emplace_back(draw, std::move(pose));
             }

@@ -132,6 +132,25 @@ inline void check_model_instance_poses() {
     check(!unskinned.skinned && !unskinned.lods[0][0].skin && ordinary_bounds.minimum[0] > 27.99 &&
               ordinary_bounds.maximum[0] < 29.01,
           "Unskinned model node used joint data or omitted its world transform");
+    AffineTransform detached;
+    detached.m[7] = 6;
+    const auto detached_bounds = mesh_instance_bounds(unskinned, {}, &detached);
+    check(detached_bounds == transform_bounds(unskinned.lods[0][0].local_bounds, detached) &&
+              mesh_part_bounds(unskinned, 0, 0, {}, &detached) == detached_bounds &&
+              mesh_instance_bounds(unskinned, {}) == ordinary_bounds,
+          "Detached view bounds mutated the retained static pose or disagreed per part");
+    for (bool wind : {false, true}) {
+        auto unsupported = unskinned;
+        unsupported.skinned = !wind;
+        unsupported.wind.enabled = wind;
+        bool rejected = false;
+        try {
+            (void)mesh_instance_bounds(unsupported, {}, &detached);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        check(rejected, "A detached view world bypassed skin/wind bounds ownership");
+    }
     // Removing an optional animation consumer restores source-node defaults.
     scene.model_animations.clear();
     resource.model->nodes[0].morph_weights = {.5f};

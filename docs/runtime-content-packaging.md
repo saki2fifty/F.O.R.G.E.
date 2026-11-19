@@ -465,3 +465,11 @@ projection is cooked through the same effect owner and retains the ordinary
 Mesh/Material closure. It needs neither source files nor GPU/graph support.
 Source6's inactive opacity or program settings do not add runtime dependency edges.
 Older kits reject values6 before packaging; values1–5 retain their meanings.
+
+
+CPU7/`cpu_billboard1` also requires `runtime_particle_billboard:1`, effect3, alpha1
+and opacity1. Its selected Mesh is Engine/Quad; the retained source Mesh is not a
+runtime dependency. Material/Texture edges retain ordinary selected revisions.
+Disabled opacity cooks identity values without source-only flags/stop UUIDs.
+Source7 inactive graph settings do not create a Shader edge. Older kits reject
+values7 before packaging, preserving values1–6 and earlier immutable artifacts.

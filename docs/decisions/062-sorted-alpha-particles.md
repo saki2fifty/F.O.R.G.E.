@@ -51,7 +51,8 @@ The ParticleEmitter layout, gameplay C ABI and asset/importer identities do not
 change; no source or identity migration is required.
 
 Per-particle opacity uses the separate CPU6 profile in
-[ADR063](063-particle-opacity.md). Transparent GPU particles, billboards, collision
-and trails remain outside this profile. Verification must cover actual cross-emitter
+[ADR063](063-particle-opacity.md). CPU camera-plane quads use the separate CPU7
+profile in [ADR064](064-camera-plane-particles.md). Transparent GPU particles,
+collision and trails remain outside these profiles. Verification must cover actual cross-emitter
 and ordinary-Mesh ordering, weighted fallback, source-hidden relocated content,
 native controls, both MCP envelopes and exact kit refusal before completion.

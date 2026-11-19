@@ -4,6 +4,7 @@
 #include "material_parameter_overrides.hpp"
 #include "mesh_draw_shader.hpp"
 #include "mesh_pick.hpp"
+#include "particle_render_instances.hpp"
 #include "pbr_material.hpp"
 #include "render_projection.hpp"
 #include "render_sort.hpp"
@@ -1269,6 +1270,14 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     };
     std::vector<Object> objects;
     std::vector<Item> queue;
+    std::vector<AffineTransform> particle_view_worlds;
+    const auto billboard_count = std::count_if(
+        particle_instances_.begin(), particle_instances_.end(), [&](const auto& instance) {
+            return particle_uses_billboards(*particle_sources_.at(instance.first.entity).data());
+        });
+    // Reserve once before Object borrows matrix addresses. This storage belongs
+    // to this view; another camera must never overwrite the cached source poses.
+    particle_view_worlds.reserve(static_cast<std::size_t>(billboard_count));
     const auto require_specialization_capacity = [&] {
         std::size_t count = 0;
         for (const auto& [key, weak] : bundles_) {
@@ -1299,7 +1308,13 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             auto* gpu = draw_scope == DrawScope::Particle
                             ? particle_sources_.at(mesh.entity).gpu.get()
                             : nullptr;
-            auto bounds = mesh_instance_bounds(pose, camera.position);
+            const AffineTransform* aligned_world = nullptr;
+            if (draw_scope == DrawScope::Particle &&
+                particle_uses_billboards(*particle_sources_.at(mesh.entity).data())) {
+                particle_view_worlds.push_back(particle_billboard_world(pose.world, camera));
+                aligned_world = &particle_view_worlds.back();
+            }
+            auto bounds = mesh_instance_bounds(pose, camera.position, aligned_world);
             if (gpu) {
                 const auto found_bounds =
                     std::find_if(particle_bounds_.begin(), particle_bounds_.end(),
@@ -1327,7 +1342,12 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                     lod = i;
             Object object{&mesh, entry.ready.get(), &pose, entry.parameters, lod, {}, {}};
             object.bounds = bounds;
-            object.world = &pose.world;
+            object.world = aligned_world ? aligned_world : &pose.world;
+            // DrawBundle's optional deformation pose also owns its world matrix.
+            // The guarded static override above has no skin/morph/wind payload;
+            // omit that pose so the draw uses this view's explicit world.
+            if (aligned_world)
+                object.pose = nullptr;
             object.scope = draw_scope;
             object.gpu = gpu;
             object.material_tint_only =
@@ -1410,7 +1430,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             for (unsigned i = 0; i < parts.size(); ++i) {
                 const auto& part = parts[i];
                 const auto part_bounds =
-                    gpu ? bounds : mesh_part_bounds(pose, lod, i, camera.position);
+                    gpu ? bounds : mesh_part_bounds(pose, lod, i, camera.position, aligned_world);
                 if (!bounds_visible(part_bounds, camera))
                     continue;
                 if (object.area_lights) {
@@ -1421,7 +1441,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 }
                 RenderSortKey key{part.transmission ? MaterialAlpha::Blend : part.alpha,
                                   pose.skinned ? TransformParity::Positive
-                                               : transform_parity(pose.world),
+                                               : transform_parity(*object.world),
                                   part.material,
                                   entry.ready->mesh_identity().asset,
                                   bounds_camera_depth(part_bounds, camera),

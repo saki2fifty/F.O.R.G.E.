@@ -244,6 +244,73 @@ void graph_envelope() {
     reject([&] { (void)particle_effect_bounds(invalid, mesh, world); });
     reject([&] { (void)prepare_particle_gpu_values(invalid, .5, 17, world, camera); });
 }
+void billboard_geometry() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    source.enable_billboards(true);
+    auto data = source.compiled();
+    data.emission = ParticleEmission::Burst;
+    data.burst_count = 16;
+    data.shape = ParticleSpawnShape::Box;
+    data.shape_size = {2, 3, 4};
+    data.size_curve = {{0, .2, false}, {.4, 3, true}, {1, .1, false}};
+    const MeshBounds quad{{-.5f, -.5f, 0}, {.5f, .5f, 0}};
+    AffineTransform emitter, side, roll;
+    emitter.m = {-2, .5, 0, 10, 0, 3, 0, -2, .4, 0, 0, 7};
+    side.m = {0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0};
+    roll.m = {.8, -.6, 0, 0, .6, .8, 0, 0, 0, 0, 1, 0};
+    for (bool collapse : {false, true}) {
+        if (collapse)
+            emitter.m[0] = emitter.m[4] = emitter.m[8] = 0;
+        const auto envelope = particle_effect_bounds(data, quad, emitter, 2);
+        for (unsigned step = 0; step < 10; ++step) {
+            const auto time = data.lifetime * step / 10;
+            const auto instances = particle_render_instances(data, time, 8, emitter, 1024, 2);
+            auto ordinary = data;
+            ordinary.version = 6;
+            require(sample_particle_effect(data, time, 8) ==
+                        sample_particle_effect(ordinary, time, 8),
+                    "Camera alignment changed CPU births, RNG, motion or appearance");
+            for (auto instance : instances) {
+                const auto retained = instance.world;
+                const auto width = std::hypot(retained.m[0], retained.m[4], retained.m[8]);
+                const auto height = std::hypot(retained.m[1], retained.m[5], retained.m[9]);
+                for (const auto& camera_world : {AffineTransform{}, side, roll})
+                    for (unsigned basis : {0u, 1u})
+                        for (unsigned flips = 0; flips < 4; ++flips) {
+                            Camera values;
+                            values.basis = basis;
+                            values.flip_x = bool(flips & 1);
+                            values.flip_y = bool(flips & 2);
+                            const auto camera = camera_view(values, camera_world, 320, 180);
+                            const auto aligned = particle_billboard_world(instance.world, camera);
+                            require(instance.world == retained,
+                                    "A view changed the retained CPU particle pose");
+                            for (unsigned axis = 0; axis < 3; ++axis) {
+                                require(aligned.m[4 * axis + 3] == retained.m[4 * axis + 3] &&
+                                            std::abs(aligned.m[4 * axis] -
+                                                     camera.right[axis] * width) < 1e-12 &&
+                                            std::abs(aligned.m[4 * axis + 1] -
+                                                     camera.up[axis] * height) < 1e-12 &&
+                                            std::abs(aligned.m[4 * axis + 2] +
+                                                     camera.forward[axis] *
+                                                         std::max(width, height)) < 1e-12,
+                                        "Quad axes, center or dimensions disagree with the "
+                                        "admitted camera");
+                            }
+                            const auto bounds = transform_bounds(quad, aligned);
+                            for (unsigned axis = 0; axis < 3; ++axis)
+                                require(
+                                    bounds.minimum[axis] >= envelope.minimum[axis] &&
+                                        bounds.maximum[axis] <= envelope.maximum[axis],
+                                    "View-independent bounds clipped a rotated or flattened quad");
+                        }
+            }
+        }
+    }
+    auto bad = emitter;
+    bad.m[3] = std::numeric_limits<double>::infinity();
+    reject([&] { particle_billboard_world(bad, CameraView{}); });
+}
 void resource_profile() {
     auto mesh = asset_detail::engine_mesh_resource(engine_primitive(0));
     validate_particle_mesh_profile(mesh);
@@ -259,27 +326,44 @@ void resource_profile() {
     unsupported = mesh;
     unsupported.mesh.lods.front().parts.front().streams.push_back({"WEIGHTS_0", 4, {}});
     reject([&] { validate_particle_mesh_profile(unsupported); });
+    ParticleEffectData cpu, alpha, opacity, billboard;
+    alpha.version = 5;
+    opacity.version = 6;
+    billboard.version = 7;
+    billboard.mesh = engine_primitive(8);
     auto material = asset_detail::engine_material_resource(engine_material());
-    validate_particle_material_profile(material);
+    validate_particle_material_profile(material, cpu);
     material.values.alpha = MaterialAlpha::Mask;
-    validate_particle_material_profile(material);
+    validate_particle_material_profile(material, cpu);
     material.values.alpha = MaterialAlpha::Blend;
     validate_render_material(material);
-    reject([&] { validate_particle_material_profile(material); });
-    reject([&] { validate_particle_material_profile(material, true); });
+    reject([&] { validate_particle_material_profile(material, cpu); });
+    reject([&] { validate_particle_material_profile(material, alpha); });
     material.values.depth_write = false;
-    validate_particle_material_profile(material, true);
-    validate_particle_material_profile(material, true, true);
-    reject([&] { validate_particle_material_profile(material); });
+    validate_particle_material_profile(material, alpha);
+    validate_particle_material_profile(material, opacity);
+    reject([&] { validate_particle_material_profile(material, cpu); });
     material.values.depth_test = false;
-    reject([&] { validate_particle_material_profile(material, true); });
+    reject([&] { validate_particle_material_profile(material, alpha); });
     material.values.depth_test = true;
     material.values.alpha = MaterialAlpha::Opaque;
-    reject([&] { validate_particle_material_profile(material, true, true); });
+    reject([&] { validate_particle_material_profile(material, opacity); });
+    validate_particle_material_profile(material, billboard);
+    billboard.opacity_end = .5;
+    reject([&] { validate_particle_material_profile(material, billboard); });
+    billboard.opacity_curve = {{0, 1, false}, {1, 1, false}};
+    validate_particle_material_profile(material, billboard);
+    material.values.alpha = MaterialAlpha::Mask;
+    validate_particle_material_profile(material, billboard);
+    billboard.opacity_curve[1].value = .5;
+    reject([&] { validate_particle_material_profile(material, billboard); });
+    material.values.alpha = MaterialAlpha::Blend;
+    validate_particle_material_profile(material, billboard);
+    material.values.alpha = MaterialAlpha::Opaque;
     material.values.parameters["transmissionFactor"] = {MaterialParameterType::Scalar, {.5}};
     validate_render_material(material);
-    reject([&] { validate_particle_material_profile(material); });
-    reject([&] { validate_particle_material_profile(material, true); });
+    reject([&] { validate_particle_material_profile(material, cpu); });
+    reject([&] { validate_particle_material_profile(material, alpha); });
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -297,6 +381,7 @@ int main(int argc, char** argv) {
         affine_and_envelope();
         graph_envelope();
         instance_parameters();
+        billboard_geometry();
         resource_profile();
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");

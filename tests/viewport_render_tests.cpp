@@ -17,6 +17,7 @@
 #include "authoring.hpp"
 #include "material_lightmap_gpu_tests.hpp"
 #include "particle_alpha_render_tests.hpp"
+#include "particle_billboard_render_tests.hpp"
 #include "particle_graph_render_tests.hpp"
 #include "physics_2d_editor_render_tests.hpp"
 #include "physics_2d_gallery_render_tests.hpp"
@@ -248,7 +249,8 @@ int main(int argc, char** argv) {
         require(argc == 2 || argc == 3 ||
                     (argc == 4 && (std::string_view(argv[2]) == "particle-graphs" ||
                                    std::string_view(argv[2]) == "particle-alpha-gallery" ||
-                                   std::string_view(argv[2]) == "particle-opacity-gallery")),
+                                   std::string_view(argv[2]) == "particle-opacity-gallery" ||
+                                   std::string_view(argv[2]) == "particle-billboard-gallery")),
                 "Expected image output directory, optional render case and graph content root");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
@@ -292,11 +294,16 @@ int main(int argc, char** argv) {
                 forge::test_particle_graph_render::exercise(isolated, context, argv[3], images);
             } else if (selected == "particle-alpha")
                 forge::test_particle_alpha::exercise(isolated, context, images);
+            else if (selected == "particle-billboards")
+                forge::test_particle_billboard::exercise(isolated, context, images);
             else if (selected == "particle-alpha-gallery" ||
-                     selected == "particle-opacity-gallery") {
+                     selected == "particle-opacity-gallery" ||
+                     selected == "particle-billboard-gallery") {
                 require(argc == 4, "Sorted-alpha render needs relocated cooked content");
                 forge::test_particle_alpha::gallery(isolated, context, argv[3], images,
-                                                    selected == "particle-opacity-gallery");
+                                                    selected == "particle-opacity-gallery" ||
+                                                        selected == "particle-billboard-gallery",
+                                                    selected == "particle-billboard-gallery");
             } else if (selected == "lightmaps")
                 forge::lightmap_test::exercise_gpu(
                     isolated, context,

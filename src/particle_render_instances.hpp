@@ -5,8 +5,8 @@
 #include <forge/particle_effect.hpp>
 namespace forge {
 void validate_particle_mesh_profile(const MeshResourceData&);
-void validate_particle_material_profile(const MaterialResourceData&, bool sorted_alpha = false,
-                                        bool opacity = false);
+// Effect values have already passed the shared source/resource admission.
+void validate_particle_material_profile(const MaterialResourceData&, const ParticleEffectData&);
 struct ParticleRenderInstance {
     std::uint64_t birth;
     AffineTransform world;
@@ -21,4 +21,7 @@ particle_render_instances(const ParticleEffectData&, double, std::uint32_t, cons
 // the emitter's full affine (including parent scale/shear). No saved AABB authority.
 RenderBounds particle_effect_bounds(const ParticleEffectData&, const MeshBounds&,
                                     const AffineTransform&, double size = 1);
+// CameraView comes from the admitted camera_view owner. Retain the source center
+// and X/Y axis magnitudes; only detached per-view orientation changes.
+AffineTransform particle_billboard_world(const AffineTransform&, const CameraView&);
 } // namespace forge
