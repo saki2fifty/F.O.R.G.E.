@@ -1,12 +1,9 @@
 #include "asset_storage.hpp"
 #include "asset_bytes.hpp"
 #include "native_io_path.hpp"
-#include <cstddef>
-#include <cstdlib>
-#include <cstring>
+#include "windows_file_replace.hpp"
 #include <forge/asset_ref.hpp>
 #include <memory>
-#include <new>
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -17,43 +14,6 @@
 #include <unistd.h>
 #endif
 namespace forge::asset_storage {
-#ifdef _WIN32
-namespace {
-bool replace_open_file(HANDLE staged, const std::filesystem::path& from,
-                       const std::filesystem::path& to) {
-#ifdef FILE_RENAME_FLAG_POSIX_SEMANTICS
-    const auto target = asset_detail::native_io_path(to).native();
-    constexpr auto fixed_bytes = offsetof(FILE_RENAME_INFO, FileName) + sizeof(wchar_t);
-    if (target.size() > (MAXDWORD - fixed_bytes) / sizeof(wchar_t))
-        throw std::runtime_error("Asset metadata destination exceeds Windows rename limits");
-    const auto name_bytes = target.size() * sizeof(wchar_t);
-    const auto packet_bytes = fixed_bytes + name_bytes;
-    std::unique_ptr<void, decltype(&std::free)> memory(std::calloc(1, packet_bytes), &std::free);
-    if (!memory)
-        throw std::bad_alloc();
-    auto* info = static_cast<FILE_RENAME_INFO*>(memory.get());
-    info->Flags = FILE_RENAME_FLAG_REPLACE_IF_EXISTS | FILE_RENAME_FLAG_POSIX_SEMANTICS;
-    info->FileNameLength = DWORD(name_bytes);
-    std::memcpy(static_cast<std::byte*>(memory.get()) + offsetof(FILE_RENAME_INFO, FileName),
-                target.data(), name_bytes);
-    if (SetFileInformationByHandle(staged, FileRenameInfoEx, info, DWORD(packet_bytes)))
-        return true;
-    const auto error = GetLastError();
-    // Preserve the previous platform path where this information class or
-    // filesystem capability is unavailable. Other failures are real failures.
-    if (error != ERROR_INVALID_PARAMETER && error != ERROR_NOT_SUPPORTED &&
-        error != ERROR_INVALID_FUNCTION)
-        throw std::filesystem::filesystem_error("Cannot replace asset metadata", from, to,
-                                                std::error_code(error, std::system_category()));
-#else
-    (void)staged;
-    (void)from;
-    (void)to;
-#endif
-    return false;
-}
-} // namespace
-#endif
 void ordinary(const std::filesystem::path& path) {
     if (!asset_detail::ordinary_io_path(path))
         throw std::runtime_error("Asset publication metadata must not redirect: " +
@@ -106,7 +66,7 @@ void replace(const std::filesystem::path& path, std::string_view bytes) {
             throw std::filesystem::filesystem_error(
                 "Cannot flush staged asset metadata", temp,
                 std::error_code(error ? error : ERROR_WRITE_FAULT, std::system_category()));
-        if (replace_open_file(file, temp, path)) {
+        if (asset_detail::replace_open_file(file, temp, path)) {
             // Flush through the same writable handle after the namespace change,
             // keeping the existing data/metadata durability boundary.
             if (!FlushFileBuffers(file))

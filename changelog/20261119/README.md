@@ -1,5 +1,19 @@
 # 2026-11-19
 
+## Native save and graph validation
+
+Scene source and asset-metadata publication share FORGE's native Windows
+handle-rename helper. Source saves use supported replacement semantics that keep
+existing readers on their prior snapshot and flush the staged file after rename.
+Unsupported capabilities keep the existing fallback; real IO failures remain
+visible. Higher-level source validation, writer leases, history and asset identity
+stay with their existing owners. A native regression covers source, metadata and
+Scene save/reopen, including held readers and failed destinations.
+
+Graph format tags validate their string type before comparison, with malformed-tag
+regressions for both material and particle domains. Native Windows acceptance is
+recorded separately from local checks.
+
 ## Authored particle graphs
 
 Particle-domain Shader graphs control local position, size and linear RGB through

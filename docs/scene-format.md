@@ -73,7 +73,7 @@ Unknown Position/Scale extras remain with their renamed component. Unknown legac
 
 Opening an old file never replaces it. v1's neighboring `.forge-identity.json` journal retains the original and v2 identity assignment, then the deterministic v3 transform migration is applied. Conflicting source/journal data is rejected; never discard the journal to retry. v2 already has durable identities and needs no new identity journal. In-memory compatibility replacement retains current scene identity/known aliases; callers retain the returned v3 document across processes.
 
-The first Save validates v3, atomically publishes an exact-byte `.v1.backup` or `.v2.backup` of the old source, and atomically replaces the scene. Existing backup mismatch rejects the save. Blocked backup/replacement preserves source and assignments; retry after releasing the blocker. Readers are closed before replacement. This is one-scene protection under the project writer lease, not a project-wide migration or power-loss durability guarantee.
+The first Save validates v3, atomically publishes an exact-byte `.v1.backup` or `.v2.backup` of the old source, and atomically replaces the scene. Existing backup mismatch rejects the save. Blocked backup/replacement preserves source and assignments; retry after releasing the blocker. The save operation closes its own source readers before replacement. This is one-scene protection under the project writer lease, not a project-wide migration or power-loss durability guarantee.
 
 ## Identity, duplication and history
 
@@ -108,3 +108,29 @@ opaque uses of the newly meaningful fields reject explicit promotion unchanged.
 Runtime snapshots embed the required source closure; saved Scene files retain
 references and maps without embedding source files. Existing local channel,
 spatial binding and legacy migration contracts remain unchanged.
+
+## Atomic file replacement
+
+Scene source publication uses the existing atomic_write entry point. It stages
+complete bytes in a sibling, then performs one native namespace replacement;
+exceptions trigger best-effort staging cleanup. Callers retain document validation,
+project containment, writer leases, revision checks and migration/backup authority.
+No file mechanism creates a new Scene identity or changes serialized payload.
+
+Windows source and asset-metadata writes share the private native handle-rename
+helper. A supported FileRenameInfoEx/POSIX replacement can retain existing readers
+on the previous file while new opens see the replacement. Source saves obtain
+DELETE access to their staged file and flush through its writable handle after
+replacement. Only unsupported API/filesystem capability falls back to the existing
+MoveFileEx replacement; other errors remain explicit. Source and metadata staging
+and validation policies remain with their respective callers. This is a single-
+file publication boundary, not a multi-file transaction or universal power-loss
+guarantee.
+
+The atomic_file_replace regression checks both entry points, held reader snapshots,
+exact binary bytes, retained failed-directory contents, staging cleanup and actual
+Scene save/reopen identity. Its Windows branch omits FILE_SHARE_DELETE on the held
+reader; its portable branch retains an open input stream. Local Linux/native/SAN
+results do not establish Windows sharing acceptance; the focused Windows Shader
+audit includes this native case. Existing source-document and file-transaction
+checks cover the higher-level save consumers.

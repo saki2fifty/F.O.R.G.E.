@@ -30,6 +30,14 @@ inline Json edge(const Json& from, const Json& to, std::string_view port) {
 inline void run() {
     const auto original = create_particle_graph();
     const auto identity = compile_particle_graph(original).source;
+    for (const auto& format : Json::array({nullptr, 42, true, Json::object(), "unknown.graph"})) {
+        auto particle = original;
+        particle["format"] = format;
+        rejects([&] { (void)compile_particle_graph(particle); });
+        auto material = create_material_graph();
+        material["format"] = format;
+        rejects([&] { (void)compile_material_graph(material); });
+    }
     check(identity.find("result.Position=input.Position;") != std::string::npos &&
               identity.find("result.Size=input.Size;") != std::string::npos &&
               identity.find("result.Color=input.Color;") != std::string::npos,

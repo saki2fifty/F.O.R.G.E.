@@ -3480,3 +3480,9 @@ The shipping package preparer cooks Gallery239 Shader before Effect through the
 same services. A preparer error fails packaging; no fabricated DXBC or alternate
 runtime compiler is admitted. Native widget capture provenance is in
 [particle effects](particle-effects.md).
+
+The same focused native Shader gate also includes atomic_file_replace. It tests
+Windows source/metadata replacement with a live reader that omits delete sharing,
+retained reader bytes and source identity after reopening. This complements the
+ordinary source-document/file-transaction gates and does not imply an identified
+external lock owner in a prior failure.

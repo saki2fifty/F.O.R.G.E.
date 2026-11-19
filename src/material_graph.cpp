@@ -767,7 +767,8 @@ Json create_ui_material_graph() {
 namespace {
 void validate_graph_document(const Json& graph, std::string_view format) {
     persistable(graph);
-    require(graph.is_object() && graph.at("format") == format &&
+    require(graph.is_object() && graph.at("format").is_string() &&
+                graph.at("format").get_ref<const std::string&>().compare(format) == 0 &&
                 graph.at("version").is_number_integer() &&
                 graph.at("version").get<std::uint64_t>() == 1,
             "Unsupported graph document");

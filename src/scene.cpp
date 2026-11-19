@@ -14,6 +14,7 @@
 #include "runtime_property_tune.hpp"
 #include "scene_draft.hpp"
 #include "spatial_document.hpp"
+#include "windows_file_replace.hpp"
 #include <array>
 #include <cmath>
 #include <forge/primitive_catalog.hpp>
@@ -1589,11 +1590,28 @@ void atomic_write(const std::filesystem::path& path, const std::string& contents
             out.flush();
         }
 #ifdef _WIN32
-        if (!MoveFileExW(temp.c_str(), path.c_str(),
-                         MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        const auto file =
+            CreateFileW(asset_detail::native_io_path(temp).c_str(), GENERIC_WRITE | DELETE,
+                        FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (file == INVALID_HANDLE_VALUE)
             throw std::filesystem::filesystem_error(
-                "Atomic save replacement failed", temp, path,
+                "Cannot open staged save for replacement", temp,
                 std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        std::unique_ptr<void, decltype(&CloseHandle)> staged(file, &CloseHandle);
+        if (asset_detail::replace_open_file(file, temp, path)) {
+            if (!FlushFileBuffers(file))
+                throw std::filesystem::filesystem_error(
+                    "Cannot flush replaced save", path,
+                    std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        } else {
+            staged.reset();
+            if (!MoveFileExW(asset_detail::native_io_path(temp).c_str(),
+                             asset_detail::native_io_path(path).c_str(),
+                             MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+                throw std::filesystem::filesystem_error(
+                    "Atomic save replacement failed", temp, path,
+                    std::error_code(static_cast<int>(GetLastError()), std::system_category()));
+        }
 #else
         std::filesystem::rename(temp, path);
 #endif
