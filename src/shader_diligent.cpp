@@ -268,7 +268,8 @@ DiligentShaderProgram compile_diligent_shader(Diligent::IRenderDevice* device,
     RefCntAutoPtr<IShaderSourceInputStreamFactory> surface_factory;
     // Every Mesh surface has weighted entries, including unlit surfaces. Their
     // generated wrapper needs the pinned transparency helper too.
-    if (program.surface && !program.surface->sprite_image) {
+    const bool particle_graph = program.particle_graph_profile != 0;
+    if ((program.surface && !program.surface->sprite_image) || particle_graph) {
         IShaderSourceInputStreamFactory* factories[]{
             factory, &DiligentFXShaderSourceStreamFactory::GetInstance()};
         CreateCompoundShaderSourceFactory({factories, 2}, &surface_factory);
@@ -284,6 +285,7 @@ DiligentShaderProgram compile_diligent_shader(Diligent::IRenderDevice* device,
     result.data.row_major = program.row_major;
     result.data.compiler_debug = diligent_shader_compiler_debug();
     result.data.surface = program.surface;
+    result.data.particle_graph_profile = program.particle_graph_profile;
     result.data.surface_wrapper_version = program.surface ? current_surface_wrapper_version : 1;
     for (const auto& entry : program.stages) {
         std::vector<ShaderEntryRole> roles{ShaderEntryRole::Program};

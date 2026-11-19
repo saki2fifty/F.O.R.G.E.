@@ -40,6 +40,8 @@ asset_detail::ShaderSelection asset_detail::select_shader(std::filesystem::path 
         {"version", 1}, {"compiler_input_key", compiler_key}, {"layout", layout}};
     if (shader.contains("surface_wrapper_version"))
         selection["surface_wrapper_version"] = shader.at("surface_wrapper_version");
+    if (shader.contains("particle_graph_profile"))
+        selection["particle_graph_profile"] = shader.at("particle_graph_profile");
     return {key, generation.get<std::uint64_t>(),
             [project = std::move(project), key,
              selection = std::move(selection)](std::stop_token stop) {

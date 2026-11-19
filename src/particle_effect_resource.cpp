@@ -28,9 +28,9 @@ void selection(const AssetRecord& record) {
             "Unsupported Particle Effect selection");
 }
 void dependencies(const ParticleEffectData& data, const std::vector<AssetDependency>& edges) {
-    require(edges.size() == (data.material.id ? 2u : 1u),
+    require(edges.size() == 1u + unsigned(bool(data.material.id)) + unsigned(bool(data.program)),
             "Particle Effect dependency closure is incomplete");
-    bool mesh = false, material = false;
+    bool mesh = false, material = false, program = false;
     for (const auto& edge : edges) {
         require(edge.kind == AssetDependencyKind::Runtime && valid_content_digest(edge.revision),
                 "Particle Effect dependency has no immutable runtime selection");
@@ -43,10 +43,15 @@ void dependencies(const ParticleEffectData& data, const std::vector<AssetDepende
                         edge.target == data.material.id,
                     "Particle Effect material dependency differs from cooked data");
             material = true;
+        } else if (edge.role == "particles.program") {
+            require(!program && data.program && edge.expected_type == ShaderAsset::type &&
+                        edge.target == data.program->shader.id,
+                    "Particle Effect program dependency differs from cooked data");
+            program = true;
         } else
             throw std::runtime_error("Unknown Particle Effect dependency role");
     }
-    require(mesh && material == bool(data.material.id),
+    require(mesh && material == bool(data.material.id) && program == bool(data.program),
             "Particle Effect dependency roles are incomplete");
 }
 } // namespace

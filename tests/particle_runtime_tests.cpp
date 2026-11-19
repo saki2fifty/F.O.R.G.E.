@@ -204,6 +204,46 @@ void instance_parameters() {
             require(samples == unchanged, "Invalid tint partially modulated caller samples");
         }
 }
+void graph_envelope() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    ParticleGraphProgram program;
+    program.shader.id = AssetId::generate();
+    program.extent = {2, 3, 4};
+    program.maximum_size = 5;
+    source.set_graph_program(program);
+    const auto data = source.compiled();
+    const MeshBounds mesh{{-3.f, -.5f, -.2f}, {1.f, 2.f, .8f}};
+    AffineTransform world;
+    world.m = {-2, .3, 0, 10, 0, 3, .4, -2, 0, 0, .5, 7};
+    CameraView camera{};
+    const ParticleGpuGraphLimits limits{{2, 3, 4, 5}};
+    for (double multiplier : {.01, 1., 16.}) {
+        const auto bounds = particle_effect_bounds(data, mesh, world, multiplier);
+        const auto values = prepare_particle_gpu_values(data, .5, 17, world, camera, multiplier);
+        validate_particle_gpu_graph_envelope(values, limits);
+        for (unsigned position_corner = 0; position_corner < 8; ++position_corner)
+            for (unsigned mesh_corner = 0; mesh_corner < 8; ++mesh_corner)
+                for (double size : {0., program.maximum_size * multiplier}) {
+                    Double3 local{};
+                    for (unsigned axis = 0; axis < 3; ++axis)
+                        local[axis] =
+                            ((position_corner & (1u << axis)) ? 1 : -1) * program.extent[axis] +
+                            size * ((mesh_corner & (1u << axis)) ? mesh.maximum[axis]
+                                                                 : mesh.minimum[axis]);
+                    const auto point = world.point(local);
+                    for (unsigned axis = 0; axis < 3; ++axis)
+                        require(point[axis] >= bounds.minimum[axis] &&
+                                    point[axis] <= bounds.maximum[axis],
+                                "Graph culling envelope lost a clamped position/mesh corner under "
+                                "affine modulation");
+                }
+    }
+    reject([&] { (void)sample_particle_effect(data, .5, 17); });
+    auto invalid = data;
+    invalid.program->extent[0] = 1e-100;
+    reject([&] { (void)particle_effect_bounds(invalid, mesh, world); });
+    reject([&] { (void)prepare_particle_gpu_values(invalid, .5, 17, world, camera); });
+}
 void resource_profile() {
     auto mesh = asset_detail::engine_mesh_resource(engine_primitive(0));
     validate_particle_mesh_profile(mesh);
@@ -245,6 +285,7 @@ int main(int argc, char** argv) {
         require(argc == 2, "Need particle runtime scratch root");
         gpu_packet_admission();
         affine_and_envelope();
+        graph_envelope();
         instance_parameters();
         resource_profile();
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();

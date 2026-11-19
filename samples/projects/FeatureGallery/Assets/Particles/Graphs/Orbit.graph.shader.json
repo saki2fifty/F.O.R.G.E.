@@ -1,0 +1,691 @@
+{
+  "asset_id": "d5bc7c40-663c-496d-8f04-2777240b7fa1",
+  "format": "forge.shader",
+  "graph": {
+    "edges": [
+      {
+        "from": {
+          "node": "793475dc-df19-46ae-8e18-39f8071a0b0b",
+          "port": "out"
+        },
+        "id": "6480a9d7-7daa-4b22-90ae-e6cf9f55153a",
+        "to": {
+          "node": "d4c15660-f37a-41e0-9b73-196f237f51cf",
+          "port": "age"
+        }
+      },
+      {
+        "from": {
+          "node": "42020173-c9fe-4a98-b623-c832e8dc9519",
+          "port": "out"
+        },
+        "id": "2d277960-09a2-477f-8262-1bd5884ed9d0",
+        "to": {
+          "node": "d4c15660-f37a-41e0-9b73-196f237f51cf",
+          "port": "birth"
+        }
+      },
+      {
+        "from": {
+          "node": "2c88e23d-826b-44fe-8504-fe33a7823124",
+          "port": "out"
+        },
+        "id": "119b2e5f-3149-4d80-b266-ffab6bb242dd",
+        "to": {
+          "node": "c18ac9ce-a7de-4b25-ae28-511bee21a185",
+          "port": "a"
+        }
+      },
+      {
+        "from": {
+          "node": "d4c15660-f37a-41e0-9b73-196f237f51cf",
+          "port": "out"
+        },
+        "id": "a960da47-c81c-425c-9be9-f8fc2e558358",
+        "to": {
+          "node": "c18ac9ce-a7de-4b25-ae28-511bee21a185",
+          "port": "b"
+        }
+      },
+      {
+        "from": {
+          "node": "c18ac9ce-a7de-4b25-ae28-511bee21a185",
+          "port": "out"
+        },
+        "id": "b411fcbc-0877-4259-beb8-b4c55fa54676",
+        "to": {
+          "node": "f9f2407b-665d-4bab-a17f-238ce3bbf923",
+          "port": "position"
+        }
+      },
+      {
+        "from": {
+          "node": "f68562c3-c392-4096-94c0-f95d08aa50f4",
+          "port": "out"
+        },
+        "id": "cb24f719-5f1e-4195-b50f-cf28d0acbc05",
+        "to": {
+          "node": "4b927118-8691-4ca4-a18b-ccb53212019a",
+          "port": "value"
+        }
+      },
+      {
+        "from": {
+          "node": "4f1a09b2-a06d-4b73-8208-1351a26dedd9",
+          "port": "out"
+        },
+        "id": "0a614616-763e-411d-a4e5-0f3858a869f6",
+        "to": {
+          "node": "70c9bd79-d5f3-4289-8769-821ee91710d7",
+          "port": "a"
+        }
+      },
+      {
+        "from": {
+          "node": "4b927118-8691-4ca4-a18b-ccb53212019a",
+          "port": "out"
+        },
+        "id": "b747093b-024f-45cc-976b-26fedee76778",
+        "to": {
+          "node": "70c9bd79-d5f3-4289-8769-821ee91710d7",
+          "port": "b"
+        }
+      },
+      {
+        "from": {
+          "node": "70c9bd79-d5f3-4289-8769-821ee91710d7",
+          "port": "out"
+        },
+        "id": "45208032-5119-4129-85dc-c7060a7add10",
+        "to": {
+          "node": "f9f2407b-665d-4bab-a17f-238ce3bbf923",
+          "port": "size"
+        }
+      },
+      {
+        "from": {
+          "node": "79f83def-4fcc-40d1-acdc-8ac84e2820c3",
+          "port": "out"
+        },
+        "id": "766804d5-e884-43c0-8c5a-759b7f821d27",
+        "to": {
+          "node": "505e762b-854b-4685-a645-ce39cc9e22e3",
+          "port": "a"
+        }
+      },
+      {
+        "from": {
+          "node": "7d190b23-bc97-4fd0-9ef2-4033c865a8d2",
+          "port": "out"
+        },
+        "id": "24d4447a-cf37-4dc9-a306-c51f3910d88d",
+        "to": {
+          "node": "505e762b-854b-4685-a645-ce39cc9e22e3",
+          "port": "b"
+        }
+      },
+      {
+        "from": {
+          "node": "f68562c3-c392-4096-94c0-f95d08aa50f4",
+          "port": "out"
+        },
+        "id": "023976b6-37d6-446c-8507-a2cc827cb5ac",
+        "to": {
+          "node": "505e762b-854b-4685-a645-ce39cc9e22e3",
+          "port": "factor"
+        }
+      },
+      {
+        "from": {
+          "node": "505e762b-854b-4685-a645-ce39cc9e22e3",
+          "port": "out"
+        },
+        "id": "217e6ef8-e9e2-4a7f-9735-11723c328e77",
+        "to": {
+          "node": "f9f2407b-665d-4bab-a17f-238ce3bbf923",
+          "port": "color"
+        }
+      }
+    ],
+    "format": "forge.particle.graph",
+    "functions": [
+      {
+        "graph": {
+          "edges": [
+            {
+              "from": {
+                "node": "9f7800f1-7329-49d4-9110-ac3b77c839e2",
+                "port": "out"
+              },
+              "id": "26c361fa-266f-4a04-ac97-7a219c81c9c1",
+              "to": {
+                "node": "c4195101-627d-4f9b-8c11-105ffc13b588",
+                "port": "a"
+              }
+            },
+            {
+              "from": {
+                "node": "efc00be4-7f39-4cfd-b549-7a40a6dbfaf3",
+                "port": "out"
+              },
+              "id": "111c0990-4785-4b46-b361-55f4ff6393fb",
+              "to": {
+                "node": "c4195101-627d-4f9b-8c11-105ffc13b588",
+                "port": "b"
+              }
+            },
+            {
+              "from": {
+                "node": "8b249ec1-d2eb-4f59-b24a-564bd89a192c",
+                "port": "out"
+              },
+              "id": "c138b412-9f55-4afc-8df9-f2db88056f31",
+              "to": {
+                "node": "f18075f7-f0a7-4b06-8826-3463fd7a6fff",
+                "port": "a"
+              }
+            },
+            {
+              "from": {
+                "node": "9b0822e9-a058-4ecf-aa72-e5fc2b16328f",
+                "port": "out"
+              },
+              "id": "6ad2ec4d-721e-4e1a-aa65-490dfa75633d",
+              "to": {
+                "node": "f18075f7-f0a7-4b06-8826-3463fd7a6fff",
+                "port": "b"
+              }
+            },
+            {
+              "from": {
+                "node": "c4195101-627d-4f9b-8c11-105ffc13b588",
+                "port": "out"
+              },
+              "id": "f4c09153-4986-4351-b818-e4fc5355fd0c",
+              "to": {
+                "node": "d687e98d-937a-44bb-8a54-a9eb5be06e37",
+                "port": "a"
+              }
+            },
+            {
+              "from": {
+                "node": "f18075f7-f0a7-4b06-8826-3463fd7a6fff",
+                "port": "out"
+              },
+              "id": "4959a833-f878-4e78-8eb7-b179e229cd06",
+              "to": {
+                "node": "d687e98d-937a-44bb-8a54-a9eb5be06e37",
+                "port": "b"
+              }
+            },
+            {
+              "from": {
+                "node": "d687e98d-937a-44bb-8a54-a9eb5be06e37",
+                "port": "out"
+              },
+              "id": "7178d737-67f3-4acd-9a78-ed29cd12ab95",
+              "to": {
+                "node": "cbb58f41-2933-4f8b-bba6-582287baa721",
+                "port": "value"
+              }
+            },
+            {
+              "from": {
+                "node": "d687e98d-937a-44bb-8a54-a9eb5be06e37",
+                "port": "out"
+              },
+              "id": "5367e3bb-aac9-4a15-bfac-ec47aff868d0",
+              "to": {
+                "node": "dd493194-7dd0-4def-8478-e6f109af9134",
+                "port": "value"
+              }
+            },
+            {
+              "from": {
+                "node": "cbb58f41-2933-4f8b-bba6-582287baa721",
+                "port": "out"
+              },
+              "id": "687b84f4-3caf-4857-9e81-46fceff93c71",
+              "to": {
+                "node": "4ee1268b-64ca-4710-a23a-9f976f08fd2c",
+                "port": "a"
+              }
+            },
+            {
+              "from": {
+                "node": "dd493194-7dd0-4def-8478-e6f109af9134",
+                "port": "out"
+              },
+              "id": "2d09986c-b121-49c2-ba43-c26702e4ed08",
+              "to": {
+                "node": "cc533f9a-9149-40c7-ba61-091ed6395216",
+                "port": "a"
+              }
+            },
+            {
+              "from": {
+                "node": "7efbfde5-f66d-46a9-b6a8-e8f1b4d7f4c1",
+                "port": "out"
+              },
+              "id": "c688e8a3-f8bd-4fc1-a7fe-2cfa805a0d99",
+              "to": {
+                "node": "4ee1268b-64ca-4710-a23a-9f976f08fd2c",
+                "port": "b"
+              }
+            },
+            {
+              "from": {
+                "node": "7efbfde5-f66d-46a9-b6a8-e8f1b4d7f4c1",
+                "port": "out"
+              },
+              "id": "856975b5-e0c2-4d6c-9185-145443ffc204",
+              "to": {
+                "node": "cc533f9a-9149-40c7-ba61-091ed6395216",
+                "port": "b"
+              }
+            },
+            {
+              "from": {
+                "node": "4ee1268b-64ca-4710-a23a-9f976f08fd2c",
+                "port": "out"
+              },
+              "id": "19510f03-a934-4468-ae76-e51c103f2f44",
+              "to": {
+                "node": "1b07940e-1dcd-4232-a466-bb4f2f80c752",
+                "port": "x"
+              }
+            },
+            {
+              "from": {
+                "node": "cc533f9a-9149-40c7-ba61-091ed6395216",
+                "port": "out"
+              },
+              "id": "c6cbe36c-0be0-4543-be9a-ad26ebf385a4",
+              "to": {
+                "node": "1b07940e-1dcd-4232-a466-bb4f2f80c752",
+                "port": "z"
+              }
+            },
+            {
+              "from": {
+                "node": "1b07940e-1dcd-4232-a466-bb4f2f80c752",
+                "port": "out"
+              },
+              "id": "87a95cd7-5baa-4b50-ab65-315ced33e816",
+              "to": {
+                "node": "6058d5d9-ddb3-4cce-b11c-7c77fa20dd2b",
+                "port": "value"
+              }
+            }
+          ],
+          "format": "forge.material.graph",
+          "nodes": [
+            {
+              "data": {
+                "key": "age",
+                "label": "Age seconds",
+                "type": "scalar"
+              },
+              "id": "9f7800f1-7329-49d4-9110-ac3b77c839e2",
+              "position": [
+                0.0,
+                0.0
+              ],
+              "type": "function_input",
+              "version": 1
+            },
+            {
+              "data": {
+                "key": "birth",
+                "label": "Birth random",
+                "type": "scalar"
+              },
+              "id": "8b249ec1-d2eb-4f59-b24a-564bd89a192c",
+              "position": [
+                0.0,
+                240.0
+              ],
+              "type": "function_input",
+              "version": 1
+            },
+            {
+              "data": {
+                "type": "scalar",
+                "value": [
+                  4.0
+                ]
+              },
+              "id": "efc00be4-7f39-4cfd-b549-7a40a6dbfaf3",
+              "position": [
+                0.0,
+                120.0
+              ],
+              "type": "constant",
+              "version": 1
+            },
+            {
+              "data": {
+                "type": "scalar",
+                "value": [
+                  6.283185307179586
+                ]
+              },
+              "id": "9b0822e9-a058-4ecf-aa72-e5fc2b16328f",
+              "position": [
+                0.0,
+                360.0
+              ],
+              "type": "constant",
+              "version": 1
+            },
+            {
+              "data": {
+                "type": "scalar",
+                "value": [
+                  0.45
+                ]
+              },
+              "id": "7efbfde5-f66d-46a9-b6a8-e8f1b4d7f4c1",
+              "position": [
+                530.0,
+                360.0
+              ],
+              "type": "constant",
+              "version": 1
+            },
+            {
+              "data": {
+                "type": "scalar"
+              },
+              "id": "c4195101-627d-4f9b-8c11-105ffc13b588",
+              "position": [
+                220.0,
+                0.0
+              ],
+              "type": "multiply",
+              "version": 1
+            },
+            {
+              "data": {
+                "type": "scalar"
+              },
+              "id": "f18075f7-f0a7-4b06-8826-3463fd7a6fff",
+              "position": [
+                220.0,
+                240.0
+              ],
+              "type": "multiply",
+              "version": 1
+            },
+            {
+              "data": {
+                "type": "scalar"
+              },
+              "id": "d687e98d-937a-44bb-8a54-a9eb5be06e37",
+              "position": [
+                430.0,
+                120.0
+              ],
+              "type": "add",
+              "version": 1
+            },
+            {
+              "data": {
+                "type": "scalar"
+              },
+              "id": "cbb58f41-2933-4f8b-bba6-582287baa721",
+              "position": [
+                640.0,
+                0.0
+              ],
+              "type": "cosine",
+              "version": 1
+            },
+            {
+              "data": {
+                "type": "scalar"
+              },
+              "id": "dd493194-7dd0-4def-8478-e6f109af9134",
+              "position": [
+                640.0,
+                220.0
+              ],
+              "type": "sine",
+              "version": 1
+            },
+            {
+              "data": {
+                "type": "scalar"
+              },
+              "id": "4ee1268b-64ca-4710-a23a-9f976f08fd2c",
+              "position": [
+                850.0,
+                0.0
+              ],
+              "type": "multiply",
+              "version": 1
+            },
+            {
+              "data": {
+                "type": "scalar"
+              },
+              "id": "cc533f9a-9149-40c7-ba61-091ed6395216",
+              "position": [
+                850.0,
+                220.0
+              ],
+              "type": "multiply",
+              "version": 1
+            },
+            {
+              "data": {
+                "type": "vector3"
+              },
+              "id": "1b07940e-1dcd-4232-a466-bb4f2f80c752",
+              "position": [
+                1060.0,
+                100.0
+              ],
+              "type": "combine",
+              "version": 1
+            },
+            {
+              "data": {
+                "type": "vector3"
+              },
+              "id": "6058d5d9-ddb3-4cce-b11c-7c77fa20dd2b",
+              "position": [
+                1270.0,
+                100.0
+              ],
+              "type": "function_output",
+              "version": 1
+            }
+          ],
+          "version": 1
+        },
+        "id": "55a5fff2-a7be-416e-884c-23942fbba660",
+        "label": "Orbit offset"
+      }
+    ],
+    "nodes": [
+      {
+        "data": {
+          "type": "scalar"
+        },
+        "id": "2c88e23d-826b-44fe-8504-fe33a7823124",
+        "position": [
+          0.0,
+          0.0
+        ],
+        "type": "particle_position",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "scalar"
+        },
+        "id": "793475dc-df19-46ae-8e18-39f8071a0b0b",
+        "position": [
+          0.0,
+          180.0
+        ],
+        "type": "particle_age",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "scalar"
+        },
+        "id": "42020173-c9fe-4a98-b623-c832e8dc9519",
+        "position": [
+          0.0,
+          330.0
+        ],
+        "type": "particle_random",
+        "version": 1
+      },
+      {
+        "data": {
+          "function": "55a5fff2-a7be-416e-884c-23942fbba660",
+          "inputs": [
+            {
+              "key": "age",
+              "label": "Age seconds",
+              "type": "scalar"
+            },
+            {
+              "key": "birth",
+              "label": "Birth random",
+              "type": "scalar"
+            }
+          ],
+          "label": "Orbit offset",
+          "type": "vector3"
+        },
+        "id": "d4c15660-f37a-41e0-9b73-196f237f51cf",
+        "position": [
+          260.0,
+          200.0
+        ],
+        "type": "function",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "vector3"
+        },
+        "id": "c18ac9ce-a7de-4b25-ae28-511bee21a185",
+        "position": [
+          500.0,
+          0.0
+        ],
+        "type": "add",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "scalar"
+        },
+        "id": "f68562c3-c392-4096-94c0-f95d08aa50f4",
+        "position": [
+          0.0,
+          500.0
+        ],
+        "type": "particle_age01",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "scalar"
+        },
+        "id": "4b927118-8691-4ca4-a18b-ccb53212019a",
+        "position": [
+          260.0,
+          500.0
+        ],
+        "type": "one_minus",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "scalar"
+        },
+        "id": "4f1a09b2-a06d-4b73-8208-1351a26dedd9",
+        "position": [
+          260.0,
+          650.0
+        ],
+        "type": "particle_size",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "scalar"
+        },
+        "id": "70c9bd79-d5f3-4289-8769-821ee91710d7",
+        "position": [
+          500.0,
+          500.0
+        ],
+        "type": "multiply",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "scalar"
+        },
+        "id": "79f83def-4fcc-40d1-acdc-8ac84e2820c3",
+        "position": [
+          0.0,
+          850.0
+        ],
+        "type": "particle_color",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "color3",
+          "value": [
+            0.05,
+            0.7,
+            1.0
+          ]
+        },
+        "id": "7d190b23-bc97-4fd0-9ef2-4033c865a8d2",
+        "position": [
+          0.0,
+          1020.0
+        ],
+        "type": "constant",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "color3"
+        },
+        "id": "505e762b-854b-4685-a645-ce39cc9e22e3",
+        "position": [
+          500.0,
+          850.0
+        ],
+        "type": "lerp",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "scalar"
+        },
+        "id": "f9f2407b-665d-4bab-a17f-238ce3bbf923",
+        "position": [
+          800,
+          360
+        ],
+        "type": "particle_output",
+        "version": 1
+      }
+    ],
+    "version": 1
+  },
+  "version": 4
+}

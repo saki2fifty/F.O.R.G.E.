@@ -5,8 +5,8 @@ foreach(source
  include/forge/shader_asset.hpp src/shader_asset.cpp src/shader_pipeline.hpp src/shader_pipeline.cpp
  include/forge/surface_shader.hpp src/surface_shader.cpp src/distance_fog_shader.hpp include/forge/fog_volume.hpp src/fog_volume_geometry.hpp src/temporal_motion_shader.hpp src/indirect_lighting_shader.hpp src/material_asset.cpp
  src/material_shader.hpp src/material_shader.cpp src/sprite_material_profile.hpp src/sprite_image_shader.hpp
- include/forge/material_graph.hpp src/material_graph.cpp src/material_graph_functions.cpp src/mesh_shader_input.hpp src/mesh_draw_shader.hpp src/mesh_draw_shader.cpp
- resources/shaders/ForgeSurface.fxh resources/shaders/ForgeLighting.fxh resources/shaders/ForgeAreaLights.fxh resources/shaders/ForgeDecals.fxh resources/shaders/ForgeLightImages.fxh resources/shaders/ForgeLocalIrradiance.fxh resources/shaders/ForgeTransparency.fxh resources/shaders/ForgeShadows.fxh
+ include/forge/material_graph.hpp src/material_graph.cpp src/material_graph_functions.cpp src/particle_graph_shader.hpp src/particle_gpu_shaders.hpp src/particle_gpu_plan.hpp include/forge/particle_effect.hpp src/mesh_instance_layout.hpp src/mesh_shader_input.hpp src/mesh_draw_shader.hpp src/mesh_draw_shader.cpp
+ resources/shaders/ForgeSurface.fxh resources/shaders/ForgeMath.fxh resources/shaders/ForgeLighting.fxh resources/shaders/ForgeAreaLights.fxh resources/shaders/ForgeDecals.fxh resources/shaders/ForgeLightImages.fxh resources/shaders/ForgeLocalIrradiance.fxh resources/shaders/ForgeTransparency.fxh resources/shaders/ForgeShadows.fxh
  src/decal_shader.hpp src/weighted_transparency_shader.hpp
  cmake/patches/diligentfx-aaa41d47-shader-warnings.json cmake/patches/diligentfx-aaa41d47-shader-warnings.patch
  src/shader_importer.cpp src/shader_diligent.hpp src/shader_diligent.cpp src/shader_worker_main.cpp

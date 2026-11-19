@@ -1,5 +1,6 @@
 #include "mesh_render_host.hpp"
 #include "particle_render_instances.hpp"
+#include "shader_runtime_backend.hpp"
 #include <algorithm>
 #include <set>
 namespace forge {
@@ -91,6 +92,21 @@ std::vector<RenderMesh> MeshSceneRenderer::prepare_particle_sources(const Render
                 continue;
             }
             validate_particle_mesh_profile(source.mesh_lease.get());
+            if (data->program) {
+                if (!source.shader_ticket)
+                    source.shader_ticket = request_shader(host_->shaders_, host_->project_,
+                                                          *host_->catalog_, data->program->shader);
+                if (!source.shader_lease)
+                    source.shader_lease = host_->shaders_.acquire(source.shader_ticket);
+                if (!source.shader_lease) {
+                    const auto state = source.shader_ticket.inspect();
+                    if (resource_detail::terminal(state.state))
+                        throw std::runtime_error("Particle graph Shader load failed: " +
+                                                 state.diagnostic);
+                    continue;
+                }
+                validate_particle_graph_shader(source.shader_lease.get());
+            }
             result.push_back(proxy(emitter, *data, source.mesh_lease.get()));
         } catch (const std::exception& error) {
             report(emitter.entity, error.what(), DrawScope::Particle);
@@ -135,12 +151,27 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
             each += draw.renderer.materials.capacity() * sizeof(MaterialSlotOverride);
             for (const auto& slot : draw.renderer.materials)
                 each += slot.slot.capacity();
-            if (data.version == 3) {
+            if (data.version >= 3) {
                 require(each <= byte_limit - bytes,
                         "Particle instance CPU payload exceeds the 8 MiB frame budget");
-                if (!source->second.gpu)
-                    source->second.gpu =
-                        std::make_unique<ParticleGpuInstances>(host_->presentation_, data.capacity);
+                if (!source->second.gpu) {
+                    if (data.program) {
+                        require(bool(source->second.shader_lease),
+                                "Particle graph Shader lease missing");
+                        const auto program = realize_renderer_shader(
+                            host_->presentation_, source->second.shader_lease.get());
+                        const auto& native =
+                            program.stages.at({ShaderStage::Compute, ShaderEntryRole::Program});
+                        const auto& graph = *data.program;
+                        const ParticleGpuGraphLimits limits{
+                            {float(graph.extent[0]), float(graph.extent[1]), float(graph.extent[2]),
+                             float(graph.maximum_size)}};
+                        source->second.gpu = std::make_unique<ParticleGpuInstances>(
+                            host_->presentation_, data.capacity, native, limits);
+                    } else
+                        source->second.gpu = std::make_unique<ParticleGpuInstances>(
+                            host_->presentation_, data.capacity);
+                }
                 bytes += each;
                 // One proxy retains the admitted material/pose. Births, motion,
                 // appearance and per-particle transforms stay on the device.

@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <forge/asset_ref.hpp>
+#include <optional>
 #include <span>
 #include <vector>
 namespace forge {
@@ -20,8 +21,19 @@ struct ParticleColorStop {
     bool hold = false;
     bool operator==(const ParticleColorStop&) const = default;
 };
+inline constexpr unsigned particle_graph_profile_version = 1;
+struct ParticleGraphProgram {
+    AssetRef<ShaderAsset> shader;
+    std::array<double, 3> extent{1, 1, 1}; // Symmetric emitter-local bounds, meters.
+    double maximum_size = 1;               // Before per-emitter size modulation.
+    bool operator==(const ParticleGraphProgram&) const = default;
+};
+void validate_particle_graph_bounds(const std::array<double, 3>& extent, double maximum_size);
+void validate_particle_graph_program(const ParticleGraphProgram&);
+ParticleGraphProgram decode_particle_graph_program(const nlohmann::json&);
+nlohmann::json encode_particle_graph_program(const ParticleGraphProgram&);
 struct ParticleEffectData {
-    std::uint32_t version = 1; // cpu_mesh1, cpu_mesh2 or explicit gpu_mesh1.
+    std::uint32_t version = 1; // CPU1/2, GPU3, or graph GPU4.
     AssetRef<MeshAsset> mesh;
     AssetRef<MaterialAsset> material;
     ParticleEmission emission = ParticleEmission::Continuous;
@@ -36,6 +48,7 @@ struct ParticleEffectData {
     double shape_radius = 1, drag = 0;         // Sphere/Disc meters, reciprocal seconds.
     std::vector<ParticleSizeStop> size_curve;
     std::vector<ParticleColorStop> color_gradient;
+    std::optional<ParticleGraphProgram> program;
     bool operator==(const ParticleEffectData&) const = default;
 };
 struct ParticleSample {

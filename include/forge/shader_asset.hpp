@@ -153,6 +153,7 @@ struct ShaderProgramSource {
     bool row_major = true;
     unsigned optimization = 2;
     std::optional<SurfaceShaderDefinition> surface;
+    unsigned particle_graph_profile = 0; // Nonzero only for the compiler-owned graph kernel.
     bool operator==(const ShaderProgramSource&) const = default;
 };
 // The original JSON remains the authored asset/draft so unknown fields survive
@@ -190,11 +191,13 @@ struct ShaderData {
     // 1 is legacy; 2 adds fog; 3 adds a separate color/motion entry.
     // This is engine wrapper capability, not authored HLSL intent.
     unsigned surface_wrapper_version = 1;
+    unsigned particle_graph_profile = 0;
     std::string layout_digest() const;
     std::size_t resident_bytes() const;
 };
 void validate_shader_reflection(const nlohmann::json&);
 void validate_shader(const ShaderData&);
+void validate_particle_graph_shader(const ShaderData&);
 std::vector<std::byte> encode_shader(const ShaderData&);
 ShaderData decode_shader(std::span<const std::byte>);
 } // namespace forge

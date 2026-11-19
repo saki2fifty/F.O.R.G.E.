@@ -16,6 +16,8 @@ struct ShaderSnapshot {
     // host inputs and never pretend to be project files in the dependency index.
     std::map<std::string, std::filesystem::path> project_sources;
 };
+// One generated-source projection for capture, worker revalidation and draft compilation.
+ShaderSources shader_graph_sources(const nlohmann::json& document);
 ShaderSnapshot capture_shader_source(const std::filesystem::path& project,
                                      const std::filesystem::path& document,
                                      const ShaderSources& engine_sources = {},

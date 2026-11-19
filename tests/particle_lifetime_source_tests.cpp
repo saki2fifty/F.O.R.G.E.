@@ -2,6 +2,7 @@
 #include <forge/engine_assets.hpp>
 #include <forge/particle_effect_source.hpp>
 #include <iostream>
+#include <limits>
 using namespace forge;
 namespace {
 void require(bool value, const char* message) {
@@ -197,8 +198,80 @@ void lifetime_identity_and_projection() {
     require(source.document == full, "Excess stop rejected after mutating the source");
 }
 } // namespace
+void graph_program_profiles() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    source.document["extensions"] = {{"future", {{"opaque", source.asset()}}}};
+    source.enable_lifetime(ParticleLifetimeChannel::Size, true);
+    const auto before = source.document;
+    reject([&] { source.set_evaluation(ParticleEvaluation::Graph); });
+    require(source.document == before, "Missing graph selection partially changed source");
+    ParticleGraphProgram program;
+    program.shader.id = AssetId::generate();
+    program.extent = {2, 3, 4};
+    program.maximum_size = .8;
+    source.set_graph_program(program);
+    require(source.document.at("version") == 4 && source.compiled().version == 4 &&
+                source.compiled().program == program &&
+                source.document.at("asset_id") == before.at("asset_id") &&
+                source.document.at("size_curve") == before.at("size_curve") &&
+                source.document.at("extensions") == before.at("extensions"),
+            "Graph assignment lost source identity, stops, settings or opaque data");
+    const auto graph = source.document;
+    const auto values = source.compiled();
+    require(decode_particle_effect(encode_particle_effect(values)) == values &&
+                decode_cooked_particle_effect(source.cook(), source.asset(), 3) == values,
+            "Graph values/cooked projection did not roundtrip");
+    const auto text = source.document.dump();
+    require(ParticleEffectSource::parse(std::as_bytes(std::span(text))).document == graph,
+            "Particle graph source did not roundtrip");
+    reject([&] { (void)sample_particle_effect(values, .5, 7); });
+    for (auto backend : {ParticleEvaluation::Cpu, ParticleEvaluation::Gpu}) {
+        source.set_evaluation(backend);
+        const auto active = source.compiled();
+        require(source.document.at("version") == 4 && !active.program &&
+                    active.version == (backend == ParticleEvaluation::Cpu ? 2u : 3u) &&
+                    source.document.at("program") == graph.at("program") &&
+                    source.document.at("size_curve") == graph.at("size_curve") &&
+                    decode_cooked_particle_effect(source.cook(), source.asset(), 3) == active,
+                "Backend switch lost inactive graph settings or cooked an inactive program");
+        source.set_evaluation(ParticleEvaluation::Graph);
+        require(source.document == graph && source.compiled() == values,
+                "Returning to Graph did not restore the exact authored program");
+    }
+    auto invalid = program;
+    invalid.shader.id = {};
+    reject([&] { source.set_graph_program(invalid); });
+    for (double value : {-1., 1e7, std::numeric_limits<double>::infinity(), 1e-300}) {
+        invalid = program;
+        invalid.extent[0] = value;
+        reject([&] { source.set_graph_program(invalid); });
+    }
+    invalid = program;
+    invalid.maximum_size = 10001;
+    reject([&] { source.set_graph_program(invalid); });
+    require(source.document == graph, "Rejected graph bounds partially changed the source");
+    auto data = values;
+    data.version = 3;
+    reject([&] { validate_particle_effect(data); });
+    auto malformed = encode_particle_effect(values);
+    malformed["program"]["opaque"] = 1;
+    reject([&] { (void)decode_particle_effect(malformed); });
+    source.set_evaluation(ParticleEvaluation::Cpu);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Size, .5);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Size, std::nextafter(.5, 1.));
+    require(source.compiled().version == 2 && source.compiled().size_curve.size() == 4,
+            "Inactive graph imposed GPU float-stop restrictions on CPU evaluation");
+    source.set_graph_program(program, false);
+    require(source.compiled().version == 2 && source.graph_program() == program,
+            "Inactive program edit changed the CPU evaluation backend");
+    const auto precise_cpu = source.document;
+    reject([&] { source.set_evaluation(ParticleEvaluation::Graph); });
+    require(source.document == precise_cpu,
+            "Rejected GPU precision transition changed the retained CPU graph source");
+}
 int main() {
     try {
+        graph_program_profiles();
         legacy_and_promotion();
         backend_profiles_and_envelopes();
         lifetime_identity_and_projection();

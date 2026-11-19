@@ -79,27 +79,36 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             return Json{
                 {"editor", "particle_effect"},
                 {"suffix", ".particles.json"},
-                {"profiles", {{"cpu", "cpu_mesh2"}, {"gpu", "gpu_mesh1"}}},
+                {"profiles", {{"cpu", "cpu_mesh2"}, {"gpu", "gpu_mesh1"}, {"graph", "gpu_graph1"}}},
                 {"limits",
                  {{"emitters", particle_emitter_limit},
                   {"effect_capacity", 1024},
                   {"scene_capacity", particle_scene_capacity}}},
-                {"gpu",
-                 "Births, analytic motion, lifetime appearance and instance transforms "
-                 "execute on a compute-capable rendering device. There is no CPU fallback. "
-                 "Stop times must remain distinct at float precision. CPU and GPU random "
-                 "patterns differ; neither profile provides collisions, trails or VFX graphs."},
+                {"gpu", "Births, analytic motion, lifetime appearance and instance transforms "
+                        "execute on a compute-capable rendering device. There is no CPU fallback. "
+                        "Stop times must remain distinct at float precision. CPU and GPU random "
+                        "patterns differ; collisions and trails are unsupported."},
+                {"graph",
+                 "Assign a published particle-graph Shader and finite local extents/maximum size "
+                 "with "
+                 "asset.document.particle_program. Source4 retains the selection when CPU/GPU "
+                 "evaluation is chosen. Graph inputs expose analytic position/velocity/origin, "
+                 "fixed age, age/lifetime, size/color and birth random; outputs are bounded "
+                 "local position, size and linear RGB. Windows/D3D12 cooked Compute only."},
                 {"mesh", "One static triangle part, one LOD, one material slot; built-in "
                          "opaque/masked materials. No Blend, transmission, custom surfaces, "
                          "skinning, morphs or camera render textures."},
-                {"workflow", "Use asset.document template/create/open/read/patch and "
-                             "particle_evaluation with editor particle_effect. The typed "
-                             "evaluation edit preserves asset/stop IDs, curves and extensions in "
-                             "one Undo step. Save publishes asynchronously; poll status before "
-                             "Play/export. Source1/2 remain CPU. New publication requires a "
-                             "runtime_particle_effect profile3 kit; GPU additionally requires "
-                             "runtime_particle_gpu profile1. Source textures/meshes/materials "
-                             "remain owned by the existing asset pipeline."}};
+                {"workflow",
+                 "Use asset.document template/create/open/read/patch and "
+                 "particle_evaluation or particle_program with editor particle_effect. The typed "
+                 "evaluation edit preserves asset/stop IDs, curves and extensions in "
+                 "one Undo step. Save publishes asynchronously; poll status before "
+                 "Play/export. Source1/2 remain CPU. New publication requires a "
+                 "runtime_particle_effect profile3 kit; GPU additionally requires "
+                 "runtime_particle_gpu profile1; graphs also require runtime_particle_graph "
+                 "profile1. "
+                 "Source textures/meshes/materials/shaders "
+                 "remain owned by the existing asset pipeline."}};
         }));
     methods.push_back(automation_method(
         "asset.animation_graph.catalog",
@@ -496,20 +505,28 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         }));
     methods.push_back(automation_method(
         "asset.graph.catalog",
-        "List the existing material graph node schemas and help from the editor's native catalog.",
-        "asset.read", automation_object(), false, [](const Json&) {
+        "List typed Shader graph nodes and help. Select material (default) or particle domain.",
+        "asset.read",
+        automation_object({{"domain", {{"type", "string"}, {"enum", {"material", "particle"}}}}}),
+        false, [](const Json& request) {
+            const auto domain = request.value("domain", std::string("material"));
+            const auto& schemas = domain == "particle" ? particle_graph_node_schemas()
+                                                       : material_graph_node_schemas();
             Json nodes = Json::array();
-            for (const auto& schema : material_graph_node_schemas())
+            for (const auto& schema : schemas)
                 nodes.push_back({{"schema", schema.key},
                                  {"label", schema.label},
                                  {"category", schema.category},
                                  {"help", schema.help},
                                  {"version", schema.version}});
-            return Json{{"nodes", std::move(nodes)},
-                        {"domains",
-                         {{"mesh", "Surface Output; lit Mesh material"},
-                          {"sprite", "Sprite Output; final color, logical UV0, primary image "
-                                     "stable key, optional Inspector Tint"}}}};
+            return Json{
+                {"nodes", std::move(nodes)},
+                {"domains",
+                 {{"mesh", "Surface Output; lit Mesh material"},
+                  {"sprite", "Sprite Output; final color, logical UV0, primary image "
+                             "stable key, optional Inspector Tint"},
+                  {"ui", "UI Output; linear element color and straight alpha"},
+                  {"particle", "Particle Output; bounded local position, size and linear RGB"}}}};
         }));
     methods.push_back(automation_method(
         "asset.graph.node",
@@ -524,6 +541,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 request.contains("node")
                     ? request.at("node")
                     : create_material_graph_node(request.at("schema").get<std::string>(), {0, 0});
+            if (!shader_graph_node_available(node))
+                return Json{{"node", node},
+                            {"available", false},
+                            {"inputs", Json::array()},
+                            {"outputs", Json::array()}};
             static const char* types[]{"scalar",  "vector2", "vector3",
                                        "vector4", "color3",  "color4"};
             const auto ports = [&](const auto& values) {
@@ -535,6 +557,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 return result;
             };
             return Json{{"node", node},
+                        {"available", true},
                         {"inputs", ports(material_graph_inputs(node))},
                         {"outputs", ports(material_graph_outputs(node))}};
         }));
@@ -557,7 +580,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         "asset.document.template",
         "Inspect a validated initial source shape. Its preview UUID is not reserved; creation "
         "allocates its own identity. Tile Maps require tile_set; Sprite atlases require textures. "
-        "Material graphs accept domain mesh (default), sprite or ui. UI graphs output linear "
+        "Shader graphs accept domain mesh (default), sprite, ui or particle. UI graphs output "
+        "linear "
         "color/straight alpha with UV0, UI Time, UI Size and ordinary Texture2D slots. Navigation "
         "behaviors accept "
         "behavior_profile state_graph (default) or tree. Editable Mesh accepts mesh_profile "
@@ -578,7 +602,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         automation_object(
             {{"editor", editor_schema},
              {"tile_set", automation_uuid()},
-             {"domain", {{"type", "string"}, {"enum", {"mesh", "sprite", "ui"}}}},
+             {"domain", {{"type", "string"}, {"enum", {"mesh", "sprite", "ui", "particle"}}}},
              {"behavior_profile", {{"type", "string"}, {"enum", {"state_graph", "tree"}}}},
              {"mesh_profile", mesh_profile},
              {"mesh_size", mesh_size},
@@ -652,7 +676,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         if (create) {
             properties["tile_set"] = automation_uuid();
             properties["textures"] = automation_array(automation_uuid(), 512, 1);
-            properties["domain"] = {{"type", "string"}, {"enum", {"mesh", "sprite", "ui"}}};
+            properties["domain"] = {{"type", "string"},
+                                    {"enum", {"mesh", "sprite", "ui", "particle"}}};
             properties["behavior_profile"] = {{"type", "string"},
                                               {"enum", {"state_graph", "tree"}}};
             properties["patch"] = patch;
@@ -673,8 +698,9 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 " a project source in its actual editor. Settle the prior draft "
                 "first. Create supports a validated initial patch; Tile Maps "
                 "require tile_set; Sprite atlases require textures. It does not "
-                "publish until Save. Material graph creation accepts domain mesh "
-                "(default), sprite or ui. UI graphs output linear color/straight alpha with "
+                "publish until Save. Shader graph creation accepts domain mesh "
+                "(default), sprite, ui or particle. UI graphs output linear color/straight alpha "
+                "with "
                 "UV0, UI Time, UI Size and ordinary Texture2D slots. Navigation behaviors accept "
                 "behavior_profile "
                 "state_graph (default) or tree. Editable Mesh accepts mesh_profile cube, "
@@ -726,9 +752,10 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                     return invoke(std::string("preview_") + action, request);
                 }));
         }
-    for (const auto* action : {"patch", "particle_evaluation", "paint", "tile_collision",
-                               "tile_animation", "tile_autotile", "stroke", "mesh_stroke", "fill",
-                               "copy_pixels", "cancel_pixels", "undo", "redo", "save", "close"}) {
+    for (const auto* action :
+         {"patch", "particle_evaluation", "particle_program", "paint", "tile_collision",
+          "tile_animation", "tile_autotile", "stroke", "mesh_stroke", "fill", "copy_pixels",
+          "cancel_pixels", "undo", "redo", "save", "close"}) {
         auto properties = fields;
         auto needed = required;
         if (std::string_view(action) == "patch") {
@@ -737,8 +764,22 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             needed.push_back("patch");
         } else if (std::string_view(action) == "particle_evaluation") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
-            properties["evaluation"] = {{"type", "string"}, {"enum", {"cpu", "gpu"}}};
+            properties["evaluation"] = {{"type", "string"}, {"enum", {"cpu", "gpu", "graph"}}};
             needed.push_back("evaluation");
+        } else if (std::string_view(action) == "particle_program") {
+            properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
+            properties["program"] = automation_object(
+                {{"shader", automation_uuid()},
+                 {"extent",
+                  automation_array(Json{{"type", "number"}, {"minimum", 0}, {"maximum", 1000000}},
+                                   3, 3)},
+                 {"maximum_size", {{"type", "number"}, {"minimum", 0}, {"maximum", 10000}}}},
+                {"shader", "extent", "maximum_size"});
+            properties["activate"] = {
+                {"type", "boolean"},
+                {"default", true},
+                {"description", "Enable graph evaluation; false preserves the current backend."}};
+            needed.push_back("program");
         } else if (std::string_view(action) == "paint") {
             auto write_cell = cell;
             write_cell["required"].push_back("tile");

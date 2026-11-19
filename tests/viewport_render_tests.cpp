@@ -16,6 +16,7 @@
 #include "ImGuiImplDiligent.hpp"
 #include "authoring.hpp"
 #include "material_lightmap_gpu_tests.hpp"
+#include "particle_graph_render_tests.hpp"
 #include "physics_2d_editor_render_tests.hpp"
 #include "physics_2d_gallery_render_tests.hpp"
 #include "shader_diligent_tests.hpp"
@@ -243,7 +244,9 @@ void check_shader_assets(IRenderDevice* device, IDeviceContext* context,
 int main(int argc, char** argv) {
     ComPtr<ID3D12InfoQueue> diagnostics;
     try {
-        require(argc == 2 || argc == 3, "Expected image output directory and optional render case");
+        require(argc == 2 || argc == 3 ||
+                    (argc == 4 && std::string_view(argv[2]) == "particle-graphs"),
+                "Expected image output directory, optional render case and graph content root");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
         ComPtr<ID3D12Debug> debug;
@@ -278,10 +281,13 @@ int main(int argc, char** argv) {
         RefCntAutoPtr<IDeviceContext> context;
         factory->AttachToD3D12Device(native.Get(), 1, queues, engine, &device, &context);
         require(device && context, "Diligent device attachment failed");
-        if (argc == 3) {
+        if (argc >= 3) {
             const std::string selected = argv[2];
             forge::DiligentPresentation isolated(device);
-            if (selected == "lightmaps")
+            if (selected == "particle-graphs") {
+                require(argc == 4, "Particle graph render needs relocated cooked content");
+                forge::test_particle_graph_render::exercise(isolated, context, argv[3], images);
+            } else if (selected == "lightmaps")
                 forge::lightmap_test::exercise_gpu(
                     isolated, context,
                     [&](IShader* shader, std::string_view source, const nlohmann::json& metadata) {

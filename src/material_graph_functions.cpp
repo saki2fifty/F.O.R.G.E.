@@ -82,6 +82,23 @@ Json material_graph_function_call(const Json& f, std::array<double, 2> position)
     return n;
 }
 Json expand_material_graph_functions(const Json& graph) {
+    // Expansion must not interpret/remove an unavailable interface version.
+    const auto validate_interfaces = [](const Json& source) {
+        for (const auto& node : source.at("nodes")) {
+            const auto key = node.at("type").template get<std::string>();
+            if ((key == "function" || key == "function_input" || key == "function_output") &&
+                node.at("version") != 1)
+                throw MaterialGraphError(
+                    {"unavailable_schema",
+                     "Function node version is unavailable; source is preserved", "",
+                     node.at("id").template get<GraphNodeId>()});
+        }
+    };
+    validate_interfaces(graph);
+    if (graph.contains("functions"))
+        for (const auto& function : graph.at("functions"))
+            validate_interfaces(function.at("graph"));
+
     Json result = graph;
     result.erase("functions");
     // Origin records belong only to compiler scratch nodes, never authored payload.
@@ -239,7 +256,7 @@ Json expand_material_graph_functions(const Json& graph) {
 }
 GraphFunctionId extract_material_graph_function(Json& graph, const std::set<GraphNodeId>& selected,
                                                 std::string label) {
-    validate_material_graph_document(graph);
+    validate_shader_graph_document(graph);
     need(!selected.empty(), "Select connected math/value nodes to extract");
     Json next = graph, body{{"format", "forge.material.graph"},
                             {"version", 1},
@@ -250,7 +267,9 @@ GraphFunctionId extract_material_graph_function(Json& graph, const std::set<Grap
     for (const auto& n : graph.at("nodes"))
         if (selected.contains(n.at("id").template get<GraphNodeId>())) {
             need(n.at("type") != "surface" && n.at("type") != "sprite_output" &&
-                     n.at("type") != "ui_output" && n.at("type") != "parameter" &&
+                     n.at("type") != "ui_output" &&
+                     !n.at("type").template get<std::string>().starts_with("particle_") &&
+                     n.at("type") != "parameter" &&
                      !n.at("type").template get<std::string>().starts_with("texture") &&
                      n.at("type") != "function_input" && n.at("type") != "function_output",
                  "Extract pure math/value nodes; leave bindings and interface nodes outside");
@@ -329,7 +348,7 @@ GraphFunctionId extract_material_graph_function(Json& graph, const std::set<Grap
     if (!next.contains("functions"))
         next["functions"] = Json::array();
     next["functions"].push_back(f);
-    validate_material_graph_document(next);
+    validate_shader_graph_document(next);
     (void)expand_material_graph_functions(next);
     graph = std::move(next);
     return id;

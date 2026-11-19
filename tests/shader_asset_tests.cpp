@@ -1,3 +1,4 @@
+#include "particle_graph_shader_tests.hpp"
 #include <algorithm>
 #include <forge/shader_asset.hpp>
 #include <iostream>
@@ -126,6 +127,7 @@ int main() {
                         false,
                         {{ShaderStage::Vertex, "main", {std::byte{1}, std::byte{2}}, r}},
                         std::nullopt};
+        particle_graph_shader_tests::run(data);
         const auto bytes = encode_shader(data);
         const auto loaded = decode_shader(bytes);
         require(encode_shader(loaded) == bytes && loaded.layout_digest() == data.layout_digest(),

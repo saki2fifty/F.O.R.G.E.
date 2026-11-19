@@ -162,3 +162,22 @@ layout must agree with the copied selection. A bad replacement fails its ticket
 and preserves existing leases. This CPU resource path does not create Diligent
 objects; native realization and material/pipeline compatibility remain separate
 render-owner checks.
+
+## Particle graph programs
+
+Shader source4 stores forge.particle.graph1 through the same source document,
+compiler, capture, worker and publication pipeline as material source3. Shared
+shader_graph_sources regenerates exactly the compiler-owned Compute text in
+capture and worker validation; modified generated text rejects. Generated text
+contributes to content identity, while original graph source contributes to outer
+publication identity. ForgeMath.fxh shares the existing finite/normalization
+helpers and is embedded through the pinned engine source factory.
+
+Optional particle_graph_profile1 is included in compiler settings, layout, cook
+and publication metadata. It requires exactly one Compute/main entry,64×1×1
+threads, the ParticleValues/ParticleRows/ParticleGraphLimits resources and the
+exact constant layout. Generic Compute bytecode does not qualify. Native
+realization checks copied reflection against bytecode before adoption; it does
+not invoke the source compiler. Only the Windows/D3D12/FXC5.1 profile is supported
+for authored particle programs. See [particle effects](particle-effects.md) and
+[ADR061](decisions/061-particle-graph-programs.md).

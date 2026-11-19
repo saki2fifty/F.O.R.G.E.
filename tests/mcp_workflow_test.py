@@ -2570,7 +2570,8 @@ for legacy in selected_protocols:
                           collect_gpu_profile=True)
             complete = until(lambda: read('forge_export_status'), lambda r: not r['busy'],
                              timeout=120)
-            assert complete['exit_code'] == 0 and complete['gpu_profile_ready'], complete
+            assert complete['exit_code'] == 0 and complete['gpu_profile_ready'], dict(
+                status=complete, run_log=read('forge_export_run_log'))
             assert not complete['gpu_profile_error'] and complete['gpu_profile_requested']
             first = read('forge_export_gpu_profile', operation=measured['operation'], limit=1)
             report = first['report']

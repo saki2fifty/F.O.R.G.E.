@@ -90,8 +90,9 @@ std::string literal(const MaterialParameter& p) {
     return s.str();
 }
 std::string kind(const Json& node) { return node.at("type").get<std::string>(); }
+const std::vector<MaterialGraphNodeSchema>& all_graph_node_schemas();
 bool available_schema(const Json& node) {
-    const auto& schemas = material_graph_node_schemas();
+    const auto& schemas = all_graph_node_schemas();
     return std::any_of(schemas.begin(), schemas.end(), [&](const auto& schema) {
         return node.at("type") == schema.key && node.at("version") == schema.version;
     });
@@ -128,6 +129,7 @@ class Compiler {
     CompiledMaterialGraph result_;
     bool sprite_ = false;
     bool ui_ = false;
+    bool particle_ = false;
     Expression input(GraphNodeId id, const MaterialGraphPort& p, std::string fallback) {
         const auto edge = edges_.find({id, p.key});
         if (edge == edges_.end())
@@ -175,7 +177,16 @@ class Compiler {
                                           : std::move(fallback))
                 .value;
         };
-        if (key == "constant")
+        if (key.starts_with("particle_") && key != "particle_output") {
+            if (!particle_)
+                fail(id, "", "particle_domain", "Particle inputs require a Particle Output graph");
+            static const std::map<std::string, std::string> context{
+                {"particle_position", "Position"}, {"particle_velocity", "Velocity"},
+                {"particle_origin", "Origin"},     {"particle_age", "Age"},
+                {"particle_age01", "Age01"},       {"particle_size", "Size"},
+                {"particle_color", "Color"},       {"particle_random", "Random"}};
+            expression = "input." + context.at(key);
+        } else if (key == "constant")
             expression = literal(value(node));
         else if (key == "parameter") {
             const auto binding = identifier(node);
@@ -381,6 +392,48 @@ class Compiler {
                 fail(id, p, "multiple_inputs", "An input accepts one connection");
         }
     }
+    CompiledParticleGraph run_particle() {
+        particle_ = true;
+        const Json* output = nullptr;
+        for (const auto& node : graph_.at("nodes")) {
+            const auto id = node.at("id").get<GraphNodeId>();
+            if (!available_schema(node))
+                fail(id, "", "unavailable_schema",
+                     "Node type/version is unavailable; source is preserved");
+            const auto key = kind(node);
+            const auto& allowed = particle_graph_node_schemas();
+            if (std::none_of(allowed.begin(), allowed.end(),
+                             [&](const auto& schema) { return schema.key == key; }))
+                fail(id, "", "particle_domain",
+                     "This node needs material bindings or a graphics stage");
+            if (key == "particle_output") {
+                if (output)
+                    fail(id, "", "multiple_outputs", "Use exactly one Particle Output");
+                output = &node;
+            }
+        }
+        if (!output)
+            throw std::runtime_error("Particle graph requires one Particle Output");
+        const auto id = output->at("id").get<GraphNodeId>();
+        const auto ports = material_graph_inputs(*output);
+        const std::array defaults{"input.Position", "input.Size", "input.Color"};
+        std::array<std::string, 3> values;
+        for (std::size_t i = 0; i < values.size(); ++i)
+            values[i] = input(id, ports.at(i), defaults[i]).value;
+        // Disconnected data is still validated, without executing another graph owner.
+        for (const auto& [node_id, node] : nodes_)
+            if (kind(*node) != "particle_output")
+                (void)expression(node_id);
+        for (const auto& [target, edge] : edges_) {
+            (void)edge;
+            const auto inputs = material_graph_inputs(*nodes_.at(target.first));
+            (void)find_port(inputs, target.second, target.first);
+        }
+        return {"ForgeParticleGraphValues ForgeParticleGraph(ForgeParticleGraphInput input) {\n" +
+                body_ + "ForgeParticleGraphValues result;\nresult.Position=" + values[0] +
+                ";\nresult.Size=" + values[1] + ";\nresult.Color=" + values[2] +
+                ";\nreturn result;\n}\n"};
+    }
     CompiledMaterialGraph run() {
         const Json* output = nullptr;
         for (const auto& node : graph_.at("nodes")) {
@@ -507,12 +560,13 @@ class Compiler {
     }
 };
 } // namespace
-MaterialGraphError::MaterialGraphError(MaterialGraphDiagnostic d)
-    : std::runtime_error("Material graph [" + d.code + "] node " +
+MaterialGraphError::MaterialGraphError(MaterialGraphDiagnostic d, std::string domain)
+    : std::runtime_error(std::move(domain) + " [" + d.code + "] node " +
                          (d.node ? d.node.str() : std::string("none")) + " port " + d.port + ": " +
                          d.message),
       diagnostic_(std::move(d)) {}
-const std::vector<MaterialGraphNodeSchema>& material_graph_node_schemas() {
+namespace {
+const std::vector<MaterialGraphNodeSchema>& all_graph_node_schemas() {
     static const std::vector<MaterialGraphNodeSchema> schemas{
         {"surface", "Surface Output", "Output",
          "Lit surface color, metalness, roughness, world normal, emission, occlusion and optional "
@@ -523,6 +577,24 @@ const std::vector<MaterialGraphNodeSchema>& material_graph_node_schemas() {
         {"ui_output", "UI Output", "Output",
          "Final linear UI color and straight alpha. Native UI owns layout, clipping and opacity. "
          "Use UV0, presentation time, element size and ordinary Texture2D samples."},
+        {"particle_output", "Particle Output", "Particles",
+         "Emitter-local position, size and linear RGB for one visual particle."},
+        {"particle_position", "Particle Position", "Particles",
+         "Analytic emitter-local position before the program."},
+        {"particle_velocity", "Particle Velocity", "Particles",
+         "Analytic emitter-local velocity in meters per second."},
+        {"particle_origin", "Particle Origin", "Particles",
+         "Seeded birth position in emitter-local meters."},
+        {"particle_age", "Particle Age", "Particles",
+         "Seconds since this particle's birth, from the fixed clock."},
+        {"particle_age01", "Particle Age / Lifetime", "Particles",
+         "Age divided by lifetime, from zero to one."},
+        {"particle_size", "Particle Size", "Particles",
+         "Evaluated lifetime size before the program."},
+        {"particle_color", "Particle Color", "Particles",
+         "Evaluated linear RGB before the program."},
+        {"particle_random", "Birth Random", "Particles",
+         "One deterministic scalar in [0,1) shared by this birth's context inputs."},
         {"ui_time", "UI Time", "UI", "Presentation seconds; continues while simulation is paused."},
         {"ui_size", "UI Size", "UI", "UI element content size in pixels as a Vector2."},
         {"constant", "Constant", "Values", "A typed scalar, vector or linear-color constant."},
@@ -585,8 +657,22 @@ const std::vector<MaterialGraphNodeSchema>& material_graph_node_schemas() {
          "Explicit vector/color conversion, scalar broadcast or component truncation."}};
     return schemas;
 }
+} // namespace
+const std::vector<MaterialGraphNodeSchema>& material_graph_node_schemas() {
+    static const auto schemas = [] {
+        auto result = all_graph_node_schemas();
+        std::erase_if(result, [](const auto& schema) { return schema.category == "Particles"; });
+        return result;
+    }();
+    return schemas;
+}
+bool shader_graph_node_available(const Json& node) {
+    return node.is_object() && node.contains("type") && node.at("type").is_string() &&
+           node.contains("version") && node.at("version").is_number_integer() &&
+           available_schema(node);
+}
 Json create_material_graph_node(std::string_view schema, std::array<double, 2> position) {
-    const auto& schemas = material_graph_node_schemas();
+    const auto& schemas = all_graph_node_schemas();
     const auto found = std::find_if(schemas.begin(), schemas.end(),
                                     [&](const auto& s) { return s.key == schema; });
     require(found != schemas.end(), "Unknown node schema");
@@ -678,10 +764,12 @@ Json create_ui_material_graph() {
     result["edges"][0]["to"] = {{"node", result["nodes"][1].at("id")}, {"port", "color"}};
     return result;
 }
-void validate_material_graph_document(const Json& graph) {
+namespace {
+void validate_graph_document(const Json& graph, std::string_view format) {
     persistable(graph);
-    require(graph.is_object() && graph.at("format") == "forge.material.graph" &&
-                graph.at("version").is_number_integer() && graph.at("version") == 1,
+    require(graph.is_object() && graph.at("format") == format &&
+                graph.at("version").is_number_integer() &&
+                graph.at("version").get<std::uint64_t>() == 1,
             "Unsupported graph document");
     require(graph.dump().size() <= 1024 * 1024, "Graph exceeds document byte limit");
     require(graph.at("nodes").is_array() && graph.at("nodes").size() <= 1024 &&
@@ -728,8 +816,27 @@ void validate_material_graph_document(const Json& graph) {
         }
     }
 }
+} // namespace
+void validate_material_graph_document(const Json& graph) {
+    validate_graph_document(graph, "forge.material.graph");
+}
+void validate_particle_graph_document(const Json& graph) {
+    validate_graph_document(graph, "forge.particle.graph");
+    require(graph.at("nodes").size() <= 256 && graph.at("edges").size() <= 1024 &&
+                (!graph.contains("functions") || graph.at("functions").size() <= 16),
+            "Particle graph exceeds its bounded program profile");
+}
+void validate_shader_graph_document(const Json& graph) {
+    if (graph.at("format") == "forge.particle.graph")
+        validate_particle_graph_document(graph);
+    else
+        validate_material_graph_document(graph);
+}
 std::vector<MaterialGraphPort> material_graph_inputs(const Json& node) {
     const auto k = kind(node);
+    if (k == "particle_output")
+        return {port("position", Type::Vector3), port("size", Type::Scalar),
+                port("color", Type::LinearColor3)};
     if (k == "surface")
         return surface_ports;
     if (k == "sprite_output" || k == "ui_output")
@@ -805,8 +912,16 @@ std::vector<MaterialGraphPort> material_graph_inputs(const Json& node) {
 }
 std::vector<MaterialGraphPort> material_graph_outputs(const Json& node) {
     const auto k = kind(node);
-    if (k == "surface" || k == "sprite_output" || k == "ui_output" || k == "function_output")
+    if (k == "surface" || k == "sprite_output" || k == "ui_output" || k == "function_output" ||
+        k == "particle_output")
         return {};
+    if (k == "particle_position" || k == "particle_velocity" || k == "particle_origin")
+        return {port("out", Type::Vector3)};
+    if (k == "particle_color")
+        return {port("out", Type::LinearColor3)};
+    if (k == "particle_age" || k == "particle_age01" || k == "particle_size" ||
+        k == "particle_random")
+        return {port("out", Type::Scalar)};
     if (k.starts_with("texture"))
         return {port("out", (node.at("data").value("semantic", std::string("color")) == "color" ||
                              node.at("data").value("semantic", std::string("color")) == "hdr")
@@ -827,6 +942,49 @@ std::vector<MaterialGraphPort> material_graph_outputs(const Json& node) {
         return {port("out", Type::LinearColor4)};
     return {port("out", type(node))};
 }
+const std::vector<MaterialGraphNodeSchema>& particle_graph_node_schemas() {
+    static const auto schemas = [] {
+        std::vector<MaterialGraphNodeSchema> result;
+        for (const auto& schema : all_graph_node_schemas())
+            if (schema.category == "Particles" || schema.category == "Math" ||
+                schema.key == "constant" || schema.key == "combine" || schema.key == "component" ||
+                schema.key == "convert" || schema.key == "function")
+                result.push_back(schema);
+        return result;
+    }();
+    return schemas;
+}
+Json create_particle_graph() {
+    return {{"format", "forge.particle.graph"},
+            {"version", 1},
+            {"nodes", Json::array({create_material_graph_node("particle_output", {400, 60})})},
+            {"edges", Json::array()}};
+}
+CompiledParticleGraph compile_particle_graph(const Json& graph) {
+    validate_particle_graph_document(graph);
+    try {
+        // Definitions are pure: callers pass particle context through typed inputs.
+        // Validate unused definitions as well as the expanded root program.
+        if (graph.contains("functions"))
+            for (const auto& function : graph.at("functions"))
+                for (const auto& node : function.at("graph").at("nodes")) {
+                    const auto key = kind(node);
+                    const auto& allowed = particle_graph_node_schemas();
+                    if (key.starts_with("particle_") ||
+                        (key != "function_input" && key != "function_output" &&
+                         std::none_of(allowed.begin(), allowed.end(),
+                                      [&](const auto& schema) { return schema.key == key; })))
+                        fail(node.at("id").get<GraphNodeId>(), "", "particle_domain",
+                             "Functions receive particle context through typed inputs");
+                }
+        const auto expanded = expand_material_graph_functions(graph);
+        require(expanded.at("nodes").size() <= 1024,
+                "Expanded particle program exceeds its 1024-node profile");
+        return Compiler(expanded).run_particle();
+    } catch (const MaterialGraphError& error) {
+        throw MaterialGraphError(error.diagnostic(), "Particle graph");
+    }
+}
 CompiledMaterialGraph compile_material_graph(const Json& graph) {
     validate_material_graph_document(graph);
     const bool ui =
@@ -845,6 +1003,9 @@ CompiledMaterialGraph compile_material_graph(const Json& graph) {
                     continue; // Unknown versions stay opaque; normal schema admission reports them.
                 const auto key = kind(node);
                 const auto id = node.at("id").template get<GraphNodeId>();
+                if (key.starts_with("particle_"))
+                    fail(id, "", "particle_domain",
+                         "Particle nodes require a Particle Output graph");
                 if (sprite && (key == "world_normal" || key == "normal_map"))
                     fail(id, "", "sprite_domain", "Sprite graphs have no Mesh normal frame");
                 if (sprite && (key == "uv" || key == "texture2d" || key == "texture2d_array") &&
@@ -884,7 +1045,7 @@ CompiledMaterialGraph compile_material_graph(const Json& graph) {
     }
 }
 Json copy_material_graph_selection(const Json& graph, const std::set<GraphNodeId>& selected) {
-    validate_material_graph_document(graph);
+    validate_shader_graph_document(graph);
     Json result{{"nodes", Json::array()}, {"edges", Json::array()}};
     if (graph.contains("functions"))
         result["functions"] = graph.at("functions");
@@ -954,21 +1115,27 @@ void paste_material_graph_selection(Json& graph, const Json& clipboard,
             e[endpoint]["node"] = ids.at(e.at(endpoint).at("node").get<GraphNodeId>());
         next["edges"].push_back(std::move(e));
     }
-    validate_material_graph_document(next);
+    validate_shader_graph_document(next);
     graph = std::move(next);
 }
 AssetId MaterialGraphSource::asset() const { return document.at("asset_id").get<AssetId>(); }
 void MaterialGraphSource::validate() const {
     persistable(document);
     require(document.is_object() && document.at("format") == "forge.shader" &&
-                document.at("version").is_number_integer() && document.at("version") == 3,
+                document.at("version").is_number_integer() &&
+                (document.at("version") == 3 || document.at("version") == 4),
             "Unsupported graph shader source");
     (void)asset();
     require(!document.contains("stages") && !document.contains("surface") &&
                 !document.contains("source_root"),
             "Graph source must not store a second authored HLSL/interface authority");
     require(document.dump().size() <= 1024 * 1024, "Graph shader source exceeds byte limit");
-    validate_material_graph_document(document.at("graph"));
+    if (document.at("version") == 4) {
+        require(!document.contains("defines") && !document.contains("permutations"),
+                "Particle graph compilation owns its fixed kernel definitions");
+        validate_particle_graph_document(document.at("graph"));
+    } else
+        validate_material_graph_document(document.at("graph"));
 }
 MaterialGraphSource MaterialGraphSource::duplicate(AssetId id) const {
     validate();
@@ -1031,4 +1198,12 @@ MaterialGraphSource MaterialGraphSource::create_ui(AssetId id) {
     result.validate();
     return result;
 }
+MaterialGraphSource MaterialGraphSource::create_particle(AssetId id) {
+    auto result = create(id);
+    result.document["version"] = 4;
+    result.document["graph"] = create_particle_graph();
+    result.validate();
+    return result;
+}
+
 } // namespace forge

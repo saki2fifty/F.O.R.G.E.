@@ -93,3 +93,11 @@ and retry. **Cancel import** rejects pending work.
 Scene Undo does not undo file edits or shader publication. A successful import
 proves a validated program was prepared; it does not automatically assign it to
 scene materials or claim that every shader layout fits the mesh renderer.
+
+## Particle programs
+
+To control per-particle position, size and RGB, create a Shader graph with
+**Domain → Particles** and assign it in a Particle Effect's **Graph Shader** field.
+Follow [Create a particle graph](particle-graphs.md). These programs use the same
+Windows Shader worker and compiled export path. An ordinary Compute declaration
+is not an assignable particle program.

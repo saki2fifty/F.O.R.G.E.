@@ -1,5 +1,7 @@
 #include "asset_bytes.hpp"
 #include "editor/particle_effect_editor.hpp"
+#include <forge/material_graph.hpp>
+#include <fstream>
 #include <imgui_internal.h>
 #include <iostream>
 using namespace forge;
@@ -32,6 +34,18 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     const auto disk = asset_detail::read_bytes(root / source, particle_effect_byte_limit);
     ParticleEffectEditor editor;
     editor.open(project, source);
+    const auto graph_shader = MaterialGraphSource::create_particle(AssetId::generate());
+    const std::filesystem::path graph_path = "Assets/Program.shader.json";
+    {
+        std::ofstream out(root / graph_path);
+        out << graph_shader.document.dump();
+    }
+    auto catalog = AssetCatalog::open_project(root);
+    AssetRecord graph_record{graph_shader.asset(), ShaderAsset::type, graph_path, 1};
+    // Picker projection only; this fixture does not claim a cooked/device program.
+    graph_record.metadata["forge.shader"] = {{"version", 1}, {"particle_graph_profile", 1}};
+    catalog.add(graph_record);
+    editor.catalog_changed(std::make_shared<const AssetCatalog>(std::move(catalog)));
     require(editor.document() && editor.dirty(), "Unpublished effect failed to open");
     const auto actor =
         authoring_command(scene, "entity.create",
@@ -84,7 +98,14 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
                                                        " compact=" + std::to_string(compact));
             const auto box = test::ui_targets.at(id);
             require(box.enabled, "Particle control disabled: " + id);
-            if (box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y) {
+            // Selectable rows extend half their spacing beyond the child's clip;
+            // their visible center is the actual click target, including the first row.
+            const float center_y = (box.minimum.y + box.maximum.y) * .5f;
+            const bool visible =
+                id.starts_with("picker-option:")
+                    ? center_y >= box.clip_minimum.y && center_y <= box.clip_maximum.y
+                    : box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y;
+            if (visible) {
                 io.AddMousePosEvent((box.minimum.x + box.maximum.x) * .5f,
                                     (box.minimum.y + box.maximum.y) * .5f);
                 frame();
@@ -94,7 +115,8 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
                 continue;
             }
             // Exercise the actual scrollbar input, including compact/high-DPI panes.
-            io.AddMousePosEvent(io.DisplaySize.x * .5f, io.DisplaySize.y * .5f);
+            io.AddMousePosEvent((box.clip_minimum.x + box.clip_maximum.x) * .5f,
+                                (box.clip_minimum.y + box.clip_maximum.y) * .5f);
             frame();
             io.AddMouseWheelEvent(0, box.minimum.y < box.clip_minimum.y ? 1.f : -1.f);
             frame();
@@ -257,6 +279,29 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     choose("particles:evaluation", 0);
     require(editor.document()->source().document == cpu_profile,
             "Evaluation control lost source/stop identity when returning to CPU");
+    click("particles:program");
+    click("picker-option:" + graph_shader.asset().str());
+    const auto graph_profile = editor.document()->source().document;
+    require(editor.document()->source().compiled().version == 4 &&
+                editor.document()->source().graph_program()->shader.id == graph_shader.asset() &&
+                graph_profile.at("asset_id") == cpu_profile.at("asset_id") &&
+                graph_profile.at("size_curve") == cpu_profile.at("size_curve"),
+            "Native graph selection did not preserve effect/stop identity");
+    const auto graph_revision = editor.document()->revision();
+    number("particles:graph-size", ".4");
+    require(editor.document()->source().graph_program()->maximum_size == .4 &&
+                editor.document()->revision() == graph_revision + 1,
+            "Native graph bound edit did not form one source history entry");
+    click("particles:undo");
+    require(editor.document()->source().document == graph_profile,
+            "Graph bound Undo changed its program selection");
+    choose("particles:evaluation", 0);
+    require(editor.document()->source().compiled().version == 2 &&
+                editor.document()->source().graph_program()->shader.id == graph_shader.asset(),
+            "Native CPU switch discarded the inactive graph selection");
+    choose("particles:evaluation", 2);
+    require(editor.document()->source().document == graph_profile,
+            "Native graph switch did not restore the retained selection");
     // Keep the original lifecycle/close checks applicable, including start-size editing.
     for (unsigned i = 0; i < 32 && editor.document()->source().document != before_extended; ++i)
         editor.undo();

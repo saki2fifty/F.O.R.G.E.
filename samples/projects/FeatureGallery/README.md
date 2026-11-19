@@ -1,5 +1,26 @@
 # Feature Gallery
 
+## Particle graph programs
+
+Open **Scenes/239-particle-graphs.scene.json**. Compile
+**Assets/Particles/Graphs/Orbit.graph.shader.json** with **Save & Compile**, then
+publish **OrbitFountain.particles.json** in the same folder. Play to compare two
+emitters with an age-driven orbit, shrinking size and a teal color blend. Both
+share a graph/effect and retain separate seeds, sizes and tints. Stop to edit the
+graph or its bounds. See [Create a particle graph](../../../manual/editor/particle-graphs.md)
+for controls, limits and source-free export. The Windows package prepares this
+example with the existing Shader worker.
+
+## Particle graph programs
+
+Open **Scenes/239-particle-graphs.scene.json**. Compile
+**Assets/Particles/Graphs/Orbit.graph.shader.json** with **Save & Compile**, then
+open **OrbitFountain.particles.json** beside it and choose **Save / Publish**. Play
+to see two fountains share an age-driven orbit, shrinking size and teal blend.
+The graph includes a reusable Orbit offset function. Each emitter retains its
+own seed, size and tint. Follow the [particle graph guide](../../../manual/editor/particle-graphs.md)
+for editing, bounds and source-free export with the matching runtime kit.
+
 ## GPU mesh particles
 
 Open **Scenes/238-gpu-mesh-particles.scene.json** and press Play. Two emitters

@@ -13,6 +13,15 @@ ParticleGpuInstances::ParticleGpuInstances(DiligentPresentation& presentation, u
     if (capacity < 1 || capacity > 1024)
         throw std::runtime_error("GPU particle capacity must be in [1,1024]");
 }
+ParticleGpuInstances::ParticleGpuInstances(DiligentPresentation& presentation, unsigned capacity,
+                                           IShader* graph, const ParticleGpuGraphLimits& limits)
+    : ParticleGpuInstances(presentation, capacity) {
+    if (!graph)
+        throw std::runtime_error("Particle graph requires a realized Compute program");
+    validate_particle_gpu_graph_limits(limits);
+    graph_program_ = graph;
+    graph_limits_ = limits;
+}
 bool ParticleGpuInstances::supported() const {
     return presentation_.device()->GetDeviceInfo().Features.ComputeShaders ==
            DEVICE_FEATURE_STATE_ENABLED;
@@ -29,8 +38,9 @@ void ParticleGpuInstances::prepare() {
     shader.Desc.ShaderType = SHADER_TYPE_COMPUTE;
     shader.Source = particle_gpu_compute;
     shader.Macros = {macros, 1};
-    RefCntAutoPtr<IShader> native;
-    presentation_.shader(shader, &native);
+    RefCntAutoPtr<IShader> native = graph_program_;
+    if (!native)
+        presentation_.shader(shader, &native);
     if (!native)
         throw std::runtime_error("GPU particle compute shader unavailable");
     ComputePipelineStateCreateInfo info;
@@ -67,6 +77,23 @@ void ParticleGpuInstances::prepare() {
     binding->GetVariableByName(SHADER_TYPE_COMPUTE, "ParticleValues")->Set(values);
     binding->GetVariableByName(SHADER_TYPE_COMPUTE, "ParticleRows")
         ->Set(instances->GetDefaultView(BUFFER_VIEW_UNORDERED_ACCESS));
+    if (graph_program_) {
+        auto* variable = binding->GetVariableByName(SHADER_TYPE_COMPUTE, "ParticleGraphLimits");
+        if (!variable)
+            throw std::runtime_error("Particle graph limits binding unavailable");
+        BufferDesc graph_desc;
+        graph_desc.Name = "FORGE particle graph local bounds";
+        graph_desc.Size = sizeof(ParticleGpuGraphLimits);
+        graph_desc.Usage = USAGE_IMMUTABLE;
+        graph_desc.BindFlags = BIND_UNIFORM_BUFFER;
+        BufferData graph_data{&graph_limits_, sizeof(graph_limits_)};
+        RefCntAutoPtr<IBuffer> graph_values;
+        presentation_.device()->CreateBuffer(graph_desc, &graph_data, &graph_values);
+        if (!graph_values)
+            throw std::runtime_error("Particle graph limits buffer unavailable");
+        variable->Set(graph_values);
+        graph_values_ = std::move(graph_values);
+    }
     pipeline_ = std::move(pipeline);
     binding_ = std::move(binding);
     values_ = std::move(values);
@@ -79,6 +106,8 @@ void ParticleGpuInstances::evaluate(IDeviceContext* context, const ParticleGpuVa
     if (values.births[0] > capacity_ || values.modes[0] > 3 || values.modes[1] > 16 ||
         values.modes[2] > 16 || values.modes[1] == 1 || values.modes[2] == 1)
         throw std::runtime_error("GPU particle input exceeds its bounded compute profile");
+    if (graph_program_)
+        validate_particle_gpu_graph_envelope(values, graph_limits_);
     if (!values.births[0])
         return;
     prepare();

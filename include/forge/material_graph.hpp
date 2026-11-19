@@ -20,11 +20,18 @@ struct MaterialGraphNodeSchema {
 // First-party schema discovery is UI independent; unsupported schemas remain
 // authored data. No universal graph execution or native editor-plugin ABI.
 const std::vector<MaterialGraphNodeSchema>& material_graph_node_schemas();
+// Particle programs share typed math and graph identity with surface programs.
+// This subset excludes material bindings and geometry/pixel-only inputs.
+const std::vector<MaterialGraphNodeSchema>& particle_graph_node_schemas();
+bool shader_graph_node_available(const nlohmann::json&);
 nlohmann::json create_material_graph_node(std::string_view schema, std::array<double, 2> position);
 nlohmann::json create_material_graph();
 nlohmann::json create_sprite_material_graph();
 nlohmann::json create_ui_material_graph();
+nlohmann::json create_particle_graph();
 void validate_material_graph_document(const nlohmann::json&);
+void validate_particle_graph_document(const nlohmann::json&);
+void validate_shader_graph_document(const nlohmann::json&);
 std::vector<MaterialGraphPort> material_graph_inputs(const nlohmann::json& node);
 std::vector<MaterialGraphPort> material_graph_outputs(const nlohmann::json& node);
 struct MaterialGraphDiagnostic {
@@ -33,7 +40,7 @@ struct MaterialGraphDiagnostic {
 };
 class MaterialGraphError : public std::runtime_error {
   public:
-    explicit MaterialGraphError(MaterialGraphDiagnostic);
+    explicit MaterialGraphError(MaterialGraphDiagnostic, std::string domain = "Material graph");
     const MaterialGraphDiagnostic& diagnostic() const { return diagnostic_; }
 
   private:
@@ -43,6 +50,12 @@ struct CompiledMaterialGraph {
     SurfaceShaderDefinition surface;
     std::string source;
 };
+// Generated function only. The existing Shader compiler supplies its compute
+// interface/kernel and deployment; this is not a second source or runtime VM.
+struct CompiledParticleGraph {
+    std::string source;
+};
+CompiledParticleGraph compile_particle_graph(const nlohmann::json&);
 // Functions are pure typed subgraphs owned by the same Shader document.
 // Expansion is deterministic and bounded; no runtime VM or asset owner.
 nlohmann::json expand_material_graph_functions(const nlohmann::json&);
@@ -61,6 +74,7 @@ struct MaterialGraphSource {
     static MaterialGraphSource create(AssetId);
     static MaterialGraphSource create_sprite(AssetId);
     static MaterialGraphSource create_ui(AssetId);
+    static MaterialGraphSource create_particle(AssetId);
 };
 // Remap declared node/edge identities only. Preserve opaque extension payloads.
 nlohmann::json copy_material_graph_selection(const nlohmann::json&, const std::set<GraphNodeId>&);

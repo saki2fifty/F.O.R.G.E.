@@ -76,6 +76,30 @@ int main(int argc, char** argv) {
                 wrong["runtime_particle_effect"] = invalid;
                 reject([&] { validate_runtime_compatibility(particles, wrong); });
             }
+            effect.metadata["forge.particle_effect"]["value_version"] = 4;
+            particles.replace(effect);
+            reject([&] { validate_runtime_compatibility(particles, engine); });
+            engine["runtime_particle_graph"] = particle_graph_profile_version;
+            validate_runtime_compatibility(particles, engine);
+            for (const Json& invalid : {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"),
+                                        Json(2), Json((std::uint64_t{1} << 32) + 1)}) {
+                auto wrong = engine;
+                wrong["runtime_particle_graph"] = invalid;
+                reject([&] { validate_runtime_compatibility(particles, wrong); });
+            }
+            AssetRecord graph_shader{AssetId::generate(), ShaderAsset::type,
+                                     "Assets/Program.shader.json", 1};
+            graph_shader.metadata["forge.shader"] = {{"version", 1}, {"particle_graph_profile", 1}};
+            particles.add(graph_shader);
+            validate_runtime_compatibility(particles, engine);
+            auto old_kit = engine;
+            old_kit.erase("runtime_particle_graph");
+            reject([&] { validate_runtime_compatibility(particles, old_kit); });
+            graph_shader.metadata["forge.shader"]["particle_graph_profile"] = 1.;
+            particles.replace(graph_shader);
+            reject([&] { validate_runtime_compatibility(particles, engine); });
+            graph_shader.metadata["forge.shader"]["particle_graph_profile"] = 1;
+            particles.replace(graph_shader);
             effect.metadata["forge.particle_effect"].erase("value_version");
             particles.replace(effect);
             reject([&] { validate_runtime_compatibility(particles, engine); });

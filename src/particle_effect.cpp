@@ -95,8 +95,39 @@ bool stop_hold(const nlohmann::json& stop) {
     return mode == "step";
 }
 } // namespace
+void validate_particle_graph_bounds(const std::array<double, 3>& extent, double maximum_size) {
+    const auto finite_bound = [](double value, double maximum) {
+        range(value, 0, maximum, "graph bounds");
+        if (value != 0 && float(value) == 0)
+            throw std::runtime_error("Particle graph bound is below finite GPU representation");
+    };
+    for (double value : extent)
+        finite_bound(value, 1000000);
+    finite_bound(maximum_size, 10000);
+}
+void validate_particle_graph_program(const ParticleGraphProgram& program) {
+    if (!program.shader.id)
+        throw std::runtime_error("Particle graph requires a Shader asset");
+    validate_particle_graph_bounds(program.extent, program.maximum_size);
+}
+ParticleGraphProgram decode_particle_graph_program(const nlohmann::json& source) {
+    if (!source.is_object() || source.size() != 3)
+        throw std::runtime_error("Particle graph program requires Shader, extent and maximum size");
+    ParticleGraphProgram result;
+    result.shader = source.at("shader").get<AssetRef<ShaderAsset>>();
+    vector_value(source.at("extent"), result.extent);
+    result.maximum_size = scalar(source.at("maximum_size"));
+    validate_particle_graph_program(result);
+    return result;
+}
+nlohmann::json encode_particle_graph_program(const ParticleGraphProgram& program) {
+    validate_particle_graph_program(program);
+    return {{"shader", program.shader},
+            {"extent", program.extent},
+            {"maximum_size", program.maximum_size}};
+}
 void validate_particle_effect(const ParticleEffectData& data) {
-    if (data.version != 1 && data.version != 2 && data.version != 3)
+    if (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4)
         throw std::runtime_error("Unknown particle value version");
     if (!data.mesh.id)
         throw std::runtime_error("Particle effect requires a Mesh");
@@ -132,8 +163,14 @@ void validate_particle_effect(const ParticleEffectData& data) {
         range(size, .001, 1000, "shape dimensions");
     range(data.shape_radius, .001, 1000, "shape radius");
     range(data.drag, 0, 64, "drag");
-    validate_stops(data.size_curve, data.version == 3);
-    validate_stops(data.color_gradient, data.version == 3);
+    validate_stops(data.size_curve, data.version >= 3);
+    validate_stops(data.color_gradient, data.version >= 3);
+    if (data.version == 4) {
+        if (!data.program)
+            throw std::runtime_error("Particle graph requires a program");
+        validate_particle_graph_program(*data.program);
+    } else if (data.program)
+        throw std::runtime_error("Particle graph values require the graph GPU profile");
     if (data.version == 1 &&
         (data.shape != ParticleSpawnShape::Point || data.shape_size != std::array{1., 1., 1.} ||
          data.shape_radius != 1 || data.drag != 0 || !data.size_curve.empty() ||
@@ -147,7 +184,7 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
     const auto version = source.at("version").get<std::uint64_t>();
     const auto profile = source.at("profile").get<std::string>();
     if (!((version == 1 && profile == "cpu_mesh1") || (version == 2 && profile == "cpu_mesh2") ||
-          (version == 3 && profile == "gpu_mesh1")))
+          (version == 3 && profile == "gpu_mesh1") || (version == 4 && profile == "gpu_graph1")))
         throw std::runtime_error("Unsupported particle effect format/version/profile");
     static const std::set<std::string> fields{
         "format",     "version",      "profile",     "mesh",       "material",
@@ -156,8 +193,10 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
         "size_start", "size_end",     "color_start", "color_end",  "extensions"};
     for (const auto& [name, value] : source.items())
         if (!fields.contains(name) &&
-            !(version >= 2 && (name == "shape" || name == "shape_size" || name == "shape_radius" ||
-                               name == "drag" || name == "size_curve" || name == "color_gradient")))
+            !(version >= 2 &&
+              (name == "shape" || name == "shape_size" || name == "shape_radius" ||
+               name == "drag" || name == "size_curve" || name == "color_gradient")) &&
+            !(version == 4 && name == "program"))
             throw std::runtime_error("Unknown particle effect field: " + name);
     if (source.contains("extensions") && !source.at("extensions").is_object())
         throw std::runtime_error("Particle effect extensions must be an object");
@@ -244,6 +283,8 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
                 }
             }
     }
+    if (data.version == 4)
+        data.program = decode_particle_graph_program(source.at("program"));
     validate_particle_effect(data);
     return data;
 }
@@ -254,7 +295,8 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
         {"version", data.version},
         {"profile", data.version == 1   ? "cpu_mesh1"
                     : data.version == 2 ? "cpu_mesh2"
-                                        : "gpu_mesh1"},
+                    : data.version == 3 ? "gpu_mesh1"
+                                        : "gpu_graph1"},
         {"mesh", data.mesh},
         {"emission", data.emission == ParticleEmission::Burst ? "burst" : "continuous"},
         {"capacity", data.capacity},
@@ -289,12 +331,14 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
                                                 {"value", stop.value},
                                                 {"interpolation", stop.hold ? "step" : "linear"}});
     }
+    if (data.program)
+        result["program"] = encode_particle_graph_program(*data.program);
     return result;
 }
 std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData& data, double seconds,
                                                    std::uint32_t seed, std::size_t budget) {
     validate_particle_effect(data);
-    if (data.version == 3)
+    if (data.version >= 3)
         throw std::runtime_error("GPU particle samples require a rendering device");
     range(seconds, 0, 1e9, "sample time");
     const double phase = seconds * data.spawn_rate;

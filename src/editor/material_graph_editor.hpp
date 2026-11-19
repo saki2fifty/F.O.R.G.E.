@@ -32,7 +32,8 @@ class MaterialGraphEditor {
         const auto bytes =
             asset_detail::read_bytes(ProjectPaths(root).resolve(source), 1024 * 1024);
         const auto j = asset_detail::parse_bounded_json(bytes, 1024 * 1024);
-        return j.value("format", std::string{}) == "forge.shader" && j.value("version", 0) == 3;
+        return j.value("format", std::string{}) == "forge.shader" &&
+               (j.value("version", 0) == 3 || j.value("version", 0) == 4);
     }
     void preview_material(const ResolvedMaterialSource& source) {
         if (document_ && source.shader && source.shader->id == document_->source().asset()) {
@@ -58,6 +59,13 @@ class MaterialGraphEditor {
     const MaterialGraphDocument* document() const { return document_.get(); }
     const std::string& diagnostic() const { return error_.empty() ? preview_error_ : error_; }
     bool preview_ready() const { return preview_ready_; }
+    bool particle_domain() const {
+        return document_ && document_->source().document.at("version") == 4;
+    }
+    bool compiled_current() const {
+        return compiled_ready_ && ready_generation_ == generation_ && !wants_preview_ &&
+               !preview_job_.valid() && !published_preview_;
+    }
     bool preview_current() const {
         return preview_ready_ && ready_generation_ == generation_ && !wants_preview_ &&
                !preview_job_.valid() && !published_preview_;
@@ -157,21 +165,23 @@ class MaterialGraphEditor {
     }
     void content(SceneDocument& project, bool locked) {
         ImGui::BeginDisabled(locked || dirty() || publishing_);
-        if (ui::button("New material graph...", "Create a typed material graph. Save and compile "
-                                                "it, then choose it in a material's Shader field."))
-            ImGui::OpenPopup("New material graph");
+        if (ui::button("New graph...",
+                       "Create a typed Mesh, Sprite, UI or Particle graph. Save and "
+                       "compile it, then choose the Shader in its Material or Particle Effect."))
+            ImGui::OpenPopup("New Shader graph");
         FORGE_UI_PROBE("graph:new");
         ImGui::EndDisabled();
-        if (ImGui::BeginPopupModal("New material graph", nullptr,
+        if (ImGui::BeginPopupModal("New Shader graph", nullptr,
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::InputText("Graph file", path_, sizeof(path_));
             FORGE_UI_PROBE("graph:new-path");
-            ImGui::Combo("Domain", &new_domain_, "Mesh\0Sprite\0UI\0");
+            ImGui::Combo("Domain", &new_domain_, "Mesh\0Sprite\0UI\0Particles\0");
             FORGE_UI_PROBE("graph:new-domain");
             ui::help("Mesh graphs output a lit surface. Sprite graphs output final color and "
                      "sample one primary image in logical frame UV0. UI graphs output final "
-                     "color and straight alpha inside a UI element.");
-            ui::help("A new .shader.json source inside an existing project folder. Material graphs "
+                     "color and straight alpha inside a UI element. Particle graphs control each "
+                     "particle's local position, size and color within its Effect bounds.");
+            ui::help("A new .shader.json source inside an existing project folder. Graphs "
                      "use the existing Shader asset and publication pipeline.");
             ImGui::BeginDisabled(locked || dirty() || preview_job_.valid());
             if (ui::button("Create graph", "Create the source and open its graph workspace; never "
@@ -179,7 +189,8 @@ class MaterialGraphEditor {
                 try {
                     auto created = MaterialGraphDocument::create(
                         project.writer_guard(), std::filesystem::u8path(path_), [this](AssetId id) {
-                            return new_domain_ == 2   ? MaterialGraphSource::create_ui(id)
+                            return new_domain_ == 3   ? MaterialGraphSource::create_particle(id)
+                                   : new_domain_ == 2 ? MaterialGraphSource::create_ui(id)
                                    : new_domain_ == 1 ? MaterialGraphSource::create_sprite(id)
                                                       : MaterialGraphSource::create(id);
                         });
@@ -216,40 +227,55 @@ class MaterialGraphEditor {
                 auto program = preview_job_.get();
                 if (document_ && requested_generation_ == generation_ &&
                     !cancel_.stop_requested()) {
-                    preview_ui_ = program.surface->ui_effect;
-                    auto values = surface_material_defaults(*program.surface);
-                    MaterialTextureBindings bindings;
-                    if (preview_source_) {
-                        for (const auto& [key, value] : preview_source_->values.parameters)
-                            if (values.parameters.contains(key) &&
-                                values.parameters.at(key).type == value.type)
-                                values.parameters[key] = value;
-                        for (const auto& [key, ref] : preview_source_->textures)
+                    if (particle_domain())
+                        validate_particle_graph_shader(program);
+                    else if (!program.surface)
+                        throw std::runtime_error(
+                            "The selected Shader has no Material graph interface");
+                    if (program.particle_graph_profile) {
+                        validate_particle_graph_shader(program);
+                        compiled_ready_ = true;
+                        preview_ready_ = preview_ui_ = false;
+                        ready_generation_ = requested_generation_;
+                        preview_error_.clear();
+                    } else {
+                        preview_ui_ = program.surface->ui_effect;
+                        auto values = surface_material_defaults(*program.surface);
+                        MaterialTextureBindings bindings;
+                        if (preview_source_) {
+                            for (const auto& [key, value] : preview_source_->values.parameters)
+                                if (values.parameters.contains(key) &&
+                                    values.parameters.at(key).type == value.type)
+                                    values.parameters[key] = value;
+                            for (const auto& [key, ref] : preview_source_->textures)
+                                if (values.textures.contains(key))
+                                    bindings[key] = ref;
+                            values.alpha = preview_source_->values.alpha;
+                            values.alpha_cutoff = preview_source_->values.alpha_cutoff;
+                            values.double_sided = preview_source_->values.double_sided;
+                            values.depth_test = preview_source_->values.depth_test;
+                            values.depth_write = preview_source_->values.depth_write;
+                        }
+                        for (const auto& [key, ref] : preview_textures_)
                             if (values.textures.contains(key))
                                 bindings[key] = ref;
-                        values.alpha = preview_source_->values.alpha;
-                        values.alpha_cutoff = preview_source_->values.alpha_cutoff;
-                        values.double_sided = preview_source_->values.double_sided;
-                        values.depth_test = preview_source_->values.depth_test;
-                        values.depth_write = preview_source_->values.depth_write;
+                        MaterialResourceData data{
+                            std::move(values),
+                            std::move(bindings),
+                            MaterialShaderSnapshot{{document_->source().asset()},
+                                                   program.build_key,
+                                                   std::move(program)},
+                            {}};
+                        if (!preview_revision_.empty())
+                            data.surface->revision = preview_revision_;
+                        validate_render_material(data);
+                        if (update_preview && !preview_ui_)
+                            update_preview(std::move(data), catalog_);
+                        preview_ready_ = true;
+                        ready_generation_ = requested_generation_;
+                        preview_error_.clear();
+                        compiled_ready_ = true;
                     }
-                    for (const auto& [key, ref] : preview_textures_)
-                        if (values.textures.contains(key))
-                            bindings[key] = ref;
-                    MaterialResourceData data{std::move(values),
-                                              std::move(bindings),
-                                              MaterialShaderSnapshot{{document_->source().asset()},
-                                                                     program.build_key,
-                                                                     std::move(program)},
-                                              {}};
-                    if (!preview_revision_.empty())
-                        data.surface->revision = preview_revision_;
-                    validate_render_material(data);
-                    if (update_preview && !preview_ui_)
-                        update_preview(std::move(data), catalog_);
-                    preview_ready_ = true;
-                    ready_generation_ = requested_generation_;
-                    preview_error_.clear();
                 }
             } catch (const std::exception& e) {
                 if (!cancel_.stop_requested())
@@ -337,11 +363,10 @@ class MaterialGraphEditor {
             preview_job_ = std::async(
                 std::launch::async, [root, worker, compiler, source = std::move(source), stop] {
                     source.validate();
-                    const auto graph = compile_material_graph(source.document.at("graph"));
                     asset_detail::ShaderSnapshot snapshot;
                     snapshot.document = source.document;
                     snapshot.program = shader_program_source(source.document);
-                    snapshot.sources.emplace("engine/forge.graph.hlsl", graph.source);
+                    snapshot.sources = asset_detail::shader_graph_sources(source.document);
                     auto files = asset_detail::run_import_process(
                         worker, root, asset_detail::shader_process_request(snapshot, {}, compiler),
                         asset_detail::shader_worker_limits(), stop);
@@ -360,8 +385,9 @@ class MaterialGraphEditor {
             focus_ = false;
         }
         bool visible = true;
-        const auto title =
-            std::string(dirty() ? "* Material Graph" : "Material Graph") + "###Material Graph";
+        const auto title = std::string(dirty() ? "* " : "") +
+                           (particle_domain() ? "Particle Graph" : "Material Graph") +
+                           "###Material Graph";
         if (ImGui::Begin(title.c_str(), &visible)) {
             if (ui::editor_context && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
                 ui::editor_context->task.focus_document("material.graph", "Material Graph");
@@ -376,7 +402,7 @@ class MaterialGraphEditor {
             FORGE_UI_PROBE("graph:save");
             ImGui::EndDisabled();
             ui::next_text_button("Refresh preview");
-            if (ui::button("Refresh preview",
+            if (ui::button(particle_domain() ? "Check program" : "Refresh preview",
                            "Compile the current unsaved graph in an isolated worker. Preview never "
                            "publishes or edits the scene."))
                 changed();
@@ -386,13 +412,22 @@ class MaterialGraphEditor {
                 visible = false;
             FORGE_UI_PROBE("graph:close");
             ImGui::SameLine();
-            ImGui::TextUnformatted(wants_preview_ || preview_job_.valid() ? "Compiling preview..."
-                                   : preview_current()
-                                       ? (preview_ui_ ? "UI Shader compiled" : "Preview ready")
-                                   : preview_ready_ ? "Previous preview retained"
-                                                    : "Preparing preview");
-            ui::help("The last usable preview remains visible while compilation or resource "
-                     "preparation runs.");
+            if (particle_domain()) {
+                ImGui::TextUnformatted(wants_preview_ || preview_job_.valid()
+                                           ? "Checking particle program..."
+                                       : compiled_current() ? "Particle program compiled"
+                                                            : "Particle program needs checking");
+                ImGui::TextWrapped("Assign this Shader to a Particle Effect, then preview or play "
+                                   "the effect to see its particles.");
+            } else {
+                ImGui::TextUnformatted(
+                    wants_preview_ || preview_job_.valid() ? "Compiling preview..."
+                    : preview_current() ? (preview_ui_ ? "UI Shader compiled" : "Preview ready")
+                    : preview_ready_    ? "Previous preview retained"
+                                        : "Preparing preview");
+                ui::help("The last usable preview remains visible while compilation or resource "
+                         "preparation runs.");
+            }
             if (!diagnostic().empty()) {
                 ui::field_error(diagnostic());
                 if (ui::button("Go to error node",
@@ -403,7 +438,7 @@ class MaterialGraphEditor {
             }
             const auto available = ImGui::GetContentRegionAvail();
             const bool stacked = available.x < 720 * ui::interface_scale;
-            if (draw_preview) {
+            if (draw_preview && !particle_domain()) {
                 ImGui::BeginChild("Graph preview",
                                   {stacked
                                        ? available.x
@@ -456,7 +491,7 @@ class MaterialGraphEditor {
                               ImGuiWindowFlags_NoScrollbar);
             ImGui::BeginDisabled(locked || publishing_);
             if (function_) {
-                if (ui::button("Back to surface",
+                if (ui::button(particle_domain() ? "Back to particle graph" : "Back to surface",
                                "Return to the surface graph. Function edits share this Shader "
                                "document's Undo and publication boundary.")) {
                     flush();
@@ -542,6 +577,7 @@ class MaterialGraphEditor {
                 return std::string("Missing function");
             };
             canvas.function_scope = bool(function_);
+            canvas.particle_scope = particle_domain();
             canvas.extract_function = function_
                                           ? std::function<void()>{}
                                           : std::function<void()>{[this] { extract_ = true; }};
@@ -638,6 +674,7 @@ class MaterialGraphEditor {
     std::function<asset_detail::ShaderCompilerProfile()> compiler_;
     std::future<ShaderData> preview_job_;
     std::stop_source cancel_;
+    bool compiled_ready_ = false;
     bool wants_preview_ = false, preview_ready_ = false, preview_ui_ = false, save_ = false,
          close_ = false, focus_ = false, publishing_ = false, needs_publish_ = false,
          published_preview_ = false;
@@ -741,7 +778,7 @@ class MaterialGraphEditor {
     }
     void changed() {
         ++generation_;
-        published_preview_ = false;
+        published_preview_ = compiled_ready_ = false;
         edited_ = std::chrono::steady_clock::now();
         wants_preview_ = true;
         cancel_.request_stop();
@@ -777,7 +814,7 @@ class MaterialGraphEditor {
         preview_textures_.clear();
         canvas.reset();
         save_ = close_ = focus_ = publishing_ = needs_publish_ = wants_preview_ = preview_ready_ =
-            preview_ui_ = published_preview_ = false;
+            preview_ui_ = published_preview_ = compiled_ready_ = false;
         error_.clear();
         preview_error_.clear();
         if (release_preview)

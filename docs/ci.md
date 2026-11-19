@@ -3462,3 +3462,21 @@ unsupported or missing particle cooked3/GPU1 capabilities, including integer wid
 that must not truncate. Offline manual and example-package checks include the new
 editable Scene, source/cook and canonical native capture. Physical Windows/GPU and
 full desktop review remain distinct acceptance evidence.
+
+## Authored particle graph acceptance
+
+The focused Shader audit includes particle_graph_gallery and particle_graph_canvas
+source/native-widget checks, plus particle_graph_gallery_export on Windows. The
+latter runs the existing bounded Shader worker and Effect publisher, packages the
+exact Scene/Effect/Shader closure, hides authoring source, relocates the content and
+uses forge_viewport_tests particle-graphs on the existing D3D12-WARP device owner.
+It asserts immutable bytecode creation,64GPU particle results against independent
+uint64/double reference math, actual fixed-clock RuntimeWorld emission and visible
+production Game rendering with Shader-pool adoption. Windows execution is pending
+until a passing audit is recorded. Generated-source software-Vulkan tests remain
+separate evidence. No physical GPU performance claim follows from these fixtures.
+
+The shipping package preparer cooks Gallery239 Shader before Effect through the
+same services. A preparer error fails packaging; no fabricated DXBC or alternate
+runtime compiler is admitted. Native widget capture provenance is in
+[particle effects](particle-effects.md).

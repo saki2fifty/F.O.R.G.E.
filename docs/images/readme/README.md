@@ -4371,3 +4371,12 @@ accepted commit. Native control test: `clip_frame_controls`; the separate
 `sequence_ui_vulkan` check compares actual Game/UI clip samples and exported PNGs
 and repeats after project relocation. These software fixtures establish behavior,
 not physical GPU performance. Canonical SHA-256: `f7e401c0d48620dd4b9753f10ef427c2d7dcb3bdecb9cd32846ed1fb9005ea8c`.
+
+### Particle graph canvas
+
+Canonical image: [particle-graph.png](../../../manual/images/particle-graph.png).
+`particle_graph_canvas` displays Gallery239's exact original graph through the
+actual MaterialGraphCanvas/ImGui widget and SDL software renderer,1440×1000.
+Local build21/check21 produces the image without editing graph source; it was
+visually reviewed. This is a native widget capture, without retouch. It does not
+claim a complete editor window, native Windows execution or physical GPU review.

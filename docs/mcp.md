@@ -521,7 +521,7 @@ state exit retires the structural group. Runtime creation remains the existing
 C++ entity/Prefab API; this tool does not create entities or edit engine source.
 
 Material graph templates and creation accept `editor:"material.graph"` with
-`domain:"mesh"` (default) or `domain:"sprite"`. Both call the same native factories
+`domain:"mesh"` (default), `"sprite"`, `"ui"` or `"particle"`. These call the same native factories
 used by Content. A Sprite template contains image, Color, Multiply and Sprite
 Output; its output references the primary image by stable binding key. The graph
 catalog exposes the output schema and help, and node inspection exposes its
@@ -3517,10 +3517,10 @@ the native overlap, query and recovery limits.
 
 ## Particle evaluation through the source owner
 
-`asset.particles.catalog` describes `cpu_mesh2` and `gpu_mesh1`, static mesh/material
+`asset.particles.catalog` describes `cpu_mesh2`, `gpu_mesh1` and `gpu_graph1`, static mesh/material
 limits and required runtime-kit capabilities. `asset.document.particle_evaluation`
 requires `asset.write`, the Particle Effect editor, exact document session/revision
-and `evaluation: cpu|gpu`. It calls `ParticleEffectSource::set_evaluation` inside the
+and `evaluation: cpu|gpu|graph`. It calls `ParticleEffectSource::set_evaluation` inside the
 same source document history operation used by the native Evaluation control.
 Validation/history limits reject atomically; no-op selection retains the revision.
 Ordinary source read/patch/Undo/Redo/save and asynchronous publication apply.
@@ -3530,3 +3530,37 @@ see the catalog, without receiving mutation tools. Both supported protocol forma
 exercise schema, permissions, source/stop IDs, extensions, stale-session/revision,
 Undo/Redo, no-op, publication, refreshed asset reads and reopen in
 `mcp_particle_evaluation_stdio`.
+
+## Particle graph authoring
+
+The existing `editor:"material.graph"` owner accepts `domain:"particle"` for
+source template/create; its source4 is a Shader asset containing
+forge.particle.graph1. `asset.graph.catalog` accepts domain material(default) or
+particle; template domains are mesh/sprite/ui/particle. The particle catalog
+exposes context, typed math, pure functions and Particle Output, without material
+bindings/geometry or UI nodes. `asset.graph.node` returns available:false, the
+preserved node and empty ports for an unavailable schema version. Compilation
+rejects that version rather than interpreting it as a current schema.
+
+Use the ordinary graph/document edit, history, function, layout and Save methods.
+Graph status exposes particle_graph, compiler_pending, compiled_current and
+diagnostic. Template or saved JSON is not evidence of native Shader compilation.
+Compile/publication still requires the actual Windows worker.
+
+`asset.document.particle_program` uses editor particle_effect, asset.write, the
+current document_session/document_revision, a program object and optional
+activate(defaulttrue). Program is `{shader:UUID, extent:[x,y,z], maximum_size:n}`.
+The native Effect controls use this same typed operation. `activate:false` changes
+retained settings without changing Evaluation; true selects Graph. Shader must be
+a valid reference; publication verifies the exact selected particle program.
+Unknown fields, invalid types/nonfinite/out-of-range/underflow bounds, wrong
+sessions and stale revisions reject atomically. No-op edits do not add history.
+Undo/Redo and source save/reopen retain asset/stop identities and settings.
+CPU/GPU selection retains graph settings and does not require that inactive
+program to be published. The active graph has the normal runtime dependency.
+
+The MCP adapter derives forge_asset_document_particle_program and existing graph
+bindings from these automation definitions. Both protocol envelopes exercise the
+source/settings/discovery/validation/history workflow under
+mcp_particle_evaluation_stdio, with real native SourceHost graceful exit0. These
+CPU transport checks are separate from cooked native Windows shader execution.

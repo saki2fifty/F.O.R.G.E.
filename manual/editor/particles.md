@@ -37,12 +37,16 @@ shapes, damping, growth and color. These scenes need no C++ compiler.
 6. Use preview Play/Pause, time and Reset. Preview is independent of game Play and does not change the scene. Orbit/zoom its image. Undo/Redo edits source values.
 7. Choose **Save / Publish**. This saves and builds the runtime effect. A failed build reports the problem and retains the working published revision.
 
-## Choose CPU or GPU
+## Choose CPU, GPU or Graph
 
 **CPU** evaluates particles on the processor. **GPU** evaluates births, motion,
 size, color and instance transforms on a compute-capable graphics device. Both
 use the same fixed game clock, effect controls and per-emitter appearance values.
 They use different seeded patterns; changing evaluation can change the arrangement.
+
+**Graph** applies an assigned particle Shader to each GPU particle. Follow
+[Create a particle graph](particle-graphs.md) for the node canvas, program assignment,
+bounds, publication and export. Switching backends retains graph settings.
 
 Use the effect document's preview to inspect a draft before publishing. Changing
 Evaluation retains the asset, curves and stop values and supports Undo/Redo.

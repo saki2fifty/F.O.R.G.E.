@@ -9,6 +9,11 @@ namespace forge {
 using ParticleGpuRow = MeshInstanceRow;
 // One immutable, bounded compute submission. Shader storage matches these rows;
 // it carries no World, resource pointer, source identity or independent clock.
+struct alignas(16) ParticleGpuGraphLimits {
+    // Symmetric emitter-local position extents (meters), then maximum unmodulated size.
+    ParticleGpuRow extent_size{1, 1, 1, 1};
+};
+void validate_particle_gpu_graph_limits(const ParticleGpuGraphLimits&);
 struct alignas(16) ParticleGpuValues {
     std::array<std::uint32_t, 4> births{}, modes{};
     ParticleGpuRow timing{}, axis{}, side{}, up{}, acceleration{}, shape{}, sizes{}, tint{};
@@ -17,6 +22,7 @@ struct alignas(16) ParticleGpuValues {
     std::array<ParticleGpuRow, 16> size_stops{}, color_stops{};
 };
 static_assert(sizeof(ParticleGpuValues) == 47 * 16);
+void validate_particle_gpu_graph_envelope(const ParticleGpuValues&, const ParticleGpuGraphLimits&);
 ParticleGpuValues prepare_particle_gpu_values(const ParticleEffectData&, double seconds,
                                               std::uint32_t seed, const AffineTransform&,
                                               const CameraView&, double size = 1,

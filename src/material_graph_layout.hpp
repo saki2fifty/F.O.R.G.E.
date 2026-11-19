@@ -68,7 +68,7 @@ inline bool arrange_material_graph(nlohmann::json& graph, const std::set<GraphNo
                                  : action == GraphLayout::Center ? (low + high - item.size) / 2
                                                                  : high - item.size;
         }
-    validate_material_graph_document(next);
+    validate_shader_graph_document(next);
     if (next == graph)
         return false;
     graph = std::move(next);

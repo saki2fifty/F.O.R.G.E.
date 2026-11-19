@@ -1,5 +1,15 @@
 # 2026-11-19
 
+## Authored particle graphs
+
+Particle-domain Shader graphs control local position, size and linear RGB through
+typed nodes and reusable pure functions. Effects select a published program and
+declared bounds; CPU/GPU switching retains those settings. The existing compiler,
+Shader worker, source/history, resource, renderer, export and automation/MCP owners
+provide the workflow. Gallery239 includes an editable Orbit fountain and the manual
+shows its real native canvas. Windows cooked execution remains pending acceptance;
+no stateful feedback, collisions, trails or transparency is implied.
+
 ## GPU mesh particle effects
 
 Particle Effects offer an explicit CPU/GPU Evaluation control. The GPU profile
@@ -10,8 +20,9 @@ owners. Native source controls and automation/MCP use the same validated operati
 Older CPU sources and cooked effects remain readable with their original meaning.
 New publications require a matching runtime kit; GPU effects require compute support.
 Gallery238 contains an editable shared fountain example and the manual includes
-its controls, export requirements and authentic rendered output. General VFX graphs,
-particle collision, transparency and trails remain outside this profile.
+its controls, export requirements and authentic rendered output. Authored stateless
+graphs extend this profile separately; particle collision, transparency and trails
+remain unsupported.
 
 ## Live movies across Scenes
 

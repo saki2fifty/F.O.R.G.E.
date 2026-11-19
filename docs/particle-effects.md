@@ -9,7 +9,8 @@ the shared MeshSceneRenderer owns drawing and GPU residency.
 
 Sources use `.particles.json`, format `forge.particle_effect`. Existing version 1,
 `cpu_mesh1` sources remain valid. New sources start with version 2, `cpu_mesh2`;
-explicit GPU evaluation uses source3/profile `gpu_mesh1`.
+explicit GPU evaluation uses source3/profile `gpu_mesh1`. Authored particle
+graphs use source4 and active values4/profile `gpu_graph1` (see below).
 Values include a Mesh reference, optional Material override, emission
 mode, capacity, burst count, rate, lifetime, direction/cone half-angle, speed range,
 constant acceleration, start/end size and linear RGB. Version 2 adds spawn shape,
@@ -26,7 +27,7 @@ Runtime packages include selected cooks and dependencies, requiring neither
 editable sources nor a compiler.
 
 New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope containing
-`format`, `version`, `asset_id` and `values`. Values are explicit CPU2 or GPU3;
+`format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3 or graph4;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -53,8 +54,9 @@ are opaque source metadata, with no runtime interpretation or reference guessing
 The initial profile admits one static triangle part, one LOD and one material
 slot, with built-in opaque/masked PBR or Unlit materials. Skinning, morphs,
 point/line topology, Blend, transmission and custom Shader surfaces reject with
-diagnostics. Authored VFX graphs, collision, trails, texture-sheet animation
-and per-particle opacity are outside this profile.
+diagnostics. Collision, trails, texture-sheet animation and per-particle opacity
+are outside this profile. The bounded stateless graph profile below extends
+position, size and RGB without adding those capabilities.
 
 ## Equations and time
 
@@ -216,7 +218,8 @@ Version2/3 source/evaluator values do not add native ParticleEmitter fields,
 installed SDK inputs or ABI changes. Existing matching C++ modules still adjust
 the emitter component; they do not need access to source stop arrays.
 
-See [the user guide](../manual/editor/particles.md) and Gallery scenes54,56 and238.
+See [the user guide](../manual/editor/particles.md),
+[particle graphs](../manual/editor/particle-graphs.md) and Gallery scenes54,56,238,239.
 Native Vulkan readback evidence is separate from Windows/editor physical acceptance.
 
 ## Focused validation and capture provenance
@@ -242,5 +245,61 @@ The sample's source/cook bytes are exactly those exercised by that candidate gat
 Final build44/check45 uses expanded low-drag coverage and produces a Gallery image
 byte-identical to that canonical capture; unchanged capture bytes are retained.
 This establishes neither physical hardware performance nor Windows/whole-editor
-visual acceptance. General VFX graphs and complete particle-system equivalence
+visual acceptance. Stateful VFX simulation graphs and complete particle-system equivalence
 are not claimed.
+
+## Authored particle program profile
+
+[ADR061](decisions/061-particle-graph-programs.md) extends the existing owners.
+Shader source4 contains forge.particle.graph1 and compiles with the shared typed
+graph Compiler. Root bounds are256nodes/1024edges/16functions; pure-function
+expansion is limited to1024nodes. Version/domain validation occurs before
+expansion; unsupported versions stay opaque in source/discovery and fail compile.
+Material source3 and function format1 are unchanged.
+
+`ParticleGraphProgram` contains one Shader AssetRef, symmetric local XYZ extent
+and maximum unmodulated size. `set_graph_program(program, activate)` performs one
+validated source/history operation. With activate=false, CPU2 or built-inGPU3
+retains source4 settings but projects ordinary values and has no graph runtime
+dependency. CPU stop times retain their double precision. Activating Graph admits
+GPU stop precision and projects values4/profile gpu_graph1. Root/stop IDs, source
+extensions, importer identity, neutral recipe3/envelope3 and native emitter/ABI
+layouts retain their meaning.
+
+Context and outputs are described in the user guide. Graph extent<=1e6m peraxis
+and maximum size<=1e4m are finite/nonnegative, rejecting nonzero float underflow.
+Outputs clamp to those bounds; nonfinite outputs fall back to analytic inputs.
+RGB clamps to[0,65504] before per-emitter tint. Culling uses declared bounds and
+maximum size with full affine transforms and emitter size. Device-envelope
+validation retains numeric headroom and clears rejected submission counts.
+
+Active effects declare the ordinary runtime dependency edge `particles.program`.
+Import admission loads the selected immutable Shader through request_shader and
+requires particle_graph_profile1: one64x1x1 Compute entry with exactly
+ParticleValues, ParticleRows and ParticleGraphLimits and the required typed constant
+layout. Native realization re-reflects cooked DXBC. The host's bounded Shader pool
+retains leases; existing catalog epochs retire effects/programs and stale selections.
+There is no authored-source compiler in the runtime and no alternate Vulkan path
+for a D3D12 cook. Kits advertise runtime_particle_graph1 in addition to GPU/effect
+profiles. See [Shader assets](shader-assets.md) and [standalone](standalone-host.md).
+
+The editable Gallery239 graph uses an original Orbit offset pure function,
+Age/Birth Random, shrink-over-life and a color blend. The two emitters share the
+program/effect and keep separate appearance. The Windows package preparer cooks
+Shader then Effect through the existing worker/publication services. Runtime
+packaging follows exactly Scene→Effect→Shader with source hidden.
+
+Focused checks include source/history/domain/version negatives, retained inactive
+settings/CPU precision, exact Shader profile/publication metadata, GPU numeric
+limits/culling, real canvas/Effect widgets, both MCP protocols and graceful native
+owner exits. `particle_graph_vulkan` verifies generated Compute on software Vulkan;
+it is not cooked Windows acceptance. `particle_graph_gallery_export` is the
+Windows gate for actual worker cook, relocated source-hidden closure, immutable
+bytecode realization,64particle numeric readback and production fixed-clock Game
+rendering. Its native Windows execution is pending until a passing run is recorded.
+
+Canonical `manual/images/particle-graph.png` is the actual MaterialGraphCanvas in
+particle mode, displaying Gallery239 unchanged. `particle_graph_canvas` renders
+ImGui draw data through the SDL software backend at1440×1000 and asserts display
+does not edit the source. Local build21/check21 captured it and it was personally
+reviewed. No retouch, complete-editor screenshot, Windows or physical GPU claim.

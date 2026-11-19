@@ -40,6 +40,9 @@ class ResourceInspector {
                 cpu("Meshes", snapshot_.meshes);
                 cpu("Materials", snapshot_.materials);
                 cpu("Textures", snapshot_.textures);
+                cpu("Render Textures", snapshot_.render_textures);
+                cpu("Particle Effects", snapshot_.particles);
+                cpu("Shader programs", snapshot_.shaders);
                 cpu("Tile Sets", snapshot_.tile_sets);
                 cpu("Tile Maps", snapshot_.tile_maps);
                 cpu("Tile chunks", snapshot_.tile_chunks);

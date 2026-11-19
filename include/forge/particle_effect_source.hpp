@@ -12,7 +12,7 @@ inline constexpr const char* particle_effect_extended_recipe = "forge.particles.
 inline constexpr const char* particle_effect_recipe = "forge.particles.mesh.v3";
 inline constexpr const char* particle_effect_cooked_format = "forge.particle-effect-cooked";
 enum class ParticleLifetimeChannel { Size, Color };
-enum class ParticleEvaluation { Cpu, Gpu };
+enum class ParticleEvaluation { Cpu, Gpu, Graph };
 // Source/history retains opaque extensions; cooking projects only admitted values.
 struct ParticleEffectSource {
     nlohmann::json document;
@@ -26,6 +26,8 @@ struct ParticleEffectSource {
     // scoped to this asset, and retain their identity through document history/copy.
     void promote();
     void set_evaluation(ParticleEvaluation);
+    void set_graph_program(const ParticleGraphProgram&, bool activate = true);
+    std::optional<ParticleGraphProgram> graph_program() const;
     void enable_lifetime(ParticleLifetimeChannel, bool);
     AssetId insert_lifetime_stop(ParticleLifetimeChannel, double time);
     void remove_lifetime_stop(ParticleLifetimeChannel, AssetId);

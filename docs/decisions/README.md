@@ -66,6 +66,8 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [057](057-navigation-areas-and-filters.md) | Source areas and per-agent query policies share navigation admission and routing |
 | [058](058-runtime-navigation-rebuild.md) | Explicit world-private rebakes reuse source, worker and query ownership |
 
+| [061](061-particle-graph-programs.md) | Bounded particle programs share graph, Shader, Effect and renderer ownership |
+
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS
 contracts remain unchanged. Implementation triggers are stated in each record.

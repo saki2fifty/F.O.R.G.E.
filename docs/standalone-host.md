@@ -43,7 +43,9 @@ the exact current fingerprint. See [input messages](input-messages.md).
 
 Newly published Particle Effects require runtime-kit
 `engine.runtime_particle_effect:3`; GPU values also require
-`engine.runtime_particle_gpu:1`. These capabilities are derived from exact cooked
+`engine.runtime_particle_gpu:1`. Active authored graph values also require
+`engine.runtime_particle_graph:1` and their selected profile1 Shader dependency.
+These capabilities are derived from exact cooked
 ParticleEffect metadata in the reachable catalog closure. Existing immutable CPU1/2
 recipes keep their prior admission. Missing/mismatched kit profiles reject before
 export. The kit build reads the current profile constants from the source value

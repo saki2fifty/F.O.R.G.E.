@@ -142,9 +142,10 @@ struct AssetDocumentAutomation {
     }
     static MaterialGraphSource graph_source(AssetId id, const Json& request) {
         const auto domain = request.value("domain", std::string("mesh"));
-        if (domain != "mesh" && domain != "sprite" && domain != "ui")
+        if (domain != "mesh" && domain != "sprite" && domain != "ui" && domain != "particle")
             throw AuthoringError("invalid_argument", "Unknown material graph domain");
-        return domain == "ui"       ? MaterialGraphSource::create_ui(id)
+        return domain == "particle" ? MaterialGraphSource::create_particle(id)
+               : domain == "ui"     ? MaterialGraphSource::create_ui(id)
                : domain == "sprite" ? MaterialGraphSource::create_sprite(id)
                                     : MaterialGraphSource::create(id);
     }
@@ -218,20 +219,28 @@ struct AssetDocumentAutomation {
         const auto* doc = editor.document();
         if (!doc || doc->project() != project.project())
             return {{"open", false}};
-        return {{"open", true},
-                {"asset", doc->source().asset()},
-                {"path", path_utf8(doc->locator())},
-                {"session", doc->session()},
-                {"revision", doc->revision()},
-                {"dirty", editor.dirty()},
-                {"source_dirty", doc->dirty()},
-                {"publishing", publishing(editor)},
-                {"save_requested", editor.save_},
-                {"unpublished", editor.needs_publish_},
-                {"transient_draft", transient(editor)},
-                {"can_undo", editor.can_undo()},
-                {"can_redo", editor.can_redo()},
-                {"diagnostic", editor.error_}};
+        Json result{{"open", true},
+                    {"asset", doc->source().asset()},
+                    {"path", path_utf8(doc->locator())},
+                    {"session", doc->session()},
+                    {"revision", doc->revision()},
+                    {"dirty", editor.dirty()},
+                    {"source_dirty", doc->dirty()},
+                    {"publishing", publishing(editor)},
+                    {"save_requested", editor.save_},
+                    {"unpublished", editor.needs_publish_},
+                    {"transient_draft", transient(editor)},
+                    {"can_undo", editor.can_undo()},
+                    {"can_redo", editor.can_redo()},
+                    {"diagnostic", editor.error_}};
+        if constexpr (requires { editor.diagnostic(); })
+            result["diagnostic"] = editor.diagnostic();
+        if constexpr (requires { editor.compiled_current(); }) {
+            result["compiled_current"] = editor.compiled_current();
+            result["particle_graph"] = editor.particle_domain();
+            result["compiler_pending"] = editor.wants_preview_ || editor.preview_job_.valid();
+        }
+        return result;
     }
     template <class Editor>
     static void check(Editor& editor, SceneDocument& project, const Json& request,
@@ -494,12 +503,13 @@ struct AssetDocumentAutomation {
                     if constexpr (std::is_same_v<Source, ParticleEffectSource>) {
                         const auto previous = doc.revision();
                         const auto evaluation = request.at("evaluation").get<std::string>();
-                        if (evaluation != "cpu" && evaluation != "gpu")
+                        if (evaluation != "cpu" && evaluation != "gpu" && evaluation != "graph")
                             throw AuthoringError("invalid_argument",
-                                                 "Choose cpu or gpu evaluation");
+                                                 "Choose cpu, gpu or graph evaluation");
                         doc.edit_source(previous, "Set particle evaluation", [&](Source& source) {
-                            source.set_evaluation(evaluation == "gpu" ? ParticleEvaluation::Gpu
-                                                                      : ParticleEvaluation::Cpu);
+                            source.set_evaluation(evaluation == "graph" ? ParticleEvaluation::Graph
+                                                  : evaluation == "gpu" ? ParticleEvaluation::Gpu
+                                                                        : ParticleEvaluation::Cpu);
                             if (!doc.retains_history(source))
                                 throw AuthoringError(
                                     "history_limit",
@@ -510,6 +520,23 @@ struct AssetDocumentAutomation {
                     } else
                         throw AuthoringError("wrong_document_type",
                                              "Particle evaluation requires a Particle Effect");
+                } else if (action == "particle_program") {
+                    if constexpr (std::is_same_v<Source, ParticleEffectSource>) {
+                        const auto previous = doc.revision();
+                        const auto program = decode_particle_graph_program(request.at("program"));
+                        doc.edit_source(
+                            previous, "Assign particle graph program", [&](Source& source) {
+                                source.set_graph_program(program, request.value("activate", true));
+                                if (!doc.retains_history(source))
+                                    throw AuthoringError(
+                                        "history_limit",
+                                        "Particle edit exceeds the Undo and Redo budget");
+                            });
+                        if (doc.revision() != previous)
+                            changed(editor);
+                    } else
+                        throw AuthoringError("wrong_document_type",
+                                             "Particle program requires a Particle Effect");
                 } else if (action == "patch") {
                     const auto previous = doc.revision();
                     doc.edit_source(previous,

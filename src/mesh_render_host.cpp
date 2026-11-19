@@ -57,6 +57,7 @@ MeshResourceInspection MeshResourceHost::inspect() const {
     result.textures = textures_.statistics();
     result.render_textures = render_textures_.statistics();
     result.particles = particles_.statistics();
+    result.shaders = shaders_.statistics();
     result.tile_sets = tile_sets_.statistics();
     result.tile_maps = tile_maps_.statistics();
     result.tile_chunks = tile_chunks_.statistics();
@@ -74,6 +75,7 @@ MeshResourceInspection MeshResourceHost::inspect() const {
     append(textures_);
     append(render_textures_);
     append(particles_);
+    append(shaders_);
     append(tile_sets_);
     append(tile_maps_);
     append(tile_chunks_);
@@ -449,6 +451,8 @@ void MeshResourceHost::pump() {
     render_textures_.collect();
     particles_.pump();
     particles_.collect();
+    shaders_.pump();
+    shaders_.collect();
     tile_sets_.pump();
     tile_maps_.pump();
     pump_tile_chunks();

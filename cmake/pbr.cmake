@@ -25,6 +25,7 @@ if(BUILD_TESTING)
  add_test(NAME diligentfx_patch COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tests/diligentfx_patch_test.py" "${diligent_SOURCE_DIR}")
 endif()
 list(APPEND forge_fx_shaders "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeSurface.fxh"
+ "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeMath.fxh"
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeLighting.fxh"
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeAreaLights.fxh"
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeDecals.fxh"

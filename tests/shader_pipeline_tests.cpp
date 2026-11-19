@@ -81,6 +81,33 @@ int main(int argc, char** argv) {
         altered_graph.inputs[0].bytes.push_back(std::byte{' '});
         rejects([&] { decode_shader_process_request(altered_graph, compiler); });
         rejects([&] { capture_shader_source(root, "graph.shader.json", engine); });
+        const auto particle_source = MaterialGraphSource::create_particle(AssetId::generate());
+        write(root / "particle.shader.json", particle_source.document.dump());
+        const auto particle_snapshot = capture_shader_source(root, "particle.shader.json", {});
+        require(particle_snapshot.sources.size() == 1 &&
+                    particle_snapshot.project_sources.empty() &&
+                    !particle_snapshot.program.surface &&
+                    particle_snapshot.program.stages.size() == 1 &&
+                    particle_snapshot.program.stages.front().stage == ShaderStage::Compute &&
+                    particle_snapshot.sources.begin()->second.find("ForgeParticleGraph(input)") !=
+                        std::string::npos,
+                "Particle graph did not use the authoritative generated compute snapshot");
+        const auto particle_input = shader_import_input(particle_snapshot, {}, compiler);
+        require(particle_input.importer_revision == graph_input.importer_revision &&
+                    particle_input.key() != graph_input.key(),
+                "Particle graph needs the existing Shader importer and its own exact content key");
+        const auto particle_request = shader_process_request(particle_snapshot, {}, compiler);
+        require(decode_shader_process_request(particle_request, compiler).sources ==
+                    particle_snapshot.sources,
+                "Particle graph worker lost its immutable generated source");
+        auto altered_particle = particle_request;
+        altered_particle.inputs[0].bytes.push_back(std::byte{' '});
+        rejects([&] { decode_shader_process_request(altered_particle, compiler); });
+        altered_particle = particle_request;
+        altered_particle.payload["document"]["graph"]["nodes"].push_back(
+            create_material_graph_node("constant", {0, 0}));
+        rejects([&] { decode_shader_process_request(altered_particle, compiler); });
+        rejects([&] { capture_shader_source(root, "particle.shader.json", engine); });
         const auto input = shader_import_input(snapshot, {}, compiler);
         require(input.source_dependencies.contains("Shaders/lib/color.hlsli") &&
                     input.source_dependencies.size() == 2,

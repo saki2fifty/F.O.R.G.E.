@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "cooked_envelope.hpp"
+#include "particle_gpu_plan.hpp"
 #include <algorithm>
 #include <forge/material_graph.hpp>
 #include <forge/shader_asset.hpp>
@@ -268,6 +269,15 @@ ShaderStage shader_stage(std::string_view name) {
     throw std::runtime_error("Shader stage is unavailable in the D3D12/FXC5.1 profile");
 }
 void validate_shader_program(const ShaderProgramSource& program) {
+    require(program.particle_graph_profile <= particle_graph_profile_version,
+            "Unknown particle graph shader profile");
+    if (program.particle_graph_profile)
+        require(!program.surface && program.stages.size() == 1 &&
+                    program.stages.front().stage == ShaderStage::Compute &&
+                    program.stages.front().source == "engine/forge.particle.graph.hlsl" &&
+                    program.stages.front().entry == "main" && program.defines.empty() &&
+                    program.permutations.empty() && program.row_major && program.optimization == 2,
+                "Particle graph compilation requires its fixed Compute interface");
     require(program.stages.size() <= 6 && program.defines.size() <= 64 &&
                 program.permutations.size() <= 16 && program.optimization <= 3,
             "Shader program exceeds compiler profile");
@@ -300,6 +310,15 @@ void validate_shader_program(const ShaderProgramSource& program) {
     }
 }
 ShaderProgramSource shader_program_source(const Json& doc) {
+    if (doc.is_object() && doc.value("version", 0) == 4) {
+        MaterialGraphSource{doc}.validate();
+        (void)compile_particle_graph(doc.at("graph"));
+        ShaderProgramSource result;
+        result.stages.push_back({ShaderStage::Compute, "engine/forge.particle.graph.hlsl", "main"});
+        result.particle_graph_profile = particle_graph_profile_version;
+        validate_shader_program(result);
+        return result;
+    }
     if (doc.is_object() && doc.value("version", 0) == 3) {
         MaterialGraphSource source{doc};
         source.validate();
@@ -394,6 +413,8 @@ AssetBuildInput shader_build_input(const ShaderProgramSource& program, const Sha
                       {"compiler_debug", debug}};
     if (program.surface)
         input.settings["surface"] = surface_definition_document(*program.surface);
+    if (program.particle_graph_profile)
+        input.settings["particle_graph_profile"] = program.particle_graph_profile;
     input.output_format = "forge.shader.dxbc";
     input.platform = "windows-x64";
     input.backend = "d3d12";
@@ -517,6 +538,61 @@ std::span<const ShaderEntryRole> surface_shader_roles(const SurfaceShaderDefinit
                                       : 2u;
     return std::span(mesh).first(count);
 }
+namespace {
+void particle_graph_reflection(const ShaderData& data) {
+    require(!data.surface && data.row_major && data.stages.size() == 1 &&
+                data.stages.front().stage == ShaderStage::Compute &&
+                data.stages.front().entry == "main" &&
+                data.stages.front().role == ShaderEntryRole::Program,
+            "Particle graph Shader requires one fixed Compute program");
+    const auto& reflected = data.stages.front().reflection;
+    require(reflected.at("threads") == Json({64, 1, 1}) && reflected.at("resources").size() == 3,
+            "Particle graph Compute group/resources differ from the kernel profile");
+    const std::map<std::string, std::pair<unsigned, unsigned>> fields{
+        {"Births", {0, 0}},        {"Modes", {16, 0}},       {"Timing", {32, 0}},
+        {"Axis", {48, 0}},         {"Side", {64, 0}},        {"Up", {80, 0}},
+        {"Acceleration", {96, 0}}, {"Shape", {112, 0}},      {"Sizes", {128, 0}},
+        {"Tint", {144, 0}},        {"Emitter", {160, 3}},    {"Colors", {208, 2}},
+        {"SizeStops", {240, 16}},  {"ColorStops", {496, 16}}};
+    std::set<std::string> seen;
+    for (const auto& resource : reflected.at("resources")) {
+        const auto name = resource.at("name").get<std::string>();
+        require(seen.insert(name).second && resource.at("array_size") == 1 &&
+                    resource.at("space") == 0,
+                "Particle graph resource identity/array/space differs from the kernel profile");
+        if (name == "ParticleRows") {
+            require(resource.at("kind") == "buffer_uav" && resource.at("dimension") == "buffer",
+                    "Particle graph output requires a structured UAV");
+            continue;
+        }
+        const bool values = name == "ParticleValues";
+        require(values || name == "ParticleGraphLimits", "Unexpected particle graph resource");
+        require(resource.at("kind") == "constant_buffer" &&
+                    resource.at("size") ==
+                        (values ? sizeof(ParticleGpuValues) : sizeof(ParticleGpuGraphLimits)) &&
+                    resource.at("variables").size() == (values ? fields.size() : 1),
+                "Particle graph constant layout differs from the kernel profile");
+        std::set<std::string> variables;
+        for (const auto& variable : resource.at("variables")) {
+            const auto key = variable.at("name").get<std::string>();
+            require(variables.insert(key).second &&
+                        (values ? fields.contains(key) : key == "GraphExtentSize"),
+                    "Unexpected/duplicate particle graph constant");
+            const auto expected = values ? fields.at(key) : std::pair<unsigned, unsigned>{0, 0};
+            const bool integer = values && (key == "Births" || key == "Modes");
+            require(variable.at("offset") == expected.first &&
+                        variable.at("array_size") == expected.second &&
+                        variable.at("class") == "vector" &&
+                        variable.at("basic") == (integer ? "uint" : "float") &&
+                        variable.at("rows") == 1 && variable.at("columns") == 4 &&
+                        variable.at("members").empty(),
+                    "Particle graph constant type/offset differs from the kernel profile");
+        }
+    }
+    require(seen == std::set<std::string>{"ParticleRows", "ParticleValues", "ParticleGraphLimits"},
+            "Particle graph resource closure is incomplete");
+}
+} // namespace
 void validate_shader(const ShaderData& data) {
     require(data.surface_wrapper_version >= 1 &&
                 data.surface_wrapper_version <= current_surface_wrapper_version &&
@@ -587,10 +663,21 @@ void validate_shader(const ShaderData& data) {
     }
     if (!data.surface)
         stage_set(stages);
+    require(data.particle_graph_profile <= particle_graph_profile_version,
+            "Unsupported particle graph Shader profile");
+    if (data.particle_graph_profile)
+        particle_graph_reflection(data);
+}
+void validate_particle_graph_shader(const ShaderData& data) {
+    validate_shader(data);
+    require(data.particle_graph_profile == particle_graph_profile_version,
+            "Particle graph requires a Shader built from a Particle Output graph");
 }
 std::string ShaderData::layout_digest() const {
     validate_shader(*this);
     auto value = layout(*this);
+    if (particle_graph_profile)
+        value["particle_graph_profile"] = particle_graph_profile;
     if (surface_wrapper_version != 1)
         value["surface_wrapper_version"] = surface_wrapper_version;
     return asset_build_digest(value);
@@ -632,6 +719,8 @@ std::vector<std::byte> encode_shader(const ShaderData& data) {
         metadata["surface"] = surface_definition_document(*data.surface);
     if (data.surface_wrapper_version != 1)
         metadata["surface_wrapper_version"] = data.surface_wrapper_version;
+    if (data.particle_graph_profile)
+        metadata["particle_graph_profile"] = data.particle_graph_profile;
     return asset_detail::encode_envelope(metadata, payload, magic, metadata_limit,
                                          data.surface ? 2 : 1);
 }
@@ -646,6 +735,11 @@ ShaderData decode_shader(std::span<const std::byte> bytes) {
     data.compiler_digest = m.at("compiler_digest");
     data.row_major = m.at("row_major");
     data.compiler_debug = m.at("compiler_debug");
+    if (m.contains("particle_graph_profile")) {
+        data.particle_graph_profile =
+            count(m.at("particle_graph_profile"), particle_graph_profile_version);
+        require(data.particle_graph_profile != 0, "Explicit particle graph profile cannot be zero");
+    }
     if (m.contains("surface_wrapper_version"))
         data.surface_wrapper_version =
             count(m.at("surface_wrapper_version"), current_surface_wrapper_version);

@@ -10,6 +10,8 @@ inline nlohmann::json shader_publication_metadata(const ShaderData& shader) {
                           {"compiler_input_key", shader.build_key}};
     if (shader.surface)
         result["surface_wrapper_version"] = shader.surface_wrapper_version;
+    if (shader.particle_graph_profile)
+        result["particle_graph_profile"] = shader.particle_graph_profile;
     return result;
 }
 inline void validate_shader_publication_metadata(const nlohmann::json& metadata,
@@ -27,6 +29,11 @@ inline void validate_shader_publication_metadata(const nlohmann::json& metadata,
         } else if (actual == metadata.end() || *actual != value)
             throw std::runtime_error("Shader compiler/layout provenance differs from selection");
     }
+    if (metadata.contains("particle_graph_profile") &&
+        (!shader.particle_graph_profile ||
+         !metadata.at("particle_graph_profile").is_number_integer() ||
+         metadata.at("particle_graph_profile") != shader.particle_graph_profile))
+        throw std::runtime_error("Particle graph Shader profile differs from cooked data");
     if (!shader.surface && metadata.contains("surface_wrapper_version"))
         throw std::runtime_error("Nonsurface Shader has unexpected runtime surface metadata");
 }

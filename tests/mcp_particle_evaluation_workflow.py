@@ -2,15 +2,16 @@
 import json
 import time
 from uuid import uuid4
+from mcp_particle_graph_workflow import check_particle_graph
 
 
 def check_particle_evaluation(read, mutate, edit, status, content, failed, root, tools):
     owner = 'particle_effect'
     catalog = read('forge_asset_particles_catalog')
-    assert catalog['profiles'] == dict(cpu='cpu_mesh2', gpu='gpu_mesh1')
+    assert catalog['profiles'] == dict(cpu='cpu_mesh2', gpu='gpu_mesh1', graph='gpu_graph1')
     tool = next(t for t in tools if t['name'] == 'forge_asset_document_particle_evaluation')
     assert tool['inputSchema']['properties']['editor']['const'] == owner
-    assert tool['inputSchema']['properties']['evaluation']['enum'] == ['cpu', 'gpu']
+    assert tool['inputSchema']['properties']['evaluation']['enum'] == ['cpu', 'gpu', 'graph']
     path = 'Assets/DeviceEffect.particles.json'
     stops = [dict(id=str(uuid4()), time=t, value=value, interpolation='linear')
              for t, value in ((0, .2), (1, .5))]
@@ -59,3 +60,5 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     assert content(owner) == gpu
     assert edit('forge_asset_document_particle_evaluation', owner, evaluation='cpu')['ok']
     assert edit('forge_asset_document_close', owner, discard=True)['ok']
+
+    check_particle_graph(read, mutate, edit, status, content, failed, root)

@@ -3,6 +3,7 @@
 #include "engine_render_resource.hpp"
 #include "mesh_draw.hpp"
 #include "particle_gpu.hpp"
+#include "particle_gpu_reference.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -24,22 +25,7 @@ template <class F> void rejects(F action) {
     }
     throw std::runtime_error("Invalid GPU particle input accepted");
 }
-struct Random {
-    std::uint32_t state;
-    Random(std::uint32_t seed, std::uint64_t ordinal) {
-        std::uint32_t hash = 2166136261u;
-        for (unsigned byte = 0; byte < 12; ++byte) {
-            const auto value = byte < 4 ? std::uint8_t(seed >> (byte * 8))
-                                        : std::uint8_t(ordinal >> ((byte - 4) * 8));
-            hash = (hash ^ value) * 16777619u;
-        }
-        state = hash % 2147483646u + 1u;
-    }
-    double unit() {
-        state = std::uint32_t(std::uint64_t(state) * 48271u % 2147483647u);
-        return double(state >> 7) / 16777216.;
-    }
-};
+using particle_gpu_test::Random;
 std::array<ParticleGpuRow, 7> reference(const ParticleGpuValues& p, unsigned id) {
     const auto ordinal = ((std::uint64_t(p.births[2]) << 32) | p.births[1]) + id;
     Random random(p.births[3], ordinal);

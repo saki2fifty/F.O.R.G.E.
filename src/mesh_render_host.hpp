@@ -16,11 +16,12 @@
 #include "ui_surface_profile.hpp"
 #include "weighted_transparency.hpp"
 #include <forge/render_scene.hpp>
+#include <forge/shader_resource.hpp>
 #include <functional>
 namespace forge {
 struct MeshResourceInspection {
     ResourceStatistics meshes, materials, textures, particles, tile_sets, tile_maps, tile_chunks;
-    ResourceStatistics render_textures;
+    ResourceStatistics render_textures, shaders;
     GpuResidencyStats gpu_meshes, gpu_textures, environments;
     std::vector<ResourceInfo> revisions, requests;
 };
@@ -83,6 +84,7 @@ class MeshResourceHost {
              std::weak_ptr<const SpriteFrameMipInput>>
         sprite_mip_inputs_;
     ResourcePool<ParticleEffectAsset> particles_{{1, 64, 256, 128 * 1024}};
+    ResourcePool<ShaderAsset> shaders_{{1, 64, 256, 32ull * 1024 * 1024}};
     std::map<AssetId, std::shared_ptr<const ParticleEffectData>> particle_previews_;
     ResourcePool<TileSetAsset> tile_sets_{{1, 64, 256, 16 * 1024 * 1024}};
     ResourcePool<TileMapAsset> tile_maps_{{1, 64, 256, 64 * 1024 * 1024}};
@@ -414,9 +416,10 @@ class MeshSceneRenderer {
     struct ParticleSource {
         AssetRef<ParticleEffectAsset> effect;
         std::uint64_t epoch = 0;
-        ResourceTicket effect_ticket, mesh_ticket;
+        ResourceTicket effect_ticket, mesh_ticket, shader_ticket;
         ResourceLease<ParticleEffectAsset> effect_lease;
         ResourceLease<MeshAsset> mesh_lease;
+        ResourceLease<ShaderAsset> shader_lease;
         std::shared_ptr<const ParticleEffectData> preview;
         std::unique_ptr<ParticleGpuInstances> gpu;
         std::string error;

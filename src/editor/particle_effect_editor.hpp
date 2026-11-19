@@ -177,12 +177,13 @@ class ParticleEffectEditor {
             FORGE_UI_PROBE("particles:redo");
             ImGui::EndDisabled();
             const auto data = document_->source().compiled();
-            int evaluation = data.version == 3 ? 1 : 0;
-            if (ImGui::Combo("Evaluation", &evaluation, "CPU\0GPU\0"))
+            int evaluation = data.version == 4 ? 2 : data.version == 3 ? 1 : 0;
+            if (ImGui::Combo("Evaluation", &evaluation, "CPU\0GPU\0Graph\0"))
                 mutate("Set particle evaluation", [&](auto& source) {
                     ParticleEffectSource candidate{source};
-                    candidate.set_evaluation(evaluation ? ParticleEvaluation::Gpu
-                                                        : ParticleEvaluation::Cpu);
+                    candidate.set_evaluation(evaluation == 2   ? ParticleEvaluation::Graph
+                                             : evaluation == 1 ? ParticleEvaluation::Gpu
+                                                               : ParticleEvaluation::Cpu);
                     source = std::move(candidate.document);
                 });
             FORGE_UI_PROBE("particles:evaluation");
@@ -190,6 +191,59 @@ class ParticleEffectEditor {
                      "on a compute-capable rendering device. Changing evaluation preserves source "
                      "IDs and curves; the profiles use different random patterns. Publish before "
                      "Play or export. GPU lifetime stop times must remain distinct as floats.");
+            auto program = document_->source().graph_program().value_or(ParticleGraphProgram{});
+            const auto edit_program = [&](const ParticleGraphProgram& next, bool activate) {
+                mutate("Edit particle graph program", [&](auto& source) {
+                    ParticleEffectSource candidate{source};
+                    candidate.set_graph_program(next, activate);
+                    source = std::move(candidate.document);
+                });
+            };
+            std::set<AssetId> programs;
+            for (const auto& [id, record] : catalog_->records()) {
+                if (record.type != ShaderAsset::type || record.subasset)
+                    continue;
+                const auto metadata = record.metadata.find("forge.shader");
+                if (metadata != record.metadata.end() &&
+                    metadata->contains("particle_graph_profile") &&
+                    metadata->at("particle_graph_profile").is_number_integer() &&
+                    metadata->at("particle_graph_profile") == particle_graph_profile_version)
+                    programs.insert(id);
+            }
+            Json graph_ref = program.shader.id ? Json(program.shader) : Json();
+            if (asset_ref_picker(*catalog_, graph_ref, ShaderAsset::type, "Graph Shader", false, {},
+                                 &programs)) {
+                if (graph_ref.is_null())
+                    error_ = "Use Evaluation to switch backend; the graph selection is retained.";
+                else {
+                    program.shader = graph_ref.get<AssetRef<ShaderAsset>>();
+                    edit_program(program, true);
+                }
+            }
+            FORGE_UI_PROBE("particles:program");
+            ui::help("Choose a published Particle Output Shader to enable graph evaluation. "
+                     "Switching Evaluation preserves this selection and its bounds.");
+            if (program.shader.id) {
+                auto extent = program.extent;
+                if (ImGui::InputScalarN("Graph extents (m)", ImGuiDataType_Double, extent.data(), 3,
+                                        nullptr, nullptr, "%.5g",
+                                        ImGuiInputTextFlags_EnterReturnsTrue)) {
+                    program.extent = extent;
+                    edit_program(program, false);
+                }
+                FORGE_UI_PROBE("particles:graph-extent");
+                auto size = program.maximum_size;
+                if (ImGui::InputDouble("Graph maximum size (m)", &size, 0, 0, "%.5g",
+                                       ImGuiInputTextFlags_EnterReturnsTrue)) {
+                    program.maximum_size = size;
+                    edit_program(program, false);
+                }
+                FORGE_UI_PROBE("particles:graph-size");
+                ui::help(
+                    "Outputs clamp to these symmetric local position extents and maximum size. "
+                    "They also control visibility bounds. Nonfinite outputs use bounded analytic "
+                    "values.");
+            }
             Json mesh = data.mesh, material = data.material.id ? Json(data.material) : Json();
             if (asset_ref_picker(*catalog_, mesh, MeshAsset::type, "Mesh", false))
                 set("mesh", mesh);

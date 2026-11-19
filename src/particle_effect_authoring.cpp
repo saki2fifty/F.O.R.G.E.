@@ -5,6 +5,7 @@
 #include "particle_render_instances.hpp"
 #include <algorithm>
 #include <forge/engine_assets.hpp>
+#include <forge/shader_resource.hpp>
 #include <thread>
 namespace forge {
 namespace {
@@ -55,6 +56,25 @@ void admit_draw_profile(const AssetImportRequest& request, const AssetCatalog& c
             "Particle draw profile needs complete mesh/material bindings");
     for (const auto& [id, material] : candidate.ready()->materials)
         validate_particle_material_profile(material.get());
+    if (values.program) {
+        require(request.target.platform == "windows" && request.target.backend == "d3d12" &&
+                    request.target.profile == "desktop",
+                "Particle graphs require the Windows/D3D12 Shader compiler target");
+        ResourcePool<ShaderAsset> shaders({1, 1, 1, 32ull * 1024 * 1024});
+        const auto ticket =
+            request_shader(shaders, request.project, catalog, values.program->shader);
+        while (!shaders.wait(ticket, std::chrono::milliseconds(10))) {
+            require(!stop.stop_requested(), "Particle graph admission cancelled");
+            const auto state = ticket.inspect();
+            require(!resource_detail::terminal(state.state),
+                    "Particle graph Shader failed to load");
+            require(std::chrono::steady_clock::now() < deadline,
+                    "Particle graph admission timed out");
+        }
+        const auto shader = shaders.acquire(ticket);
+        require(bool(shader), "Particle graph Shader lease unavailable");
+        validate_particle_graph_shader(shader.get());
+    }
 }
 Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
     require(!stop.stop_requested(), "Particle effect import cancelled");
@@ -95,6 +115,8 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
     dependency(values.mesh.id, MeshAsset::type, "particles.mesh");
     if (values.material.id)
         dependency(values.material.id, MaterialAsset::type, "particles.material");
+    if (values.program)
+        dependency(values.program->shader.id, ShaderAsset::type, "particles.program");
     auto graph = catalog.dependency_graph();
     graph.replace(request.asset, input.dependencies);
     const std::array roots{request.asset};
@@ -183,7 +205,8 @@ void prepare_particle_effect_publication(AssetPublicationCandidate& candidate,
     const auto values = decode_cooked_particle_effect(file.bytes, candidate.ticket.owner);
     require(plan.input.importer_revision == particle_effect_recipe &&
                 plan.input.output_format == particle_effect_cooked_format &&
-                plan.input.output_version == 3 && (values.version == 2 || values.version == 3),
+                plan.input.output_version == 3 &&
+                (values.version == 2 || values.version == 3 || values.version == 4),
             "Particle publication recipe/value version mismatch");
     auto& identity = candidate.sidecar.identity;
     identity.owner = candidate.ticket.owner;

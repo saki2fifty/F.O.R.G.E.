@@ -75,6 +75,19 @@ float3 ForgeParticleColor(float u){
     float3 position=origin+initial*alpha+Acceleration.xyz*beta;
     float u=saturate(age/Timing.z),size=ForgeParticleSize(u)*Acceleration.w;
     float3 color=ForgeParticleColor(u)*Tint.xyz;
+#ifdef FORGE_PARTICLE_GRAPH
+    ForgeParticleGraphInput input;
+    input.Position=position;input.Velocity=initial*exp(-x)+Acceleration.xyz*alpha;
+    input.Origin=origin;input.Age=age;input.Age01=u;
+    input.Size=ForgeParticleSize(u);input.Color=ForgeParticleColor(u);
+    input.Random=ForgeParticleUnit(state);
+    ForgeParticleGraphValues graph=ForgeParticleGraph(input);
+    // A graph cannot escape its declared local bounds or publish NaN/Inf rows.
+    position=clamp(ForgeFinite3(graph.Position)?graph.Position:input.Position,
+                   -GraphExtentSize.xyz,GraphExtentSize.xyz);
+    size=clamp(ForgeFinite(graph.Size)?graph.Size:input.Size,0,GraphExtentSize.w)*Acceleration.w;
+    color=clamp(ForgeFinite3(graph.Color)?graph.Color:input.Color,0,65504)*Tint.xyz;
+#endif
     float basis_max=max(max(max(abs(Emitter[0].x),abs(Emitter[0].y)),abs(Emitter[0].z)),
                         max(max(max(abs(Emitter[1].x),abs(Emitter[1].y)),abs(Emitter[1].z)),
                             max(max(abs(Emitter[2].x),abs(Emitter[2].y)),abs(Emitter[2].z))));

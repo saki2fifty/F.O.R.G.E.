@@ -1,6 +1,7 @@
 #include "shader_pipeline.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
+#include "particle_graph_shader.hpp"
 #include <algorithm>
 #include <forge/material_graph.hpp>
 namespace forge::asset_detail {
@@ -31,6 +32,13 @@ void validate_engine_sources(const ShaderSources& engine) {
     }
 }
 } // namespace
+ShaderSources shader_graph_sources(const Json& document) {
+    MaterialGraphSource{document}.validate();
+    if (document.at("version") == 4)
+        return {{"engine/forge.particle.graph.hlsl",
+                 particle_graph_compute_source(document.at("graph"))}};
+    return {{"engine/forge.graph.hlsl", compile_material_graph(document.at("graph")).source}};
+}
 ShaderSnapshot capture_shader_source(const std::filesystem::path& project,
                                      const std::filesystem::path& locator,
                                      const ShaderSources& engine, std::stop_token stop) {
@@ -42,12 +50,10 @@ ShaderSnapshot capture_shader_source(const std::filesystem::path& project,
     result.document = parse_bounded_json(bytes, document_limit);
     result.document_digest = content_digest(bytes);
     result.program = shader_program_source(result.document);
-    if (result.document.at("version") == 3) {
+    if (result.document.at("version") == 3 || result.document.at("version") == 4) {
         require(engine.empty(),
                 "Graph sources derive their engine dependencies from the pinned compiler recipe");
-        const auto compiled = compile_material_graph(result.document.at("graph"));
-        require(result.sources.emplace("engine/forge.graph.hlsl", compiled.source).second,
-                "Engine sources shadow the graph-generated source");
+        result.sources = shader_graph_sources(result.document);
         validate_shader_sources(result.sources);
         cancelled(stop);
         return result;
@@ -113,7 +119,8 @@ AssetBuildInput shader_import_input(const ShaderSnapshot& snapshot,
         // Generated graph text is captured content, not a host recipe revision.
         // It is already hashed by the compiler input and authored-source digest.
         if (!snapshot.project_sources.contains(name) &&
-            !(snapshot.document.at("version") == 3 && name == "engine/forge.graph.hlsl"))
+            !(snapshot.document.at("version") == 3 && name == "engine/forge.graph.hlsl") &&
+            !(snapshot.document.at("version") == 4 && name == "engine/forge.particle.graph.hlsl"))
             engine.emplace(name, source);
     input.importer_revision = shader_import_revision(compiler, engine);
     input.settings = {{"permutation", permutation}};
@@ -172,9 +179,10 @@ ShaderProcessInput decode_shader_process_request(const ImportProcessRequest& req
         result.sources.emplace(name, text(*found->second));
         inputs.erase(found);
     }
-    if (p.at("document").at("version") == 3) {
-        const auto graph = compile_material_graph(p.at("document").at("graph"));
-        require(result.sources == ShaderSources{{"engine/forge.graph.hlsl", graph.source}},
+    const auto& document = p.at("document");
+    if (document.at("version") == 3 || document.at("version") == 4) {
+        const auto expected = shader_graph_sources(document);
+        require(result.sources == expected,
                 "Graph worker sources differ from the authoritative graph");
     }
     const auto input = shader_build_input(result.program, result.sources, result.permutation,

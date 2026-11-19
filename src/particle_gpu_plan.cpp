@@ -32,13 +32,34 @@ template <class Stops> void gpu_times(const Stops& stops) {
     }
 }
 } // namespace
+void validate_particle_gpu_graph_limits(const ParticleGpuGraphLimits& limits) {
+    validate_particle_graph_bounds(
+        {limits.extent_size[0], limits.extent_size[1], limits.extent_size[2]},
+        limits.extent_size[3]);
+}
+void validate_particle_gpu_graph_envelope(const ParticleGpuValues& values,
+                                          const ParticleGpuGraphLimits& limits) {
+    validate_particle_gpu_graph_limits(limits);
+    constexpr double headroom = double(std::numeric_limits<float>::max()) / 16;
+    const double size = double(limits.extent_size[3]) * values.acceleration[3];
+    for (unsigned row = 0; row < 3; ++row) {
+        double envelope = std::abs(double(values.emitter[row][3]));
+        for (unsigned column = 0; column < 3; ++column)
+            envelope += std::abs(double(values.emitter[row][column])) *
+                        (double(limits.extent_size[column]) + size);
+        if (!std::isfinite(envelope) || size < 0 || envelope > headroom ||
+            !std::isfinite(values.tint[row]) || values.tint[row] < 0 ||
+            double(values.tint[row]) * 65504 > headroom)
+            throw std::runtime_error("Particle graph instance exceeds finite compute bounds");
+    }
+}
 ParticleGpuValues prepare_particle_gpu_values(const ParticleEffectData& data, double seconds,
                                               std::uint32_t seed, const AffineTransform& world,
                                               const CameraView& camera, double size,
                                               std::array<float, 3> tint) {
     validate_particle_effect(data);
-    if (data.version != 3)
-        throw std::runtime_error("GPU particle evaluation requires the gpu_mesh1 profile");
+    if (data.version != 3 && data.version != 4)
+        throw std::runtime_error("GPU particle evaluation requires a GPU value profile");
     validate_particle_instance_parameters(size, tint);
     if (!std::isfinite(seconds) || seconds < 0 || seconds > 1e9)
         throw std::runtime_error("GPU particle sample time must be in [0,1e9]");
@@ -106,6 +127,8 @@ ParticleGpuValues prepare_particle_gpu_values(const ParticleEffectData& data, do
         if (stop.hold)
             result.modes[3] |= 1u << i;
     }
+    if (data.program)
+        maximum_size = data.program->maximum_size;
     maximum_size *= size;
     constexpr double headroom = double(std::numeric_limits<float>::max()) / 16;
     for (unsigned row = 0; row < 3; ++row) {
@@ -120,7 +143,8 @@ ParticleGpuValues prepare_particle_gpu_values(const ParticleEffectData& data, do
             const auto travel =
                 origin + data.speed_max * data.lifetime +
                 .5 * std::abs(data.acceleration[column]) * data.lifetime * data.lifetime;
-            envelope += std::abs(value) * (travel + maximum_size);
+            envelope += std::abs(value) *
+                        ((data.program ? data.program->extent[column] : travel) + maximum_size);
         }
         const auto translation = world.m[row * 4 + 3] - camera.position[row];
         result.emitter[row][3] = gpu(translation);

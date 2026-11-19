@@ -9,6 +9,9 @@ namespace forge {
 class ParticleGpuInstances {
   public:
     ParticleGpuInstances(DiligentPresentation&, unsigned capacity);
+    // The Shader selection owner supplies an already realized immutable program.
+    ParticleGpuInstances(DiligentPresentation&, unsigned capacity, Diligent::IShader*,
+                         const ParticleGpuGraphLimits&);
     ParticleGpuInstances(const ParticleGpuInstances&) = delete;
     ParticleGpuInstances& operator=(const ParticleGpuInstances&) = delete;
     bool supported() const;
@@ -22,6 +25,9 @@ class ParticleGpuInstances {
     void prepare();
     DiligentPresentation& presentation_;
     unsigned capacity_, count_ = 0;
+    Diligent::RefCntAutoPtr<Diligent::IShader> graph_program_;
+    ParticleGpuGraphLimits graph_limits_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> graph_values_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> values_, output_;

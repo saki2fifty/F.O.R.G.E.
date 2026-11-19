@@ -10,7 +10,7 @@ Connect values to Surface Output and check the result in the preview.
 
 ## Create a graph
 
-1. In Content, open **Actions → Create / Register → New material graph...**.
+1. In Content, open **Actions → Create / Register → New graph...**.
 2. Enter a new `.shader.json` path inside an existing project folder.
 3. Choose **Domain → Mesh**, then **Create graph**. The Material Graph workspace opens with a Color parameter connected to Surface Output.
 4. Select Color and change its Value. The independent preview updates after preparation finishes.
@@ -56,7 +56,7 @@ advancing while simulation is paused. See [UI Material effects](ui-material-effe
 Custom Sprite graphs use the Windows/D3D12 Shader compiler. A graph describes
 final color; it does not add Sprite lighting or change the Quad's shape.
 
-1. Choose **New material graph...**, enter a new `.shader.json` path, and set **Domain → Sprite**.
+1. Choose **New graph...**, enter a new `.shader.json` path, and set **Domain → Sprite**.
 2. Choose **Create graph**. Sprite image and Color connect through Multiply to Sprite Output.
 3. Choose an image in the graph preview's **Sprite image** picker. The preview uses a Sprite Quad. Preview image choices do not save a permanent material assignment.
 4. Select Sprite Output. **Primary image** chooses the Texture 2D node that supplies frames, image size and frame filtering. Changing that node's label keeps its material assignment attached.
@@ -214,3 +214,7 @@ the new project's Content browser to continue editing there.
 After reopening the project, open the graph's Shader asset from Content. Exported
 games use its compiled material through the normal [export workflow](runtime-content.md).
 They do not contain the graph editor or require an installed shader compiler.
+
+For per-particle position, size and RGB, choose **Domain → Particles** and follow
+[Create a particle graph](particle-graphs.md). Assign that program to a Particle
+Effect rather than a Material.

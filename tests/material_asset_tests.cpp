@@ -3,6 +3,7 @@
 #include "decal_shader_tests.hpp"
 #include "material_graph_tests.hpp"
 #include "material_source_tests.hpp"
+#include "particle_graph_tests.hpp"
 #include "pbr_material_tests.hpp"
 #include "surface_shader_tests.hpp"
 #include <chrono>
@@ -69,6 +70,7 @@ int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need material scratch directory");
         forge::graph_tests::run();
+        forge::particle_graph_tests::run();
         test_pbr_material_profile();
         test_decal_shader_profile();
         test_material_source();

@@ -15,7 +15,7 @@ class MaterialGraphCanvas {
     std::function<void()> extract_function;
     std::function<Json(const Json&, const std::set<GraphNodeId>&)> copy_selection;
     std::function<std::string(GraphFunctionId)> function_label;
-    bool function_scope = false;
+    bool function_scope = false, particle_scope = false;
     ImVec2 pan{30, 30};
     float zoom = 1;
     bool draft_dirty() const { return property_dirty_; }
@@ -154,12 +154,13 @@ class MaterialGraphCanvas {
             FORGE_UI_PROBE("graph:search");
             ui::help("Filter node names, categories and descriptions without case sensitivity.");
             const auto filter = search_key(search_);
-            for (const auto& schema : material_graph_node_schemas()) {
+            for (const auto& schema : node_schemas()) {
                 if (schema.key == "function" || schema.key == "function_input" ||
                     schema.key == "function_output" ||
-                    (function_scope && (schema.key == "surface" || schema.key == "sprite_output" ||
-                                        schema.key == "ui_output" || schema.key == "parameter" ||
-                                        schema.key.starts_with("texture"))))
+                    (function_scope &&
+                     (schema.key.starts_with("particle_") || schema.key == "surface" ||
+                      schema.key == "sprite_output" || schema.key == "ui_output" ||
+                      schema.key == "parameter" || schema.key.starts_with("texture"))))
                     continue;
                 auto label = schema.category + " / " + schema.label;
                 if (!filter.empty() &&
@@ -311,11 +312,15 @@ class MaterialGraphCanvas {
                                                  : IM_COL32(70, 82, 98, 255),
                           5 * scale, 0, selection.contains(id) ? 2 * scale : scale);
             std::string label = n.source->at("type").get<std::string>();
-            const auto& schemas = material_graph_node_schemas();
+            const auto& schemas = node_schemas();
             const auto schema = std::find_if(schemas.begin(), schemas.end(),
                                              [&](const auto& s) { return s.key == label; });
             if (schema != schemas.end())
                 label = schema->label;
+            else if (label == "function_input")
+                label = "Function Input";
+            else if (label == "function_output")
+                label = "Function Output";
             else
                 label = "Unavailable: " + label;
             if (n.source->at("type") == "function" && function_label) {
@@ -600,6 +605,9 @@ class MaterialGraphCanvas {
         erase_json(g["nodes"],
                    [&](const Json& n) { return ids.contains(n.at("id").get<GraphNodeId>()); });
     }
+    const std::vector<MaterialGraphNodeSchema>& node_schemas() const {
+        return particle_scope ? particle_graph_node_schemas() : material_graph_node_schemas();
+    }
     void properties_draw(const Json& graph, uint64_t revision, const Edit& edit, bool locked) {
         ui::heading("Node properties", "Select a node to edit its typed source values. Property "
                                        "drags form one source Undo step.");
@@ -624,7 +632,9 @@ class MaterialGraphCanvas {
         }
         auto& data = property_["data"];
         const auto kind = property_.at("type").get<std::string>();
-        const auto& schemas = material_graph_node_schemas();
+        const auto& schemas = (kind == "function_input" || kind == "function_output")
+                                  ? material_graph_node_schemas()
+                                  : node_schemas();
         const auto known = std::find_if(schemas.begin(), schemas.end(), [&](const auto& s) {
             return s.key == kind && property_.at("version") == s.version;
         });

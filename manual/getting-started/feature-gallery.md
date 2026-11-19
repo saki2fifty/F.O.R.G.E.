@@ -1222,3 +1222,12 @@ with an imported stereo response. Its Room bus settings belong to that project;
 opening it preserves the Gallery's own bus configuration. Follow
 [the audio guide](../editor/audio.md) for
 controls, response limits, saving and export.
+
+## Edit a particle program
+
+Open **239-particle-graphs**. Compile **Assets/Particles/Graphs/Orbit.graph.shader.json**
+with **Save & Compile**, then publish **OrbitFountain.particles.json** in the same
+folder. Play to compare two emitters sharing an age-driven orbit, shrinking size
+and teal color blend. The effect retains its ordinary shape, motion and appearance
+controls. See [Create a particle graph](../editor/particle-graphs.md) for bounds,
+editing and source-free export.
