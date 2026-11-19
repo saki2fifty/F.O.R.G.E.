@@ -777,8 +777,11 @@ void validate_graph_document(const Json& graph, std::string_view format) {
                 graph.at("edges").is_array() && graph.at("edges").size() <= 4096,
             "Graph node/edge limit exceeded");
     if (graph.contains("functions")) {
-        require(graph.at("functions").is_array() && graph.at("functions").size() <= 64,
-                "Function count limit");
+        const auto& functions = graph.at("functions");
+        require(functions.is_array(),
+                "Graph functions must be an array; found " + std::string(functions.type_name()));
+        require(functions.size() <= 64,
+                "Graph function count exceeds 64: " + std::to_string(functions.size()));
         std::set<GraphFunctionId> ids;
         for (const auto& f : graph.at("functions")) {
             require(ids.insert(f.at("id").get<GraphFunctionId>()).second &&

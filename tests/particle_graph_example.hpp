@@ -59,7 +59,7 @@ inline MaterialGraphSource particle_graph_example(AssetId id) {
         {"id", GraphFunctionId::generate()}, {"label", "Orbit offset"}, {"graph", function_graph}};
     auto source = MaterialGraphSource::create_particle(id);
     auto& graph = source.document["graph"];
-    graph["functions"] = {function};
+    graph["functions"] = Json::array({function});
     const auto position = create_material_graph_node("particle_position", {0, 0}),
                seconds = create_material_graph_node("particle_age", {0, 180}),
                birth = create_material_graph_node("particle_random", {0, 330}),

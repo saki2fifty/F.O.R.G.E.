@@ -69,7 +69,9 @@ std::vector<std::byte> changed(const std::vector<std::byte>& bytes,
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need material scratch directory");
+        std::cerr << "Graph regression: material suite\n";
         forge::graph_tests::run();
+        std::cerr << "Graph regression: particle suite\n";
         forge::particle_graph_tests::run();
         test_pbr_material_profile();
         test_decal_shader_profile();

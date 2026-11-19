@@ -16,8 +16,9 @@ C++ code is unnecessary.
 ![Native particle graph canvas showing an Orbit offset function and linked position, size and color outputs](../images/particle-graph.png)
 
 The Orbit function offsets each particle using its age and birth random value.
-Size decreases over life; color blends toward teal. Double-click the function
-call to inspect its nodes; **Back to particle graph** returns to the main canvas.
+Size decreases over life; color blends toward teal. In **Functions**, choose
+**Edit Orbit offset** to inspect its nodes; **Back to particle graph** returns to
+the main canvas.
 
 ## Create a program
 

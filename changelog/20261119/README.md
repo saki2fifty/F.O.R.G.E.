@@ -14,6 +14,12 @@ Graph format tags validate their string type before comparison, with malformed-t
 regressions for both material and particle domains. Native Windows acceptance is
 recorded separately from local checks.
 
+Particle graph fixtures and the editable Gallery example construct single-item
+JSON arrays explicitly across supported compilers. The material regression also
+constructs that example, and invalid function lists distinguish their JSON type
+from the function-count limit. The manual uses the actual Functions menu to open
+a reusable graph function.
+
 ## Authored particle graphs
 
 Particle-domain Shader graphs control local position, size and linear RGB through

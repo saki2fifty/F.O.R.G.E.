@@ -1,4 +1,5 @@
 #pragma once
+#include "particle_graph_example.hpp"
 #include <algorithm>
 #include <forge/material_graph.hpp>
 #include <limits>
@@ -28,6 +29,7 @@ inline Json edge(const Json& from, const Json& to, std::string_view port) {
             {"to", {{"node", to.at("id")}, {"port", port}}}};
 }
 inline void run() {
+    (void)test::particle_graph_example(AssetId::generate());
     const auto original = create_particle_graph();
     const auto identity = compile_particle_graph(original).source;
     for (const auto& format : Json::array({nullptr, 42, true, Json::object(), "unknown.graph"})) {
@@ -152,7 +154,7 @@ inline void run() {
     Json function{{"id", GraphFunctionId::generate()}, {"label", "Wave"}, {"graph", body}};
     auto call = material_graph_function_call(function, {200, 0});
     graph = original;
-    graph["functions"] = {function};
+    graph["functions"] = Json::array({function});
     graph["nodes"].push_back(age);
     graph["nodes"].push_back(call);
     graph["edges"] = {edge(age, call, "age"), edge(call, graph["nodes"][0], "size")};
@@ -170,13 +172,13 @@ inline void run() {
           "Unavailable function interface data was interpreted or changed");
     auto material_call = graph;
     material_call["format"] = "forge.material.graph";
-    material_call["nodes"] = {call};
+    material_call["nodes"] = Json::array({call});
     material_call["nodes"][0]["version"] = 2;
     material_call["nodes"][0]["data"] = {{"opaque_future", true}};
     material_call["edges"] = Json::array();
     rejects([&] { (void)compile_material_graph(material_call); }, "unavailable_schema");
     bad = original;
-    bad["functions"] = {function};
+    bad["functions"] = Json::array({function});
     bad["functions"][0]["graph"]["nodes"].push_back(age);
     rejects([&] { (void)compile_particle_graph(bad); }, "particle_domain");
 }
