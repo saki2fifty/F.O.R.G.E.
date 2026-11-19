@@ -1119,7 +1119,8 @@ bool MeshSceneRenderer::pending() const {
                 return state == ResourceState::Ready || !resource_detail::terminal(state);
             };
             return awaiting(source.effect_ticket, bool(source.effect_lease)) ||
-                   awaiting(source.mesh_ticket, bool(source.mesh_lease));
+                   awaiting(source.mesh_ticket, bool(source.mesh_lease)) ||
+                   awaiting(source.shader_ticket, bool(source.shader_lease));
         });
     const bool tiles = std::any_of(tile_sources_.begin(), tile_sources_.end(),
                                    [](const auto& row) { return row.second.pending; });

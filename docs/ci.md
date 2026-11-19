@@ -3490,7 +3490,9 @@ exact Scene/Effect/Shader closure, hides authoring source, relocates the content
 uses forge_viewport_tests particle-graphs on the existing D3D12-WARP device owner.
 It asserts immutable bytecode creation,64GPU particle results against independent
 uint64/double reference math, actual fixed-clock RuntimeWorld emission and visible
-production Game rendering with Shader-pool adoption. Windows execution is pending
+production Game rendering with Shader-pool adoption. Before adoption, an outstanding
+Shader request must keep render readiness pending; the fixture observes that
+asynchronous boundary before requiring the published program. Windows execution is pending
 until a passing audit is recorded. Generated-source software-Vulkan tests remain
 separate evidence. No physical GPU performance claim follows from these fixtures.
 
@@ -3500,7 +3502,8 @@ runtime compiler is admitted. Native widget capture provenance is in
 [particle effects](particle-effects.md).
 
 The same focused native Shader gate also includes atomic_file_replace. It tests
-Windows source/metadata replacement with a live reader that omits delete sharing,
-retained reader bytes and source identity after reopening. This complements the
+Windows source/metadata replacement with sharing-compatible readers, retained
+snapshots, and exact replacement or unchanged bytes/retry for a deny-delete reader.
+Scene source identity is checked after reopening. This complements the
 ordinary source-document/file-transaction gates and does not imply an identified
 external lock owner in a prior failure.

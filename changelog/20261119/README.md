@@ -34,6 +34,9 @@ a reusable graph function.
 
 ## Authored particle graphs
 
+Render readiness remains pending while an effect's graph Shader is loading,
+including the interval between its request and publication in the resource pool.
+
 Particle-domain Shader graphs control local position, size and linear RGB through
 typed nodes and reusable pure functions. Effects select a published program and
 declared bounds; CPU/GPU switching retains those settings. The existing compiler,

@@ -169,6 +169,7 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
     host->catalog(catalog);
     FrameRenderer renderer(presentation);
     renderer.resources(host);
+    bool shader_pending_seen = false;
     auto draw = [&] {
         test_sprite_draw::Pixels pixels;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(45);
@@ -176,6 +177,10 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
             presentation.begin_frame();
             auto* view = renderer.game(context, snapshot, 640, 360);
             check(view, "Source-hidden graph Game image missing");
+            if (host->inspect().shaders.pending) {
+                check(renderer.pending(), "Graph Shader preparation lost its pending state");
+                shader_pending_seen = true;
+            }
             presentation.end_frame(context);
             host->submit();
             pixels =
@@ -189,6 +194,7 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
         return pixels;
     };
     const auto rendered = draw();
+    check(shader_pending_seen, "Graph fixture did not observe asynchronous Shader preparation");
     check(host->inspect().shaders.selected == 1, "Graph renderer did not use its Shader pool");
     snapshot.particles.clear();
     const auto empty = draw();
