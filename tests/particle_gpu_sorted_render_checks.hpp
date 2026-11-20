@@ -48,7 +48,7 @@ inline void execute(DiligentPresentation& presentation, Diligent::IDeviceContext
     data.size_start = data.size_end = 1;
     data.color_start = data.color_end = {1, 1, 1};
     host->preview_particle_effect(effect, data);
-    MeshSceneRenderer renderer(host);
+    MeshSceneRenderer renderer(host, TEX_FORMAT_RGBA32_FLOAT);
     RenderScene scene;
     scene.scene = AssetId::generate();
     scene.settings.shadows.enabled = false;

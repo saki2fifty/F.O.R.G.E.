@@ -52,8 +52,11 @@ struct Fixture {
         padded = std::bit_ceil(std::max(count, 1u));
     }
     std::vector<Packet> read(IDeviceContext* context) {
-        if (!count)
+        if (!count) {
+            // Empty producer passes can still queue reset/dispatch commands.
+            context->WaitForIdle();
             return {};
+        }
         context->CopyBuffer(order.buffer(), 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, staging,
                             0, padded * sizeof(Packet), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->WaitForIdle();

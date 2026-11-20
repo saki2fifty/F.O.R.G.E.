@@ -110,7 +110,7 @@ inline void execute(DiligentPresentation& presentation, Diligent::IDeviceContext
     };
     auto host = std::make_shared<MeshResourceHost>(presentation, context, content);
     host->catalog(catalog);
-    MeshSceneRenderer renderer(host);
+    MeshSceneRenderer renderer(host, TEX_FORMAT_RGBA32_FLOAT);
     constexpr unsigned width = 96, height = 64;
     TextureDesc desc;
     desc.Name = "FORGE published sorted-group countercase";

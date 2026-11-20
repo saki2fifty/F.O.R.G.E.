@@ -3997,3 +3997,11 @@ case; the guard neither retries nor changes synchronization or resource ownershi
 Debug messages collected after exception unwinding can include device destruction,
 so those later messages alone do not establish the original failure. Vulkan
 execution and native Windows execution remain separate evidence.
+
+
+The focused shader audit executes its complete selected set and preserves all
+failures in one run. A failed case still fails the audit. Scene-rendering fixtures
+must select the same color format as their render attachment; the default scene
+renderer uses RGBA8, so floating-point numeric targets specify their format
+explicitly. Empty numeric producer readbacks complete queued device work before
+the fixture finishes its frame.

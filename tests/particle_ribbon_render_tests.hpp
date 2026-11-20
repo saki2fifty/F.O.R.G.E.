@@ -302,7 +302,7 @@ inline void scene_test(DiligentPresentation& presentation, IDeviceContext* conte
          {MaterialParameterType::LinearColor4, {.2f, .8f, .2f, .5f}}}};
     middle.world.m[11] = 3.25;
     scene.meshes.push_back(middle);
-    MeshSceneRenderer renderer(host);
+    MeshSceneRenderer renderer(host, TEX_FORMAT_RGBA32_FLOAT);
     const auto prepare = [&](bool invalid = false) {
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
         do {
@@ -445,7 +445,7 @@ inline void gpu_scene_test(DiligentPresentation& presentation, IDeviceContext* c
     emitter.emitter.seed = 41;
     emitter.time = 1.5;
     scene.particles.push_back(emitter);
-    MeshSceneRenderer renderer(host);
+    MeshSceneRenderer renderer(host, TEX_FORMAT_RGBA32_FLOAT);
     Targets targets(device);
     const auto quad = asset_detail::engine_mesh_resource(data.mesh).mesh;
     auto cpu_reference = data;

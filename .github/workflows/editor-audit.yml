@@ -336,7 +336,7 @@ jobs:
       - name: Execute shader and material GPU acceptance
         if: inputs.shader_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "$env:FORGE_SHADER_ACCEPTANCE_REGEX" --output-on-failure --stop-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "$env:FORGE_SHADER_ACCEPTANCE_REGEX" --output-on-failure --no-tests=error
       - name: Verify native lightmap Gallery preparation and source-free export
         if: inputs.shader_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
