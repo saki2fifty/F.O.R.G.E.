@@ -3789,3 +3789,12 @@ is registered separately in shader acceptance; source inspection is not executio
 Gallery249 at three seconds on software Vulkan/llvmpipe. Local capture receipts
 retain build/source/test/image provenance. The image has no editor chrome; physical
 hardware, Windows and full editor visual acceptance remain separate.
+
+The native MCP package client retries a disconnected or timed-out **read-only**
+request within its existing readiness bound while the same editor process remains
+alive. The live transport closes a connection after ten seconds; frame work or a
+large discovery response can interrupt one exchange without ending the
+editor session. Recovery performs a fresh state read before any later edit. It
+never replays a mutation, extends transport deadlines, ignores native process exit
+or accepts a failed result. Acceptance evidence records whether forced failure
+cleanup was required and the observed native exit code before cleanup.
