@@ -3984,3 +3984,13 @@ Vulkan/llvmpipe check and personally reviewed. The canonical asset is used by th
 manual; local receipts retain source, build, test and image provenance. This image
 shows Game output without editor chrome. Native Windows execution, physical GPU
 acceptance and full editor visual review remain separate.
+
+## Windows navigation Debug diagnostic
+
+The isolated `navigation-core-audit.yml` workflow builds the exact `core` Debug
+consumers and obtains their commands from CTest discovery. It records the complete
+`navigation` and `navigation_link_gallery` workloads, native exit and elapsed time
+with a separate300-second diagnostic bound. Original120/90-second CTest properties
+and assertions remain unchanged. Test output flushes before local destruction and
+records when that destruction finishes. A timeout is forced failure cleanup. This
+is a partial timing/lifecycle investigation, never a full source or release gate.

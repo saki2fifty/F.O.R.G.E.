@@ -82,6 +82,12 @@ struct Fixture {
 #include "navigation_planar_tests.hpp"
 int main(int argc, char** argv) {
     try {
+        std::cout << std::unitbuf;
+        std::cerr << "NAV_DIAGNOSTIC main-start\n";
+        struct ScopeExit {
+            ~ScopeExit() { std::cerr << "NAV_DIAGNOSTIC local-destruction-complete\n"; }
+        } scope_exit;
+
         check((argc == 3 || argc == 4), "Need test root and worker");
         if (argc == 4 && std::string_view(argv[3]) == "--bake-planar-gallery") {
             const auto project = std::filesystem::absolute(argv[1]);

@@ -348,6 +348,12 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& so
 } // namespace
 int main(int argc, char** argv) {
     try {
+        std::cout << std::unitbuf;
+        std::cerr << "NAV_DIAGNOSTIC main-start\n";
+        struct ScopeExit {
+            ~ScopeExit() { std::cerr << "NAV_DIAGNOSTIC local-destruction-complete\n"; }
+        } scope_exit;
+
         if (argc == 4 && (std::string_view(argv[1]) == "--prepare-characters" ||
                           std::string_view(argv[1]) == "--prepare-drop-characters" ||
                           std::string_view(argv[1]) == "--prepare-planar-drop-characters" ||

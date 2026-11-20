@@ -1,0 +1,114 @@
+name: Windows navigation Debug diagnostics
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Immutable diagnostic source; never a package or full source gate
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: navigation-debug-diagnostic-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  navigation:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      FORGE_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      FORGE_BUILD_ID: unassigned
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: core.longpaths
+      GIT_CONFIG_VALUE_0: "true"
+    steps:
+      - name: Checkout source without trailing-dot paths
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        env:
+          FORGE_COMMIT: ${{ inputs.source_commit }}
+          FORGE_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:FORGE_COMMIT -notmatch '^[0-9a-f]{40}$') { throw 'Full source SHA required' }
+          $source = Join-Path $env:RUNNER_TEMP 'forge-work/FORGE'
+          New-Item -ItemType Directory -Path $source -Force | Out-Null
+          git -C $source init
+          if ($LASTEXITCODE) { throw 'git init failed' }
+          git -C $source remote add origin https://github.com/${{ github.repository }}.git
+          if ($LASTEXITCODE) { throw 'git remote failed' }
+          $auth = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("x-access-token:$env:FORGE_TOKEN"))
+          Write-Output "::add-mask::$auth"
+          git -C $source -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin $env:FORGE_COMMIT
+          if ($LASTEXITCODE) { throw 'git fetch failed' }
+          git -C $source checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE) { throw 'git checkout failed' }
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - uses: ilammy/msvc-dev-cmd@a102174a2b586eec2ea151a69e6fd14404a8ce7c
+        with:
+          vsversion: '2022'
+          toolset: '14.44.35207'
+          sdk: '10.0.26100.0'
+      - name: Build the two actual Debug navigation consumers
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: |
+          python -m pip install cmake==4.4.3 ninja==1.13.2
+          if ($LASTEXITCODE) { throw 'Tools failed' }
+          cmake --preset core -DFORGE_BUILD_MCP_EDITOR_TESTS=OFF -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DFORGE_BUILD_ID=unassigned -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
+          if ($LASTEXITCODE) { throw 'Configure failed' }
+          cmake --build --preset core --target forge_navigation_tests forge_navigation_link_gallery_tests forge_nav_build --parallel 2
+          if ($LASTEXITCODE) { throw 'Build failed' }
+      - name: Measure complete bounded consumers and native shutdown
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: python
+        run: |
+          from pathlib import Path
+          from datetime import datetime, timezone
+          import json, os, subprocess, time
+          cache = Path('../AgentFiles/build/core').resolve()
+          output = cache / 'navigation-diagnostic'
+          output.mkdir()
+          selected = json.loads(subprocess.check_output([
+              'ctest', '--test-dir', str(cache), '--show-only=json-v1',
+              '-R', '^(navigation|navigation_link_gallery)$'], text=True))['tests']
+          assert {test['name'] for test in selected} == {'navigation', 'navigation_link_gallery'}
+          records = []
+          for test in selected:
+              started = time.monotonic()
+              at = datetime.now(timezone.utc).isoformat()
+              properties = {item['name']: item['value'] for item in test.get('properties', [])}
+              assert not properties.get('FIXTURES_REQUIRED') and not properties.get('DISABLED')
+              assert not properties.get('ENVIRONMENT_MODIFICATION'), 'Preserve required environment edits explicitly'
+              environment = dict(os.environ)
+              for value in properties.get('ENVIRONMENT', []):
+                  key, value = value.split('=', 1)
+                  environment[key] = value
+              working = properties.get('WORKING_DIRECTORY', str(cache))
+              log = output / (test['name'] + '.log')
+              with log.open('w', encoding='utf-8') as stream:
+                  try:
+                      child = subprocess.run(test['command'], cwd=working, env=environment,
+                          stdout=stream, stderr=subprocess.STDOUT, timeout=300)
+                      status, forced = child.returncode, False
+                  except subprocess.TimeoutExpired:
+                      status, forced = 124, True
+              row = dict(name=test['name'], started_at=at, seconds=time.monotonic()-started,
+                  command=test['command'], exit_code=status, forced_cleanup=forced)
+              records.append(row)
+              print(json.dumps(row), flush=True)
+              (output/'result.json').write_text(json.dumps(dict(
+                  source_commit=os.environ['FORGE_SOURCE_COMMIT'], configuration='Debug',
+                  original_ctest_seconds=dict(navigation=120, navigation_link_gallery=90),
+                  diagnostic_seconds=300, tests=records,
+                  scope='Partial diagnostic of original workloads; original CTest limits and assertions unchanged. Forced cleanup is failure. No full source/release/physical acceptance.'), indent=2))
+          assert all(row['exit_code'] == 0 and not row['forced_cleanup'] for row in records)
+      - name: Preserve exact diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-Navigation-Debug-Diagnostic
+          path: ${{ runner.temp }}/forge-work/AgentFiles/build/core/navigation-diagnostic
+          if-no-files-found: warn
+          retention-days: 14
