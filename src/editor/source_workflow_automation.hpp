@@ -91,7 +91,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "Opacity stops use local UUIDs, normalized0–1 time/value and "
                  "Step/Linear interpolation, like size stops. Default CPU activation needs "
                  "runtime_particle_opacity1 and alpha1. Explicit backend=gpu selects weighted "
-                 "device opacity (values16-19); source12 retains independent CPU/GPU "
+                 "device opacity (values16-19, or22 with plane motion); source12 retains "
+                 "independent CPU/GPU "
                  "activation and shared endpoints/stops. It enables weighted alpha, retaining "
                  "Graph/camera alignment. Requires a Blend Material, depth test/no writes, "
                  "enabled complete-view Scene weighted transparency, GPU1/weighted1 and "
@@ -121,17 +122,24 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "transform applies to the whole local path. Requires runtime_particle_trail1, "
                  "opacity1 and alpha1; no GPU trail or historical emitter-motion capture."},
                 {"collision",
-                 "asset.document.particle_collision selects CPU Mesh plane response "
-                 "(values11/cpu_collision1). Optional "
+                 "asset.document.particle_collision selects emitter-local analytic plane "
+                 "response. Optional backend=cpu(default)|gpu selects CPU sorted-alpha Mesh "
+                 "(values11/cpu_collision1) or built-in GPU Mesh (values20/gpu_collision1, "
+                 "21/gpu_weighted_collision1,22/gpu_weighted_collision_opacity1). Optional "
                  "collision={normal,offset,radius,restitution,friction,bounce_limit} "
-                 "replaces settings; omission retains them. Source10 preserves inactive alignment, "
-                 "ribbons, appearance and local stop identities. The plane is emitter-local; "
+                 "replaces shared settings; omission retains them. Source13 retains independent "
+                 "CPU/GPU activation, inactive Graph, alignment, ribbons and appearance IDs. "
+                 "GPU activation selects built-in motion and disables GPU camera alignment. "
+                 "The plane is emitter-local; "
                  "offset is signed meters along its normalized normal and radius is independent "
                  "of visual size. Restitution and tangent velocity loss are0–1;0–16rebounds, "
                  "then the next incoming contact kills. Zero kills on first contact. "
                  "Initially penetrating births and sustained zero-rebound inward contacts end. "
-                 "Requires runtime_particle_collision1, opacity1 and alpha1. No Scene-collider, "
-                 "GPU, ribbon or camera-plane collision combination."},
+                 "CPU requires runtime_particle_collision1, opacity1 and alpha1. GPU requires "
+                 "runtime_particle_gpu_collision1 and gpu1; weighted/opacity require their "
+                 "matching capabilities. GPU uses float contact times and keeps killed births "
+                 "as finite zero-size rows, without readback. No Scene-collider, arbitrary "
+                 "Graph-motion, ribbon or camera-plane collision combination."},
                 {"gpu_weighted",
                  "asset.document.particle_gpu_weighted selects explicit approximate weighted "
                  "device alpha (values12/gpu_weighted1,13/gpu_graph_weighted1, "
@@ -894,6 +902,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         } else if (std::string_view(action) == "particle_collision") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
             properties["enabled"] = {{"type", "boolean"}};
+            properties["backend"] = {
+                {"type", "string"},
+                {"enum", {"cpu", "gpu"}},
+                {"default", "cpu"},
+                {"description", "CPU sorted-alpha or built-in GPU Mesh plane motion. Settings "
+                                "are shared; activation choices are retained independently."}};
             properties["collision"] = automation_object(
                 {{"normal",
                   automation_array(

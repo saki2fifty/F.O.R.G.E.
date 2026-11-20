@@ -208,8 +208,9 @@ int main(int argc, char** argv) {
         workspace.start(scene, files, !read_only, !read_only, permissions);
         std::cout << workspace.connection().connection().dump() << std::endl;
         // The complete source suite exercises every real owner before the
-        // client closes it; keep this watchdog within the outer CTest budget.
-        const auto end = std::chrono::steady_clock::now() + std::chrono::minutes(10);
+        // client closes it. Instrumented source/history coverage also needs this
+        // finite lifetime; each parent case retains its independent timeout.
+        const auto end = std::chrono::steady_clock::now() + std::chrono::minutes(20);
         while (workspace.active() && std::chrono::steady_clock::now() < end &&
                !forge::test::marker_present(root / "stop")) {
             files.changed = false;

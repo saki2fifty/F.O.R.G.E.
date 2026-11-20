@@ -185,7 +185,8 @@ Weighted blending approximates the combined color of overlapping fragments. It
 does not provide exact physical layer ordering or refraction. Transparent ordinary
 Meshes in an admitted view share this transport. Opaque geometry still blocks
 particles behind its depth surface. Material and texture alpha apply; optional
-GPU opacity over life multiplies them. GPU collision and ribbons are unavailable.
+GPU opacity over life multiplies them. Built-in GPU Mesh particles also support
+the local plane response described below. GPU ribbons are unavailable.
 
 A visible Sprite, Tile Map, sorted transparent CPU particle, transmission Material,
 incompatible transparent Mesh or unsupported render target prevents complete-view
@@ -294,12 +295,36 @@ For the Gallery scene, the emitter origins are one meter above the floor; offset
 follows the current transform. This mode does not collide with Scene colliders,
 record past world-space emitter motion or apply impulses to physical bodies.
 
-Collision uses ordinary Mesh particles. Camera alignment and ribbons are retained
-while inactive; turn collision off to restore them in **CPU (sorted alpha)**.
-Switching to another evaluation backend retains plane settings without applying
-them. GPU/Graph collision, collision callbacks and combining collision with
-ribbons or camera-aligned quads are unavailable. Nonidentity particle opacity
-needs a Blend Material with depth testing enabled and depth writing disabled.
+For GPU collision, choose **GPU**, then enable **Plane collision (GPU mesh)**.
+Use the same normal, offset, radius and response controls. This selects built-in
+Mesh motion and turns off GPU camera alignment. It retains an assigned Graph for
+later use. Opaque and masked Materials work directly; for Blend, enable
+**Weighted alpha (GPU)** and the Scene's **Weighted transparency** setting. You
+can then enable **Use opacity over life** for fades. Save the Effect and Scene
+before exporting with the matching runtime kit.
+
+Open **Scenes/251-gpu-particle-plane-collision.scene.json** in FeatureGallery to
+try GPU response. Both tinted cube emitters share
+**Assets/Particles/Collision/DeviceBounces.particles.json** and the glass Material.
+The Scene includes weighted transparency, lifetime fades, a camera, light and
+gray plane guide. Open the Effect to change the plane and response, then choose
+**Save / Publish** and export. No project C++ module is needed.
+
+![Teal and amber GPU cube particles bouncing above the gray plane guide](../images/gpu-particle-plane-collision.png)
+
+The GPU Gallery scene in the Game renderer at three seconds.
+
+CPU and GPU activation choices are independent and share the plane settings.
+Switching Evaluation restores the choice for that backend; Graph keeps plane
+settings inactive. Turn collision off before using retained camera alignment or
+CPU ribbons. GPU evaluation uses float precision, so contact times near tangency
+or the rebound limit can differ from CPU results. Killed GPU births use zero-size
+geometry within the reserved instance budget until their ordinary lifetime ends.
+
+Collision uses ordinary Mesh particles. Scene-collider response, collision
+callbacks, arbitrary Graph trajectories, ribbons and camera-aligned quads cannot
+be combined with this plane response. Nonidentity particle opacity needs a Blend
+Material with depth testing enabled and depth writing disabled.
 
 ## Opacity over life
 
@@ -389,7 +414,9 @@ accept Blend with explicit **Weighted alpha (GPU)** and complete-view weighted
 admission; their opacity-over-life setting can then apply per-particle fades.
 Other evaluation profiles require opaque/masked Materials. Skinned/morphing meshes,
 transmission and custom Shader surfaces report errors. Particles do not cast shadows.
-GPU collision and ribbons are unavailable.
+Built-in GPU Mesh particles support the emitter-local plane response. GPU ribbons
+and plane response for authored Graph trajectories or camera-aligned quads are
+unavailable.
 
 Changing the seed restarts the effect with a different pattern. C++ can adjust the
 native component; `sdk/sample/particle_probe.cpp` demonstrates seed/speed changes

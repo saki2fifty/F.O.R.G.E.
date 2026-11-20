@@ -1395,10 +1395,15 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                     particle_uses_gpu_opacity(effect)
                         ? std::optional(prepare_particle_gpu_opacity_values(effect))
                         : std::nullopt;
+                const auto collision =
+                    effect.collision
+                        ? std::optional(prepare_particle_gpu_collision_values(*effect.collision))
+                        : std::nullopt;
                 try {
                     gpu->evaluate(host_->context_, values,
                                   particle_uses_billboards(effect) ? &camera : nullptr,
-                                  object.gpu_weighted, opacity ? &*opacity : nullptr);
+                                  object.gpu_weighted, opacity ? &*opacity : nullptr,
+                                  collision ? &*collision : nullptr);
                 } catch (...) {
                     restore_camera_target();
                     throw;

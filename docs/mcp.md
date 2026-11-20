@@ -3632,7 +3632,8 @@ source publication/reopen, invalid/stale/no-op guards and Undo/Redo.
 ## Emitter-local particle plane collision
 
 `asset.document.particle_collision` requires `asset.write`, `editor:"particle_effect"`,
-current document session/revision and boolean `enabled`. Optional `collision` replaces
+current document session/revision and boolean `enabled`. Optional `backend` is
+`cpu` (default) or `gpu`. Optional `collision` replaces
 the complete `{normal,offset,radius,restitution,friction,bounce_limit}` object; omission
 retains it. Normal is a nonzero three-number vector within±1e6, offset is±1e6m,
 radius is0–1000m, restitution/friction are0–1 and bounce limit is an integer0–16.
@@ -3647,8 +3648,22 @@ local identities; turning collision off restores CPU sorted-alpha choices. Absen
 disable is a no-op. Discovery provides `forge_asset_document_particle_collision`
 only with the write grant. Invalid settings, stale scope, history, Save/publication
 and reopen use the existing source owner. Requires effect3/alpha1/opacity1 and
-`runtime_particle_collision:1`. GPU, Scene-collider, ribbon/camera-plane combinations
-and collision callbacks are outside this profile.
+`runtime_particle_collision:1`.
+
+`backend:"gpu"` uses the same source/history/publication owner and native
+**Plane collision (GPU mesh)** control. Source13 retains independent
+`gpu_collision_enabled` and CPU activation with shared plane settings. Enabling
+selects built-in Mesh motion and disables GPU camera alignment, retaining an
+inactive Graph assignment. Values20/`gpu_collision1` admit opaque/masked Materials;
+21/`gpu_weighted_collision1` and22/`gpu_weighted_collision_opacity1` combine weighted
+alpha and explicit lifetime opacity through their existing controls. Requirements
+are effect3/GPU1/`runtime_particle_gpu_collision:1`, adding weighted1 for21/22 and
+GPU opacity1 for22. CPU alpha/opacity capabilities are not required for these GPU
+values. GPU float contacts can differ from CPU double evaluation near boundaries;
+killed births retain finite zero-size rows until their lifetime expires. No
+runtime readback or CPU collision substitute is used. Graph selection retains
+plane settings inactive. Scene-collider response, ribbon/camera-plane combinations,
+arbitrary Graph trajectories and collision callbacks are outside these profiles.
 
 ## Analytic particle trails through the source owner
 

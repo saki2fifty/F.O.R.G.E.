@@ -102,14 +102,17 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            for (unsigned profile : {12u, 13u, 14u, 15u, 16u, 17u, 18u, 19u}) {
+            for (unsigned profile : {12u, 13u, 14u, 15u, 16u, 17u, 18u, 19u, 20u, 21u, 22u}) {
                 effect.metadata["forge.particle_effect"]["value_version"] = profile;
                 particles.replace(effect);
                 Json kit{{"runtime_particle_effect", particle_effect_cooked_version},
-                         {"runtime_particle_gpu", particle_gpu_profile_version},
-                         {"runtime_particle_gpu_weighted", particle_gpu_weighted_profile_version}};
-                if (profile >= 16)
+                         {"runtime_particle_gpu", particle_gpu_profile_version}};
+                if (profile != 20)
+                    kit["runtime_particle_gpu_weighted"] = particle_gpu_weighted_profile_version;
+                if ((profile >= 16 && profile <= 19) || profile == 22)
                     kit["runtime_particle_gpu_opacity"] = particle_gpu_opacity_profile_version;
+                if (profile >= 20)
+                    kit["runtime_particle_gpu_collision"] = particle_gpu_collision_profile_version;
                 if (profile == 13 || profile == 15 || profile == 17 || profile == 19)
                     kit["runtime_particle_graph"] = particle_graph_profile_version;
                 if (profile == 14 || profile == 15 || profile == 18 || profile == 19)

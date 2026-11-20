@@ -57,7 +57,7 @@ ParticleCollisionPlane decode_particle_collision_plane(const nlohmann::json&);
 nlohmann::json encode_particle_collision_plane(const ParticleCollisionPlane&);
 struct ParticleEffectData {
     std::uint32_t version = 1; // CPU1/2, GPU3/4, alpha5/6, camera7/8/9, trails10, collision11,
-                               // weighted GPU12–15, GPU opacity16–19.
+                               // weighted GPU12–15, GPU opacity16–19, GPU collision20–22.
     AssetRef<MeshAsset> mesh;
     AssetRef<MaterialAsset> material;
     ParticleEmission emission = ParticleEmission::Continuous;
@@ -81,21 +81,21 @@ struct ParticleEffectData {
 };
 constexpr bool particle_uses_gpu(const ParticleEffectData& data) {
     return data.version == 3 || data.version == 4 || data.version == 8 || data.version == 9 ||
-           (data.version >= 12 && data.version <= 19);
+           (data.version >= 12 && data.version <= 22);
 }
 constexpr bool particle_uses_graph(const ParticleEffectData& data) {
     return data.version == 4 || data.version == 9 || data.version == 13 || data.version == 15 ||
            data.version == 17 || data.version == 19;
 }
 constexpr bool particle_uses_weighted_alpha(const ParticleEffectData& data) {
-    return data.version >= 12 && data.version <= 19;
+    return (data.version >= 12 && data.version <= 19) || data.version == 21 || data.version == 22;
 }
 constexpr bool particle_uses_sorted_alpha(const ParticleEffectData& data) {
     return data.version == 5 || data.version == 6 || data.version == 7 || data.version == 10 ||
            data.version == 11;
 }
 constexpr bool particle_uses_gpu_opacity(const ParticleEffectData& data) {
-    return data.version >= 16 && data.version <= 19;
+    return (data.version >= 16 && data.version <= 19) || data.version == 22;
 }
 constexpr bool particle_uses_opacity(const ParticleEffectData& data) {
     return data.version == 6 || data.version == 7 || data.version == 10 || data.version == 11 ||
@@ -103,7 +103,7 @@ constexpr bool particle_uses_opacity(const ParticleEffectData& data) {
 }
 constexpr bool particle_uses_trails(const ParticleEffectData& data) { return data.version == 10; }
 constexpr bool particle_uses_collision(const ParticleEffectData& data) {
-    return data.version == 11;
+    return data.version == 11 || (data.version >= 20 && data.version <= 22);
 }
 // Reserved draw segments, including tails after a head reaches its lifetime.
 std::size_t particle_instance_capacity(const ParticleEffectData&);

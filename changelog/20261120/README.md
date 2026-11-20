@@ -1,5 +1,24 @@
 # 2026-11-20
 
+## GPU particle plane response
+
+Built-in GPU Mesh particles support an emitter-local plane, constant collision
+radius, restitution, tangent velocity loss and0–16rebounds before death. Motion
+reconstructs from each seeded birth through the existing fixed clock and renderer;
+no runtime readback, CPU collision substitute or retained trajectory is added.
+Killed births keep finite zero-size geometry inside the reserved device budget.
+GPU float contacts can differ from CPU double evaluation near boundaries.
+
+Source13 retains independent CPU/GPU activation with shared plane settings.
+Explicit values20–22 combine opaque/masked drawing, weighted alpha and lifetime
+opacity with typed kit admission, preserving older value meanings, IDs, recipes,
+envelopes and gameplay ABI. Native controls and MCP use the same source/history/
+publication owner; MCP collision adds optional `backend: gpu`, keeping CPU default.
+Gallery251 shares an Effect and glass Material across two emitters. The manual
+includes an authentic source-hidden relocated Game capture. Graph motion, camera
+alignment, trails and Scene-collider response remain outside these plane profiles.
+Native Windows and physical acceptance remain separate.
+
 ## GPU particle opacity over life
 
 Built-in and authored GPU particles support endpoint or 2–16-stop Step/Linear

@@ -197,12 +197,124 @@ void opacity_profiles() {
               source.document.at("opacity_curve") == precise_cpu.at("opacity_curve"),
           "Inactive GPU opacity acquired float restrictions or rejected edit changed source");
 }
+void collision_profiles() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    const auto original = source.document;
+    source.set_gpu_collision(false);
+    check(source.document == original, "Absent GPU plane disable changed a legacy source");
+    source.enable_opacity(true);
+    source.enable_lifetime(ParticleLifetimeChannel::Opacity, true);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Opacity, .25);
+    source.set_trails(true);
+    const ParticleCollisionPlane plane{{1, 2, -.5}, -2, .25, .7, .3, 5};
+    source.set_collision(true, plane);
+    source.set_graph_program({{AssetId::generate()}, {3, 4, 5}, 2}, false);
+    source.document["extensions"] = {{"label", "retained plane settings"}};
+    const auto retained = source.document;
+    source.set_gpu_collision(true);
+    check(source.document.at("version").get<unsigned>() == 13 && source.compiled().version == 20,
+          "GPU plane source/value admission failed");
+    for (const auto* field : {"asset_id", "mesh", "material", "program", "opacity_enabled",
+                              "opacity_start", "opacity_end", "opacity_curve", "collision",
+                              "collision_enabled", "trail", "trail_enabled", "extensions"})
+        check(source.document.at(field) == retained.at(field),
+              "GPU plane edit lost shared settings or inactive identities");
+    for (unsigned version : {20u, 21u, 22u}) {
+        auto variant = source;
+        if (version >= 21)
+            variant.enable_gpu_weighted_alpha(true);
+        if (version == 22)
+            variant.enable_gpu_opacity(true);
+        const auto active = variant.document;
+        const auto data = variant.compiled();
+        check(
+            data.version == version && particle_uses_gpu(data) && particle_uses_collision(data) &&
+                data.collision == plane && particle_uses_weighted_alpha(data) == (version >= 21) &&
+                particle_uses_opacity(data) == (version == 22) && !particle_uses_graph(data) &&
+                !particle_uses_billboards(data) && !particle_uses_sorted_alpha(data) && !data.trail,
+            "GPU plane projection leaked another motion or appearance backend");
+        check(decode_particle_effect(encode_particle_effect(data)) == data &&
+                  decode_cooked_particle_effect(variant.cook(), variant.asset(), 3) == data,
+              "GPU plane value/envelope codec lost its profile");
+        const auto text = active.dump();
+        check(ParticleEffectSource::parse(std::as_bytes(std::span(text))).document == active,
+              "GPU plane source round trip lost identities");
+        reject([&] { (void)sample_particle_effect(data, .5, 1); });
+        const auto values = prepare_particle_gpu_values(data, .5, 3, {}, CameraView{});
+        auto plain = data;
+        plain.version = version == 20 ? 3 : version == 21 ? 12 : 16;
+        plain.collision.reset();
+        const auto prior = prepare_particle_gpu_values(plain, .5, 3, {}, CameraView{});
+        check(values.births == prior.births && values.modes == prior.modes &&
+                  values.timing == prior.timing && values.emitter == prior.emitter &&
+                  values.colors == prior.colors && values.tint == prior.tint,
+              "GPU plane mode changed existing birth or appearance inputs");
+        variant.set_gpu_collision(true);
+        check(variant.document == active, "Repeated GPU plane enable changed source");
+        variant.set_gpu_collision(false);
+        check(variant.compiled() == plain, "GPU plane disable lost retained appearance");
+        variant.set_gpu_collision(true);
+        check(variant.document == active, "GPU plane toggle lost source identity");
+        variant.set_evaluation(ParticleEvaluation::CpuAlpha);
+        check(variant.compiled().version == 11 && variant.compiled().collision == plane,
+              "GPU plane selection overwrote independent CPU activation");
+        variant.set_evaluation(ParticleEvaluation::Graph);
+        check(!variant.compiled().collision && particle_uses_graph(variant.compiled()) &&
+                  variant.document.at("gpu_collision_enabled") == true,
+              "Graph selection applied fake collision or lost inactive plane choice");
+        variant.set_evaluation(ParticleEvaluation::Gpu);
+        check(variant.document == active, "Backend round trip lost GPU plane settings");
+        variant.enable_gpu_billboards(true);
+        check(particle_uses_billboards(variant.compiled()) && !variant.compiled().collision &&
+                  variant.document.at("gpu_collision_enabled") == false,
+              "GPU alignment admitted a conflicting plane motion");
+        variant.set_gpu_collision(true);
+        check(variant.document == active, "Explicit GPU plane activation lost retained appearance");
+        for (const auto& invalid : {nlohmann::json(), nlohmann::json(0), nlohmann::json("true")}) {
+            auto wrong = variant;
+            wrong.document["gpu_collision_enabled"] = invalid;
+            reject([&] { wrong.validate(); });
+        }
+        auto wrong = variant;
+        wrong.document["gpu_collision_enabled"] = false;
+        reject([&] { wrong.validate(); });
+        wrong = variant;
+        wrong.document["gpu_billboard_enabled"] = true;
+        reject([&] { wrong.validate(); });
+        auto encoded = encode_particle_effect(data);
+        encoded["version"] = 19;
+        reject([&] { (void)decode_particle_effect(encoded); });
+        encoded = encode_particle_effect(data);
+        encoded["collision"]["bounce_limit"] = 17;
+        reject([&] { (void)decode_particle_effect(encoded); });
+        const auto previous = variant.document;
+        auto invalid_plane = plane;
+        invalid_plane.normal = {0, 0, 0};
+        reject([&] { variant.set_gpu_collision(true, invalid_plane); });
+        check(variant.document == previous, "Rejected GPU plane edit mutated source");
+    }
+    source.set_evaluation(ParticleEvaluation::CpuAlpha);
+    source.document["opacity_curve"] = nlohmann::json::array();
+    for (double time : {0., .5, std::nextafter(.5, 1.), 1.})
+        source.document["opacity_curve"].push_back({{"id", AssetId::generate()},
+                                                    {"time", time},
+                                                    {"value", .5},
+                                                    {"interpolation", "linear"}});
+    source.validate();
+    const auto precise = source.document.at("opacity_curve");
+    source.set_gpu_collision(true);
+    check(source.compiled().version == 20 && source.document.at("opacity_curve") == precise,
+          "Inactive CPU opacity acquired GPU float restrictions");
+    const auto active = source.document;
+    reject([&] { source.enable_gpu_opacity(true); });
+    check(source.document == active, "Rejected GPU plane opacity edit changed source precision");
+}
 void materials() {
     MaterialResourceData material;
     material.values.model = "forge.gltf.unlit.v1";
     material.values.alpha = MaterialAlpha::Blend;
     material.values.depth_write = false;
-    for (unsigned version : {12u, 13u, 14u, 15u, 16u, 17u, 18u, 19u}) {
+    for (unsigned version : {12u, 13u, 14u, 15u, 16u, 17u, 18u, 19u, 21u, 22u}) {
         ParticleEffectData data;
         data.version = version;
         validate_particle_material_profile(material, data);
@@ -218,7 +330,7 @@ void materials() {
         wrong.values.depth_test = false;
         reject([&] { validate_particle_material_profile(wrong, data); });
     }
-    for (unsigned version : {3u, 4u, 8u, 9u}) {
+    for (unsigned version : {3u, 4u, 8u, 9u, 20u}) {
         ParticleEffectData data;
         data.version = version;
         reject([&] { validate_particle_material_profile(material, data); });
@@ -229,6 +341,7 @@ int main() {
     try {
         profiles();
         opacity_profiles();
+        collision_profiles();
         materials();
         std::cout
             << "Explicit weighted GPU profiles, retained identities and strict admission passed\n";

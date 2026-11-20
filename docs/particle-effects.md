@@ -22,7 +22,9 @@ when trails are active. Source10 retains a collision plane/enabled flag and sele
 CPU values11/`cpu_collision1` for Mesh collision. Source11 retains explicit
 `gpu_weighted_enabled` and projects GPU values12–15 for weighted Mesh/Graph and
 camera-aligned combinations. Source12 adds `gpu_opacity_enabled` and projects
-explicit GPU opacity values16–19. Other backends retain inactive settings without
+explicit GPU opacity values16–19. Source13 adds independent `gpu_collision_enabled`
+and explicit GPU plane values20–22 sharing the retained `collision` object with CPU.
+Other backends retain inactive settings without
 applying them; CPU/GPU activation is independent with shared endpoints/stop IDs.
 Values include a Mesh reference, optional Material override, emission
 mode, capacity, burst count, rate, lifetime, direction/cone half-angle, speed range,
@@ -42,7 +44,8 @@ editable sources nor a compiler.
 New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope containing
 `format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3, graph4
 or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph camera-plane9/
-analytic-trail CPU10/plane-collision CPU11/explicit weighted GPU12–15/GPU opacity16–19;
+analytic-trail CPU10/plane-collision CPU11/explicit weighted GPU12–15/GPU opacity16–19/
+GPU plane20–22;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -77,8 +80,9 @@ opaque/masked Materials with identity opacity or the same sorted Blend profile.
 CPU11 permits the same Material alpha/opacity profile as CPU7, using the original
 Mesh and its explicit local collision plane. GPU12–19 require Blend with depth
 testing/no depth writes and complete-view weighted admission;16–19 apply explicit
-per-birth lifetime opacity. General Scene-collider response, GPU
-collision/trails, historical emitter-motion capture and texture-sheet animation
+per-birth lifetime opacity. GPU20 admits opaque/masked Mesh plane response;21/22
+require weighted Blend, and22 also applies lifetime opacity. General Scene-collider
+response, GPU trails, historical emitter-motion capture and texture-sheet animation
 are outside these profiles. The bounded stateless graph profile below extends
 position, size and RGB without adding those capabilities.
 
@@ -86,7 +90,7 @@ position, size and RGB without adding those capabilities.
 
 [ADR062](decisions/062-sorted-alpha-particles.md) introduces explicit values5 and
 source5 without changing earlier value meanings, IDs, recipe3/envelope3 or the
-ParticleEmitter/gameplay ABI. `particle_uses_gpu` identifies GPU3/4/8/9/12–19 explicitly;
+ParticleEmitter/gameplay ABI. `particle_uses_gpu` identifies GPU3/4/8/9/12–22 explicitly;
 CPU5 keeps the CPU random sequence, double clock and lifetime-stop precision.
 Source5 retains optional inactive graph settings across evaluation changes.
 
@@ -499,14 +503,53 @@ history, Scene physics queries, collision events or additional entity manager ex
 Whole-life bounds use speed plus acceleration norm to cover oblique rebounds;
 ordinary Mesh alpha/depth/culling/sorting and admission budgets remain authoritative.
 Native controls and `asset.document.particle_collision` share source validation,
-revision/history/publication; partial/invalid settings fail atomically. GPU, Scene
-geometry and ribbon/camera-plane collision combinations remain unsupported.
+revision/history/publication; partial/invalid settings fail atomically. GPU uses
+the separate explicit profiles below. Scene geometry and ribbon/camera-plane
+collision combinations remain unsupported.
 
 The canonical `manual/images/particle-plane-collision.png` was captured from
 Gallery246 at three seconds in the source-hidden relocated production Game,
 640×360 using software Vulkan/llvmpipe. The original PNG was inspected and copied
 without retouching. `particle_collision_gallery_game_vulkan` owns the capture
 workflow; this records software output, not Windows or physical-device acceptance.
+
+## Analytic GPU plane collision
+
+[ADR070](decisions/070-gpu-particle-plane-motion.md) owns source13 and
+values20/`gpu_collision1`,21/`gpu_weighted_collision1`,22/
+`gpu_weighted_collision_opacity1`. `set_gpu_collision` commits one validated
+candidate with shared plane settings and independent CPU/GPU activation. An absent
+disable without replacement settings is a no-op. Enabling selects built-in GPU
+Mesh motion and disables GPU camera alignment; Graph selection retains plane
+settings inactive. No arbitrary graph-position output is treated as analytic
+velocity. Original Mesh, CPU alignment/trails/opacity, graph assignment, extensions
+and local IDs remain retained. Native controls and automation/MCP use this owner.
+
+One additional private32-byte upload contains the normalized local plane, metric
+offset plus radius, restitution, tangent velocity loss and rebound limit. The
+existing renderer-owned emitter selects its plane kernel and uses the same
+instance buffer/count, seeded birth window, appearance and optional weighted/
+opacity projection. Original47-row input and seven output rows are unchanged;
+default free-flight shader bytes are retained by shared source fragments. No
+readback, CPU fallback, second clock, retained motion history or physics World is
+added. A killed birth reserves its row with finite zero-scale geometry; reported
+device row count includes these births and is not a live-survivor count.
+
+Each query reconstructs motion from birth, including incoming contacts hidden
+between displayed samples. Stable drag integrals, bounded distance/velocity
+bisection and0–16rebounds follow the admitted float motion profile. Tangency and
+drag-only asymptotic approaches do not create impacts. The undamped discriminant
+is classified before endpoint cancellation can round a near-tangent distance to
+zero. Its separate arithmetic is precise to prevent contraction from changing
+that classification. GPU float evaluation is distinct from CPU double precision.
+
+Values20 require opaque/masked Materials;21/22 use complete-view weighted Blend.
+Require effect3/GPU1/`runtime_particle_gpu_collision:1`, adding weighted1 for21/22
+and GPU opacity1 for22. CPU alpha/opacity capabilities are not implied. Bounds use
+the existing acceleration-norm rebound envelope. Camera restoration, failed-count
+clearing, resource budgets, source publication and recipe3/envelope3 retain their
+owners. Gallery251 shares one Effect and the existing glass Material across two
+emitters, with weighted alpha and a lifetime fade.
 
 ## Explicit weighted GPU alpha
 
@@ -524,8 +567,9 @@ opt in and its complete view must pass weighted admission. Any incompatible laye
 resource/target/budget failure or disabled setting omits these emitters for that
 view with scoped diagnostics, preserving ordinary sorted fallback for other work.
 There is no whole-emitter sorted substitute or mixed weighted/sorted device alpha.
-Approximate weighted color is not exact layered ordering, refraction or a GPU
-collision/trail implementation. GPU lifetime opacity uses the explicit profiles below.
+Approximate weighted color is not exact layered ordering or refraction. GPU
+lifetime opacity and plane motion use the explicit profiles below; trails remain
+unsupported on the device.
 
 The original47-row evaluator/graph input remains unchanged. Reuse the existing
 supplemental projection and same-UAV barrier to choose Material tint flag2,

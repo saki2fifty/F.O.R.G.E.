@@ -3,12 +3,14 @@
 #include "presentation_diligent.hpp"
 
 namespace forge {
+enum class ParticleGpuMotion { FreeFlight, PlaneCollision };
 // One renderer-owned emitter realization. Presentation retains the shared native
 // program cache; the emitter retains its bounded buffers and binding. No clock,
 // source registry, World pointer or CPU particle state lives here.
 class ParticleGpuInstances {
   public:
     ParticleGpuInstances(DiligentPresentation&, unsigned capacity);
+    ParticleGpuInstances(DiligentPresentation&, unsigned capacity, ParticleGpuMotion);
     // The Shader selection owner supplies an already realized immutable program.
     ParticleGpuInstances(DiligentPresentation&, unsigned capacity, Diligent::IShader*,
                          const ParticleGpuGraphLimits&);
@@ -19,7 +21,8 @@ class ParticleGpuInstances {
     // before drawing. Success publishes only this submission's instance count.
     void evaluate(Diligent::IDeviceContext*, const ParticleGpuValues&,
                   const CameraView* billboard_view = nullptr, bool material_tint_only = false,
-                  const ParticleGpuOpacityValues* opacity = nullptr);
+                  const ParticleGpuOpacityValues* opacity = nullptr,
+                  const ParticleGpuCollisionValues* collision = nullptr);
     Diligent::IBuffer* buffer() const { return output_; }
     unsigned count() const { return count_; }
 
@@ -28,6 +31,8 @@ class ParticleGpuInstances {
     void prepare_billboards();
     DiligentPresentation& presentation_;
     unsigned capacity_, count_ = 0;
+    ParticleGpuMotion motion_ = ParticleGpuMotion::FreeFlight;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> collision_values_;
     Diligent::RefCntAutoPtr<Diligent::IShader> graph_program_;
     ParticleGpuGraphLimits graph_limits_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> graph_values_;

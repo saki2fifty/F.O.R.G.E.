@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## GPU particle plane collision
+
+Open **Scenes/251-gpu-particle-plane-collision.scene.json** and press Play. Two
+tinted cube emitters share **Assets/Particles/Collision/DeviceBounces.particles.json**
+and the existing glass Material. GPU plane response combines weighted alpha and
+lifetime fades; the Scene includes its weighted-transparency setting, camera,
+light and gray plane guide. Open the Effect for **Plane collision (GPU mesh)**,
+normal/offset, constant radius, restitution, tangent friction and permitted bounces.
+Save / Publish, save the Scene and export with the runtime kit packaged with this
+editor. No project C++ module is required. The plane follows each emitter and
+does not use Scene colliders. Graph motion, camera-aligned quads and ribbon trails
+cannot be combined with this response. See [plane collision](../../../manual/editor/particles.md#plane-collision).
+
 ## Particle plane collision
 
 Open **Scenes/246-particle-plane-collision.scene.json** and press Play. Two tinted

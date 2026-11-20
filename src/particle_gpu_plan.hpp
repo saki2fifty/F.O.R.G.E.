@@ -31,6 +31,13 @@ struct ParticleGpuOpacityValues {
 };
 void validate_particle_gpu_opacity_values(const ParticleGpuOpacityValues&);
 ParticleGpuOpacityValues prepare_particle_gpu_opacity_values(const ParticleEffectData&);
+// Private built-in motion input; no change to authored-program reflection.
+struct alignas(16) ParticleGpuCollisionValues {
+    ParticleGpuRow plane{0, 1, 0, 0}, response{.5f, 0, 4, 0};
+};
+static_assert(sizeof(ParticleGpuCollisionValues) == 2 * 16);
+void validate_particle_gpu_collision_values(const ParticleGpuCollisionValues&);
+ParticleGpuCollisionValues prepare_particle_gpu_collision_values(const ParticleCollisionPlane&);
 // Separate view/appearance projection preserves the original evaluator and graph
 // program input layout. The camera comes from the shared admitted view owner.
 struct alignas(16) ParticleGpuBillboardValues {

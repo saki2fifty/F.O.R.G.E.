@@ -24,7 +24,8 @@ bool gpu_profile(std::string_view profile) {
            profile == "gpu_graph_weighted_billboard1" || profile == "gpu_weighted_opacity1" ||
            profile == "gpu_graph_weighted_opacity1" ||
            profile == "gpu_weighted_opacity_billboard1" ||
-           profile == "gpu_graph_weighted_opacity_billboard1";
+           profile == "gpu_graph_weighted_opacity_billboard1" || profile == "gpu_collision1" ||
+           profile == "gpu_weighted_collision1" || profile == "gpu_weighted_collision_opacity1";
 }
 bool graph_profile(std::string_view profile) {
     return profile == "gpu_graph1" || profile == "gpu_graph_billboard1" ||
@@ -33,6 +34,12 @@ bool graph_profile(std::string_view profile) {
            profile == "gpu_graph_weighted_opacity_billboard1";
 }
 const char* gpu_evaluation_profile(const nlohmann::json& document, bool graph) {
+    if (!graph && document.value("gpu_collision_enabled", false))
+        return document.value("gpu_weighted_enabled", false)
+                   ? (document.value("gpu_opacity_enabled", false)
+                          ? "gpu_weighted_collision_opacity1"
+                          : "gpu_weighted_collision1")
+                   : "gpu_collision1";
     if (document.value("gpu_weighted_enabled", false)) {
         if (document.value("gpu_opacity_enabled", false)) {
             if (document.value("gpu_billboard_enabled", false))
@@ -116,11 +123,11 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             stop.erase("id");
         }
     }
-    if (version > 12)
+    if (version > 13)
         throw std::runtime_error("Unknown Particle Effect source version");
     if (version < 4)
         return decode_particle_effect(values);
-    // Source4–12 retain settings while another evaluation backend is active.
+    // Source4–13 retain settings while another evaluation backend is active.
     // Only the active backend contributes runtime values and dependency edges.
     const auto profile = values.at("profile").get<std::string>();
     if (profile != "cpu_mesh2" && profile != "gpu_mesh1" && profile != "gpu_graph1" &&
@@ -135,8 +142,19 @@ ParticleEffectData ParticleEffectSource::compiled() const {
         !(version >= 12 &&
           (profile == "gpu_weighted_opacity1" || profile == "gpu_graph_weighted_opacity1" ||
            profile == "gpu_weighted_opacity_billboard1" ||
-           profile == "gpu_graph_weighted_opacity_billboard1")))
+           profile == "gpu_graph_weighted_opacity_billboard1")) &&
+        !(version >= 13 && (profile == "gpu_collision1" || profile == "gpu_weighted_collision1" ||
+                            profile == "gpu_weighted_collision_opacity1")))
         throw std::runtime_error("Unknown Particle Effect evaluation profile");
+    if (version >= 13) {
+        if (!values.at("gpu_collision_enabled").is_boolean() ||
+            (values.at("gpu_collision_enabled").get<bool>() &&
+             values.at("gpu_billboard_enabled").get<bool>()) ||
+            (gpu_profile(std::string_view(profile)) &&
+             profile != gpu_evaluation_profile(document, graph_profile(std::string_view(profile)))))
+            throw std::runtime_error("GPU particle plane enabled state/profile mismatch");
+        values.erase("gpu_collision_enabled");
+    }
     if (version >= 12) {
         if (!values.at("gpu_opacity_enabled").is_boolean() ||
             (gpu_profile(std::string_view(profile)) &&
@@ -156,7 +174,8 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             throw std::runtime_error("Particle collision enabled state must be boolean");
         (void)decode_particle_collision_plane(values.at("collision"));
         values.erase("collision_enabled");
-        if (profile != "cpu_collision1")
+        if (profile != "cpu_collision1" && profile != "gpu_collision1" &&
+            profile != "gpu_weighted_collision1" && profile != "gpu_weighted_collision_opacity1")
             values.erase("collision");
     }
     if (version >= 9) {
@@ -201,7 +220,8 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             profile != "cpu_collision1" && profile != "gpu_weighted_opacity1" &&
             profile != "gpu_graph_weighted_opacity1" &&
             profile != "gpu_weighted_opacity_billboard1" &&
-            profile != "gpu_graph_weighted_opacity_billboard1")
+            profile != "gpu_graph_weighted_opacity_billboard1" &&
+            profile != "gpu_weighted_collision_opacity1")
             for (const auto* field : {"opacity_start", "opacity_end", "opacity_curve"})
                 values.erase(field);
         if ((profile == "cpu_billboard1" || profile == "cpu_trail1" ||
@@ -221,6 +241,9 @@ ParticleEffectData ParticleEffectSource::compiled() const {
                             : profile == "cpu_billboard1"                  ? 7
                             : profile == "cpu_trail1"                      ? 10
                             : profile == "cpu_collision1"                  ? 11
+                            : profile == "gpu_collision1"                  ? 20
+                            : profile == "gpu_weighted_collision1"         ? 21
+                            : profile == "gpu_weighted_collision_opacity1" ? 22
                             : profile == "gpu_weighted_opacity1"           ? 16
                             : profile == "gpu_weighted_opacity_billboard1" ? 18
                             : profile == "gpu_weighted1"                   ? 12
@@ -343,6 +366,8 @@ void ParticleEffectSource::enable_gpu_billboards(bool enabled) {
     if (candidate.document.at("version").get<unsigned>() < 8)
         candidate.document["version"] = 8;
     candidate.document["gpu_billboard_enabled"] = enabled;
+    if (enabled && candidate.document.contains("gpu_collision_enabled"))
+        candidate.document["gpu_collision_enabled"] = false;
     if (enabled || gpu_profile(std::string_view(previous_profile)))
         candidate.document["profile"] = gpu_evaluation_profile(
             candidate.document, graph_profile(std::string_view(previous_profile)));
@@ -434,6 +459,36 @@ void ParticleEffectSource::set_collision(bool enabled,
     candidate.document["collision"] = encode_particle_collision_plane(*plane);
     if (enabled || cpu_alpha_profile(std::string_view(previous_profile)))
         candidate.document["profile"] = cpu_alpha_profile(candidate.document);
+    candidate.validate();
+    document = std::move(candidate.document);
+}
+void ParticleEffectSource::set_gpu_collision(bool enabled,
+                                             std::optional<ParticleCollisionPlane> plane) {
+    if (plane)
+        validate_particle_collision_plane(*plane);
+    if (!enabled && !plane && !document.contains("gpu_collision_enabled")) {
+        validate();
+        return;
+    }
+    auto candidate = *this;
+    candidate.promote();
+    if (candidate.document.at("version").get<unsigned>() < 10)
+        candidate.set_collision(false, plane.value_or(ParticleCollisionPlane{}));
+    const auto previous = candidate.document.at("profile").get<std::string>();
+    if (!plane)
+        plane = decode_particle_collision_plane(candidate.document.at("collision"));
+    if (candidate.document.at("version").get<unsigned>() < 11)
+        candidate.document["gpu_weighted_enabled"] = false;
+    if (candidate.document.at("version").get<unsigned>() < 12)
+        candidate.document["gpu_opacity_enabled"] = false;
+    candidate.document["version"] = 13;
+    candidate.document["gpu_collision_enabled"] = enabled;
+    candidate.document["collision"] = encode_particle_collision_plane(*plane);
+    if (enabled)
+        candidate.document["gpu_billboard_enabled"] = false;
+    if (enabled || gpu_profile(std::string_view(previous)))
+        candidate.document["profile"] = gpu_evaluation_profile(
+            candidate.document, !enabled && graph_profile(std::string_view(previous)));
     candidate.validate();
     document = std::move(candidate.document);
 }
@@ -551,7 +606,7 @@ ParticleEffectData decode_cooked_particle_effect(std::span<const std::byte> byte
             cooked.at("values").contains("extensions"))
             throw std::runtime_error("Particle cooked envelope has unsupported fields");
         const auto data = decode_particle_effect(cooked.at("values"));
-        if (data.version < 2 || data.version > 19)
+        if (data.version < 2 || data.version > 22)
             throw std::runtime_error("Particle cooked envelope has an unsupported value profile");
         return data;
     }

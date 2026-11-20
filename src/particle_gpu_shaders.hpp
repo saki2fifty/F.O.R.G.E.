@@ -1,6 +1,7 @@
 #pragma once
+#include <string>
 namespace forge {
-inline constexpr const char* particle_gpu_compute = R"(
+inline constexpr const char* particle_gpu_kernel_prefix = R"(
 cbuffer ParticleValues {
     uint4 Births;uint4 Modes;
     float4 Timing,Axis,Side,Up,Acceleration,Shape,Sizes,Tint;
@@ -72,10 +73,13 @@ float3 ForgeParticleColor(float u){
             alpha=(1-exp(-x))/Timing.w;beta=(age-alpha)/Timing.w;
         }
     }
-    float3 position=origin+initial*alpha+Acceleration.xyz*beta;
+)";
+inline constexpr const char* particle_gpu_plain_motion =
+    R"(    float3 position=origin+initial*alpha+Acceleration.xyz*beta;
     float u=saturate(age/Timing.z),size=ForgeParticleSize(u)*Acceleration.w;
     float3 color=ForgeParticleColor(u)*Tint.xyz;
-#ifdef FORGE_PARTICLE_GRAPH
+)";
+inline constexpr const char* particle_gpu_kernel_suffix = R"(#ifdef FORGE_PARTICLE_GRAPH
     ForgeParticleGraphInput input;
     input.Position=position;input.Velocity=initial*exp(-x)+Acceleration.xyz*alpha;
     input.Origin=origin;input.Age=age;input.Age01=u;
@@ -99,6 +103,12 @@ float3 ForgeParticleColor(float u){
     ParticleRows[row+6u]=float4(color,1);
 }
 )";
+// Canonical legacy program bytes are retained while motion variants share births,
+// lifetime appearance, transforms and the immutable 47-row input/7-row output.
+inline const std::string particle_gpu_compute_text = std::string(particle_gpu_kernel_prefix) +
+                                                     particle_gpu_plain_motion +
+                                                     particle_gpu_kernel_suffix;
+inline const char* const particle_gpu_compute = particle_gpu_compute_text.c_str();
 // Project the existing device rows in place after analytic or authored evaluation.
 // The original evaluator's constants and RNG remain unchanged.
 inline constexpr const char* particle_gpu_billboard_compute = R"(

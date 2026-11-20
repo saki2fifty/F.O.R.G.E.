@@ -555,6 +555,54 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
     require(editor.document()->source().document == before_weighted,
             "GPU opacity controls failed to restore exact original source history");
 
+    choose("particles:evaluation", 1);
+    click("particles:collision");
+    frame();
+    require(editor.document()->source().compiled().version == 20 &&
+                editor.document()->source().document.at("gpu_collision_enabled").get<bool>() &&
+                test::ui_targets.at("particles:mesh").enabled &&
+                !test::ui_targets.at("particles:billboards").enabled,
+            "Native GPU plane control did not select built-in Mesh motion");
+    number("particles:collision-normal", "3");
+    number("particles:collision-offset", "-1.5");
+    number("particles:collision-radius", "0.125");
+    number("particles:collision-restitution", "0.5");
+    number("particles:collision-friction", "0.25");
+    number("particles:collision-bounces", "2");
+    const ParticleCollisionPlane gpu_plane{{3, 1, 0}, -1.5, .125, .5, .25, 2};
+    require(editor.document()->source().compiled().collision == gpu_plane,
+            "Native GPU plane controls failed to commit shared typed values");
+    const auto tuned_gpu_plane = editor.document()->source().document;
+    number("particles:collision-bounces", "17");
+    require(editor.document()->source().document == tuned_gpu_plane && !editor.diagnostic().empty(),
+            "Rejected native GPU rebound count changed source");
+    click("particles:collision");
+    require(editor.document()->source().compiled().version == 3 &&
+                editor.document()->source().document.at("collision") ==
+                    tuned_gpu_plane.at("collision"),
+            "GPU plane disable lost shared settings or selected CPU evaluation");
+    click("particles:undo");
+    require(editor.document()->source().document == tuned_gpu_plane,
+            "Native GPU plane Undo lost exact source identity");
+    click("particles:gpu-weighted");
+    require(editor.document()->source().compiled().version == 21,
+            "Native weighted selection lost active GPU plane motion");
+    click("particles:opacity");
+    require(editor.document()->source().compiled().version == 22,
+            "Native lifetime opacity lost active GPU plane motion");
+    const auto fading_gpu_plane = editor.document()->source().document;
+    choose("particles:evaluation", 2);
+    require(editor.document()->source().compiled().version == 17 &&
+                !editor.document()->source().compiled().collision,
+            "Graph selection incorrectly applied analytic plane motion");
+    choose("particles:evaluation", 1);
+    require(editor.document()->source().document == fading_gpu_plane,
+            "GPU/Graph round trip lost retained plane and appearance settings");
+    for (unsigned i = 0; i < 32 && editor.document()->source().document != before_weighted; ++i)
+        editor.undo();
+    require(editor.document()->source().document == before_weighted,
+            "Native GPU plane edits did not restore exact prior source/history");
+
     click("particles:undo");
     // Keep the original lifecycle/close checks applicable, including start-size editing.
     for (unsigned i = 0; i < 32 && editor.document()->source().document != before_extended; ++i)

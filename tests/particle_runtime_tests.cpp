@@ -82,6 +82,44 @@ void gpu_packet_admission() {
         {0, .1, false}, {.5, .2, false}, {std::nextafter(.5, 1.), .3, false}, {1, .1, false}};
     reject([&] { (void)prepare_particle_gpu_values(collapsed, .5, 17, world, camera); });
 }
+void gpu_collision_packet_admission() {
+    ParticleCollisionPlane source{{0, 2, 0}, 2, .25, .75, .5, 16};
+    const auto before = source;
+    const auto values = prepare_particle_gpu_collision_values(source);
+    require(source == before && values.plane == ParticleGpuRow{0, 1, 0, 2.25f} &&
+                values.response == ParticleGpuRow{.75f, .5f, 16, 0},
+            "GPU plane packing changed source values or lost normalized metric response");
+    validate_particle_gpu_collision_values(values);
+    for (unsigned row = 0; row < 2; ++row)
+        for (unsigned lane = 0; lane < 4; ++lane) {
+            auto invalid = values;
+            (row ? invalid.response : invalid.plane)[lane] =
+                std::numeric_limits<float>::quiet_NaN();
+            reject([&] { validate_particle_gpu_collision_values(invalid); });
+        }
+    for (unsigned kind = 0; kind < 8; ++kind) {
+        auto invalid = values;
+        if (kind == 0)
+            invalid.plane = {};
+        if (kind == 1)
+            invalid.plane[1] = 2;
+        if (kind == 2)
+            invalid.plane[3] = 1001001;
+        if (kind == 3)
+            invalid.response[0] = -1;
+        if (kind == 4)
+            invalid.response[1] = 1.01f;
+        if (kind == 5)
+            invalid.response[2] = 16.5f;
+        if (kind == 6)
+            invalid.response[2] = 17;
+        if (kind == 7)
+            invalid.response[3] = 1;
+        reject([&] { validate_particle_gpu_collision_values(invalid); });
+    }
+    source.normal = {};
+    reject([&] { (void)prepare_particle_gpu_collision_values(source); });
+}
 void gpu_opacity_packet_admission() {
     ParticleGpuOpacityValues values;
     validate_particle_gpu_opacity_values(values);
@@ -494,6 +532,7 @@ int main(int argc, char** argv) {
         gpu_packet_admission();
         gpu_billboard_packet_admission();
         gpu_opacity_packet_admission();
+        gpu_collision_packet_admission();
         affine_and_envelope();
         graph_envelope();
         gpu_graph_billboard_envelope();

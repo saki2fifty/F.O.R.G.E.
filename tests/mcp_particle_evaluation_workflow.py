@@ -434,4 +434,80 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     assert content(owner) == fading_gpu
     assert edit('forge_asset_document_close', owner)['ok']
 
+    collision_tool = next(t for t in tools if t['name'] == 'forge_asset_document_particle_collision')
+    assert collision_tool['inputSchema']['properties']['backend']['enum'] == ['cpu', 'gpu']
+    assert collision_tool['inputSchema']['properties']['backend']['default'] == 'cpu'
+    assert 'gpu_collision1' in catalog['collision'] and 'runtime_particle_gpu_collision1' in catalog['collision']
+    assert mutate('forge_asset_document_open', editor=owner, path=collision_path)['ok']
+    before = status(owner)
+    assert edit('forge_asset_document_particle_collision', owner, backend='gpu', enabled=False)['ok']
+    assert content(owner) == collision_source and status(owner)['revision'] == before['revision']
+    assert edit('forge_asset_document_particle_collision', owner, backend='gpu', enabled=True)['ok']
+    gpu_plane = dict(collision_source, version=13, profile='gpu_collision1',
+                     gpu_collision_enabled=True, gpu_weighted_enabled=False, gpu_opacity_enabled=False)
+    assert content(owner) == gpu_plane
+    failed(mutate('forge_asset_document_particle_collision', editor=owner, backend='gpu',
+                  enabled=False, document_session=before['session'],
+                  document_revision=before['revision']), 'stale_document')
+    failed(mutate('forge_asset_document_particle_collision', editor=owner, backend='gpu',
+                  enabled=False, document_session=before['session'] + 1000,
+                  document_revision=status(owner)['revision']), 'wrong_document')
+    revision = status(owner)['revision']
+    assert edit('forge_asset_document_particle_collision', owner, backend='gpu', enabled=True)['ok']
+    assert status(owner)['revision'] == revision
+    for invalid in ('automatic', '', None, 1, True):
+        assert not edit('forge_asset_document_particle_collision', owner, backend=invalid, enabled=True)['ok']
+        assert content(owner) == gpu_plane and status(owner)['revision'] == revision
+    for invalid in (dict(plane, normal=[0, 0, 0]), dict(plane, bounce_limit=17),
+                    dict(plane, radius=-1), dict(plane, friction=True), dict(plane, future=True)):
+        assert not edit('forge_asset_document_particle_collision', owner, backend='gpu',
+                        enabled=True, collision=invalid)['ok']
+        assert content(owner) == gpu_plane and status(owner)['revision'] == revision
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == collision_source
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == gpu_plane
+    for evaluation, profile in (('cpu', 'cpu_mesh2'), ('cpu_alpha', 'cpu_collision1'), ('gpu', 'gpu_collision1')):
+        assert edit('forge_asset_document_particle_evaluation', owner, evaluation=evaluation)['ok']
+        assert content(owner) == dict(gpu_plane, profile=profile)
+    assert edit('forge_asset_document_particle_collision', owner, enabled=False)['ok']
+    assert content(owner) == dict(gpu_plane, collision_enabled=False)
+    assert edit('forge_asset_document_particle_collision', owner, enabled=True)['ok']
+    assert content(owner) == dict(gpu_plane, profile='cpu_collision1')
+    assert edit('forge_asset_document_particle_evaluation', owner, evaluation='gpu')['ok']
+    assert content(owner) == gpu_plane
+    settled = save()
+    metadata = read('forge_asset_read', asset=settled['asset'])['metadata']['forge.particle_effect']
+    assert metadata['version'] == 3 and metadata['value_version'] == 20
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=collision_path)['ok']
+    assert content(owner) == gpu_plane
+    assert edit('forge_asset_document_patch', owner, patch=[
+        dict(op='replace', path='/material', value=material)])['ok']
+    assert edit('forge_asset_document_particle_gpu_weighted', owner, enabled=True)['ok']
+    weighted_plane = dict(gpu_plane, material=material, profile='gpu_weighted_collision1',
+                          gpu_weighted_enabled=True)
+    assert content(owner) == weighted_plane
+    settled = save()
+    metadata = read('forge_asset_read', asset=settled['asset'])['metadata']['forge.particle_effect']
+    assert metadata['value_version'] == 21
+    assert edit('forge_asset_document_particle_opacity', owner, backend='gpu', enabled=True)['ok']
+    fading_plane = dict(weighted_plane, profile='gpu_weighted_collision_opacity1', gpu_opacity_enabled=True)
+    assert content(owner) == fading_plane
+    assert edit('forge_asset_document_particle_billboards', owner, backend='gpu', enabled=True)['ok']
+    assert content(owner) == dict(fading_plane, profile='gpu_weighted_opacity_billboard1',
+                                  gpu_collision_enabled=False, gpu_billboard_enabled=True)
+    assert edit('forge_asset_document_particle_collision', owner, backend='gpu', enabled=True)['ok']
+    assert content(owner) == fading_plane
+    assert edit('forge_asset_document_particle_collision', owner, backend='gpu', enabled=False)['ok']
+    assert content(owner) == dict(fading_plane, profile='gpu_weighted_opacity1', gpu_collision_enabled=False)
+    assert edit('forge_asset_document_particle_collision', owner, backend='gpu', enabled=True)['ok']
+    assert content(owner) == fading_plane
+    settled = save()
+    metadata = read('forge_asset_read', asset=settled['asset'])['metadata']['forge.particle_effect']
+    assert metadata['version'] == 3 and metadata['value_version'] == 22
+    assert json.loads((root / 'Game' / collision_path).read_text()) == fading_plane
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=collision_path)['ok']
+    assert content(owner) == fading_plane
+    assert edit('forge_asset_document_close', owner)['ok']
+
     check_particle_graph(read, mutate, edit, status, content, failed, root)

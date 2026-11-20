@@ -261,15 +261,28 @@ class ParticleEffectEditor {
                     "They also control visibility bounds. Nonfinite outputs use bounded analytic "
                     "values.");
             }
-            bool collision = document_->source().document.value("collision_enabled", false);
-            if (ImGui::Checkbox("Plane collision (CPU mesh)", &collision))
+            const bool gpu_collision = particle_uses_gpu(data);
+            bool collision = document_->source().document.value(
+                gpu_collision ? "gpu_collision_enabled" : "collision_enabled", false);
+            if (ImGui::Checkbox(gpu_collision ? "Plane collision (GPU mesh)"
+                                              : "Plane collision (CPU mesh)",
+                                &collision))
                 mutate("Set particle plane collision", [&](auto& value) {
                     ParticleEffectSource candidate{value};
-                    candidate.set_collision(collision);
+                    if (gpu_collision)
+                        candidate.set_gpu_collision(collision);
+                    else
+                        candidate.set_collision(collision);
                     value = std::move(candidate.document);
                 });
             FORGE_UI_PROBE("particles:collision");
-            ui::help("Enabling selects CPU (sorted alpha) Mesh particles. The infinite plane is "
+            ui::help(gpu_collision
+                         ? "Enabling selects built-in GPU Mesh motion and disables camera-aligned "
+                           "quads. Graph selection is retained but inactive. Weighted alpha and "
+                           "GPU opacity can be combined with collision. GPU float contact times "
+                           "may differ from CPU results; killed births reserve degenerate rows."
+                         : "Enabling selects CPU (sorted alpha) Mesh particles.");
+            ui::help("The infinite plane is "
                      "emitter-local and follows its current transform. Radius is independent of "
                      "visual size. Restitution sets normal rebound; friction removes tangent "
                      "velocity per contact. After the permitted bounces the next incoming "
@@ -305,7 +318,10 @@ class ParticleEffectEditor {
                 if (submit)
                     mutate("Edit particle plane collision", [&](auto& value) {
                         ParticleEffectSource candidate{value};
-                        candidate.set_collision(true, plane);
+                        if (gpu_collision)
+                            candidate.set_gpu_collision(true, plane);
+                        else
+                            candidate.set_collision(true, plane);
                         value = std::move(candidate.document);
                     });
                 ImGui::EndDisabled();

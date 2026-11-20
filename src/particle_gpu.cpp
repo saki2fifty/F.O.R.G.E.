@@ -2,6 +2,7 @@
 #include "Graphics/GraphicsEngine/interface/BufferView.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "mesh_instance_layout.hpp"
+#include "particle_gpu_collision_shaders.hpp"
 #include "particle_gpu_shaders.hpp"
 #include <cmath>
 #include <optional>
@@ -14,6 +15,13 @@ ParticleGpuInstances::ParticleGpuInstances(DiligentPresentation& presentation, u
     : presentation_(presentation), capacity_(capacity) {
     if (capacity < 1 || capacity > 1024)
         throw std::runtime_error("GPU particle capacity must be in [1,1024]");
+}
+ParticleGpuInstances::ParticleGpuInstances(DiligentPresentation& presentation, unsigned capacity,
+                                           ParticleGpuMotion motion)
+    : ParticleGpuInstances(presentation, capacity) {
+    if (motion != ParticleGpuMotion::FreeFlight && motion != ParticleGpuMotion::PlaneCollision)
+        throw std::runtime_error("Unknown GPU particle motion profile");
+    motion_ = motion;
 }
 ParticleGpuInstances::ParticleGpuInstances(DiligentPresentation& presentation, unsigned capacity,
                                            IShader* graph, const ParticleGpuGraphLimits& limits)
@@ -38,7 +46,9 @@ void ParticleGpuInstances::prepare() {
     shader.EntryPoint = "main";
     shader.Desc.Name = "FORGE GPU analytic particle instances";
     shader.Desc.ShaderType = SHADER_TYPE_COMPUTE;
-    shader.Source = particle_gpu_compute;
+    shader.Source = motion_ == ParticleGpuMotion::PlaneCollision
+                        ? particle_gpu_plane_compute_source().c_str()
+                        : particle_gpu_compute;
     shader.Macros = {macros, 1};
     RefCntAutoPtr<IShader> native = graph_program_;
     if (!native)
@@ -96,6 +106,23 @@ void ParticleGpuInstances::prepare() {
         variable->Set(graph_values);
         graph_values_ = std::move(graph_values);
     }
+    if (motion_ == ParticleGpuMotion::PlaneCollision) {
+        auto* variable = binding->GetVariableByName(SHADER_TYPE_COMPUTE, "PlaneCollisionValues");
+        if (!variable)
+            throw std::runtime_error("GPU particle plane binding unavailable");
+        BufferDesc collision_desc;
+        collision_desc.Name = "FORGE GPU particle plane response";
+        collision_desc.Size = sizeof(ParticleGpuCollisionValues);
+        collision_desc.Usage = USAGE_DYNAMIC;
+        collision_desc.BindFlags = BIND_UNIFORM_BUFFER;
+        collision_desc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        RefCntAutoPtr<IBuffer> collision_values;
+        presentation_.device()->CreateBuffer(collision_desc, nullptr, &collision_values);
+        if (!collision_values)
+            throw std::runtime_error("GPU particle plane buffer unavailable");
+        variable->Set(collision_values);
+        collision_values_ = std::move(collision_values);
+    }
     pipeline_ = std::move(pipeline);
     binding_ = std::move(binding);
     values_ = std::move(values);
@@ -149,13 +176,26 @@ void ParticleGpuInstances::prepare_billboards() {
 }
 void ParticleGpuInstances::evaluate(IDeviceContext* context, const ParticleGpuValues& values,
                                     const CameraView* billboard_view, bool material_tint_only,
-                                    const ParticleGpuOpacityValues* opacity) {
+                                    const ParticleGpuOpacityValues* opacity,
+                                    const ParticleGpuCollisionValues* collision) {
     count_ = 0;
     if (!context || !supported())
         throw std::runtime_error("GPU particle evaluation requires enabled compute support");
     if (values.births[0] > capacity_ || values.modes[0] > 3 || values.modes[1] > 16 ||
         values.modes[2] > 16 || values.modes[1] == 1 || values.modes[2] == 1)
         throw std::runtime_error("GPU particle input exceeds its bounded compute profile");
+    if (bool(collision) != (motion_ == ParticleGpuMotion::PlaneCollision))
+        throw std::runtime_error(
+            "GPU particle plane data requires its explicit built-in motion mode");
+    if (collision) {
+        validate_particle_gpu_collision_values(*collision);
+        if (!std::isfinite(values.timing[0]) || values.timing[0] < 0 ||
+            (values.births[0] && values.timing[0] > 30) || !std::isfinite(values.timing[1]) ||
+            values.timing[1] < 0 || !std::isfinite(values.timing[3]) || values.timing[3] < 0 ||
+            values.timing[3] > 64)
+            throw std::runtime_error(
+                "GPU particle plane motion requires finite short ages and drag");
+    }
     if (graph_program_)
         validate_particle_gpu_graph_envelope(values, graph_limits_);
     std::optional<ParticleGpuBillboardValues> alignment;
@@ -194,6 +234,13 @@ void ParticleGpuInstances::evaluate(IDeviceContext* context, const ParticleGpuVa
         if (!static_cast<ParticleGpuValues*>(mapped))
             throw std::runtime_error("GPU particle parameter upload unavailable");
         mapped[0] = values;
+    }
+    if (collision) {
+        MapHelper<ParticleGpuCollisionValues> mapped(context, collision_values_, MAP_WRITE,
+                                                     MAP_FLAG_DISCARD);
+        if (!static_cast<ParticleGpuCollisionValues*>(mapped))
+            throw std::runtime_error("GPU particle plane upload unavailable");
+        mapped[0] = *collision;
     }
     context->SetRenderTargets(0, nullptr, nullptr, RESOURCE_STATE_TRANSITION_MODE_NONE);
     context->SetPipelineState(pipeline_);

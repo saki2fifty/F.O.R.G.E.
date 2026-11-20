@@ -102,6 +102,16 @@ constexpr Example graph_fading{"Scenes/250-gpu-graph-particle-opacity.scene.json
                                false,
                                true,
                                true};
+constexpr Example gpu_colliding{"Scenes/251-gpu-particle-plane-collision.scene.json",
+                                "Assets/Particles/Collision/DeviceBounces.particles.json",
+                                true,
+                                false,
+                                true,
+                                false,
+                                false,
+                                true,
+                                true,
+                                true};
 constexpr const char* trail_material = "Assets/Particles/Trails/Ribbon.material.json";
 constexpr const char* alpha_material = "Assets/Particles/Alpha/Glass.material.json";
 constexpr const char* quad_material = "Assets/Particles/Billboards/SoftCloud.material.json";
@@ -109,22 +119,26 @@ constexpr const char* quad_texture = "Assets/Particles/Billboards/SoftCloud.pain
 constexpr const char* gpu_quad_material = "Assets/Particles/Billboards/DeviceCloud.material.json";
 constexpr const char* graph_effect = "Assets/Particles/Graphs/OrbitFountain.particles.json";
 const char* material_source(const Example& example) {
-    return example.weighted     ? quad_material
+    return example.collision    ? alpha_material
+           : example.weighted   ? quad_material
            : example.trails     ? trail_material
            : example.gpu        ? gpu_quad_material
            : example.billboards ? quad_material
                                 : alpha_material;
 }
 unsigned value_version(const Example& example) {
-    return example.gpu_opacity  ? (example.graph ? 19u : 18u)
-           : example.weighted   ? (example.graph ? 15u : 14u)
-           : example.collision  ? 11u
-           : example.trails     ? 10u
-           : example.graph      ? 9u
-           : example.gpu        ? 8u
-           : example.billboards ? 7u
-           : example.opacity    ? 6u
-                                : 5u;
+    return example.gpu && example.collision ? (example.gpu_opacity ? 22u
+                                               : example.weighted  ? 21u
+                                                                   : 20u)
+           : example.gpu_opacity            ? (example.graph ? 19u : 18u)
+           : example.weighted               ? (example.graph ? 15u : 14u)
+           : example.collision              ? 11u
+           : example.trails                 ? 10u
+           : example.graph                  ? 9u
+           : example.gpu                    ? 8u
+           : example.billboards             ? 7u
+           : example.opacity                ? 6u
+                                            : 5u;
 }
 void check(bool value, const std::string& why) {
     if (!value)
@@ -249,7 +263,11 @@ void author(const std::filesystem::path& root, const Example& example) {
         effect.document["drag"] = .1;
         effect.document["size_start"] = .12;
         effect.document["size_end"] = .06;
-        effect.set_collision(true, ParticleCollisionPlane{{0, 1, 0}, -1, .06, .65, .15, 2});
+        const ParticleCollisionPlane plane{{0, 1, 0}, -1, .06, .65, .15, 2};
+        if (example.gpu)
+            effect.set_gpu_collision(true, plane);
+        else
+            effect.set_collision(true, plane);
     }
     if (example.graph) {
         const auto retained = ParticleEffectSource::parse(
@@ -257,7 +275,7 @@ void author(const std::filesystem::path& root, const Example& example) {
         check(bool(retained.graph_program()), "Graph camera example requires its retained program");
         effect.set_graph_program(*retained.graph_program(), true);
     }
-    if (example.gpu)
+    if (example.gpu && !example.collision)
         effect.enable_gpu_billboards(true);
     else if (example.billboards)
         effect.enable_billboards(true);
@@ -358,7 +376,7 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
                   particle_instance_capacity(effect.compiled()) == 1024,
               "Trail example lost joined geometry, retained Mesh, settings or segment reservation");
     if (example.collision)
-        check(effect.document.at("version") == 10 &&
+        check(effect.document.at("version").get<unsigned>() == (example.gpu ? 13u : 10u) &&
                   effect.compiled().collision ==
                       ParticleCollisionPlane{{0, 1, 0}, -1, .06, .65, .15, 2} &&
                   effect.compiled().mesh == engine_primitive(0),
@@ -379,7 +397,9 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
           "Sorted-alpha example lost its native Scene consumers");
     if (example.weighted)
         check(render.settings.weighted_transparency &&
-                  effect.document.at("version") == (example.gpu_opacity ? 12 : 11) &&
+                  effect.document.at("version").get<unsigned>() == (example.collision     ? 13u
+                                                                    : example.gpu_opacity ? 12u
+                                                                                          : 11u) &&
                   effect.document.at("gpu_weighted_enabled") == true,
               "Weighted Gallery source lost explicit effect or Scene admission");
     if (example.gpu_opacity)
@@ -515,7 +535,13 @@ void verify_export(const std::filesystem::path& root, const Example& example,
                           opacity.stops[1][0] == float(.15) && opacity.stops[1][1] == 1,
                       "Source-hidden GPU World lost its shared lifetime appearance packet");
             }
-            check(refused && emitter.time == 3 && values.births[0] == 96,
+            if (example.collision) {
+                const auto plane = prepare_particle_gpu_collision_values(*selected->collision);
+                check(plane.plane == ParticleGpuRow{0, 1, 0, float(-.94)} && plane.response[2] == 2,
+                      "Source-hidden GPU World lost its emitter-local plane packet");
+            }
+            check(refused && emitter.time == 3 &&
+                      values.births[0] == (example.collision ? 72u : 96u),
                   "Source-free GPU World lost its fixed-clock device window or substituted CPU");
             continue;
         }
@@ -555,7 +581,13 @@ int main(int argc, char** argv) {
         check(argc >= 3, "Need sorted-alpha Gallery action and project root");
         const auto root = std::filesystem::absolute(argv[2]);
         const std::string_view action = argv[1];
-        if (action == "--author-gpu-opacity" || action == "--author-gpu-graph-opacity")
+        if (action == "--author-gpu-collision")
+            author(root, gpu_colliding);
+        else if (action == "--inspect-gpu-collision")
+            (void)inspect(root, gpu_colliding);
+        else if (action == "--prepare-gpu-collision")
+            prepare(root, gpu_colliding);
+        else if (action == "--author-gpu-opacity" || action == "--author-gpu-graph-opacity")
             author(root, action == "--author-gpu-opacity" ? gpu_fading : graph_fading);
         else if (action == "--inspect-gpu-opacity" || action == "--inspect-gpu-graph-opacity")
             (void)inspect(root, action == "--inspect-gpu-opacity" ? gpu_fading : graph_fading);
@@ -612,6 +644,8 @@ int main(int argc, char** argv) {
                 prepare(root, ribbons);
             if (std::filesystem::exists(root / colliding.effect))
                 prepare(root, colliding, false);
+            if (std::filesystem::exists(root / gpu_colliding.effect))
+                prepare(root, gpu_colliding, false);
             bool texture_prepared = false;
             for (const auto& example : {quads, gpu_quads, graph_quads, weighted_quads,
                                         weighted_graph_quads, gpu_fading, graph_fading}) {
@@ -646,7 +680,8 @@ int main(int argc, char** argv) {
                    action == "--verify-export-weighted" ||
                    action == "--verify-export-weighted-graph" ||
                    action == "--verify-export-gpu-opacity" ||
-                   action == "--verify-export-gpu-graph-opacity") {
+                   action == "--verify-export-gpu-graph-opacity" ||
+                   action == "--verify-export-gpu-collision") {
             const bool gpu = action == "--verify-export-gpu-opacity" ||
                              action == "--verify-export-gpu-graph-opacity" ||
                              action == "--verify-export-weighted" ||
@@ -661,7 +696,8 @@ int main(int argc, char** argv) {
             std::filesystem::create_directories(copy.parent_path());
             std::filesystem::copy(root, copy, std::filesystem::copy_options::recursive);
             verify_export(copy,
-                          action == "--verify-export-gpu-opacity"            ? gpu_fading
+                          action == "--verify-export-gpu-collision"          ? gpu_colliding
+                          : action == "--verify-export-gpu-opacity"          ? gpu_fading
                           : action == "--verify-export-gpu-graph-opacity"    ? graph_fading
                           : action == "--verify-export-weighted"             ? weighted_quads
                           : action == "--verify-export-weighted-graph"       ? weighted_graph_quads

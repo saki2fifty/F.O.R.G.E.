@@ -511,12 +511,13 @@ struct AssetDocumentAutomation {
                         const bool weighted = action == "particle_gpu_weighted";
                         const bool toggle =
                             opacity || billboards || trails || collision || weighted;
-                        const auto backend = opacity || billboards
+                        const auto backend = opacity || billboards || collision
                                                  ? request.value("backend", std::string("cpu"))
                                                  : std::string{};
-                        if ((opacity || billboards) && backend != "cpu" && backend != "gpu")
+                        if ((opacity || billboards || collision) && backend != "cpu" &&
+                            backend != "gpu")
                             throw AuthoringError("invalid_argument",
-                                                 "Choose cpu or gpu appearance backend");
+                                                 "Choose cpu or gpu particle backend");
                         const auto evaluation =
                             toggle ? std::string{} : request.at("evaluation").get<std::string>();
                         if (!toggle && evaluation != "cpu" && evaluation != "gpu" &&
@@ -540,7 +541,12 @@ struct AssetDocumentAutomation {
                                     if (request.contains("collision"))
                                         plane = decode_particle_collision_plane(
                                             request.at("collision"));
-                                    source.set_collision(request.at("enabled").get<bool>(), plane);
+                                    if (backend == "gpu")
+                                        source.set_gpu_collision(request.at("enabled").get<bool>(),
+                                                                 plane);
+                                    else
+                                        source.set_collision(request.at("enabled").get<bool>(),
+                                                             plane);
                                 } else if (trails) {
                                     std::optional<ParticleTrailSettings> settings;
                                     if (request.contains("trail"))

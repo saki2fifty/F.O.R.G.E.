@@ -1,4 +1,5 @@
 #include "particle_gpu_plan.hpp"
+#include "particle_motion.hpp"
 #include "particle_render_instances.hpp"
 #include <algorithm>
 #include <cmath>
@@ -33,6 +34,28 @@ template <class Stops> void gpu_times(const Stops& stops) {
     }
 }
 } // namespace
+void validate_particle_gpu_collision_values(const ParticleGpuCollisionValues& values) {
+    const auto& n = values.plane;
+    const auto& response = values.response;
+    const double length = std::hypot(double(n[0]), double(n[1]), double(n[2]));
+    if (!std::isfinite(length) || std::abs(length - 1) > 2e-6 || !std::isfinite(n[3]) ||
+        std::abs(n[3]) > 1001000 || !std::isfinite(response[0]) || response[0] < 0 ||
+        response[0] > 1 || !std::isfinite(response[1]) || response[1] < 0 || response[1] > 1 ||
+        !std::isfinite(response[2]) || response[2] < 0 || response[2] > 16 ||
+        std::floor(response[2]) != response[2] || response[3] != 0)
+        throw std::runtime_error("GPU particle plane response exceeds its bounded motion profile");
+}
+ParticleGpuCollisionValues
+prepare_particle_gpu_collision_values(const ParticleCollisionPlane& source) {
+    const auto plane = prepare_particle_collision_plane(source);
+    ParticleGpuCollisionValues result;
+    for (unsigned i = 0; i < 3; ++i)
+        result.plane[i] = gpu(plane.normal[i]);
+    result.plane[3] = gpu(plane.offset + plane.radius);
+    result.response = {gpu(plane.restitution), gpu(plane.friction), float(plane.bounce_limit), 0};
+    validate_particle_gpu_collision_values(result);
+    return result;
+}
 void validate_particle_gpu_opacity_values(const ParticleGpuOpacityValues& values) {
     const auto unit = [](float value) { return std::isfinite(value) && value >= 0 && value <= 1; };
     if (values.count > values.stops.size() || values.count == 1 || !unit(values.endpoints[0]) ||

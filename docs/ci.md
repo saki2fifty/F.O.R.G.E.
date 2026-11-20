@@ -3759,6 +3759,10 @@ semantics and inactive CPU precision. `particle_runtime` validates the private
 opacity projection packet; `standalone_manifest` rejects missing/malformed typed
 GPU opacity capability. Native Effect controls and MCP exercise the same owner,
 revisions, grants, no-op/history, publication metadata and reopen.
+The native source-test fixture has a finite20-minute watchdog so instrumented
+workflows can finish. Parent case deadlines remain independent; the client still
+requests graceful stop-file shutdown and requires the actual native exit0 and
+clean diagnostics. This fixture lifetime does not change production bridge limits.
 
 `particle_gpu_opacity_vulkan` checks160 weighted frames against independently
 evaluated factors, with actual GPU rows, texture/Material alpha, zero/full factors,
@@ -3775,3 +3779,36 @@ is registered separately in shader acceptance; source inspection is not executio
 Gallery249 at three seconds on software Vulkan/llvmpipe. Local capture receipts
 retain build/source/test/image provenance. The image has no editor chrome; physical
 hardware, Windows and full editor visual acceptance remain separate.
+
+## GPU analytic particle plane collision acceptance
+
+`particle_weighted_source` covers source13/value20–22 admission, shared plane
+settings, independent CPU/GPU activation, inactive CPU precision, codecs, profile
+transitions and atomic rejection. `standalone_manifest` checks strict typed
+effect/GPU/collision support, requiring weighted/opacity only for the selected
+profile. Native `particle_effect_editor` drives actual controls, invalid settings,
+Graph switching and exact source Undo. `mcp_particle_evaluation_stdio` checks both
+envelopes, discovery/backend defaults, grant ownership, revision/session guards,
+no-op/history, source publication metadata and reopen through the same owner.
+
+`particle_gpu_collision_vulkan` compares3,024 surface/tangent/asymptote/contact
+cases against the existing CPU motion reference over an explicit float-time
+interval. It also checks1,152 runtime-owner cases/304,596 birth rows across all
+four shapes, oblique planes, drag, response/rebound settings,65/1,024-capacity
+windows and backward/repeated/expired queries. Original birth/appearance rows,
+finite killed geometry, fail-closed counts and recovery remain assertions.
+`particle_gpu_vulkan` retains the original free-flight numeric/row contract.
+The plane boundary/runtime proof is shared by the Vulkan probe and registered
+native Windows `editor_render_particle-gpu-plane-numeric` case; no separate
+backend-specific contact oracle is maintained. Local Vulkan execution does not
+establish the Windows case's result.
+
+Gallery251 source inspection, publication and source-hidden relocation are
+registered as `particle_gpu_collision_gallery` and its `_export` check. Production
+Game drawing is registered as `particle_gpu_collision_gallery_game` on Windows
+and `_game_vulkan` for software Vulkan. Both use the shared runtime render owner.
+The canonical `manual/images/gpu-particle-plane-collision.png` is the unmodified
+640×360 capture at three seconds from the latter check, with editable sources
+hidden and content relocated. Capture provenance and original image hash are
+recorded locally. It shows Game output without editor chrome; Windows and physical
+GPU acceptance are separate from the software-device result.

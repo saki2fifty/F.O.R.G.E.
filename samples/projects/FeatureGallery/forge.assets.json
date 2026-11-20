@@ -12930,6 +12930,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "85a3842a-d392-433f-a757-9b26a15153fd",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/251-gpu-particle-plane-collision.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "86349f74-d462-47b1-91dd-257707503c90",
       "metadata": {
         "forge.import": {
@@ -22601,6 +22611,16 @@
       "source": "Assets/UI/MaterialEffects/Still.material.json",
       "source_dependencies": [],
       "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "fca49dd4-0619-4ac5-8387-72213266914e",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Collision/DeviceBounces.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],

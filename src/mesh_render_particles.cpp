@@ -199,7 +199,9 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                             host_->presentation_, data.capacity, native, limits);
                     } else
                         source->second.gpu = std::make_unique<ParticleGpuInstances>(
-                            host_->presentation_, data.capacity);
+                            host_->presentation_, data.capacity,
+                            particle_uses_collision(data) ? ParticleGpuMotion::PlaneCollision
+                                                          : ParticleGpuMotion::FreeFlight);
                 }
                 bytes += each;
                 // One proxy retains the admitted material/pose. Births, motion,
