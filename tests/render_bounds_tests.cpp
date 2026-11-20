@@ -275,6 +275,15 @@ int main() {
         const auto first = EntityId::parse("00000000-0000-4000-8000-000000000001");
         const auto second = EntityId::parse("00000000-0000-4000-8000-000000000002");
         RenderSortKey opaque, mask, near, far, tied;
+        RenderSortKey trail_first, trail_next;
+        trail_first.particle = trail_next.particle = true;
+        trail_first.birth = trail_next.birth = 71;
+        trail_next.segment = 1;
+        check(render_key_less(trail_first, trail_next) && !render_key_less(trail_next, trail_first),
+              "Particle segment tie lost its genuine birth ordering");
+        trail_first.birth = 72;
+        check(render_key_less(trail_next, trail_first),
+              "Particle segment tie replaced genuine birth identity");
         opaque.entity = second;
         mask.alpha = MaterialAlpha::Mask;
         near.alpha = far.alpha = tied.alpha = MaterialAlpha::Blend;

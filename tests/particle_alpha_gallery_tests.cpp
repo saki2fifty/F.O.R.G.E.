@@ -7,6 +7,7 @@
 #include "particle_effect_authoring.hpp"
 #include "particle_effect_resource.hpp"
 #include "particle_gpu_plan.hpp"
+#include "particle_path.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_package.hpp"
 #include "texture_authoring.hpp"
@@ -28,6 +29,7 @@ struct Example {
     bool billboards = false;
     bool gpu = false;
     bool graph = false;
+    bool trails = false;
 };
 constexpr Example alpha{"Scenes/240-sorted-alpha-particles.scene.json",
                         "Assets/Particles/Alpha/GlassCloud.particles.json", false};
@@ -44,16 +46,28 @@ constexpr Example graph_quads{"Scenes/244-gpu-graph-camera-particles.scene.json"
                               true,
                               true,
                               true};
+constexpr Example ribbons{"Scenes/245-analytic-particle-trails.scene.json",
+                          "Assets/Particles/Trails/RibbonFlow.particles.json",
+                          true,
+                          false,
+                          false,
+                          false,
+                          true};
+constexpr const char* trail_material = "Assets/Particles/Trails/Ribbon.material.json";
 constexpr const char* alpha_material = "Assets/Particles/Alpha/Glass.material.json";
 constexpr const char* quad_material = "Assets/Particles/Billboards/SoftCloud.material.json";
 constexpr const char* quad_texture = "Assets/Particles/Billboards/SoftCloud.paint-texture.json";
 constexpr const char* gpu_quad_material = "Assets/Particles/Billboards/DeviceCloud.material.json";
 constexpr const char* graph_effect = "Assets/Particles/Graphs/OrbitFountain.particles.json";
 const char* material_source(const Example& example) {
-    return example.gpu ? gpu_quad_material : example.billboards ? quad_material : alpha_material;
+    return example.trails       ? trail_material
+           : example.gpu        ? gpu_quad_material
+           : example.billboards ? quad_material
+                                : alpha_material;
 }
 unsigned value_version(const Example& example) {
-    return example.graph        ? 9u
+    return example.trails       ? 10u
+           : example.graph      ? 9u
            : example.gpu        ? 8u
            : example.billboards ? 7u
            : example.opacity    ? 6u
@@ -76,7 +90,8 @@ RuntimePackageTarget target() {
 }
 void author(const std::filesystem::path& root, const Example& example) {
     const auto* material_path = material_source(example);
-    const bool reuse_material = example.graph || (example.opacity && !example.billboards);
+    const bool reuse_material =
+        example.graph || (example.opacity && !example.billboards && !example.trails);
     for (const auto* path : {example.scene, example.effect})
         check(!std::filesystem::exists(root / path), "Sorted-alpha Gallery source already exists");
     check(reuse_material == std::filesystem::exists(root / material_path),
@@ -90,6 +105,8 @@ void author(const std::filesystem::path& root, const Example& example) {
         overrides["alpha"] = unsigned(example.gpu ? MaterialAlpha::Mask : MaterialAlpha::Blend);
         overrides["depth_test"] = true;
         overrides["depth_write"] = example.gpu;
+        if (example.trails)
+            overrides["double_sided"] = true;
         overrides["parameters"]["baseColorFactor"] = {
             {"type", unsigned(MaterialParameterType::LinearColor4)}, {"value", {1, 1, 1, .4}}};
         if (example.billboards) {
@@ -154,6 +171,20 @@ void author(const std::filesystem::path& root, const Example& example) {
         effect.insert_lifetime_stop(ParticleLifetimeChannel::Opacity, .15);
         effect.document["opacity_curve"][1]["value"] = 1;
     }
+    if (example.trails) {
+        effect.document["spawn_rate"] = 8;
+        effect.document["lifetime"] = 2.5;
+        effect.document["shape"] = "disc";
+        effect.document["shape_radius"] = .2;
+        effect.document["cone_angle"] = 35;
+        effect.document["speed_min"] = 3;
+        effect.document["speed_max"] = 4;
+        effect.document["acceleration"] = {0, -3.2, 1.2};
+        effect.document["drag"] = .15;
+        effect.document["size_start"] = .16;
+        effect.document["size_end"] = .03;
+        effect.set_trails(true, ParticleTrailSettings{.75, 8});
+    }
     if (example.graph) {
         const auto retained = ParticleEffectSource::parse(
             asset_detail::read_bytes(root / graph_effect, particle_effect_byte_limit));
@@ -185,7 +216,8 @@ void author(const std::filesystem::path& root, const Example& example) {
         entity.set<Primitive>({no_primitive});
         return entity;
     };
-    auto teal = actor(example.gpu       ? "Teal camera quads - shared device effect"
+    auto teal = actor(example.trails    ? "Teal analytic ribbon trails"
+                      : example.gpu     ? "Teal camera quads - shared device effect"
                       : example.opacity ? "Teal fade - shared opacity effect"
                                         : "Teal glass - shared sorted-alpha effect");
     teal.set<LocalTranslation>({-.7f, 1, .5f});
@@ -197,7 +229,8 @@ void author(const std::filesystem::path& root, const Example& example) {
     teal.set<ParticleEmitter>(emitter);
     if (example.billboards)
         teal.set<LocalScale>({1.4f, 1, 0});
-    auto amber = actor(example.gpu       ? "Amber camera quads - shared device effect"
+    auto amber = actor(example.trails    ? "Amber analytic ribbon trails"
+                       : example.gpu     ? "Amber camera quads - shared device effect"
                        : example.opacity ? "Amber fade - shared opacity effect"
                                          : "Amber glass - shared sorted-alpha effect");
     amber.set<LocalTranslation>({.7f, 1, -.5f});
@@ -240,6 +273,13 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
               effect.compiled().material.id == material.asset() &&
               bool(effect.compiled().program) == example.graph && effect.compiled().capacity == 128,
           "Particle example lost its evaluation profile or shared Material");
+    if (example.trails)
+        check(resolved.values.double_sided && effect.document.at("version") == 9 &&
+                  effect.document.at("mesh").get<AssetRef<MeshAsset>>() == engine_primitive(0) &&
+                  effect.compiled().mesh == engine_primitive(8) &&
+                  effect.compiled().trail == ParticleTrailSettings{.75, 8} &&
+                  particle_instance_capacity(effect.compiled()) == 1024,
+              "Trail example lost joined geometry, retained Mesh, settings or segment reservation");
     if (example.opacity)
         check(effect.compiled().opacity_curve.size() == 3 &&
                   effect.compiled().opacity_curve[0].value == 0 &&
@@ -292,8 +332,12 @@ void prepare(const std::filesystem::path& root, const Example& example,
     auto lease = std::make_shared<ProjectLease>(root);
     if (example.billboards && publish_texture) {
         check(!worker.empty(), "Textured camera-plane publication requires its asset worker");
+#ifdef FORGE_GALLERY_TEXTURE_COOK
         AssetImportService textures(lease, texture_import_registry(worker), import);
         test::publish_gallery_asset(textures, quad_texture, prepare_texture_publication);
+#else
+        throw std::runtime_error("Textured Gallery publication requires asset tools");
+#endif
     }
     AssetImportService materials(lease, material_import_registry(), import);
     if (publish_material)
@@ -375,8 +419,16 @@ void verify_export(const std::filesystem::path& root, const Example& example,
             continue;
         }
         const auto samples = particles->sample(scene.entity(emitter.entity.str()).id(), 1);
-        check(emitter.time == 3 && samples.size() == 96,
+        check(emitter.time == 3 && samples.size() == (example.trails ? 20u : 96u),
               "Source-free alpha emitter lost fixed-clock CPU birth membership");
+        if (example.trails) {
+            const auto paths =
+                sample_particle_paths(selected.get(), emitter.time, emitter.emitter.seed,
+                                      selected->trail->duration, selected->trail->segments);
+            check(paths.paths.size() == 23 && paths.segment_count() <= 1024 &&
+                      paths.paths.front().birth < samples.front().birth,
+                  "Source-free World lost shrinking tails or original live-head membership");
+        }
         if (example.opacity) {
             const auto [minimum, maximum] = std::minmax_element(
                 samples.begin(), samples.end(),
@@ -396,7 +448,13 @@ int main(int argc, char** argv) {
         check(argc >= 3, "Need sorted-alpha Gallery action and project root");
         const auto root = std::filesystem::absolute(argv[2]);
         const std::string_view action = argv[1];
-        if (action == "--author-gpu-billboards" || action == "--author-gpu-graph-billboards")
+        if (action == "--author-trails")
+            author(root, ribbons);
+        else if (action == "--inspect-trails")
+            (void)inspect(root, ribbons);
+        else if (action == "--prepare-trails")
+            prepare(root, ribbons);
+        else if (action == "--author-gpu-billboards" || action == "--author-gpu-graph-billboards")
             author(root, action == "--author-gpu-billboards" ? gpu_quads : graph_quads);
         else if (action == "--inspect-gpu-billboards" || action == "--inspect-gpu-graph-billboards")
             (void)inspect(root, action == "--inspect-gpu-billboards" ? gpu_quads : graph_quads);
@@ -420,6 +478,8 @@ int main(int argc, char** argv) {
             prepare(root, alpha);
             if (std::filesystem::exists(root / fading.effect))
                 prepare(root, fading, false);
+            if (std::filesystem::exists(root / ribbons.effect))
+                prepare(root, ribbons);
             bool texture_prepared = false;
             for (const auto& example : {quads, gpu_quads, graph_quads}) {
 #ifndef _WIN32
@@ -447,7 +507,8 @@ int main(int argc, char** argv) {
         } else if (action == "--verify-export" || action == "--verify-export-opacity" ||
                    action == "--verify-export-billboards" ||
                    action == "--verify-export-gpu-billboards" ||
-                   action == "--verify-export-gpu-graph-billboards") {
+                   action == "--verify-export-gpu-graph-billboards" ||
+                   action == "--verify-export-trails") {
             const bool gpu = action == "--verify-export-gpu-billboards" ||
                              action == "--verify-export-gpu-graph-billboards";
             const bool billboards = action == "--verify-export-billboards" || gpu;
@@ -458,11 +519,12 @@ int main(int argc, char** argv) {
             std::filesystem::create_directories(copy.parent_path());
             std::filesystem::copy(root, copy, std::filesystem::copy_options::recursive);
             verify_export(copy,
-                          action == "--verify-export-gpu-graph-billboards" ? graph_quads
-                          : gpu                                            ? gpu_quads
-                          : billboards                                     ? quads
-                          : action == "--verify-export"                    ? alpha
-                                                                           : fading,
+                          action == "--verify-export-trails"                 ? ribbons
+                          : action == "--verify-export-gpu-graph-billboards" ? graph_quads
+                          : gpu                                              ? gpu_quads
+                          : billboards                                       ? quads
+                          : action == "--verify-export"                      ? alpha
+                                                                             : fading,
                           billboards ? std::filesystem::absolute(argv[4])
                                      : std::filesystem::path{});
         } else

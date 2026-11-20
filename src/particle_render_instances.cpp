@@ -34,12 +34,16 @@ void validate_particle_material_profile(const MaterialResourceData& material,
             "Shader surfaces");
     if (!particle_uses_sorted_alpha(effect) && material.values.alpha == MaterialAlpha::Blend)
         throw std::runtime_error("Blend particle materials require CPU (sorted alpha) evaluation");
+    if (particle_uses_trails(effect) && !material.values.double_sided)
+        throw std::runtime_error("Particle trails require a double-sided Material");
     const bool identity_opacity =
         effect.opacity_curve.empty()
             ? effect.opacity_start == 1 && effect.opacity_end == 1
             : std::all_of(effect.opacity_curve.begin(), effect.opacity_curve.end(),
                           [](const auto& stop) { return stop.value == 1; });
-    if ((effect.version == 6 || (particle_uses_billboards(effect) && !identity_opacity)) &&
+    if ((effect.version == 6 ||
+         ((particle_uses_billboards(effect) || particle_uses_trails(effect)) &&
+          !identity_opacity)) &&
         material.values.alpha != MaterialAlpha::Blend)
         throw std::runtime_error("Particle opacity requires a CPU sorted-alpha Blend Material");
     if (material.values.alpha == MaterialAlpha::Blend &&
@@ -91,7 +95,7 @@ RenderBounds particle_effect_bounds(const ParticleEffectData& data, const MeshBo
                                                                       : data.shape_radius;
         const auto position_reach = data.program ? data.program->extent[axis] : origin + travel;
         const auto reach =
-            position_reach + (particle_uses_billboards(data)
+            position_reach + ((particle_uses_billboards(data) || particle_uses_trails(data))
                                   ? 0
                                   : size * std::max(std::abs(double(mesh.minimum[axis])),
                                                     std::abs(double(mesh.maximum[axis]))));
@@ -104,10 +108,11 @@ RenderBounds particle_effect_bounds(const ParticleEffectData& data, const MeshBo
             std::nextafter(float(reach), std::numeric_limits<float>::infinity());
     }
     auto result = transform_bounds(envelope, world);
-    if (particle_uses_billboards(data)) {
+    if (particle_uses_billboards(data) || particle_uses_trails(data)) {
         const double width = std::hypot(world.m[0], world.m[4], world.m[8]);
         const double height = std::hypot(world.m[1], world.m[5], world.m[9]);
-        const double radius = .5 * size * std::hypot(width, height);
+        const double radius =
+            .5 * size * (particle_uses_trails(data) ? width : std::hypot(width, height));
         if (!std::isfinite(radius))
             throw std::runtime_error("Camera-aligned particle bounds exceed finite world range");
         for (unsigned axis = 0; axis < 3; ++axis) {

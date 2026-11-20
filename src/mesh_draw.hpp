@@ -17,6 +17,7 @@
 #include <forge/render_view.hpp>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
+struct MeshRibbonValues;
 // Diligent prepared draw. The caller owns scene extraction, typed resource
 // leases, sorting, target/pass composition and publication of complete candidates.
 // No source parser, entity registry or second material interpretation lives here.
@@ -33,6 +34,7 @@ class MeshDraw {
         // RGB modulation without the legacy blockout light on built-in Unlit.
         bool material_tint_only = false;
         std::optional<float> opacity = std::nullopt; // CPU6; multiply Material/vertex alpha.
+        const MeshRibbonValues* ribbon = nullptr;    // Borrowed only until draw returns.
     };
     // Borrowed only for this submission. The renderer retains the realization;
     // bytes already contain the base static mesh's seven-row instance layout.
@@ -159,6 +161,7 @@ class MeshDraw {
     bool area_lights_{};
     bool sprite_{}, sprite_trim_allowed_{}, sprite_mips_{};
     bool wind_{};
+    bool ribbon_allowed_{};
     std::string sprite_image_variable_;
     bool lights_active_{};
     float volume_thickness_{};

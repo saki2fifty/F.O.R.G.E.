@@ -1,5 +1,6 @@
 #include "mesh_render_host.hpp"
 #include "particle_render_instances.hpp"
+#include "particle_ribbon.hpp"
 #include "shader_runtime_backend.hpp"
 #include <algorithm>
 #include <set>
@@ -77,9 +78,10 @@ std::vector<RenderMesh> MeshSceneRenderer::prepare_particle_sources(const Render
                             source.effect_ticket.inspect().source_generation == emitter.generation,
                         "Particle runtime and presentation selections differ; restart Play");
             }
-            require(data->capacity <= particle_scene_capacity - capacity,
+            const auto reserved = particle_instance_capacity(*data);
+            require(reserved <= particle_scene_capacity - capacity,
                     "Scene exceeds the 8192 reserved particle-instance budget");
-            capacity += data->capacity;
+            capacity += reserved;
             if (!source.mesh_ticket)
                 source.mesh_ticket = asset_detail::request_model_mesh(
                     host_->meshes_, host_->project_, host_->catalog_, data->mesh);
@@ -117,6 +119,10 @@ std::vector<RenderMesh> MeshSceneRenderer::prepare_particle_sources(const Render
 void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
     particle_instances_.clear();
     particle_bounds_.clear();
+    for (auto& [entity, source] : particle_sources_) {
+        (void)entity;
+        source.paths = {}; // Old frame samples must not become retained pose history.
+    }
     constexpr std::uint64_t byte_limit = 8 * 1024 * 1024;
     std::uint64_t bytes = 0;
     for (const auto& emitter : scene.particles) {
@@ -151,6 +157,29 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                 each += slot.slot.capacity();
             if (particle_uses_billboards(data))
                 each += sizeof(AffineTransform); // Reserved view-local aligned matrix.
+            if (particle_uses_trails(data)) {
+                const auto& trail = *data.trail;
+                auto paths = sample_particle_paths(data, emitter.time, emitter.emitter.seed,
+                                                   trail.duration, trail.segments);
+                // Charge source samples and all view-local geometry records. The
+                // existing per-instance allowance also covers composition/sort work.
+                const auto retained = paths.paths.capacity() * sizeof(ParticlePathRange) +
+                                      paths.points.capacity() * sizeof(ParticleSample);
+                require(retained <= byte_limit - bytes,
+                        "Particle paths exceed the 8 MiB frame budget");
+                each += sizeof(ParticleRibbonSegment);
+                require(paths.segment_count() <= (byte_limit - bytes - retained) / each,
+                        "Particle trail segments exceed the 8 MiB frame budget");
+                bytes += retained + paths.segment_count() * each;
+                source->second.paths = std::move(paths);
+                source->second.trail_size = emitter.emitter.size_multiplier;
+                source->second.trail_tint = {emitter.emitter.tint_r, emitter.emitter.tint_g,
+                                             emitter.emitter.tint_b};
+                // Keep one admitted resource/pose proxy; each view derives its
+                // own connected edges through the ordinary append/sort owner.
+                particle_instances_.emplace_back(std::move(draw), *entry->second.pose);
+                continue;
+            }
             if (particle_uses_gpu(data)) {
                 require(each <= byte_limit - bytes,
                         "Particle instance CPU payload exceeds the 8 MiB frame budget");

@@ -10,6 +10,7 @@ for name in ('fixture', 'gallery', 'renderer', 'scratch'):
     parser.add_argument(name, type=Path)
 parser.add_argument('--vulkan', action='store_true')
 parser.add_argument('--opacity', action='store_true')
+parser.add_argument('--trails', action='store_true')
 parser.add_argument('--billboards', action='store_true')
 parser.add_argument('--gpu-billboards', action='store_true')
 parser.add_argument('--gpu-graph-billboards', action='store_true')
@@ -21,7 +22,8 @@ fixture, gallery, renderer, scratch = (getattr(arguments, name).resolve()
 scratch.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as temporary:
     billboards = arguments.billboards or arguments.gpu_billboards or arguments.gpu_graph_billboards
-    action = ('--verify-export-gpu-graph-billboards' if arguments.gpu_graph_billboards else
+    action = ('--verify-export-trails' if arguments.trails else
+              '--verify-export-gpu-graph-billboards' if arguments.gpu_graph_billboards else
               '--verify-export-gpu-billboards' if arguments.gpu_billboards else
               '--verify-export-billboards' if arguments.billboards else
               '--verify-export-opacity' if arguments.opacity else '--verify-export')
@@ -40,7 +42,9 @@ with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as tempo
     assert len(content) == 1, content
     mode = (('--opacity-gallery' if arguments.opacity else '--alpha-gallery') if arguments.vulkan
             else ('particle-opacity-gallery' if arguments.opacity else 'particle-alpha-gallery'))
-    if arguments.gpu_graph_billboards:
+    if arguments.trails:
+        mode = '--trail-gallery' if arguments.vulkan else 'particle-trail-gallery'
+    elif arguments.gpu_graph_billboards:
         mode = 'particle-gpu-graph-billboard-gallery'
     elif arguments.gpu_billboards:
         mode = '--gpu-billboard-gallery' if arguments.vulkan else 'particle-gpu-billboard-gallery'

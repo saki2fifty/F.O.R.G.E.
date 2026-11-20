@@ -5,6 +5,7 @@
 #include "mesh_draw_shader.hpp"
 #include "mesh_pick.hpp"
 #include "particle_render_instances.hpp"
+#include "particle_ribbon.hpp"
 #include "pbr_material.hpp"
 #include "render_projection.hpp"
 #include "render_sort.hpp"
@@ -1262,6 +1263,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         std::vector<MeshDraw::LightImage> images{};
         ParticleGpuInstances* gpu = nullptr;
         bool material_tint_only = false;
+        const MeshRibbonValues* ribbon = nullptr;
     };
     struct Item {
         RenderSortKey key;
@@ -1271,6 +1273,15 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     std::vector<Object> objects;
     std::vector<Item> queue;
     std::vector<AffineTransform> particle_view_worlds;
+    std::vector<ParticleRibbonSegment> particle_view_ribbons;
+    std::size_t ribbon_count = 0;
+    for (const auto& [mesh, pose] : particle_instances_) {
+        (void)pose;
+        const auto& source = particle_sources_.at(mesh.entity);
+        if (particle_uses_trails(*source.data()))
+            ribbon_count += source.paths.segment_count();
+    }
+    particle_view_ribbons.reserve(ribbon_count);
     const auto billboard_count = std::count_if(
         particle_instances_.begin(), particle_instances_.end(), [&](const auto& instance) {
             return particle_uses_billboards(*particle_sources_.at(instance.first.entity).data());
@@ -1293,7 +1304,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             throw DrawCapacityError("Mesh specialization draw-part budget exceeded");
     };
     auto append = [&](const RenderMesh& mesh, DrawScope draw_scope,
-                      const MeshInstancePose* instance_pose = nullptr) {
+                      const MeshInstancePose* instance_pose = nullptr,
+                      const ParticleRibbonSegment* ribbon = nullptr) {
         if (!mesh.renderer.visible || !(mesh.renderer.layers & layers))
             return;
         const auto found = entries_.find({mesh.entity, draw_scope});
@@ -1308,13 +1320,14 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             auto* gpu = draw_scope == DrawScope::Particle
                             ? particle_sources_.at(mesh.entity).gpu.get()
                             : nullptr;
-            const AffineTransform* aligned_world = nullptr;
+            const AffineTransform* aligned_world = ribbon ? &ribbon->world : nullptr;
             if (draw_scope == DrawScope::Particle &&
                 particle_uses_billboards(*particle_sources_.at(mesh.entity).data())) {
                 particle_view_worlds.push_back(particle_billboard_world(pose.world, camera));
                 aligned_world = &particle_view_worlds.back();
             }
-            auto bounds = mesh_instance_bounds(pose, camera.position, aligned_world);
+            auto bounds = ribbon ? ribbon->bounds
+                                 : mesh_instance_bounds(pose, camera.position, aligned_world);
             if (gpu) {
                 const auto found_bounds =
                     std::find_if(particle_bounds_.begin(), particle_bounds_.end(),
@@ -1350,6 +1363,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 object.pose = nullptr;
             object.scope = draw_scope;
             object.gpu = gpu;
+            object.ribbon = ribbon ? &ribbon->vertices : nullptr;
             object.material_tint_only =
                 draw_scope == DrawScope::Particle &&
                 particle_uses_sorted_alpha(*particle_sources_.at(mesh.entity).data());
@@ -1434,7 +1448,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             for (unsigned i = 0; i < parts.size(); ++i) {
                 const auto& part = parts[i];
                 const auto part_bounds =
-                    gpu ? bounds : mesh_part_bounds(pose, lod, i, camera.position, aligned_world);
+                    (gpu || ribbon)
+                        ? bounds
+                        : mesh_part_bounds(pose, lod, i, camera.position, aligned_world);
                 if (!bounds_visible(part_bounds, camera))
                     continue;
                 if (object.area_lights) {
@@ -1452,7 +1468,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                                   mesh.entity,
                                   i,
                                   mesh.particle_source,
-                                  mesh.birth};
+                                  ribbon ? ribbon->birth : mesh.birth};
+                if (ribbon)
+                    key.segment = ribbon->segment;
                 if (object.sprite) {
                     key.order = entry.sprite->admitted.order;
                     key.sprite = true;
@@ -1468,8 +1486,23 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     };
     for (const auto& mesh : scene.meshes)
         append(mesh, scope(mesh));
-    for (const auto& [mesh, pose] : particle_instances_)
-        append(mesh, DrawScope::Particle, &pose);
+    for (const auto& [mesh, pose] : particle_instances_) {
+        const auto& source = particle_sources_.at(mesh.entity);
+        if (!particle_uses_trails(*source.data())) {
+            append(mesh, DrawScope::Particle, &pose);
+            continue;
+        }
+        try {
+            auto segments = particle_ribbon_segments(source.paths, mesh.world, camera,
+                                                     source.trail_size, source.trail_tint);
+            for (auto& segment : segments) {
+                particle_view_ribbons.push_back(std::move(segment));
+                append(mesh, DrawScope::Particle, &pose, &particle_view_ribbons.back());
+            }
+        } catch (const std::exception& error) {
+            report(mesh.entity, error.what(), DrawScope::Particle);
+        }
+    }
     for (const auto& mesh : sprites_)
         append(mesh, DrawScope::Sprite);
     tile_worlds_.clear();
@@ -2013,7 +2046,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 object.pose ? &object.pose->wind : nullptr,
                 previous ? &object.previous_pose->wind : nullptr,
                 object.material_tint_only,
-                object.mesh->particle_opacity};
+                object.mesh->particle_opacity,
+                object.ribbon};
     };
     const auto motion_for = [&](const Object& object, unsigned part) {
         MeshDraw::Motion motion;

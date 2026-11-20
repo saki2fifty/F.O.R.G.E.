@@ -8448,7 +8448,7 @@
           "artifact_digest": "7cdb56fd5a3a1f434d3d01557006b20fee47cecd068bc9fafe614e095966db8b",
           "backend": "none",
           "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
-        "generation": 1,
+          "generation": 1,
           "importer": "forge.texture.paint",
           "importer_revision": "918e8d8bdd55d74bc30a622dd929539bde19e65138897b5597f0b002f524e269",
           "key": "86ce38eef0d1ce77e564df5b5b6d2b2c2ea67e3d3076f2bccf3e5b3e68a5922e",
@@ -14549,6 +14549,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "9b5ec5c7-bb2a-49c1-9787-426e3d0a1443",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Trails/RibbonFlow.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "9c91c46a-2d17-4e81-a7d3-18343e332d1d",
       "metadata": {},
       "schema_version": 3,
@@ -17682,6 +17692,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "c1e91b21-cf9c-4e6c-8b8a-942b87ed46cd",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/245-analytic-particle-trails.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "c1f8a540-e0f5-49d5-9366-173126bb22ac",
       "metadata": {},
       "schema_version": 3,
@@ -18487,6 +18507,16 @@
       "source": "Scenes/216-camera-transition-curves.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "cf76fa6f-73ff-419b-8543-7ad92205016d",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Trails/Ribbon.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [],

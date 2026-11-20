@@ -217,6 +217,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         surface ? mesh_vertex_fetch(mesh, surface->program.surface->uv_sets, enable_skin, temporal_)
                 : mesh_vertex_fetch(mesh, *profile, enable_skin, temporal_);
     fetch.wind = wind_;
+    ribbon_allowed_ = source.double_sided && !surface && !sprite_ && !wind_ && !temporal_ &&
+                      !shadow_pass_ && !fetch.skin && !fetch.morph_count && fetch.triangles;
 
     const auto sampler_binding = emulated_resource_arrays(presentation.device()->GetDeviceInfo())
                                      ? MaterialSamplerBinding::NamedElements
@@ -1579,6 +1581,39 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                         "invalid sorted-alpha instance opacity");
                 // Static basis uses XYZ; flag3 alone admits opacity in this spare W lane.
                 output[3][3] = *item.opacity;
+            }
+            if (item.ribbon) {
+                require(ribbon_allowed_ && rows == mesh_static_instance_rows &&
+                            item.material_tint_only && !item.opacity && !item.legacy_tint,
+                        "Ribbon instances require a double-sided built-in static color draw "
+                        "with endpoint-owned appearance");
+                const auto& value = *item.ribbon;
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    output[0][axis] = gpu(value.first[axis] - view.position[axis]);
+                    output[1][axis] = gpu(value.last[axis] - view.position[axis]);
+                    output[3][axis] = gpu(value.first_side[axis]);
+                    output[4][axis] = gpu(value.last_side[axis]);
+                    output[5][axis] = gpu(value.normal[axis]);
+                    for (unsigned end = 0; end < 2; ++end) {
+                        require(std::isfinite(value.color[end][axis]) &&
+                                    value.color[end][axis] >= 0 && value.color[end][axis] <= 1,
+                                "Ribbon endpoint color is invalid");
+                        for (float side : {-.5f, .5f})
+                            require(std::isfinite(output[end][axis] + side * output[3 + end][axis]),
+                                    "Ribbon corner exceeds device float range");
+                    }
+                    output[2][axis] = value.color[0][axis];
+                    output[6][axis] = value.color[1][axis];
+                }
+                for (unsigned end = 0; end < 2; ++end) {
+                    require(std::isfinite(value.opacity[end]) && value.opacity[end] >= 0 &&
+                                value.opacity[end] <= 1 && std::isfinite(value.texture_v[end]) &&
+                                value.texture_v[end] >= 0 && value.texture_v[end] <= 1,
+                            "Ribbon endpoint opacity or texture coordinate is invalid");
+                    output[end][3] = value.opacity[end];
+                    output[3 + end][3] = gpu(value.texture_v[end]);
+                }
+                output[6][3] = 4;
             }
             if (wind_) {
                 require(item.wind && item.wind->enabled,

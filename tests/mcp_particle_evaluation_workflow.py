@@ -233,4 +233,50 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     assert content(owner) == dict(gpu_billboard, profile='cpu_mesh2')
     assert edit('forge_asset_document_close', owner, discard=True)['ok']
 
+    # Trails use the same source/history/publication owner as other evaluations.
+    trail_tool = next(t for t in tools if t['name'] == 'forge_asset_document_particle_trails')
+    assert trail_tool['inputSchema']['properties']['editor']['const'] == owner
+    assert 'cpu_trail1' in catalog['trails'] and 'runtime_particle_trail1' in catalog['trails']
+    trail_path = 'Assets/TrailEffect.particles.json'
+    assert mutate('forge_asset_document_create', editor=owner, path=trail_path)['ok']
+    original_trail = content(owner)
+    before = status(owner)
+    assert edit('forge_asset_document_particle_trails', owner, enabled=False)['ok']
+    assert content(owner) == original_trail and status(owner)['revision'] == before['revision']
+    settings = dict(duration=.75, segments=8)
+    assert edit('forge_asset_document_particle_trails', owner, enabled=True, trail=settings)['ok']
+    trail_source = content(owner)
+    assert trail_source['version'] == 9 and trail_source['profile'] == 'cpu_trail1'
+    assert trail_source['trail'] == settings and trail_source['mesh'] == original_trail['mesh']
+    assert trail_source['asset_id'] == original_trail['asset_id'] and trail_source['trail_enabled']
+    failed(mutate('forge_asset_document_particle_trails', editor=owner,
+                  document_session=before['session'], document_revision=before['revision'],
+                  enabled=False), 'stale_document')
+    revision = status(owner)['revision']
+    assert edit('forge_asset_document_particle_trails', owner, enabled=True)['ok']
+    assert status(owner)['revision'] == revision
+    for invalid in (dict(duration=0, segments=8), dict(duration=.5, segments=17),
+                    dict(duration=True, segments=8), dict(duration=.5, segments=1.5),
+                    dict(duration=.5), dict(duration=.5, segments=8, future=True)):
+        assert not edit('forge_asset_document_particle_trails', owner,
+                        enabled=True, trail=invalid)['ok']
+        assert content(owner) == trail_source and status(owner)['revision'] == revision
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == original_trail
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == trail_source
+    for evaluation, profile in (('gpu', 'gpu_mesh1'), ('cpu', 'cpu_mesh2'), ('cpu_alpha', 'cpu_trail1')):
+        assert edit('forge_asset_document_particle_evaluation', owner, evaluation=evaluation)['ok']
+        assert content(owner) == dict(trail_source, profile=profile)
+    assert edit('forge_asset_document_particle_trails', owner, enabled=False)['ok']
+    assert content(owner) == dict(trail_source, profile='cpu_alpha1', trail_enabled=False)
+    assert edit('forge_asset_document_particle_trails', owner, enabled=True)['ok']
+    assert content(owner) == trail_source
+    settled = save()
+    metadata = read('forge_asset_read', asset=settled['asset'])['metadata']['forge.particle_effect']
+    assert metadata['version'] == 3 and metadata['value_version'] == 10
+    assert json.loads((root / 'Game' / trail_path).read_text()) == trail_source
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=trail_path)['ok']
+    assert content(owner) == trail_source
+    assert edit('forge_asset_document_close', owner)['ok']
+
     check_particle_graph(read, mutate, edit, status, content, failed, root)

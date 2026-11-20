@@ -413,6 +413,34 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
     frame();
     require(editor.document()->source().document == alpha_profile,
             "Native opacity Undo did not restore the exact earlier alpha source");
+    click("particles:trails");
+    frame();
+    const auto trail_source = editor.document()->source().document;
+    require(editor.document()->source().compiled().version == 10 &&
+                !test::ui_targets.at("particles:mesh").enabled &&
+                !test::ui_targets.at("particles:billboards").enabled,
+            "Native trail control did not select its connected Quad geometry");
+    number("particles:trail-duration", "0.75");
+    number("particles:trail-segments", "12");
+    require(editor.document()->source().compiled().trail == ParticleTrailSettings{.75, 12},
+            "Native trail duration/segment inputs did not commit");
+    const auto tuned_trail = editor.document()->source().document;
+    number("particles:trail-segments", "17");
+    require(editor.document()->source().document == tuned_trail && !editor.diagnostic().empty(),
+            "Invalid native segment count changed source instead of reporting an error");
+    click("particles:trails");
+    frame();
+    require(editor.document()->source().compiled().version == 5 &&
+                editor.document()->source().document.at("trail") == tuned_trail.at("trail"),
+            "Disabling native trails lost retained settings or restored the wrong backend");
+    click("particles:undo");
+    require(editor.document()->source().document == tuned_trail,
+            "Native trail Undo lost source/history identity");
+    for (unsigned i = 0; i < 12 && editor.document()->source().document != alpha_profile; ++i)
+        editor.undo();
+    require(editor.document()->source().document == alpha_profile &&
+                trail_source.at("size_curve") == alpha_profile.at("size_curve"),
+            "Trail edits lost retained appearance or failed to restore earlier history");
     click("particles:undo");
     // Keep the original lifecycle/close checks applicable, including start-size editing.
     for (unsigned i = 0; i < 32 && editor.document()->source().document != before_extended; ++i)

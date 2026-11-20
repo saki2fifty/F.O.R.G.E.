@@ -102,6 +102,15 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "CPU/GPU alignment settings and original Mesh/program/opacity. GPU "
                  "alignment requires opaque/masked Material and "
                  "runtime_particle_gpu_billboard1 plus GPU1; graphs also need graph1."},
+                {"trails",
+                 "asset.document.particle_trails selects CPU analytic ribbons "
+                 "(values10/cpu_trail1). Optional trail={duration,segments} replaces settings; "
+                 "omission retains them. Source9 retains Mesh, backend flags, appearance and "
+                 "local stop identities. Duration0.001–30seconds, segments1–16; capacity includes "
+                 "heads plus dying tails, and capacity*segments must fit8192. Double-sided "
+                 "built-in Materials; nonidentity opacity needs sorted Blend. Current emitter "
+                 "transform applies to the whole local path. Requires runtime_particle_trail1, "
+                 "opacity1 and alpha1; no GPU trail or historical emitter-motion capture."},
                 {"limits",
                  {{"emitters", particle_emitter_limit},
                   {"effect_capacity", 1024},
@@ -775,10 +784,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                     return invoke(std::string("preview_") + action, request);
                 }));
         }
-    for (const auto* action : {"patch", "particle_evaluation", "particle_opacity",
-                               "particle_billboards", "particle_program", "paint", "tile_collision",
-                               "tile_animation", "tile_autotile", "stroke", "mesh_stroke", "fill",
-                               "copy_pixels", "cancel_pixels", "undo", "redo", "save", "close"}) {
+    for (const auto* action :
+         {"patch", "particle_evaluation", "particle_opacity", "particle_billboards",
+          "particle_trails", "particle_program", "paint", "tile_collision", "tile_animation",
+          "tile_autotile", "stroke", "mesh_stroke", "fill", "copy_pixels", "cancel_pixels", "undo",
+          "redo", "save", "close"}) {
         auto properties = fields;
         auto needed = required;
         if (std::string_view(action) == "patch") {
@@ -810,6 +820,14 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                     {"default", "cpu"},
                     {"description", "CPU preserves the existing default operation. GPU selects "
                                     "opaque/masked device alignment, preserving an active graph."}};
+        } else if (std::string_view(action) == "particle_trails") {
+            properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
+            properties["enabled"] = {{"type", "boolean"}};
+            properties["trail"] = automation_object(
+                {{"duration", {{"type", "number"}, {"minimum", .001}, {"maximum", 30}}},
+                 {"segments", automation_integer(1, 16)}},
+                {"duration", "segments"});
+            needed.push_back("enabled");
         } else if (std::string_view(action) == "particle_program") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
             properties["program"] = automation_object(

@@ -3626,3 +3626,29 @@ GPU quads require an opaque/masked built-in Material and effect3/GPU1 plus
 per-particle opacity remain CPU capabilities. The tool name and shared history/
 publication owners are unchanged. Both MCP formats exercise the explicit backend,
 source publication/reopen, invalid/stale/no-op guards and Undo/Redo.
+
+## Analytic particle trails through the source owner
+
+`asset.document.particle_trails` requires `asset.write`, `editor:"particle_effect"`,
+the current document session/revision and boolean `enabled`. Optional
+`trail:{"duration":0.75,"segments":8}` replaces both settings; omission retains them.
+Duration is0.001–30seconds and segments is an integer1–16. Enabling selects
+CPU values10/`cpu_trail1` through the same operation as the native **Analytic ribbon
+trails (CPU)** control. Source9 retains original Mesh/program/alignment/opacity and
+local stop identities. Backend changes retain inactive trail settings; a GPU edit
+does not downgrade Source9. Disabling absent trails without settings is a no-op.
+
+`asset.particles.catalog` exposes the profile, limits and kit requirements. MCP
+publishes `forge_asset_document_particle_trails` from the live method/schema;
+read-only clients do not receive it. Invalid fields, incomplete settings, stale
+session/revision, no-op, Undo/Redo, source publication and reopen use the existing
+source owner. Both MCP formats exercise these workflows. Save and await ordinary
+publication before Play/export; no parallel agent renderer or persistence exists.
+
+Trails use bounded emitter-local analytic samples with the current emitter affine.
+They do not capture historical emitter motion. Continuous capacity includes heads
+and dying tails; capacity times segments reserves Scene instances. Double-sided
+built-in Materials are required. Nonidentity opacity needs sorted Blend with depth
+testing and no depth writes. Values10 require effect3 and typed trail1/alpha1/opacity1
+runtime support; no GPU, graph or camera-plane capability is required. GPU trails
+and particle collision remain unsupported.

@@ -151,7 +151,23 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
         vs += "float4 position4=float4(v.Position,1);o.World=float3(dot(instance.R0,position4),"
               "dot(instance.R1,position4),dot(instance.R2,position4));";
         if (!sprite_profile)
-            vs += "basis=float3x3(instance.B0.xyz,instance.B1.xyz,instance.B2.xyz);\n";
+            vs += R"(
+    basis=float3x3(instance.B0.xyz,instance.B1.xyz,instance.B2.xyz);
+    if(instance.Tint.w==4) {
+        bool end=v.Position.y>0;
+        float3 endpoint=end?instance.R1.xyz:instance.R0.xyz;
+        float3 side=end?instance.B1.xyz:instance.B0.xyz;
+        // Select shared endpoint values directly: lerp's endpoint arithmetic
+        // need not retain identical bits across neighboring segments.
+        o.World=endpoint+side*v.Position.x;
+        float3 x=ForgeUnit(side);
+        float3 y=ForgeUnit((instance.R1.xyz-instance.R0.xyz)+
+                           v.Position.x*(instance.B1.xyz-instance.B0.xyz));
+        float3 z=ForgeUnit(cross(x,y));
+        if(!any(z!=0))z=-instance.B2.xyz;
+        basis=float3x3(float3(x.x,y.x,z.x),float3(x.y,y.y,z.y),float3(x.z,y.z,z.z));
+    }
+)";
     } else
         vs += "o.World=ForgePoint(v.Position);basis=float3x3(g_Object[3].xyz,g_Object[4].xyz,g_"
               "Object[5].xyz);\n";
@@ -191,7 +207,14 @@ previous=mul(float3x3(previousRows[0].xyz,previousRows[1].xyz,previousRows[2].xy
     if (!sprite_profile) {
         vs += instanced ? "o.LegacyTint=instance.Tint;\n" : "o.LegacyTint=g_Object[14];\n";
         if (instanced)
-            vs += "if(instance.Tint.w==3)o.Color.a*=instance.B0.w;\n";
+            vs += R"(
+    if(instance.Tint.w==3)o.Color.a*=instance.B0.w;
+    if(instance.Tint.w==4) {
+        bool end=v.Position.y>0;
+        o.Color.rgb*=end?instance.Tint.rgb:instance.R2.rgb;
+        o.Color.a*=end?instance.R1.w:instance.R0.w;
+    }
+)";
         if (fetch.wind)
             vs += R"(
     ForgeSurfaceFrame frame=ForgeMakeSurfaceFrame(basis,v.Normal,v.Tangent);
@@ -205,6 +228,8 @@ previous=mul(float3x3(previousRows[0].xyz,previousRows[1].xyz,previousRows[2].xy
  )";
     }
     vs += "[unroll]for(uint i=0;i<" + std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];";
+    if (instanced && !sprite_profile)
+        vs += "if(instance.Tint.w==4)o.UV[0].y=v.Position.y>0?instance.B1.w:instance.B0.w;";
     if (sprite_profile)
         vs += "float2 local=float2(v.UV[0].x,1-v.UV[0].y);"
               "if(instance.B2.x==0 && instance.B2.w!=0)local=local.yx;"
@@ -468,7 +493,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
             ps += "base.a=1;\n";
     }
     if (!sprite_profile)
-        ps += "if(input.LegacyTint.w!=0)base.rgb*=input.LegacyTint.rgb;\n";
+        ps += "if(input.LegacyTint.w!=0 && input.LegacyTint.w!=4)base.rgb*=input.LegacyTint.rgb;\n";
     if (sprite_profile)
         ps += "return "
               "all(isfinite(base))?ForgeApplyDistanceFog(base,input.World):float4(1,0,1,1);}\n";

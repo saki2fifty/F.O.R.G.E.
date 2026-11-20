@@ -76,6 +76,26 @@ int main(int argc, char** argv) {
                 wrong["runtime_particle_effect"] = invalid;
                 reject([&] { validate_runtime_compatibility(particles, wrong); });
             }
+            effect.metadata["forge.particle_effect"]["value_version"] = 10;
+            particles.replace(effect);
+            Json trail_kit{{"runtime_particle_effect", particle_effect_cooked_version},
+                           {"runtime_particle_alpha", particle_alpha_profile_version},
+                           {"runtime_particle_opacity", particle_opacity_profile_version},
+                           {"runtime_particle_trail", particle_trail_profile_version}};
+            validate_runtime_compatibility(particles, trail_kit);
+            for (const auto* capability : {"runtime_particle_effect", "runtime_particle_alpha",
+                                           "runtime_particle_opacity", "runtime_particle_trail"}) {
+                auto wrong = trail_kit;
+                wrong.erase(capability);
+                reject([&] { validate_runtime_compatibility(particles, wrong); });
+                for (const Json& invalid :
+                     {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"), Json(2),
+                      Json((std::uint64_t{1} << 32) + 1)}) {
+                    wrong = trail_kit;
+                    wrong[capability] = invalid;
+                    reject([&] { validate_runtime_compatibility(particles, wrong); });
+                }
+            }
             effect.metadata["forge.particle_effect"]["value_version"] = 4;
             particles.replace(effect);
             reject([&] { validate_runtime_compatibility(particles, engine); });

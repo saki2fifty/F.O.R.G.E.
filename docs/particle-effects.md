@@ -17,6 +17,8 @@ opacity and graph settings across evaluation changes. Source7 adds camera-plane
 CPU values7/`cpu_billboard1` with retained original Mesh and alignment selection.
 Source8 retains separate CPU/GPU alignment selections and projects GPU values8/
 `gpu_billboard1` or graph values9/`gpu_graph_billboard1` when GPU alignment is active.
+Source9 retains analytic trail settings and selects CPU values10/`cpu_trail1`
+when trails are active. Other backends retain the settings without applying them.
 Values include a Mesh reference, optional Material override, emission
 mode, capacity, burst count, rate, lifetime, direction/cone half-angle, speed range,
 constant acceleration, start/end size and linear RGB. Version 2 adds spawn shape,
@@ -34,7 +36,8 @@ editable sources nor a compiler.
 
 New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope containing
 `format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3, graph4
-or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph camera-plane9;
+or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph camera-plane9/
+analytic-trail CPU10;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -64,7 +67,9 @@ CPU5 additionally admits Blend with depth testing and no depth writes; CPU6
 requires this Blend profile for opacity. CPU7 also permits opaque/masked Materials
 with identity opacity; nonidentity opacity requires the same Blend profile. Skinning,
 morphs, point/line topology, transmission and custom Shader surfaces reject with
-diagnostics. Collision, trails and texture-sheet animation
+diagnostics. CPU10 additionally requires double-sided Quad geometry; it permits
+opaque/masked Materials with identity opacity or the same sorted Blend profile.
+Collision, GPU trails, historical emitter-motion capture and texture-sheet animation
 are outside these profiles. The bounded stateless graph profile below extends
 position, size and RGB without adding those capabilities.
 
@@ -166,6 +171,47 @@ the Material and Gallery239 program. Their texture remains Gallery242's original
 logical asset. The existing Windows package preparers cook the Shader before the
 graph Effect. Actual graph9 bytecode realization and export require native Windows
 acceptance, separately from generated-program software-device tests.
+
+## Emitter-local analytic trails
+
+[ADR066](decisions/066-analytic-particle-trails.md) defines values10/`cpu_trail1`.
+Source9 retains boolean `trail_enabled` and a typed `trail` object with `duration`
+(seconds, 0.001–30) and `segments` (integer, 1–16). Enabling selects CPU sorted alpha;
+disabling restores the retained CPU projection. Original Mesh, program, CPU/GPU
+alignment flags, opacity and local stop IDs remain independent. Optional operation
+settings replace duration/segments together; omission retains them. Invalid edits
+leave source/history unchanged. Source9 never downgrades during inactive GPU edits.
+
+The shared seeded birth/age/window evaluator supplies detached historical samples.
+There is no reverse integration, additional RNG sequence, clock or saved history.
+Tails survive until life plus duration while appearance uses original life. A flat
+point array and ordered birth ranges belong to the current renderer frame. Each
+camera derives connected edges using the current full emitter affine and its X
+column for width. This does not record earlier world-space emitter motion. Width,
+RGB and opacity are sampled and interpolated per segment; Step discontinuities are
+represented by these same bounded samples. V spans the visible tail0 to head1.
+
+Each emitter keeps one existing resource/pose proxy; view-owned segments enter the
+ordinary append/cull/sort path with explicit world/bounds. A transient segment tie
+follows the genuine birth ordinal. Static Mesh packet flag4 carries explicit
+endpoint positions/sides, endpoint RGB/opacity and V coordinates in the existing
+seven rows. The shared vertex factory retains identical endpoint arithmetic at
+joins and the canonical Quad tangent frame. Materials multiply appearance once.
+There is no per-segment asset, Material or persistent pose-history authority.
+
+Continuous capacity includes `ceil(rate*(life+duration))`. Reserve `capacity*segments`
+against8192 Scene instances; include samples and generated view records in the
+existing8MiB CPU frame budget. Actual corner bounds include camera-relative float
+padding, and the whole-life envelope includes an isotropic width allowance.
+Double-sided built-in Materials are required; nonidentity opacity requires Blend,
+depth testing and no depth writes. GPU/Graph trails remain unsupported.
+
+Native controls and `asset.document.particle_trails` share the source operation,
+revision/history/publication owner, schema discovery and permission checks. Values10
+retain recipe/envelope3 and require effect3 plus `runtime_particle_trail:1`, alpha1
+and opacity1. No GPU, graph or camera-plane kit capability is implied. Older or
+malformed kits reject before distribution replacement. Original source/cook bytes,
+importer identity, ParticleEmitter and gameplay C ABI remain unchanged.
 
 ## Equations and time
 
@@ -292,7 +338,8 @@ effect source or compiler is required to run the game.
 
 Capacity is 1–1,024; rate is 0.01–256/second; lifetime is 0.01–30 seconds; speed is
 0–1,000; size is 0.001–100; cone half-angle is 0–180 degrees. Continuous admission
-requires `ceil(rate*lifetime) <= capacity`. Burst count fits capacity when Burst
+requires `ceil(rate*lifetime) <= capacity`, or the extended trail window above
+for CPU10. Burst count fits capacity when Burst
 is selected; the inactive mode's count remains editable. Playback speed is 0–16;
 visual time is 0–1e9 seconds.
 
@@ -301,7 +348,7 @@ use the same 0.001–100 limit; gradient RGB is linear and bounded to [0,1], wit
 no opacity channel. Inactive values are still admitted and retained. Dynamic
 curve storage counts toward the effect ResourcePool byte budget.
 
-A scene admits 64 enabled emitters, 8,192 reserved instances and 8 MiB retained
+A scene admits 64 enabled emitters, 8,192 reserved instances (segments for trails) and 8 MiB retained
 particle payload per frame. The existing bounded ResourcePool owns immutable
 leases. Requests retire when no emitter needs the reference; late/cancelled
 completion cannot revive removed state. Catalog admission is lazy, allowing
@@ -314,7 +361,7 @@ Ordinary meshes and emitters may coexist on an entity. Camera culling, visibilit
 and layers apply; hidden effects keep aging. This profile does not cast particle
 shadows. A conservative outward-rounded lifetime envelope includes maximum speed,
 acceleration, origin extent, peak curve size and the full emitter affine for preview framing; actual
-CPU instances are culled during drawing; GPU emitters use their lifetime envelope. Unsupported profiles and overflow produce
+CPU instances/segments are culled during drawing; GPU emitters use their lifetime envelope. Unsupported profiles and overflow produce
 diagnostics instead of successful silent truncation.
 
 The central Particle Effect document owns source controls and isolated playback,

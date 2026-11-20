@@ -1,3 +1,4 @@
+#include "particle_path.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/engine_assets.hpp>
@@ -12,6 +13,14 @@ namespace {
 void range(double value, double minimum, double maximum, const char* field) {
     if (!std::isfinite(value) || value < minimum || value > maximum)
         throw std::runtime_error(std::string("Particle effect invalid ") + field);
+}
+void validate_trail_parameters(const ParticleEffectData& data, double duration, unsigned segments) {
+    validate_particle_trail_settings({duration, segments});
+    if (data.capacity > particle_scene_capacity / segments)
+        throw std::runtime_error("Particle paths exceed the bounded segment capacity");
+    if (data.emission == ParticleEmission::Continuous &&
+        std::ceil(data.spawn_rate * (data.lifetime + duration)) > data.capacity)
+        throw std::runtime_error("Particle rate, lifetime and trail duration exceed capacity");
 }
 double scalar(const nlohmann::json& value) {
     if (!value.is_number())
@@ -89,6 +98,131 @@ template <class Stops> auto sample_stops(const Stops& stops, double time) {
         return value;
     }
 }
+struct ParticleSpawnFrame {
+    std::array<double, 3> axis, side, up;
+    double cosine;
+};
+ParticleSpawnFrame particle_spawn_frame(const ParticleEffectData& data) {
+    const auto axis = normalized(data.direction);
+    const auto side = normalized(
+        cross(axis, std::abs(axis[1]) > .9 ? std::array{1., 0., 0.} : std::array{0., 1., 0.}));
+    return {axis, side, cross(axis, side), std::cos(data.cone_angle * std::numbers::pi / 180)};
+}
+struct ParticleBirthState {
+    std::uint64_t ordinal;
+    std::array<double, 3> origin{}, velocity{};
+};
+ParticleBirthState particle_birth_state(const ParticleEffectData& data,
+                                        const ParticleSpawnFrame& frame, std::uint32_t seed,
+                                        std::uint64_t ordinal) {
+    ParticleBirthState state{ordinal};
+    std::seed_seq sequence{seed, std::uint32_t(ordinal), std::uint32_t(ordinal >> 32)};
+    std::minstd_rand random(sequence);
+    auto unit = [&] {
+        return double(random() - random.min()) / (double(random.max()) - random.min() + 1);
+    };
+    const auto c = 1 - unit() * (1 - frame.cosine), s = std::sqrt(std::max(0., 1 - c * c)),
+               phi = unit() * 2 * std::numbers::pi;
+    const auto speed = data.speed_min + unit() * (data.speed_max - data.speed_min);
+    if (data.shape == ParticleSpawnShape::Box) {
+        for (unsigned i = 0; i < 3; ++i)
+            state.origin[i] = (unit() - .5) * data.shape_size[i];
+    } else if (data.shape == ParticleSpawnShape::Sphere) {
+        const auto radius = data.shape_radius * std::cbrt(unit()), y = 2 * unit() - 1,
+                   radial = std::sqrt(std::max(0., 1 - y * y)),
+                   angle = unit() * 2 * std::numbers::pi;
+        state.origin = {radius * radial * std::cos(angle), radius * y,
+                        radius * radial * std::sin(angle)};
+    } else if (data.shape == ParticleSpawnShape::Disc) {
+        const auto radius = data.shape_radius * std::sqrt(unit()),
+                   angle = unit() * 2 * std::numbers::pi;
+        for (unsigned i = 0; i < 3; ++i)
+            state.origin[i] =
+                radius * (frame.side[i] * std::cos(angle) + frame.up[i] * std::sin(angle));
+    }
+    for (unsigned i = 0; i < 3; ++i)
+        state.velocity[i] = speed * (frame.axis[i] * c + frame.side[i] * s * std::cos(phi) +
+                                     frame.up[i] * s * std::sin(phi));
+    return state;
+}
+ParticleSample sample_particle_birth(const ParticleEffectData& data,
+                                     const ParticleBirthState& state, double age) {
+    ParticleSample particle;
+    particle.birth = state.ordinal;
+    particle.age = age;
+    const auto fraction = particle.age / data.lifetime;
+    if (particle_uses_opacity(data))
+        particle.opacity = data.opacity_curve.empty()
+                               ? std::lerp(data.opacity_start, data.opacity_end, fraction)
+                               : sample_stops(data.opacity_curve, fraction);
+    particle.size = data.size_curve.empty() ? std::lerp(data.size_start, data.size_end, fraction)
+                                            : sample_stops(data.size_curve, fraction);
+    if (!data.color_gradient.empty())
+        particle.color = sample_stops(data.color_gradient, fraction);
+    double damping = 1, velocity_integral = particle.age,
+           acceleration_integral = .5 * particle.age * particle.age;
+    if (data.drag > 0) {
+        const auto x = data.drag * particle.age;
+        damping = std::exp(-x);
+        velocity_integral = -std::expm1(-x) / data.drag;
+        // Integral of the velocity response: stable near zero drag*age.
+        acceleration_integral =
+            x < .001 ? particle.age * particle.age *
+                           (.5 + x * (-1. / 6 + x * (1. / 24 + x * (-1. / 120 + x / 720))))
+                     : (particle.age - velocity_integral) / data.drag;
+    }
+    for (unsigned i = 0; i < 3; ++i) {
+        const auto initial = state.velocity[i];
+        if (data.drag == 0) {
+            particle.position[i] = state.origin[i] + initial * particle.age +
+                                   .5 * data.acceleration[i] * particle.age * particle.age;
+            particle.velocity[i] = initial + data.acceleration[i] * particle.age;
+        } else {
+            particle.position[i] = state.origin[i] + initial * velocity_integral +
+                                   data.acceleration[i] * acceleration_integral;
+            particle.velocity[i] = initial * damping + data.acceleration[i] * velocity_integral;
+        }
+        if (data.color_gradient.empty())
+            particle.color[i] =
+                float(std::lerp(double(data.color_start[i]), double(data.color_end[i]), fraction));
+    }
+    return particle;
+}
+struct ParticleBirthWindow {
+    double phase, units, lifetime;
+    std::uint64_t first = 0, last = 0;
+};
+ParticleBirthWindow particle_birth_window(const ParticleEffectData& data, double seconds,
+                                          double tail = 0) {
+    ParticleBirthWindow result{seconds * data.spawn_rate, (data.lifetime + tail) * data.spawn_rate,
+                               data.lifetime + tail};
+    if (data.emission == ParticleEmission::Burst) {
+        if (seconds < result.lifetime)
+            result.last = data.burst_count;
+    } else {
+        result.last = std::uint64_t(std::floor(result.phase));
+        if (result.phase >= result.units) {
+            result.first = std::uint64_t(std::floor(result.phase - result.units));
+            // Nominate the boundary birth before applying exact phase membership.
+            if (result.first)
+                --result.first;
+        }
+    }
+    if (result.last - result.first > std::uint64_t(data.capacity) + 1)
+        throw std::runtime_error("Particle sample exceeds instance budget");
+    return result;
+}
+std::optional<double> particle_birth_age(const ParticleEffectData& data,
+                                         const ParticleBirthWindow& window, double seconds,
+                                         std::uint64_t ordinal) {
+    if (data.emission == ParticleEmission::Burst)
+        return seconds;
+    const auto phase_age = window.phase - double(ordinal + 1);
+    if (phase_age < 0 || phase_age >= window.units)
+        return std::nullopt;
+    // Preserve a live phase that rounds to the exact lifetime in seconds.
+    return std::min(phase_age / data.spawn_rate, std::nextafter(window.lifetime, 0.));
+}
 bool stop_hold(const nlohmann::json& stop) {
     if (!stop.is_object() || stop.size() != 3 || !stop.contains("time") ||
         !stop.contains("value") || !stop.contains("interpolation"))
@@ -130,13 +264,39 @@ nlohmann::json encode_particle_graph_program(const ParticleGraphProgram& program
             {"extent", program.extent},
             {"maximum_size", program.maximum_size}};
 }
+void validate_particle_trail_settings(const ParticleTrailSettings& trail) {
+    range(trail.duration, particle_path_min_duration, particle_path_max_duration,
+          "trail duration [0.001,30]");
+    if (!trail.segments || trail.segments > particle_path_segment_limit)
+        throw std::runtime_error("Particle trails require 1–16 segments");
+}
+ParticleTrailSettings decode_particle_trail_settings(const nlohmann::json& source) {
+    if (!source.is_object() || source.size() != 2 || !source.at("segments").is_number_integer())
+        throw std::runtime_error("Particle trail requires duration and integer segments");
+    const auto segments = scalar(source.at("segments"));
+    range(segments, 1, particle_path_segment_limit, "trail segments [1,16]");
+    ParticleTrailSettings result{scalar(source.at("duration")), unsigned(segments)};
+    validate_particle_trail_settings(result);
+    return result;
+}
+nlohmann::json encode_particle_trail_settings(const ParticleTrailSettings& trail) {
+    validate_particle_trail_settings(trail);
+    return {{"duration", trail.duration}, {"segments", trail.segments}};
+}
 void validate_particle_effect(const ParticleEffectData& data) {
-    if (data.version < 1 || data.version > 9)
+    if (data.version < 1 || data.version > 10)
         throw std::runtime_error("Unknown particle value version");
     if (!data.mesh.id)
         throw std::runtime_error("Particle effect requires a Mesh");
     if (particle_uses_billboards(data) && data.mesh != engine_primitive(8))
         throw std::runtime_error("Camera-aligned particles require Engine/Quad geometry");
+    if (particle_uses_trails(data) != bool(data.trail))
+        throw std::runtime_error("Particle trail settings require cpu_trail1 values");
+    if (data.trail) {
+        if (data.mesh != engine_primitive(8))
+            throw std::runtime_error("Particle trails require Engine/Quad geometry");
+        validate_trail_parameters(data, data.trail->duration, data.trail->segments);
+    }
     if (data.emission > ParticleEmission::Burst)
         throw std::runtime_error("Unknown particle emission mode");
     range(data.capacity, 1, 1024, "capacity");
@@ -200,7 +360,8 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
           (version == 5 && profile == "cpu_alpha1") || (version == 6 && profile == "cpu_alpha2") ||
           (version == 7 && profile == "cpu_billboard1") ||
           (version == 8 && profile == "gpu_billboard1") ||
-          (version == 9 && profile == "gpu_graph_billboard1")))
+          (version == 9 && profile == "gpu_graph_billboard1") ||
+          (version == 10 && profile == "cpu_trail1")))
         throw std::runtime_error("Unsupported particle effect format/version/profile");
     static const std::set<std::string> fields{
         "format",     "version",      "profile",     "mesh",       "material",
@@ -213,13 +374,16 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
               (name == "shape" || name == "shape_size" || name == "shape_radius" ||
                name == "drag" || name == "size_curve" || name == "color_gradient")) &&
             !((version == 4 || version == 9) && name == "program") &&
-            !((version == 6 || version == 7) &&
+            !(version == 10 && name == "trail") &&
+            !((version == 6 || version == 7 || version == 10) &&
               (name == "opacity_start" || name == "opacity_end" || name == "opacity_curve")))
             throw std::runtime_error("Unknown particle effect field: " + name);
     if (source.contains("extensions") && !source.at("extensions").is_object())
         throw std::runtime_error("Particle effect extensions must be an object");
     ParticleEffectData data;
     data.version = std::uint32_t(version);
+    if (particle_uses_trails(data))
+        data.trail = decode_particle_trail_settings(source.at("trail"));
     data.mesh = source.at("mesh").get<AssetRef<MeshAsset>>();
     if (source.contains("material"))
         data.material = source.at("material").get<AssetRef<MaterialAsset>>();
@@ -329,7 +493,8 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
                     : data.version == 6 ? "cpu_alpha2"
                     : data.version == 7 ? "cpu_billboard1"
                     : data.version == 8 ? "gpu_billboard1"
-                                        : "gpu_graph_billboard1"},
+                    : data.version == 9 ? "gpu_graph_billboard1"
+                                        : "cpu_trail1"},
         {"mesh", data.mesh},
         {"emission", data.emission == ParticleEmission::Burst ? "burst" : "continuous"},
         {"capacity", data.capacity},
@@ -364,6 +529,8 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
                                                 {"value", stop.value},
                                                 {"interpolation", stop.hold ? "step" : "linear"}});
     }
+    if (data.trail)
+        result["trail"] = encode_particle_trail_settings(*data.trail);
     if (data.program)
         result["program"] = encode_particle_graph_program(*data.program);
     if (particle_uses_opacity(data)) {
@@ -383,114 +550,65 @@ std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData& dat
     if (particle_uses_gpu(data))
         throw std::runtime_error("GPU particle samples require a rendering device");
     range(seconds, 0, 1e9, "sample time");
-    const double phase = seconds * data.spawn_rate;
-    const double window = data.lifetime * data.spawn_rate;
-    std::uint64_t first = 0, last = 0;
-    if (data.emission == ParticleEmission::Burst) {
-        if (seconds >= data.lifetime)
-            return {};
-        last = data.burst_count;
-    } else {
-        last = std::uint64_t(std::floor(phase));
-        if (phase >= window) {
-            first = std::uint64_t(std::floor(phase - window));
-            // Subtracting a short window from a large phase can round across
-            // one birth. Nominate it too, then apply the exact phase predicate.
-            if (first)
-                --first;
-        }
-    }
-    // Rounded products can nominate one extra boundary birth. Check exact age
-    // before the final budget decision; never drop a valid particle to fit.
-    if (last - first > std::uint64_t(data.capacity) + 1)
-        throw std::runtime_error("Particle sample exceeds instance budget");
+    const auto window = particle_birth_window(data, seconds);
+    if (data.emission == ParticleEmission::Burst && !window.last)
+        return {};
     std::vector<ParticleSample> result;
-    result.reserve(std::size_t(last - first));
-    const auto axis = normalized(data.direction);
-    const auto side = normalized(
-        cross(axis, std::abs(axis[1]) > .9 ? std::array{1., 0., 0.} : std::array{0., 1., 0.}));
-    const auto up = cross(axis, side);
-    const auto cosine = std::cos(data.cone_angle * std::numbers::pi / 180);
-    for (auto ordinal = first; ordinal < last; ++ordinal) {
-        ParticleSample particle;
-        particle.birth = ordinal;
-        if (data.emission == ParticleEmission::Burst)
-            particle.age = seconds;
-        else {
-            const auto phase_age = phase - double(ordinal + 1);
-            if (phase_age < 0 || phase_age >= window)
-                continue;
-            // Valid phase age can round to the exact endpoint when converted
-            // back to seconds; retain the representable live-side value.
-            particle.age = std::min(phase_age / data.spawn_rate, std::nextafter(data.lifetime, 0.));
-        }
-        std::seed_seq sequence{seed, std::uint32_t(ordinal), std::uint32_t(ordinal >> 32)};
-        std::minstd_rand random(sequence);
-        auto unit = [&] {
-            return double(random() - random.min()) / (double(random.max()) - random.min() + 1);
-        };
-        const auto c = 1 - unit() * (1 - cosine), s = std::sqrt(std::max(0., 1 - c * c)),
-                   phi = unit() * 2 * std::numbers::pi;
-        const auto speed = data.speed_min + unit() * (data.speed_max - data.speed_min);
-        std::array<double, 3> origin{};
-        if (data.shape == ParticleSpawnShape::Box) {
-            for (unsigned i = 0; i < 3; ++i)
-                origin[i] = (unit() - .5) * data.shape_size[i];
-        } else if (data.shape == ParticleSpawnShape::Sphere) {
-            const auto radius = data.shape_radius * std::cbrt(unit()), y = 2 * unit() - 1,
-                       radial = std::sqrt(std::max(0., 1 - y * y)),
-                       angle = unit() * 2 * std::numbers::pi;
-            origin = {radius * radial * std::cos(angle), radius * y,
-                      radius * radial * std::sin(angle)};
-        } else if (data.shape == ParticleSpawnShape::Disc) {
-            const auto radius = data.shape_radius * std::sqrt(unit()),
-                       angle = unit() * 2 * std::numbers::pi;
-            for (unsigned i = 0; i < 3; ++i)
-                origin[i] = radius * (side[i] * std::cos(angle) + up[i] * std::sin(angle));
-        }
-        const auto fraction = particle.age / data.lifetime;
-        if (particle_uses_opacity(data))
-            particle.opacity = data.opacity_curve.empty()
-                                   ? std::lerp(data.opacity_start, data.opacity_end, fraction)
-                                   : sample_stops(data.opacity_curve, fraction);
-        particle.size = data.size_curve.empty()
-                            ? std::lerp(data.size_start, data.size_end, fraction)
-                            : sample_stops(data.size_curve, fraction);
-        if (!data.color_gradient.empty())
-            particle.color = sample_stops(data.color_gradient, fraction);
-        double damping = 1, velocity_integral = particle.age,
-               acceleration_integral = .5 * particle.age * particle.age;
-        if (data.drag > 0) {
-            const auto x = data.drag * particle.age;
-            damping = std::exp(-x);
-            velocity_integral = -std::expm1(-x) / data.drag;
-            // Integral of the velocity response: stable near zero drag*age.
-            acceleration_integral =
-                x < .001 ? particle.age * particle.age *
-                               (.5 + x * (-1. / 6 + x * (1. / 24 + x * (-1. / 120 + x / 720))))
-                         : (particle.age - velocity_integral) / data.drag;
-        }
-        for (unsigned i = 0; i < 3; ++i) {
-            const auto initial =
-                speed * (axis[i] * c + side[i] * s * std::cos(phi) + up[i] * s * std::sin(phi));
-            if (data.drag == 0) {
-                particle.position[i] = origin[i] + initial * particle.age +
-                                       .5 * data.acceleration[i] * particle.age * particle.age;
-                particle.velocity[i] = initial + data.acceleration[i] * particle.age;
-            } else {
-                particle.position[i] = origin[i] + initial * velocity_integral +
-                                       data.acceleration[i] * acceleration_integral;
-                particle.velocity[i] = initial * damping + data.acceleration[i] * velocity_integral;
-            }
-            if (data.color_gradient.empty())
-                particle.color[i] = float(
-                    std::lerp(double(data.color_start[i]), double(data.color_end[i]), fraction));
-        }
+    result.reserve(std::size_t(window.last - window.first));
+    const auto frame = particle_spawn_frame(data);
+    for (auto ordinal = window.first; ordinal < window.last; ++ordinal) {
+        const auto age = particle_birth_age(data, window, seconds, ordinal);
+        if (!age)
+            continue;
+        const auto state = particle_birth_state(data, frame, seed, ordinal);
+        const auto particle = sample_particle_birth(data, state, *age);
         if (result.size() >= data.capacity || result.size() >= budget)
             throw std::runtime_error("Particle sample exceeds instance budget");
         result.push_back(particle);
     }
     return result;
+}
+ParticlePathSamples sample_particle_paths(const ParticleEffectData& data, double seconds,
+                                          std::uint32_t seed, double duration, unsigned segments,
+                                          std::size_t budget) {
+    validate_particle_effect(data);
+    if (particle_uses_gpu(data))
+        throw std::runtime_error("Particle paths require CPU evaluation");
+    range(seconds, 0, 1e9, "sample time");
+    validate_trail_parameters(data, duration, segments);
+    const auto window = particle_birth_window(data, seconds, duration);
+    ParticlePathSamples result;
+    const auto heads = std::min<std::size_t>(data.capacity, window.last - window.first);
+    result.paths.reserve(heads);
+    result.points.reserve(std::min(budget, std::size_t(data.capacity) * segments) + heads);
+    const auto frame = particle_spawn_frame(data);
+    for (auto ordinal = window.first; ordinal < window.last; ++ordinal) {
+        const auto age = particle_birth_age(data, window, seconds, ordinal);
+        if (!age)
+            continue;
+        std::array<double, particle_path_segment_limit + 1> ages{};
+        std::size_t count = 0;
+        for (unsigned point = 0; point <= segments; ++point) {
+            const auto at =
+                std::clamp(*age - duration * (segments - point) / segments, 0., data.lifetime);
+            if (!count || at > ages[count - 1])
+                ages[count++] = at;
+        }
+        if (count < 2)
+            continue;
+        if (result.paths.size() >= data.capacity || count - 1 > budget - result.segment_count())
+            throw std::runtime_error("Particle path sample exceeds segment budget");
+        const auto state = particle_birth_state(data, frame, seed, ordinal);
+        const auto first = result.points.size();
+        for (std::size_t point = 0; point < count; ++point)
+            result.points.push_back(sample_particle_birth(data, state, ages[point]));
+        result.paths.push_back({ordinal, first, count});
+    }
+    return result;
+}
+std::size_t particle_instance_capacity(const ParticleEffectData& data) {
+    validate_particle_effect(data);
+    return std::size_t(data.capacity) * (data.trail ? data.trail->segments : 1u);
 }
 void validate_particle_instance_parameters(double size, std::array<float, 3> tint) {
     range(size, .01, 16, "emitter size multiplier [0.01,16]");

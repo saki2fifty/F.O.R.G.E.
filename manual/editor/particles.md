@@ -3,8 +3,8 @@
 A particle effect is a reusable stream or burst of small meshes. Use it for
 stylized sparks, debris or fountains. Effects can use solid or masked meshes, or
 sorted transparent meshes with CPU evaluation, and camera-aligned quads with CPU,
-GPU or Graph evaluation. Trails
-and particle collision are not supported.
+GPU or Graph evaluation. CPU analytic ribbon trails follow each particle's local
+path. Particle collision is not supported.
 
 ## Try the Gallery
 
@@ -160,6 +160,45 @@ Blend Materials and per-particle opacity are unavailable. Use CPU sorted alpha
 for transparent or fading particles. Camera-plane orientation and the other
 particle limits above also apply to GPU quads.
 
+## Analytic ribbon trails
+
+Open **Scenes/245-analytic-particle-trails.scene.json** in FeatureGallery and press
+**Play**. Teal and amber emitters share an editable trail effect and transparent
+Material. The central solid marker blocks ribbons behind it. The scene includes
+its camera and light and needs no project C++ code.
+
+![Teal and amber curved particle ribbons around a solid central marker](../images/analytic-particle-trails.png)
+
+The Gallery scene in the Game view at three seconds.
+
+1. Stop Play. Open a Particle Effect from Content and enable **Analytic ribbon trails (CPU)**. This selects **CPU (sorted alpha)** and connected Quad geometry.
+2. Set **Trail duration (seconds)** to the length of local path to display, from 0.001 to 30 seconds.
+3. Set **Trail segments (1–16)**. More segments give a smoother curved path and more detail in lifetime appearance, at a higher draw cost. Press Enter to commit either value.
+4. Use a double-sided built-in Material. For opacity, choose **Alpha → Blend**, enable **Depth test** and disable **Depth write**. Solid or masked Materials work with particle opacity fixed at 1.
+5. Choose speed, acceleration, drag, size, color and optional opacity over life. Set capacity to include particles whose tails remain after their heads die.
+6. Choose **Save / Publish**, save the scene and press Play. Export with the runtime kit packaged with this editor.
+
+For this example, edit **Assets/Particles/Trails/RibbonFlow.particles.json** or
+**Assets/Particles/Trails/Ribbon.material.json**. Size controls ribbon width;
+emitter X scale also scales that width. Color and opacity multiply the Material.
+The texture's V coordinate spans the visible tail to head.
+
+Trails follow the particle's analytic path in emitter-local space. Moving an
+emitter moves its whole ribbon; this mode does not record its earlier world
+positions. After a head reaches its lifetime, its tail shrinks until the trail
+duration has elapsed. A stationary particle produces no ribbon.
+
+Continuous capacity must cover `ceil(rate × (lifetime + trail duration))`.
+Each emitter reserves `capacity × segments` of the scene's 8,192 instances;
+reduce capacity, rate, duration or segments if admission reports a budget error.
+Width and appearance are sampled at segment endpoints and interpolated, including
+changes from Step curves. Higher segment counts resolve more detail.
+
+Switching evaluation retains trail settings. Select **CPU (sorted alpha)** to
+apply them again. In **CPU (sorted alpha)**, disabling trails restores the retained mesh/quad settings;
+Undo/Redo restores the complete edit. GPU and Graph trails, historical emitter
+motion and particle collision are not available.
+
 ## Opacity over life
 
 Open **Scenes/241-particle-opacity.scene.json** in the Gallery and press **Play**.
@@ -239,7 +278,8 @@ Projects with C++ modules must rebuild those modules against the matching SDK.
 ## Limits
 
 Each effect supports up to 1,024 particles; a scene supports 64 enabled emitters
-and 8,192 reserved particles. Use one static triangle part, one LOD and one material
+and 8,192 reserved instances. Trails reserve one instance per segment, including
+shrinking tails. Use one static triangle part, one LOD and one material
 slot. Built-in PBR and Unlit surfaces work. **CPU (sorted alpha)** additionally
 accepts Blend Materials with depth testing and no depth writes; other evaluation
 modes require opaque/masked Materials. Skinned/morphing meshes, transmission and

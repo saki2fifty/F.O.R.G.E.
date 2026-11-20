@@ -19,6 +19,7 @@ struct RenderSortKey {
     std::uint64_t birth = 0;
     std::int64_t order = 0;
     bool sprite = false;
+    unsigned segment = 0; // Transient tie within one genuine particle birth.
     bool operator==(const RenderSortKey&) const = default;
 };
 inline bool render_key_less(const RenderSortKey& a, const RenderSortKey& b) {
@@ -27,8 +28,9 @@ inline bool render_key_less(const RenderSortKey& a, const RenderSortKey& b) {
     if (a.alpha == MaterialAlpha::Blend && a.depth != b.depth)
         return a.depth > b.depth;
     return std::tie(a.order, a.parity, a.material, a.mesh, a.part, a.entity, a.particle, a.sprite,
-                    a.birth) < std::tie(b.order, b.parity, b.material, b.mesh, b.part, b.entity,
-                                        b.particle, b.sprite, b.birth);
+                    a.birth, a.segment) < std::tie(b.order, b.parity, b.material, b.mesh, b.part,
+                                                   b.entity, b.particle, b.sprite, b.birth,
+                                                   b.segment);
 }
 inline void validate_render_key(const RenderSortKey& key) {
     if (!std::isfinite(key.depth) || key.alpha > MaterialAlpha::Blend)

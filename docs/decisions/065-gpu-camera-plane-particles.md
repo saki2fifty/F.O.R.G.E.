@@ -1,7 +1,7 @@
 # ADR065 — GPU camera-plane particles
 
 Status: accepted; implementation and coherent local integration gate passed.
-Native Windows graph9 cook/export/Game and physical acceptance remain separate.
+Native Windows graph9 cook/export/Game passed at b82d90ca. Physical acceptance remains separate.
 This extends ADR060/064 through explicit new profiles. It does not change the
 meaning of GPU3/graph4 or CPU camera-plane7.
 

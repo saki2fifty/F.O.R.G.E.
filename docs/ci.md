@@ -3655,3 +3655,41 @@ runtime content relocated. It was visually reviewed. The software adapter was
 llvmpipe; this is neither a full editor screenshot nor Windows, physical hardware
 or graph9 rendering acceptance. Its exact source/image/test hashes are retained
 in the local capture receipt.
+
+## Analytic particle trail verification
+
+`particle_paths` checks shared seeded historical values, shrinking-tail membership,
+large clocks, exact joins, emitter/camera transforms, actual-corner/device-float and
+whole-life bounds, value10 codecs and segment/capacity rejection. The existing source
+and runtime cases cover retained source9 values and unchanged earlier profiles;
+manifest tests reject missing, mistyped and unsupported trail kit capabilities.
+
+`particle_ribbon_vulkan` and native `editor_render_particle-ribbons` share one
+numeric fixture:144 comparisons with independently baked ordinary triangles across
+three alpha modes, textures, normal-mapped lighting, camera bases/flips and large
+coordinates. The software fixture has a300second limit because the expanded native
+shader work exceeded120seconds; successful execution is recorded independently of
+that limit. `particle_ribbon_scene_vulkan` and native `editor_render_particle-trails`
+exercise actual Scene composition/sorting with ordinary Mesh, view retention,
+Material recovery and declared segment reservation. Native execution requires its
+own passing source run; a software result is not Windows/physical acceptance.
+
+Actual Effect widgets cover trail enable/duration/segments/history at six layouts.
+`mcp_particle_evaluation_stdio` covers both supported envelopes, grants, revisions,
+no-op/invalid edits, Undo/Redo, publication and reopen; its420second budget includes
+all particle backend/appearance/trail workflows and graceful native shutdown.
+
+Gallery245 source/export/production Game cases use the existing alpha Gallery
+fixture and publication owners. The exact Scene/Material/Effect closure is relocated
+with source hidden, then exercised through fixed-clock RuntimeWorld and FrameRenderer.
+The unmodified640x360 `manual/images/analytic-particle-trails.png` captures that Game
+at three seconds on llvmpipe and was visually reviewed. It is rendered Game content,
+without editor chrome or retouched controls; it does not establish Windows, physical
+hardware performance or full editor visual acceptance. Local capture receipts retain
+exact source/build/test/image attribution and prior Gallery record/content preservation.
+
+Gallery source inspection and untextured publication remain available in headless
+presets with asset tools disabled. Texture worker publication, its authoring library,
+compile definition and worker-backed export registration are enabled together only
+with `FORGE_BUILD_ASSET_TOOLS`; do not link a nonexistent optional library in core/SDK
+profiles. The source inspector uses the existing pure paint-texture source owner.

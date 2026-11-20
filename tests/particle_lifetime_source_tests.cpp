@@ -581,10 +581,89 @@ void gpu_billboard_profiles() {
     invalid.erase("program");
     reject([&] { (void)decode_particle_effect(invalid); });
 }
+void trail_profiles() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    const auto original = source.document;
+    source.set_trails(false);
+    require(source.document == original, "Disabling absent trails changed legacy source");
+    source.enable_billboards(true);
+    source.enable_opacity(true);
+    source.enable_lifetime(ParticleLifetimeChannel::Opacity, true);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Opacity, .5);
+    source.enable_gpu_billboards(true);
+    const ParticleGraphProgram program{AssetRef<ShaderAsset>{AssetId::generate()}, {3, 4, 5}, 2};
+    source.set_graph_program(program, false);
+    const ParticleTrailSettings settings{.75, 12};
+    source.set_trails(true, settings);
+    const auto authored = source.document;
+    const auto values = source.compiled();
+    require(authored.at("version") == 9 && authored.at("profile") == "cpu_trail1" &&
+                values.version == 10 && values.trail == settings &&
+                values.mesh == engine_primitive(8) && authored.at("mesh") == original.at("mesh") &&
+                authored.at("billboard_enabled").get<bool>() &&
+                authored.at("gpu_billboard_enabled").get<bool>() && !values.opacity_curve.empty() &&
+                parse(authored).document == authored &&
+                decode_cooked_particle_effect(source.cook(), source.asset(), 3) == values,
+            "Trails lost source/cook projection, original Mesh, alignment or opacity identities");
+    for (auto backend : {ParticleEvaluation::Cpu, ParticleEvaluation::Gpu,
+                         ParticleEvaluation::Graph, ParticleEvaluation::CpuAlpha}) {
+        source.set_evaluation(backend);
+        const auto current = source.compiled();
+        const unsigned version = backend == ParticleEvaluation::Cpu     ? 2
+                                 : backend == ParticleEvaluation::Gpu   ? 8
+                                 : backend == ParticleEvaluation::Graph ? 9
+                                                                        : 10;
+        require(current.version == version && source.document.at("trail") == authored.at("trail") &&
+                    source.document.at("opacity_curve") == authored.at("opacity_curve") &&
+                    parse(source.document).document == source.document,
+                "Backend selection lost retained trail settings or local lifetime identities");
+    }
+    require(source.document == authored, "Backend round trip changed authored trail source");
+    source.enable_opacity(false);
+    require(source.compiled().version == 10 && source.compiled().opacity_start == 1 &&
+                source.compiled().opacity_end == 1 && source.compiled().opacity_curve.empty(),
+            "Disabled trail opacity changed active geometry or failed identity projection");
+    source.enable_opacity(true);
+    require(source.document == authored, "Opacity toggle lost retained trail appearance");
+    source.set_trails(false);
+    require(source.compiled().version == 7 && source.document.at("trail") == authored.at("trail"),
+            "Disabling trails did not restore retained CPU alignment or kept settings");
+    source.set_trails(true);
+    require(source.document == authored, "Trail reenable lost settings or source-only identities");
+    source.enable_gpu_billboards(false);
+    require(source.document.at("version") == 9 && source.compiled().version == 10,
+            "Inactive GPU operation downgraded trail source");
+    source.enable_gpu_billboards(true);
+    source.set_evaluation(ParticleEvaluation::Gpu);
+    source.document["capacity"] = 1024;
+    source.set_trails(false, ParticleTrailSettings{.5, 16});
+    const auto inactive = source.document;
+    require(source.compiled().version == 8,
+            "Inactive trail reservation imposed a CPU constraint on GPU values");
+    reject([&] { source.set_trails(true); });
+    require(source.document == inactive, "Failed trail admission changed source state");
+    source = parse(authored);
+    for (const auto& flag : nlohmann::json::array({nullptr, 1, 1.0, "true", false})) {
+        auto invalid = authored;
+        invalid["trail_enabled"] = flag;
+        reject([&] { (void)parse(invalid); });
+    }
+    auto invalid = authored;
+    invalid["version"] = 10;
+    reject([&] { (void)parse(invalid); });
+    invalid = authored;
+    invalid["trail"]["segments"] = 17;
+    reject([&] { (void)parse(invalid); });
+    invalid = original;
+    invalid["trail_enabled"] = true;
+    invalid["trail"] = authored.at("trail");
+    reject([&] { (void)parse(invalid); });
+}
 int main() {
     try {
         billboard_profiles();
         gpu_billboard_profiles();
+        trail_profiles();
         graph_program_profiles();
         sorted_alpha_profiles();
         opacity_profiles();

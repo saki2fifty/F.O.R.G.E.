@@ -3215,3 +3215,17 @@ variant. Compile `Assets/Particles/Graphs/Orbit.graph.shader.json`, then publish
 retains the assigned program when camera alignment changes. Both GPU examples
 require opaque or masked built-in Materials; use CPU sorted alpha for transparency
 or opacity over life. Shader compilation requires Windows and the packaged worker.
+
+## Analytic particle trails
+
+Open `Scenes/245-analytic-particle-trails.scene.json` and press Play. Teal and amber
+emitters share `Assets/Particles/Trails/RibbonFlow.particles.json` and the double-sided
+Blend Material `Ribbon.material.json`. Curved ribbons fade along their local paths;
+the central solid marker occludes them. Camera and light are included.
+
+Open the effect from Content to edit **Analytic ribbon trails (CPU)**,
+**Trail duration (seconds)** and **Trail segments (1–16)**, then Save / Publish.
+Size controls width; speed, acceleration and drag shape the path. Moving an emitter
+moves its whole path. This mode does not record historical world-space emitter motion.
+Capacity includes shrinking tails, and capacity times segments reserves Scene instances.
+Save the scene and export with the matching runtime kit; no project C++ module is needed.

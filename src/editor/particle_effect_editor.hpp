@@ -251,6 +251,7 @@ class ParticleEffectEditor {
             const bool gpu_billboards = particle_uses_gpu(data);
             bool billboards = document_->source().document.value(
                 gpu_billboards ? "gpu_billboard_enabled" : "billboard_enabled", false);
+            ImGui::BeginDisabled(particle_uses_trails(data));
             if (ImGui::Checkbox("Camera-aligned quads", &billboards))
                 mutate("Toggle camera-aligned particles", [&](auto& value) {
                     ParticleEffectSource candidate{value};
@@ -261,6 +262,7 @@ class ParticleEffectEditor {
                     value = std::move(candidate.document);
                 });
             FORGE_UI_PROBE("particles:billboards");
+            ImGui::EndDisabled();
             ui::help(gpu_billboards
                          ? "Align GPU or Graph particles with each camera using Engine / Quad. "
                            "Requires an opaque or masked Material. World X/Y scale sets width "
@@ -270,8 +272,40 @@ class ParticleEffectEditor {
                            "sets the quad orientation; world X/Y scale sets width and height. "
                            "Other evaluation backends retain this CPU setting without applying "
                            "it. Disabling restores the original Mesh selection.");
+            bool trails = document_->source().document.value("trail_enabled", false);
+            if (ImGui::Checkbox("Analytic ribbon trails (CPU)", &trails))
+                mutate("Set particle trails", [&](auto& value) {
+                    ParticleEffectSource candidate{value};
+                    candidate.set_trails(trails);
+                    value = std::move(candidate.document);
+                });
+            FORGE_UI_PROBE("particles:trails");
+            ui::help("Enabling selects CPU (sorted alpha) with connected Engine / Quad ribbons. "
+                     "The current emitter transform applies to the whole local path. Tails shrink "
+                     "after a head dies. Requires a double-sided Material; opacity needs Blend. "
+                     "Duration and segments apply when CPU (sorted alpha) is selected. "
+                     "Turn off trails to use individual camera-aligned quads.");
+            if (trails && document_->source().document.contains("trail")) {
+                auto settings =
+                    decode_particle_trail_settings(document_->source().document.at("trail"));
+                ImGui::BeginDisabled(!particle_uses_trails(data));
+                bool submit = ImGui::InputDouble("Trail duration (seconds)", &settings.duration, 0,
+                                                 0, "%.5g", ImGuiInputTextFlags_EnterReturnsTrue);
+                FORGE_UI_PROBE("particles:trail-duration");
+                submit |= ImGui::InputScalar("Trail segments (1–16)", ImGuiDataType_U32,
+                                             &settings.segments, nullptr, nullptr, "%u",
+                                             ImGuiInputTextFlags_EnterReturnsTrue);
+                FORGE_UI_PROBE("particles:trail-segments");
+                if (submit)
+                    mutate("Edit particle trails", [&](auto& value) {
+                        ParticleEffectSource candidate{value};
+                        candidate.set_trails(true, settings);
+                        value = std::move(candidate.document);
+                    });
+                ImGui::EndDisabled();
+            }
             Json mesh = data.mesh, material = data.material.id ? Json(data.material) : Json();
-            ImGui::BeginDisabled(particle_uses_billboards(data));
+            ImGui::BeginDisabled(particle_uses_billboards(data) || particle_uses_trails(data));
             if (asset_ref_picker(*catalog_, mesh, MeshAsset::type, "Mesh", false))
                 set("mesh", mesh);
             FORGE_UI_PROBE("particles:mesh");

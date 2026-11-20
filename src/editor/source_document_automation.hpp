@@ -500,12 +500,13 @@ struct AssetDocumentAutomation {
                         "document_busy",
                         "Wait for publication or settle the active source gesture/close request");
                 if (action == "particle_evaluation" || action == "particle_opacity" ||
-                    action == "particle_billboards") {
+                    action == "particle_billboards" || action == "particle_trails") {
                     if constexpr (std::is_same_v<Source, ParticleEffectSource>) {
                         const auto previous = doc.revision();
                         const bool opacity = action == "particle_opacity";
                         const bool billboards = action == "particle_billboards";
-                        const bool toggle = opacity || billboards;
+                        const bool trails = action == "particle_trails";
+                        const bool toggle = opacity || billboards || trails;
                         const auto backend = billboards
                                                  ? request.value("backend", std::string("cpu"))
                                                  : std::string{};
@@ -520,10 +521,17 @@ struct AssetDocumentAutomation {
                         doc.edit_source(
                             previous,
                             billboards ? "Toggle camera-aligned particles"
+                            : trails   ? "Set particle trails"
                             : opacity  ? "Toggle particle opacity"
                                        : "Set particle evaluation",
                             [&](Source& source) {
-                                if (billboards) {
+                                if (trails) {
+                                    std::optional<ParticleTrailSettings> settings;
+                                    if (request.contains("trail"))
+                                        settings =
+                                            decode_particle_trail_settings(request.at("trail"));
+                                    source.set_trails(request.at("enabled").get<bool>(), settings);
+                                } else if (billboards) {
                                     if (backend == "gpu")
                                         source.enable_gpu_billboards(
                                             request.at("enabled").get<bool>());
