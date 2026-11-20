@@ -4005,3 +4005,9 @@ must select the same color format as their render attachment; the default scene
 renderer uses RGBA8, so floating-point numeric targets specify their format
 explicitly. Empty numeric producer readbacks complete queued device work before
 the fixture finishes its frame.
+
+For a focused native particle readback investigation, combine `shader_only` with
+`particle_readback_only`. This selects the plane, ordering and sorted Scene
+readback cases and requires native GPU validation. It remains a partial diagnostic;
+it does not replace the full shader selection, source gate or release acceptance.
+The audit scope artifact records the selected mode.

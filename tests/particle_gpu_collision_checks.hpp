@@ -156,9 +156,11 @@ RWStructuredBuffer<float4> Result;
                             {
                                 MapHelper<std::array<float, 4>> mapped(context, staging, MAP_READ,
                                                                        MAP_FLAG_DO_NOT_WAIT);
+                                const auto operation =
+                                    "Plane readback map failed; case=" + std::to_string(cases);
                                 test_gpu::require_readback(
                                     bool(static_cast<std::array<float, 4>*>(mapped)), device,
-                                    "Plane readback map failed");
+                                    operation.c_str());
                                 for (unsigned i = 0; i < 3; i++)
                                     actual[i] = mapped[i];
                             }

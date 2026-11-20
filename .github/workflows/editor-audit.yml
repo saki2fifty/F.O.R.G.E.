@@ -14,6 +14,9 @@ on:
       shader_only:
         type: boolean
         default: false
+      particle_readback_only:
+        type: boolean
+        default: false
       workflow_only:
         type: boolean
         default: false
@@ -55,6 +58,9 @@ on:
         type: string
         default: ""
       shader_only:
+        type: boolean
+        default: false
+      particle_readback_only:
         type: boolean
         default: false
       workflow_only:
@@ -115,6 +121,13 @@ jobs:
       GIT_CONFIG_KEY_0: core.longpaths
       GIT_CONFIG_VALUE_0: "true"
     steps:
+      - name: Validate native particle diagnostic scope
+        if: inputs.particle_readback_only
+        shell: pwsh
+        run: |
+          if ('${{ inputs.shader_only }}' -ne 'true') { throw 'Particle readback diagnostics require shader_only' }
+          'FORGE_GPU_VALIDATION=1' | Out-File -FilePath $env:GITHUB_ENV -Append
+          'FORGE_SHADER_ACCEPTANCE_REGEX=^editor_render_particle-gpu-(plane-numeric|order-numeric|sorted-scene)$' | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Validate core regression diagnostic scope
         if: inputs.core_regressions_only
         shell: pwsh
@@ -371,7 +384,7 @@ jobs:
           $actual = git rev-parse HEAD
           if ($actual -ne $env:FORGE_SOURCE_COMMIT) { throw 'Source mismatch' }
           New-Item -ItemType Directory -Force ../AgentFiles/b/grid-test-images/editor | Out-Null
-          @{ core_regressions_only = '${{ inputs.core_regressions_only }}'; mcp_only = '${{ inputs.mcp_only }}'; mcp_test_regex = $env:FORGE_MCP_TEST_REGEX; publication_only = '${{ inputs.publication_only }}'; shader_only = '${{ inputs.shader_only }}'; workflow_only = '${{ inputs.workflow_only }}'; capture_only = '${{ inputs.capture_only }}'; inspector_only = '${{ inputs.inspector_only }}'; inspector_group = $env:FORGE_INSPECTOR_GROUP; source_commit = $actual } | ConvertTo-Json | Out-File ../AgentFiles/b/grid-test-images/audit-scope.json
+          @{ core_regressions_only = '${{ inputs.core_regressions_only }}'; mcp_only = '${{ inputs.mcp_only }}'; mcp_test_regex = $env:FORGE_MCP_TEST_REGEX; publication_only = '${{ inputs.publication_only }}'; shader_only = '${{ inputs.shader_only }}'; particle_readback_only = '${{ inputs.particle_readback_only }}'; workflow_only = '${{ inputs.workflow_only }}'; capture_only = '${{ inputs.capture_only }}'; inspector_only = '${{ inputs.inspector_only }}'; inspector_group = $env:FORGE_INSPECTOR_GROUP; source_commit = $actual } | ConvertTo-Json | Out-File ../AgentFiles/b/grid-test-images/audit-scope.json
           Copy-Item ../AgentFiles/b/build.json ../AgentFiles/b/grid-test-images/editor/audit-build.json
           $actual | Out-File ../AgentFiles/b/grid-test-images/editor/source-commit.txt
       - name: Validate standalone-only build without editor or import tooling

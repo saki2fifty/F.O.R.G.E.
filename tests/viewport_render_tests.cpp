@@ -3,6 +3,7 @@
 #include <windows.h>
 
 // Native declarations must precede Diligent's native command queue interface.
+#include <cstdlib>
 #include <d3d12.h>
 #include <d3d12sdklayers.h>
 #include <d3dcompiler.h>
@@ -280,6 +281,14 @@ int main(int argc, char** argv) {
             dred_settings->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
         }
 #endif
+        if (const char* validation = std::getenv("FORGE_GPU_VALIDATION");
+            validation && std::string_view(validation) == "1") {
+            ComPtr<ID3D12Debug1> gpu_debug;
+            require(debug && SUCCEEDED(debug.As(&gpu_debug)),
+                    "Requested GPU validation is unavailable");
+            gpu_debug->SetEnableGPUBasedValidation(TRUE);
+            std::cout << "Native GPU validation enabled for this diagnostic run\n";
+        }
         ComPtr<IDXGIFactory4> dxgi;
         check(CreateDXGIFactory1(IID_PPV_ARGS(&dxgi)), "DXGI factory failed");
         ComPtr<IDXGIAdapter> warp;
