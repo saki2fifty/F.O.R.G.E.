@@ -278,7 +278,8 @@ class ParticleEffectEditor {
             FORGE_UI_PROBE("particles:collision");
             ui::help(gpu_collision
                          ? "Enabling selects built-in GPU Mesh motion and disables camera-aligned "
-                           "quads. Graph selection is retained but inactive. Weighted alpha and "
+                           "quads and ribbons. Graph selection is retained but inactive. Weighted "
+                           "alpha and "
                            "GPU opacity can be combined with collision. GPU float contact times "
                            "may differ from CPU results; killed births reserve degenerate rows."
                          : "Enabling selects CPU (sorted alpha) Mesh particles.");
@@ -329,7 +330,8 @@ class ParticleEffectEditor {
             const bool gpu_billboards = particle_uses_gpu(data);
             bool billboards = document_->source().document.value(
                 gpu_billboards ? "gpu_billboard_enabled" : "billboard_enabled", false);
-            ImGui::BeginDisabled(particle_uses_trails(data) || particle_uses_collision(data));
+            ImGui::BeginDisabled((!gpu_billboards && particle_uses_trails(data)) ||
+                                 particle_uses_collision(data));
             if (ImGui::Checkbox("Camera-aligned quads", &billboards))
                 mutate("Toggle camera-aligned particles", [&](auto& value) {
                     ParticleEffectSource candidate{value};
@@ -343,6 +345,7 @@ class ParticleEffectEditor {
             ImGui::EndDisabled();
             ui::help(gpu_billboards
                          ? "Align GPU or Graph particles with each camera using Engine / Quad. "
+                           "Enabling replaces GPU ribbon geometry while retaining its settings. "
                            "Use opaque/masked Materials or Blend with Weighted alpha (GPU). World "
                            "X/Y scale sets width "
                            "and height. Disabling restores the original Mesh selection. CPU "
@@ -351,21 +354,34 @@ class ParticleEffectEditor {
                            "sets the quad orientation; world X/Y scale sets width and height. "
                            "Other evaluation backends retain this CPU setting without applying "
                            "it. Disabling restores the original Mesh selection.");
-            bool trails = document_->source().document.value("trail_enabled", false);
-            ImGui::BeginDisabled(particle_uses_collision(data));
-            if (ImGui::Checkbox("Analytic ribbon trails (CPU)", &trails))
+            const bool gpu_trails = particle_uses_gpu(data);
+            bool trails = document_->source().document.value(
+                gpu_trails ? "gpu_trail_enabled" : "trail_enabled", false);
+            ImGui::BeginDisabled(!gpu_trails && particle_uses_collision(data));
+            if (ImGui::Checkbox(gpu_trails ? "Analytic ribbon trails (GPU)"
+                                           : "Analytic ribbon trails (CPU)",
+                                &trails))
                 mutate("Set particle trails", [&](auto& value) {
                     ParticleEffectSource candidate{value};
-                    candidate.set_trails(trails);
+                    if (gpu_trails)
+                        candidate.set_gpu_trails(trails);
+                    else
+                        candidate.set_trails(trails);
                     value = std::move(candidate.document);
                 });
             FORGE_UI_PROBE("particles:trails");
             ImGui::EndDisabled();
-            ui::help("Enabling selects CPU (sorted alpha) with connected Engine / Quad ribbons. "
-                     "The current emitter transform applies to the whole local path. Tails shrink "
-                     "after a head dies. Requires a double-sided Material; opacity needs Blend. "
-                     "Duration and segments apply when CPU (sorted alpha) is selected. "
-                     "Turn off trails to use individual camera-aligned quads.");
+            ui::help(gpu_trails
+                         ? "Enabling selects built-in GPU ribbons with Engine / Quad and disables "
+                           "GPU plane collision and camera alignment. Graph selection remains "
+                           "retained but inactive. Blend and lifetime opacity require Weighted "
+                           "alpha (GPU) and enabled Scene weighted transparency. Float precision "
+                           "can collapse very short path intervals."
+                         : "Enabling selects CPU (sorted alpha) with connected Engine / Quad "
+                           "ribbons. Nonidentity opacity requires a Blend Material.");
+            ui::help("The current emitter transform applies to the whole local path. Tails shrink "
+                     "after a head dies. Use a double-sided Material. CPU and GPU retain "
+                     "independent activation with shared duration and segment settings.");
             if (trails && document_->source().document.contains("trail")) {
                 auto settings =
                     decode_particle_trail_settings(document_->source().document.at("trail"));
@@ -380,7 +396,10 @@ class ParticleEffectEditor {
                 if (submit)
                     mutate("Edit particle trails", [&](auto& value) {
                         ParticleEffectSource candidate{value};
-                        candidate.set_trails(true, settings);
+                        if (gpu_trails)
+                            candidate.set_gpu_trails(true, settings);
+                        else
+                            candidate.set_trails(true, settings);
                         value = std::move(candidate.document);
                     });
                 ImGui::EndDisabled();

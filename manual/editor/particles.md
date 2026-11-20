@@ -4,8 +4,9 @@ A particle effect is a reusable stream or burst of small meshes. Use it for
 stylized sparks, debris or fountains. Effects can use solid or masked meshes, or
 sorted transparent meshes with CPU evaluation, and camera-aligned quads with CPU,
 GPU or Graph evaluation. Explicit weighted GPU alpha supports approximate
-transparent blending and per-particle fades over life. CPU analytic ribbon trails follow each particle's local
-path. CPU Mesh particles can bounce against an emitter-local plane.
+transparent blending and per-particle fades over life. CPU and GPU analytic ribbon
+trails follow each particle's local path. Built-in CPU and GPU Mesh particles can
+bounce against an emitter-local plane.
 
 ## Try the Gallery
 
@@ -186,7 +187,8 @@ does not provide exact physical layer ordering or refraction. Transparent ordina
 Meshes in an admitted view share this transport. Opaque geometry still blocks
 particles behind its depth surface. Material and texture alpha apply; optional
 GPU opacity over life multiplies them. Built-in GPU Mesh particles also support
-the local plane response described below. GPU ribbons are unavailable.
+the local plane response described below. GPU analytic ribbons can use this same
+weighted transport with their own explicit trail setting.
 
 A visible Sprite, Tile Map, sorted transparent CPU particle, transmission Material,
 incompatible transparent Mesh or unsupported render target prevents complete-view
@@ -269,8 +271,46 @@ changes from Step curves. Higher segment counts resolve more detail.
 
 Switching evaluation retains trail settings. Select **CPU (sorted alpha)** to
 apply them again. In **CPU (sorted alpha)**, disabling trails restores the retained mesh/quad settings;
-Undo/Redo restores the complete edit. GPU and Graph trails, historical emitter
-motion are not available. Collision cannot be combined with ribbon trails.
+Undo/Redo restores the complete edit. GPU trails have their own activation, as
+described below. Graph trails and historical emitter motion are unavailable.
+Collision cannot be combined with ribbon trails.
+
+## GPU analytic ribbon trails
+
+Open **Scenes/252-gpu-analytic-particle-trails.scene.json** in FeatureGallery and
+press **Play**. Teal and amber emitters share
+**Assets/Particles/Trails/DeviceRibbonFlow.particles.json** and the existing
+double-sided ribbon Material. The Scene includes its camera, light, depth marker
+and weighted-transparency setting. No project C++ module is required.
+
+![Teal and amber GPU ribbon trails curving around a dark central marker](../images/gpu-analytic-particle-trails.png)
+
+Two emitters share one effect while retaining their own seeds and tint.
+
+1. Stop Play and open the Particle Effect from Content.
+2. Choose **GPU** under **Evaluation**, then enable **Analytic ribbon trails (GPU)**.
+3. Set **Trail duration (seconds)** and **Trail segments (1–16)**. Duration accepts 0.001–30 seconds; more segments describe curved paths and changing width in greater detail.
+4. Choose a double-sided built-in Material. The gallery's **Assets/Particles/Trails/Ribbon.material.json** is ready to use.
+5. For a Blend Material, enable **Weighted alpha (GPU)** and the Scene's weighted-transparency setting. Enable GPU opacity over life for lifetime fades. Solid or masked ribbons use identity particle opacity.
+6. Choose **Save / Publish**, save the Scene, then press **Play**. Export with the matching runtime kit packaged with the editor.
+
+GPU ribbons use connected Quad geometry. Enabling them turns off GPU plane
+collision and camera-aligned individual quads. An assigned Graph stays retained
+but inactive; Graph trajectories cannot supply these analytic ribbons. Turning
+trails off restores the retained GPU Mesh profile. CPU and GPU keep independent
+trail activation and share duration and segment settings.
+
+The current emitter transform moves the whole local path. Width comes from the
+emitter's X scale. Tails shrink after their head reaches its lifetime; they do not
+record historical world-space emitter motion. Size, color and opacity are sampled
+along the path. Device float precision can collapse a very short visible interval.
+
+Continuous capacity covers `ceil(rate × (lifetime + trail duration))`, and each
+emitter reserves `capacity × segments` against the Scene's 8,192-instance budget.
+Reduce rate, capacity, duration or segments if admission reports a budget error.
+Weighted ribbons require complete-view weighted admission; incompatible views
+omit these emitters and report a diagnostic. Per-emitter sorting does not provide
+a fallback for GPU Blend.
 
 ## Plane collision
 
@@ -414,9 +454,9 @@ accept Blend with explicit **Weighted alpha (GPU)** and complete-view weighted
 admission; their opacity-over-life setting can then apply per-particle fades.
 Other evaluation profiles require opaque/masked Materials. Skinned/morphing meshes,
 transmission and custom Shader surfaces report errors. Particles do not cast shadows.
-Built-in GPU Mesh particles support the emitter-local plane response. GPU ribbons
-and plane response for authored Graph trajectories or camera-aligned quads are
-unavailable.
+Built-in GPU Mesh particles support the emitter-local plane response. Built-in
+GPU ribbons use the separate analytic trail setting. Plane response for authored
+Graph trajectories, ribbons or camera-aligned quads is unavailable.
 
 Changing the seed restarts the effect with a different pattern. C++ can adjust the
 native component; `sdk/sample/particle_probe.cpp` demonstrates seed/speed changes

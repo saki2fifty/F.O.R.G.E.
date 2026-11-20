@@ -11,6 +11,7 @@ class ParticleGpuInstances {
   public:
     ParticleGpuInstances(DiligentPresentation&, unsigned capacity);
     ParticleGpuInstances(DiligentPresentation&, unsigned capacity, ParticleGpuMotion);
+    ParticleGpuInstances(DiligentPresentation&, unsigned capacity, const ParticleTrailSettings&);
     // The Shader selection owner supplies an already realized immutable program.
     ParticleGpuInstances(DiligentPresentation&, unsigned capacity, Diligent::IShader*,
                          const ParticleGpuGraphLimits&);
@@ -20,7 +21,7 @@ class ParticleGpuInstances {
     // Compute unbinds render targets. The camera composition owner restores them
     // before drawing. Success publishes only this submission's instance count.
     void evaluate(Diligent::IDeviceContext*, const ParticleGpuValues&,
-                  const CameraView* billboard_view = nullptr, bool material_tint_only = false,
+                  const CameraView* camera = nullptr, bool material_tint_only = false,
                   const ParticleGpuOpacityValues* opacity = nullptr,
                   const ParticleGpuCollisionValues* collision = nullptr);
     Diligent::IBuffer* buffer() const { return output_; }
@@ -28,10 +29,12 @@ class ParticleGpuInstances {
 
   private:
     void prepare();
+    void prepare_view_values();
     void prepare_billboards();
     DiligentPresentation& presentation_;
     unsigned capacity_, count_ = 0;
     ParticleGpuMotion motion_ = ParticleGpuMotion::FreeFlight;
+    std::optional<ParticleTrailSettings> trail_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> collision_values_;
     Diligent::RefCntAutoPtr<Diligent::IShader> graph_program_;
     ParticleGpuGraphLimits graph_limits_;

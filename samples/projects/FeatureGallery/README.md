@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## GPU analytic ribbon trails
+
+Open **Scenes/252-gpu-analytic-particle-trails.scene.json** and press Play. Two
+tinted emitters share **Assets/Particles/Trails/DeviceRibbonFlow.particles.json**
+and the existing double-sided ribbon Material. The Scene includes its camera,
+light, depth marker and weighted-transparency setting. Open the Effect for
+**Analytic ribbon trails (GPU)**, duration, segments, motion and lifetime
+appearance. Save / Publish, save the Scene and export using the matching runtime
+kit. No project C++ module is required. CPU/GPU trail activation is independent;
+duration and segments are shared. Current emitter motion moves the whole path.
+Graph trajectories and plane collision cannot combine with these ribbons.
+See [GPU analytic ribbon trails](../../../manual/editor/particles.md#gpu-analytic-ribbon-trails).
+
 ## GPU particle plane collision
 
 Open **Scenes/251-gpu-particle-plane-collision.scene.json** and press Play. Two

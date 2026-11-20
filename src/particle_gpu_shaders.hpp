@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 namespace forge {
-inline constexpr const char* particle_gpu_kernel_prefix = R"(
+inline constexpr const char* particle_gpu_declarations = R"(
 cbuffer ParticleValues {
     uint4 Births;uint4 Modes;
     float4 Timing,Axis,Side,Up,Acceleration,Shape,Sizes,Tint;
@@ -37,7 +37,9 @@ float3 ForgeParticleColor(float u){
     }
     return ColorStops[Modes.z-1u].yzw;
 }
-[numthreads(64,1,1)]void main(uint3 thread:SV_DispatchThreadID){
+)";
+inline constexpr const char* particle_gpu_birth_entry =
+    R"([numthreads(64,1,1)]void main(uint3 thread:SV_DispatchThreadID){
     uint id=thread.x;if(id>=Births.x)return;
     uint low=Births.y+id,high=Births.z+uint(low<Births.y);
     uint h=ForgeParticleHashWord(ForgeParticleHashWord(ForgeParticleHashWord(2166136261u,Births.w),low),high);
@@ -61,8 +63,11 @@ float3 ForgeParticleColor(float u){
         float angle=ForgeParticleUnit(state)*6.283185307179586;
         origin=radius*(Side.xyz*cos(angle)+Up.xyz*sin(angle));
     }
-    float age=max(0.0,Timing.x-float(id)*Timing.y),x=Timing.w*age;
-    float alpha=age,beta=.5*age*age;
+)";
+inline constexpr const char* particle_gpu_age =
+    R"(    float age=max(0.0,Timing.x-float(id)*Timing.y),x=Timing.w*age;
+)";
+inline constexpr const char* particle_gpu_integrals = R"(    float alpha=age,beta=.5*age*age;
     if(Timing.w>0){
         // Float subtraction in (age-alpha)/drag loses useful precision well
         // before x reaches .001. These series retain float accuracy up to .1.
@@ -74,6 +79,10 @@ float3 ForgeParticleColor(float u){
         }
     }
 )";
+inline const std::string particle_gpu_kernel_prefix_text =
+    std::string(particle_gpu_declarations) + particle_gpu_birth_entry + particle_gpu_age +
+    particle_gpu_integrals;
+inline const char* const particle_gpu_kernel_prefix = particle_gpu_kernel_prefix_text.c_str();
 inline constexpr const char* particle_gpu_plain_motion =
     R"(    float3 position=origin+initial*alpha+Acceleration.xyz*beta;
     float u=saturate(age/Timing.z),size=ForgeParticleSize(u)*Acceleration.w;
@@ -111,13 +120,13 @@ inline const std::string particle_gpu_compute_text = std::string(particle_gpu_ke
 inline const char* const particle_gpu_compute = particle_gpu_compute_text.c_str();
 // Project the existing device rows in place after analytic or authored evaluation.
 // The original evaluator's constants and RNG remain unchanged.
-inline constexpr const char* particle_gpu_billboard_compute = R"(
+inline constexpr const char* particle_gpu_view_declarations = R"(
 cbuffer ParticleBillboardValues {
     uint4 BillboardCounts;float4 CameraRows[3];
     float4 OpacityTiming,OpacityEndpoints,OpacityStops[16];
 };
-RWStructuredBuffer<float4> ParticleRows;
-float ForgeParticleOpacity(float u){
+)";
+inline constexpr const char* particle_gpu_view_math = R"(float ForgeParticleOpacity(float u){
     if(BillboardCounts.z==0u)return lerp(OpacityEndpoints.x,OpacityEndpoints.y,u);
     [loop]for(uint i=1u;i<BillboardCounts.z;i++){
         if(u<OpacityStops[i].x){
@@ -131,7 +140,9 @@ float ForgeParticleColumnLength(float3 value){
     float scale=max(max(abs(value.x),abs(value.y)),abs(value.z));
     return scale>0?scale*length(value/scale):0;
 }
-[numthreads(64,1,1)]void main(uint3 thread:SV_DispatchThreadID){
+)";
+inline constexpr const char* particle_gpu_projection_entry =
+    R"([numthreads(64,1,1)]void main(uint3 thread:SV_DispatchThreadID){
     uint id=thread.x;if(id>=BillboardCounts.x)return;
     uint row=id*FORGE_STATIC_INSTANCE_ROWS;
     if(BillboardCounts.y!=0u){
@@ -160,4 +171,9 @@ float ForgeParticleColumnLength(float3 value){
     }else ParticleRows[row+6u]=float4(tint.xyz,2);
 }
 )";
+inline const std::string particle_gpu_billboard_compute_text =
+    std::string(particle_gpu_view_declarations) + "RWStructuredBuffer<float4> ParticleRows;\n" +
+    particle_gpu_view_math + particle_gpu_projection_entry;
+inline const char* const particle_gpu_billboard_compute =
+    particle_gpu_billboard_compute_text.c_str();
 } // namespace forge

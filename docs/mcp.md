@@ -3669,12 +3669,17 @@ arbitrary Graph trajectories and collision callbacks are outside these profiles.
 
 `asset.document.particle_trails` requires `asset.write`, `editor:"particle_effect"`,
 the current document session/revision and boolean `enabled`. Optional
+`backend:"cpu"` (default) or `"gpu"` selects independent activation. Optional
 `trail:{"duration":0.75,"segments":8}` replaces both settings; omission retains them.
-Duration is0.001–30seconds and segments is an integer1–16. Enabling selects
-CPU values10/`cpu_trail1` through the same operation as the native **Analytic ribbon
-trails (CPU)** control. Source9 retains original Mesh/program/alignment/opacity and
-local stop identities. Backend changes retain inactive trail settings; a GPU edit
-does not downgrade Source9. Disabling absent trails without settings is a no-op.
+Duration is0.001–30seconds and segments is an integer1–16. CPU selects values10/
+`cpu_trail1`; GPU selects23/`gpu_trail1`,24/`gpu_weighted_trail1` or25/
+`gpu_weighted_trail_opacity1`, through the same source operation as the matching
+native **Analytic ribbon trails (CPU)** or **Analytic ribbon trails (GPU)** control.
+GPU activation selects built-in evaluation and disables GPU plane/camera alignment,
+retaining an assigned Graph inactive. Source14 retains original Mesh/program,
+CPU/GPU activation, shared duration/segments, opacity and local stop identities.
+Inactive edits never downgrade source. Disabling absent trails without settings
+is a no-op.
 
 `asset.particles.catalog` exposes the profile, limits and kit requirements. MCP
 publishes `forge_asset_document_particle_trails` from the live method/schema;
@@ -3686,10 +3691,14 @@ publication before Play/export; no parallel agent renderer or persistence exists
 Trails use bounded emitter-local analytic samples with the current emitter affine.
 They do not capture historical emitter motion. Continuous capacity includes heads
 and dying tails; capacity times segments reserves Scene instances. Double-sided
-built-in Materials are required. Nonidentity opacity needs sorted Blend with depth
-testing and no depth writes. Values10 require effect3 and typed trail1/alpha1/opacity1
-runtime support; no GPU, graph or camera-plane capability is required. GPU trails
-and collision on ribbons remain unsupported.
+built-in Materials are required. CPU nonidentity opacity needs sorted Blend with
+depth testing and no depth writes. Values10 require effect3 and typed
+trail1/alpha1/opacity1 runtime support. GPU Blend and lifetime opacity require
+complete-view weighted admission; unavailable views omit the device emitters.
+Values23–25 require effect3/GPU1 and typed `runtime_particle_gpu_trail:1`, adding
+weighted1 for24/25 and GPU opacity1 for25. CPU capabilities are independent. Device
+float precision can collapse short intervals. Graph trajectories and collision on
+ribbons remain unsupported.
 
 ## Explicit weighted device particles
 

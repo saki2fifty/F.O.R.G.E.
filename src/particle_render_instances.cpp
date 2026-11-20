@@ -34,7 +34,8 @@ void validate_particle_material_profile(const MaterialResourceData& material,
             "Shader surfaces");
     if (!particle_uses_sorted_alpha(effect) && !particle_uses_weighted_alpha(effect) &&
         material.values.alpha == MaterialAlpha::Blend)
-        throw std::runtime_error("Blend particle materials require CPU (sorted alpha) evaluation");
+        throw std::runtime_error(
+            "Blend particle materials require CPU sorted alpha or GPU weighted alpha");
     if (particle_uses_weighted_alpha(effect) && material.values.alpha != MaterialAlpha::Blend)
         throw std::runtime_error("GPU weighted alpha requires a Blend Material");
     if (particle_uses_trails(effect) && !material.values.double_sided)
@@ -49,7 +50,7 @@ void validate_particle_material_profile(const MaterialResourceData& material,
            particle_uses_collision(effect)) &&
           !identity_opacity)) &&
         material.values.alpha != MaterialAlpha::Blend)
-        throw std::runtime_error("Particle opacity requires a CPU sorted-alpha Blend Material");
+        throw std::runtime_error("Particle lifetime opacity requires a Blend Material");
     if (material.values.alpha == MaterialAlpha::Blend &&
         (!material.values.depth_test || material.values.depth_write))
         throw std::runtime_error(

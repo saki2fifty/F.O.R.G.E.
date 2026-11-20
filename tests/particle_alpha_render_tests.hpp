@@ -326,18 +326,21 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     check(effects.wait(ticket, std::chrono::seconds(15)), "Source-free alpha Effect load stalled");
     const auto selected = effects.acquire(ticket);
     check(selected &&
-              selected->version == (gpu && collision ? (gpu_opacity ? 22u
-                                                        : weighted  ? 21u
-                                                                    : 20u)
-                                    : gpu_opacity    ? (graph ? 19u : 18u)
-                                    : weighted       ? (graph ? 15u : 14u)
-                                    : collision      ? 11u
-                                    : trails         ? 10u
-                                    : graph          ? 9u
-                                    : gpu            ? 8u
-                                    : billboards     ? 7u
-                                    : opacity        ? 6u
-                                                     : 5u) &&
+              selected->version == (gpu && trails      ? (gpu_opacity ? 25u
+                                                          : weighted  ? 24u
+                                                                      : 23u)
+                                    : gpu && collision ? (gpu_opacity ? 22u
+                                                          : weighted  ? 21u
+                                                                      : 20u)
+                                    : gpu_opacity      ? (graph ? 19u : 18u)
+                                    : weighted         ? (graph ? 15u : 14u)
+                                    : collision        ? 11u
+                                    : trails           ? 10u
+                                    : graph            ? 9u
+                                    : gpu              ? 8u
+                                    : billboards       ? 7u
+                                    : opacity          ? 6u
+                                                       : 5u) &&
               bool(selected->program) == graph,
           "Source-free alpha content selected another evaluation profile");
     RuntimeWorld world({}, {}, std::nullopt, content, false);
@@ -392,7 +395,8 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     check(changed > 100, "Source-free alpha Game did not draw its particles");
     std::filesystem::create_directories(images);
     save_view_png(
-        images / (gpu && collision ? "gpu-particle-plane-collision.png"
+        images / (gpu && trails      ? "gpu-analytic-particle-trails.png"
+                  : gpu && collision ? "gpu-particle-plane-collision.png"
                   : gpu_opacity
                       ? (graph ? "gpu-graph-particle-opacity.png" : "gpu-particle-opacity.png")
                   : weighted

@@ -24,6 +24,8 @@ CPU values11/`cpu_collision1` for Mesh collision. Source11 retains explicit
 camera-aligned combinations. Source12 adds `gpu_opacity_enabled` and projects
 explicit GPU opacity values16–19. Source13 adds independent `gpu_collision_enabled`
 and explicit GPU plane values20–22 sharing the retained `collision` object with CPU.
+Source14 adds independent `gpu_trail_enabled` and explicit GPU ribbon values23–25,
+sharing the retained trail settings with CPU.
 Other backends retain inactive settings without
 applying them; CPU/GPU activation is independent with shared endpoints/stop IDs.
 Values include a Mesh reference, optional Material override, emission
@@ -82,7 +84,7 @@ Mesh and its explicit local collision plane. GPU12–19 require Blend with depth
 testing/no depth writes and complete-view weighted admission;16–19 apply explicit
 per-birth lifetime opacity. GPU20 admits opaque/masked Mesh plane response;21/22
 require weighted Blend, and22 also applies lifetime opacity. General Scene-collider
-response, GPU trails, historical emitter-motion capture and texture-sheet animation
+response, Graph trails, historical emitter-motion capture and texture-sheet animation
 are outside these profiles. The bounded stateless graph profile below extends
 position, size and RGB without adding those capabilities.
 
@@ -218,7 +220,8 @@ against8192 Scene instances; include samples and generated view records in the
 existing8MiB CPU frame budget. Actual corner bounds include camera-relative float
 padding, and the whole-life envelope includes an isotropic width allowance.
 Double-sided built-in Materials are required; nonidentity opacity requires Blend,
-depth testing and no depth writes. GPU/Graph trails remain unsupported.
+depth testing and no depth writes. These CPU values remain distinct from GPU
+ribbon values23–25 below; authored Graph trajectories do not define analytic trails.
 
 Native controls and `asset.document.particle_trails` share the source operation,
 revision/history/publication owner, schema discovery and permission checks. Values10
@@ -612,3 +615,63 @@ requirements for GPU-only profiles. Runtime kit manifests admit explicit support
 values without reinterpreting older cooks. Recipe3/envelope3/importer/asset/stop IDs,
 component and gameplay ABI remain unchanged. Resource accounting includes retained
 opacity-curve capacity. Gallery249/250 reuse the soft Material/Texture/Orbit program.
+
+## GPU analytic ribbon trails
+
+[ADR071](decisions/071-gpu-analytic-particle-trails.md) extends the existing renderer
+realization with built-in analytic ribbons. Source14 retains `gpu_trail_enabled`
+independently of CPU `trail_enabled`, sharing the typed `trail` settings. The
+source operation `set_gpu_trails` selects built-in GPU evaluation and disables
+GPU plane/camera alignment, retaining Graph selection inactive. CPU settings,
+original Mesh, extensions and stop identities survive. Inactive edits never
+reduce the source version. Native controls and optional `backend=cpu` (default)
+or `gpu` on `asset.document.particle_trails` use the same validated source and
+history/publication owner; MCP discovery exposes the same schema and operation.
+
+Values23/`gpu_trail1` admit double-sided built-in opaque/masked Quad Materials.
+Values24/`gpu_weighted_trail1` use weighted Blend, and25/
+`gpu_weighted_trail_opacity1` add GPU lifetime opacity. The existing complete-view
+weighted admission/refusal owns transparency; per-emitter sorting is not an
+alternative transport. Graph and plane trajectories cannot combine with these
+profiles. Current emitter transforms move the entire local path, without historical
+world-space motion capture.
+
+The double-precision clock/window owner admits births through life plus duration,
+then supplies short float ages. Original lifetime still clips trajectory and
+normalizes appearance. Each birth computes up to17 endpoint samples once, joins
+camera-forward sides with sign continuity, and writes the existing seven-row flag4
+packet. Tangents use transformed motion displacement before adding birth origin
+or camera-relative emitter translation, preserving tiny intervals near large
+origins. Shared endpoints retain identical bits across adjacent segments. Size,
+RGB/opacity and path-V use the same endpoint sampling contract as CPU ribbons,
+with explicit device float precision. A quantized interval can collapse to finite
+degenerate geometry; it never triggers CPU sampling or readback.
+
+The existing view-local matrix storage retains an identity-linear draw proxy and
+counts it against the CPU payload budget. Geometry already includes the emitter
+transform; applying its parity again would invert PBR face shading. Packed
+endpoints that become identical after translation retain zero-area slots.
+
+The existing private352-byte view/appearance upload feeds this kernel directly.
+Its segment-count lane and unused fourth timing lane carry segments and duration;
+camera and opacity lanes retain their meanings. Ordinary affine/billboard projection
+must not overwrite ribbon rows afterward. Shared birth/RNG, motion and appearance
+fragments retain the exact older free-flight, plane and projection shader strings.
+The immutable47-row input, source importer, recipe/envelope3, asset/stop IDs,
+component and installed gameplay ABI remain unchanged.
+
+Continuous capacity covers `ceil(rate*(life+duration))`; reserve `capacity*segments`
+against8192 Scene instances, with1–16segments and0.001–30seconds duration. The
+renderer allocates the ordinary bounded vertex/UAV buffer and draws64-instance
+slices. Published count means reserved segment slots, including degenerate slots.
+Only the existing CPU resource/pose proxy remains on the host. Per-view evaluation,
+whole-life bounds, target restoration, count clearing/publication and resource
+retirement retain their established owners.
+
+Require effect3/GPU1 and typed `runtime_particle_gpu_trail:1`. Values24/25 also
+require weighted1, and25 requires GPU opacity1; CPU trail/alpha/opacity and Graph
+capabilities are independent. Missing, malformed or unsupported kit fields reject
+before replacing a distribution. Gallery252 shares one editable GPU trail Effect
+and the existing ribbon Material between two emitters, with its own saved Scene
+weighted-transparency setting. Native Windows and physical-device acceptance
+remain separate from source-hidden software rendering.

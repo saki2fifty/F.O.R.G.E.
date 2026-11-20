@@ -13609,6 +13609,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "8ef12da3-41fe-4d75-872a-24c88dea185c",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Trails/DeviceRibbonFlow.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "906431dc-89f5-4f4b-af0d-a9d7e1d6193e",
       "metadata": {},
       "schema_version": 3,
@@ -16973,6 +16983,16 @@
         "removed": false
       },
       "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "bac9b9c4-7cc8-458a-b237-810e17f4749a",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/252-gpu-analytic-particle-trails.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

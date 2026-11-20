@@ -41,6 +41,8 @@ ParticleGpuCollisionValues prepare_particle_gpu_collision_values(const ParticleC
 // Separate view/appearance projection preserves the original evaluator and graph
 // program input layout. The camera comes from the shared admitted view owner.
 struct alignas(16) ParticleGpuBillboardValues {
+    // Ribbon kernels use counts.y for segments and timing.w for duration;
+    // camera and opacity lanes retain the same meanings. No projection follows.
     std::array<std::uint32_t, 4> counts{};
     std::array<ParticleGpuRow, 3> camera{};
     ParticleGpuRow timing{}, opacity{};

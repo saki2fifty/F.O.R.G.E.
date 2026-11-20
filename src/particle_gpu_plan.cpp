@@ -132,11 +132,12 @@ ParticleGpuValues prepare_particle_gpu_values(const ParticleEffectData& data, do
         throw std::runtime_error("GPU particle sample time must be in [0,1e9]");
     gpu_times(data.size_curve);
     gpu_times(data.color_gradient);
-    const double phase = seconds * data.spawn_rate, window = data.lifetime * data.spawn_rate;
+    const double window_life = data.lifetime + (data.trail ? data.trail->duration : 0);
+    const double phase = seconds * data.spawn_rate, window = window_life * data.spawn_rate;
     std::uint64_t first = 0, last = 0;
     double first_age = seconds, spacing = 0;
     if (data.emission == ParticleEmission::Burst) {
-        if (seconds < data.lifetime)
+        if (seconds < window_life)
             last = data.burst_count;
     } else {
         last = std::uint64_t(std::floor(phase));
@@ -150,7 +151,7 @@ ParticleGpuValues prepare_particle_gpu_values(const ParticleEffectData& data, do
         while (first < last && phase - double(first + 1) >= window)
             ++first;
         first_age = first < last ? std::min((phase - double(first + 1)) / data.spawn_rate,
-                                            std::nextafter(data.lifetime, 0.))
+                                            std::nextafter(window_life, 0.))
                                  : 0;
         spacing = 1 / data.spawn_rate;
     }

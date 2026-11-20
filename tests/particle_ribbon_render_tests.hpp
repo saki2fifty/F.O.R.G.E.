@@ -404,4 +404,101 @@ inline void scene_test(DiligentPresentation& presentation, IDeviceContext* conte
     std::cout
         << "Trail Scene composition, per-segment sorting, view retention and recovery passed\n";
 }
+inline void gpu_scene_test(DiligentPresentation& presentation, IDeviceContext* context,
+                           const std::filesystem::path& root) {
+    std::filesystem::create_directories(root);
+    auto* device = presentation.device();
+    auto host = std::make_shared<MeshResourceHost>(presentation, context, root, true);
+    host->catalog(std::make_shared<const AssetCatalog>(root));
+    MaterialData material;
+    material.model = "forge.gltf.metallic-roughness.v1";
+    material.double_sided = true;
+    material.parameters["metallicFactor"] = {MaterialParameterType::Scalar, {0}};
+    material.parameters["roughnessFactor"] = {MaterialParameterType::Scalar, {.8f}};
+    const AssetRef<MaterialAsset> surface{AssetId::generate()};
+    host->preview_material(surface, {material, {}, {}, {}});
+    ParticleEffectData data;
+    data.version = 23;
+    data.mesh = engine_primitive(8);
+    data.material = surface;
+    data.trail = ParticleTrailSettings{1, 4};
+    data.emission = ParticleEmission::Burst;
+    data.capacity = data.burst_count = 1;
+    data.direction = {1, 1, 0};
+    data.cone_angle = 0;
+    data.speed_min = data.speed_max = 1;
+    data.acceleration = {0, -.4, .25};
+    data.size_start = data.size_end = .6;
+    data.color_start = data.color_end = {1, 1, 1};
+    const AssetRef<ParticleEffectAsset> effect{AssetId::generate()};
+    host->preview_particle_effect(effect, data);
+    RenderScene scene;
+    scene.scene = AssetId::generate();
+    scene.settings.shadows.enabled = false;
+    Light light;
+    light.intensity = 2;
+    const std::array lights{light_view(light, {})};
+    scene.lights.push_back({EntityId::generate(), lights.front(), {}, {}});
+    RenderParticleEmitter emitter;
+    emitter.entity = EntityId::generate();
+    emitter.emitter.effect = effect;
+    emitter.emitter.seed = 41;
+    emitter.time = 1.5;
+    scene.particles.push_back(emitter);
+    MeshSceneRenderer renderer(host);
+    Targets targets(device);
+    const auto quad = asset_detail::engine_mesh_resource(data.mesh).mesh;
+    auto cpu_reference = data;
+    cpu_reference.version = 10;
+    unsigned frames = 0;
+    for (unsigned transform = 0; transform < 3; ++transform)
+        for (bool flip : {false, true}) {
+            auto& world = scene.particles.front().world;
+            world = {};
+            world.m[0] = transform == 1 ? -1 : 1;
+            world.m[1] = .2;
+            world.m[10] = transform == 2 ? 0 : 1;
+            world.m[3] = transform == 1 ? .7 : -.7;
+            world.m[7] = -.6;
+            world.m[11] = 3;
+            Camera settings;
+            settings.projection = unsigned(CameraProjection::Orthographic);
+            settings.orthographic_height = 2.4;
+            settings.flip_x = flip;
+            const auto camera = camera_view(settings, {}, width, height);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+            do {
+                host->pump();
+                renderer.update(scene);
+                check(std::chrono::steady_clock::now() < deadline,
+                      "GPU ribbon Scene resources timed out");
+                if (renderer.pending())
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } while (renderer.pending());
+            targets.clear(context);
+            renderer.draw(scene, camera, UINT32_MAX, targets.color,
+                          targets.depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL));
+            if (!renderer.diagnostics().empty())
+                throw std::runtime_error(renderer.diagnostics().front().text);
+            check(renderer.draw_stats().instances == 4, "GPU ribbon Scene lost reserved segments");
+            const auto actual = test_bloom::read(device, context, targets.color);
+            // Independent CPU trajectory and ordinary triangles establish both
+            // geometry and lit face orientation; no device output is read back.
+            const auto paths =
+                sample_particle_paths(cpu_reference, emitter.time, emitter.emitter.seed, 1, 4);
+            const auto segments = particle_ribbon_segments(paths, world, camera);
+            const auto triangles = upload_mesh(device, reference_mesh(quad, segments, camera));
+            MeshDraw oracle(presentation, context, triangles.lods[0].parts[0], material, {},
+                            TEX_FORMAT_RGBA32_FLOAT, TEX_FORMAT_D32_FLOAT);
+            targets.clear(context);
+            oracle.draw(context, {}, camera, lights);
+            same_pixels(actual, test_bloom::read(device, context, targets.color));
+            context->FinishFrame();
+            device->ReleaseStaleResources();
+            ++frames;
+        }
+    context->WaitForIdle();
+    std::cout << "GPU ribbon lit Scene matches independent triangles in " << frames
+              << " reflected, sheared, singular and flipped-view frames\n";
+}
 } // namespace forge::test_particle_ribbon

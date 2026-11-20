@@ -603,6 +603,61 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
     require(editor.document()->source().document == before_weighted,
             "Native GPU plane edits did not restore exact prior source/history");
 
+    choose("particles:evaluation", 1);
+    click("particles:trails");
+    frame();
+    require(editor.document()->source().compiled().version == 23 &&
+                editor.document()->source().document.at("version").get<unsigned>() == 14 &&
+                editor.document()->source().document.at("gpu_trail_enabled").get<bool>() &&
+                !test::ui_targets.at("particles:mesh").enabled,
+            "Native GPU trail control did not select connected Quad geometry");
+    number("particles:trail-duration", ".6");
+    number("particles:trail-segments", "4");
+    require(editor.document()->source().compiled().trail == ParticleTrailSettings{.6, 4},
+            "Native GPU trail controls failed to commit shared settings");
+    const auto tuned_gpu_trails = editor.document()->source().document;
+    number("particles:trail-segments", "17");
+    require(editor.document()->source().document == tuned_gpu_trails &&
+                !editor.diagnostic().empty(),
+            "Rejected GPU segment count changed source");
+    click("particles:gpu-weighted");
+    require(editor.document()->source().compiled().version == 24,
+            "Native weighted selection lost connected GPU trails");
+    click("particles:opacity");
+    require(editor.document()->source().compiled().version == 25,
+            "Native GPU lifetime opacity lost connected trails");
+    const auto fading_gpu_trails = editor.document()->source().document;
+    choose("particles:evaluation", 2);
+    require(editor.document()->source().compiled().version == 17 &&
+                !editor.document()->source().compiled().trail,
+            "Graph selection incorrectly applied analytic GPU trails");
+    choose("particles:evaluation", 1);
+    require(editor.document()->source().document == fading_gpu_trails,
+            "Native Graph round trip lost retained GPU trail settings");
+    click("particles:collision");
+    require(editor.document()->source().compiled().version == 22,
+            "Native plane selection did not deactivate GPU ribbon geometry");
+    click("particles:trails");
+    require(editor.document()->source().document == fading_gpu_trails,
+            "Native GPU trail selection lost retained plane or appearance values");
+    frame(); // Observe the frame after the checkbox replaces the plane profile.
+    click("particles:billboards");
+    require(editor.document()->source().compiled().version == 18,
+            "Native GPU camera alignment did not deactivate ribbons");
+    click("particles:trails");
+    require(editor.document()->source().document == fading_gpu_trails,
+            "Native GPU camera/trail round trip lost exact source state");
+    click("particles:undo");
+    require(editor.document()->source().compiled().version == 18,
+            "Native GPU ribbon Undo lost prior geometry");
+    click("particles:redo");
+    require(editor.document()->source().document == fading_gpu_trails,
+            "Native GPU ribbon Redo lost exact source identities");
+    for (unsigned i = 0; i < 32 && editor.document()->source().document != before_weighted; ++i)
+        editor.undo();
+    require(editor.document()->source().document == before_weighted,
+            "Native GPU trail edits did not restore exact prior source/history");
+
     click("particles:undo");
     // Keep the original lifecycle/close checks applicable, including start-size editing.
     for (unsigned i = 0; i < 32 && editor.document()->source().document != before_extended; ++i)

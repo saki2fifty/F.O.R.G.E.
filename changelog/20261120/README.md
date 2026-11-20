@@ -1,5 +1,23 @@
 # 2026-11-20
 
+## GPU analytic ribbon trails
+
+Built-in GPU particles can draw joined emitter-local ribbon paths with sampled
+size, RGB and lifetime opacity. Source14 retains independent CPU/GPU activation
+and shared duration/segments. Explicit values23–25 support opaque/masked drawing,
+weighted Blend and weighted lifetime fades, with typed runtime-kit admission.
+The existing clock, device buffers, joined vertex format, Material transport and
+source/history owners remain authoritative. Older source/cook meanings, IDs,
+recipes/envelopes and gameplay ABI are preserved.
+
+Native controls and MCP expose the same source operation; `particle_trails` adds
+optional `backend:gpu` while retaining CPU default. Gallery252 shares an editable
+GPU trail Effect and the existing ribbon Material across two emitters. The manual
+includes an authentic source-hidden relocated Game capture. Graph trajectories,
+plane collision and historical emitter motion remain outside these profiles.
+Device float precision remains distinct from CPU evaluation. Windows execution
+and physical acceptance are recorded separately.
+
 ## GPU particle plane response
 
 Built-in GPU Mesh particles support an emitter-local plane, constant collision

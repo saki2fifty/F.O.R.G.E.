@@ -155,7 +155,7 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                     require(value_version != metadata->end() && value_version->is_number_integer(),
                             "Invalid Particle Effect value profile");
                     const auto values = value_version->get<std::uint64_t>();
-                    require(values >= 2 && values <= 22,
+                    require(values >= 2 && values <= 25,
                             "Unsupported Particle Effect value profile");
                     if (values == 3 || values == 4 || values == 8 || values == 9 || values >= 12) {
                         const auto gpu = engine.find("runtime_particle_gpu");
@@ -201,7 +201,7 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                 trail->get<std::uint64_t>() == particle_trail_profile_version,
                             "Particle trails require the runtime kit packaged with this editor");
                     }
-                    if ((values >= 16 && values <= 19) || values == 22) {
+                    if ((values >= 16 && values <= 19) || values == 22 || values == 25) {
                         const auto opacity = engine.find("runtime_particle_gpu_opacity");
                         require(opacity != engine.end() && opacity->is_number_integer() &&
                                     opacity->get<std::uint64_t>() ==
@@ -209,7 +209,8 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                 "GPU particle opacity requires the runtime kit packaged with this "
                                 "editor");
                     }
-                    if ((values >= 12 && values <= 19) || values == 21 || values == 22) {
+                    if ((values >= 12 && values <= 19) || values == 21 || values == 22 ||
+                        values == 24 || values == 25) {
                         const auto weighted = engine.find("runtime_particle_gpu_weighted");
                         require(weighted != engine.end() && weighted->is_number_integer() &&
                                     weighted->get<std::uint64_t>() ==
@@ -232,6 +233,14 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                         particle_gpu_collision_profile_version,
                                 "GPU particle plane collision requires the runtime kit packaged "
                                 "with this editor");
+                    }
+                    if (values >= 23 && values <= 25) {
+                        const auto trail = engine.find("runtime_particle_gpu_trail");
+                        require(trail != engine.end() && trail->is_number_integer() &&
+                                    trail->get<std::uint64_t>() ==
+                                        particle_gpu_trail_profile_version,
+                                "GPU particle trails require the runtime kit packaged with this "
+                                "editor");
                     }
                     if (values == 8 || values == 9 || values == 14 || values == 15 ||
                         values == 18 || values == 19) {

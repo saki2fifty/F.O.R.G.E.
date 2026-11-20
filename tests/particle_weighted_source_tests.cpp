@@ -309,6 +309,132 @@ void collision_profiles() {
     reject([&] { source.enable_gpu_opacity(true); });
     check(source.document == active, "Rejected GPU plane opacity edit changed source precision");
 }
+void trail_profiles() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    const auto original = source.document;
+    source.set_gpu_trails(false);
+    check(source.document == original, "Disabled absent GPU trail mode changed legacy source");
+    source.enable_opacity(true);
+    source.enable_lifetime(ParticleLifetimeChannel::Opacity, true);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Opacity, .4);
+    source.set_trails(true, ParticleTrailSettings{.75, 4});
+    source.set_collision(true);
+    source.set_graph_program({{AssetId::generate()}, {3, 4, 5}, 2}, false);
+    source.set_gpu_collision(true);
+    source.document["extensions"] = {{"label", "retained"}};
+    const auto retained = source.document;
+    source.set_gpu_trails(true);
+    check(source.document.at("version").get<unsigned>() == 14 && source.compiled().version == 23 &&
+              !source.document.at("gpu_collision_enabled").get<bool>() &&
+              !source.document.at("gpu_billboard_enabled").get<bool>(),
+          "GPU trail activation lost its explicit geometry/source profile");
+    for (const auto* field :
+         {"asset_id", "mesh", "material", "program", "opacity_enabled", "opacity_curve",
+          "collision", "collision_enabled", "trail", "trail_enabled", "extensions"})
+        check(source.document.at(field) == retained.at(field),
+              "GPU trail activation changed retained settings or identities");
+    for (unsigned mode = 0; mode < 3; ++mode) {
+        auto candidate = source;
+        if (mode)
+            candidate.enable_gpu_weighted_alpha(true);
+        if (mode == 2)
+            candidate.enable_gpu_opacity(true);
+        const auto active = candidate.document;
+        const auto data = candidate.compiled();
+        check(data.version == 23 + mode && data.mesh == engine_primitive(8) &&
+                  data.trail == ParticleTrailSettings{.75, 4} && !data.program && !data.collision &&
+                  particle_uses_gpu(data) && particle_uses_trails(data) &&
+                  !particle_uses_sorted_alpha(data) &&
+                  particle_uses_weighted_alpha(data) == bool(mode) &&
+                  particle_uses_gpu_opacity(data) == (mode == 2) &&
+                  decode_particle_effect(encode_particle_effect(data)) == data &&
+                  decode_cooked_particle_effect(candidate.cook(), candidate.asset(), 3) == data,
+              "GPU ribbon profile or cook projection failed");
+        check(particle_instance_capacity(data) == data.capacity * data.trail->segments,
+              "GPU trails did not reserve every segment");
+        reject([&] { (void)sample_particle_effect(data, .5, 41); });
+        candidate.set_gpu_trails(false);
+        check(!candidate.compiled().trail && candidate.document.at("trail") == active.at("trail"),
+              "GPU trail disable lost settings or applied inactive geometry");
+        candidate.set_gpu_trails(true);
+        check(candidate.document == active, "GPU trail enable round trip lost identities");
+        candidate.set_evaluation(ParticleEvaluation::Graph);
+        check(candidate.compiled().program && !candidate.compiled().trail,
+              "Inactive GPU trail settings changed an authored trajectory");
+        candidate.set_evaluation(ParticleEvaluation::CpuAlpha);
+        check(candidate.compiled().version == 11 &&
+                  candidate.document.at("version").get<unsigned>() == 14,
+              "CPU selection lost retained plane state or downgraded source");
+        candidate.set_evaluation(ParticleEvaluation::Gpu);
+        check(candidate.document == active, "Backend round trip lost GPU trail state");
+        candidate.enable_gpu_billboards(true);
+        check(!candidate.compiled().trail, "GPU alignment kept ribbon geometry active");
+        candidate.set_gpu_trails(true);
+        candidate.set_gpu_collision(true);
+        check(!candidate.compiled().trail && candidate.document.at("version").get<unsigned>() == 14,
+              "GPU collision kept ribbon geometry active or downgraded source");
+        candidate.set_gpu_trails(true);
+        check(candidate.document == active, "Geometry round trip lost retained source settings");
+        for (auto emission : {ParticleEmission::Burst, ParticleEmission::Continuous})
+            for (double time : {0., .125, 1., 2., 2.5, 2.75, 1e9, 1.}) {
+                auto input = data;
+                input.emission = emission;
+                auto reference = input;
+                reference.version = 2;
+                reference.trail.reset();
+                reference.opacity_start = reference.opacity_end = 1;
+                reference.opacity_curve.clear();
+                reference.lifetime += input.trail->duration;
+                const auto samples = sample_particle_effect(reference, time, 41);
+                const auto values = prepare_particle_gpu_values(input, time, 41, {}, {});
+                check(values.births[0] == samples.size() &&
+                          values.timing[2] == float(input.lifetime),
+                      "GPU trail birth window lost tails or changed original life");
+                if (!samples.empty()) {
+                    const auto first = (std::uint64_t(values.births[2]) << 32) | values.births[1];
+                    check(first == samples.front().birth &&
+                              first + values.births[0] - 1 == samples.back().birth,
+                          "GPU trail window changed stable birth ordinals");
+                }
+            }
+        MaterialResourceData material;
+        material.values.model = "forge.gltf.unlit.v1";
+        material.values.double_sided = true;
+        material.values.alpha = mode ? MaterialAlpha::Blend : MaterialAlpha::Opaque;
+        material.values.depth_write = !mode;
+        validate_particle_material_profile(material, data);
+        material.values.double_sided = false;
+        reject([&] { validate_particle_material_profile(material, data); });
+    }
+    auto long_tail = source.compiled();
+    long_tail.capacity = 512;
+    long_tail.lifetime = 30;
+    long_tail.spawn_rate = 8;
+    long_tail.trail = ParticleTrailSettings{30, 16};
+    for (double time : {0., 15., 30., 45., 60., 1e9}) {
+        const auto values = prepare_particle_gpu_values(long_tail, time, 41, {}, {});
+        check(values.births[0] == unsigned(std::min(480., std::floor(time * 8))) &&
+                  values.timing[2] == 30 && values.timing[0] <= 60,
+              "GPU trail maximum window exceeded short-age/capacity admission");
+    }
+    for (const auto& invalid : {nlohmann::json(), nlohmann::json(1), nlohmann::json("true")}) {
+        auto candidate = source;
+        candidate.document["gpu_trail_enabled"] = invalid;
+        reject([&] { candidate.validate(); });
+    }
+    for (const auto* field : {"gpu_collision_enabled", "gpu_billboard_enabled"}) {
+        auto candidate = source;
+        candidate.document[field] = true;
+        reject([&] { candidate.validate(); });
+    }
+    const auto unchanged = source.document;
+    for (auto settings :
+         {ParticleTrailSettings{0, 4}, ParticleTrailSettings{31, 4}, ParticleTrailSettings{.5, 0},
+          ParticleTrailSettings{.5, 17}, ParticleTrailSettings{30, 16}}) {
+        reject([&] { source.set_gpu_trails(true, settings); });
+        check(source.document == unchanged, "Rejected GPU trail edit changed authored source");
+    }
+}
 void materials() {
     MaterialResourceData material;
     material.values.model = "forge.gltf.unlit.v1";
@@ -342,6 +468,7 @@ int main() {
         profiles();
         opacity_profiles();
         collision_profiles();
+        trail_profiles();
         materials();
         std::cout
             << "Explicit weighted GPU profiles, retained identities and strict admission passed\n";

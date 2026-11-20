@@ -3812,3 +3812,61 @@ The canonical `manual/images/gpu-particle-plane-collision.png` is the unmodified
 hidden and content relocated. Capture provenance and original image hash are
 recorded locally. It shows Game output without editor chrome; Windows and physical
 GPU acceptance are separate from the software-device result.
+
+### GPU analytic ribbon checks and capture
+
+`particle_gpu_trail_vulkan` exercises the actual built-in renderer realization
+against the independent CPU motion, lifetime-appearance and joined-geometry owners.
+It covers spawn shapes, minimum/long durations, full8192-slot reservation, shrinking
+tails, repeated/backward queries, exact shared joins, refusal and count recovery.
+The same checks are registered on Windows as
+`editor_render_particle-gpu-trail-numeric`; registration does not establish a
+Windows execution result. Older GPU and plane probes remain separate regressions.
+
+Gallery252 source inspection and source-hidden export use
+`particle_gpu_trail_gallery` and `particle_gpu_trail_gallery_export`. The production
+Game presentation check is `particle_gpu_trail_gallery_game` on Windows and
+`particle_gpu_trail_gallery_game_vulkan` locally. Both consume relocated cooked
+content through the shared runtime and `FrameRenderer::game` owners.
+
+The canonical `manual/images/gpu-analytic-particle-trails.png` is the unmodified
+640×360 output at three seconds from the software Vulkan/llvmpipe check, with
+editable sources hidden and content relocated. It was visually inspected in its
+original form; capture provenance and its hash are recorded locally. It shows Game
+output without editor chrome, and supplies neither Windows nor physical-GPU acceptance.
+
+### GPU analytic ribbon coverage
+
+`particle_gpu_trail_vulkan` and Windows
+`editor_render_particle-gpu-trail-numeric` share
+`tests/particle_gpu_trail_checks.hpp`. The independent reference uses the existing
+CPU birth RNG reference, motion evaluator, lifetime sampler and joined ribbon
+geometry owner with admitted float inputs. Cases cover all spawn shapes, short
+and long lifetimes/tails,1–16segments,512births/8192slots, curves, clipped/shrinking
+paths, repeated queries and recovery. Separate capacity, finite input, camera,
+plane/opacity refusal and cleared-count checks exercise the actual realization.
+A boundary case admits a birth immediately before double-precision expiry whose
+rounded head age exceeds a sum of independently rounded life/duration inputs.
+The device validates bounded work while the original clock retains membership.
+Local Vulkan execution does not establish the Windows case's result.
+
+The same numeric case checks exact zero-area slots at trajectory reversals and
+after translated endpoint quantization. Its lit Scene comparison uses independent
+CPU paths baked into ordinary triangles across reflected, sheared, singular and
+flipped-view transforms, exercising the renderer's view-local draw proxy.
+
+`particle_gpu_trail_gallery` inspects the editable shared Effect/Material/Scene;
+its `_export` check hides source and relocates the runtime closure. Production
+`FrameRenderer::game` drawing is registered as `particle_gpu_trail_gallery_game`
+on Windows and `_game_vulkan` for software Vulkan. The canonical
+`manual/images/gpu-analytic-particle-trails.png` is the unmodified640×360 capture
+at three seconds from the relocated software-device check, personally reviewed
+without retouching. It shows Game output without editor chrome; native Windows
+execution and physical GPU acceptance remain separate. Capture provenance and
+original image hash are recorded locally.
+
+The particle source/editor/MCP checks include explicit GPU ribbon profiles,
+independent CPU/GPU activation, shared settings, geometry switching, exact
+revisions, no-op/invalid edits, Undo/Redo, publication/reopen and typed-kit refusal.
+Both MCP transport formats run the shared workflow. These registrations alone do
+not substitute for an attributable passing execution of each affected consumer.

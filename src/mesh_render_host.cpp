@@ -1279,17 +1279,18 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     for (const auto& [mesh, pose] : particle_instances_) {
         (void)pose;
         const auto& source = particle_sources_.at(mesh.entity);
-        if (particle_uses_trails(*source.data()))
+        if (particle_uses_trails(*source.data()) && !particle_uses_gpu(*source.data()))
             ribbon_count += source.paths.segment_count();
     }
     particle_view_ribbons.reserve(ribbon_count);
-    const auto billboard_count = std::count_if(
+    const auto view_world_count = std::count_if(
         particle_instances_.begin(), particle_instances_.end(), [&](const auto& instance) {
-            return particle_uses_billboards(*particle_sources_.at(instance.first.entity).data());
+            const auto& effect = *particle_sources_.at(instance.first.entity).data();
+            return particle_uses_billboards(effect) || particle_uses_gpu_trails(effect);
         });
     // Reserve once before Object borrows matrix addresses. This storage belongs
     // to this view; another camera must never overwrite the cached source poses.
-    particle_view_worlds.reserve(static_cast<std::size_t>(billboard_count));
+    particle_view_worlds.reserve(static_cast<std::size_t>(view_world_count));
     const auto require_specialization_capacity = [&] {
         std::size_t count = 0;
         for (const auto& [key, weak] : bundles_) {
@@ -1325,6 +1326,13 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             if (draw_scope == DrawScope::Particle &&
                 particle_uses_billboards(*particle_sources_.at(mesh.entity).data())) {
                 particle_view_worlds.push_back(particle_billboard_world(pose.world, camera));
+                aligned_world = &particle_view_worlds.back();
+            } else if (gpu && particle_uses_gpu_trails(*particle_sources_.at(mesh.entity).data())) {
+                // Ribbon rows already contain transformed endpoints and sides.
+                // Keep emitter parity out of their camera-facing surface frame.
+                particle_view_worlds.emplace_back();
+                for (unsigned axis = 0; axis < 3; ++axis)
+                    particle_view_worlds.back().m[axis * 4 + 3] = pose.world.m[axis * 4 + 3];
                 aligned_world = &particle_view_worlds.back();
             }
             auto bounds = ribbon ? ribbon->bounds
@@ -1400,10 +1408,13 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         ? std::optional(prepare_particle_gpu_collision_values(*effect.collision))
                         : std::nullopt;
                 try {
-                    gpu->evaluate(host_->context_, values,
-                                  particle_uses_billboards(effect) ? &camera : nullptr,
-                                  object.gpu_weighted, opacity ? &*opacity : nullptr,
-                                  collision ? &*collision : nullptr);
+                    gpu->evaluate(
+                        host_->context_, values,
+                        (particle_uses_billboards(effect) || particle_uses_gpu_trails(effect))
+                            ? &camera
+                            : nullptr,
+                        object.gpu_weighted, opacity ? &*opacity : nullptr,
+                        collision ? &*collision : nullptr);
                 } catch (...) {
                     restore_camera_target();
                     throw;
@@ -1499,7 +1510,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         append(mesh, scope(mesh));
     for (const auto& [mesh, pose] : particle_instances_) {
         const auto& source = particle_sources_.at(mesh.entity);
-        if (!particle_uses_trails(*source.data())) {
+        if (!particle_uses_trails(*source.data()) || particle_uses_gpu(*source.data())) {
             append(mesh, DrawScope::Particle, &pose);
             continue;
         }

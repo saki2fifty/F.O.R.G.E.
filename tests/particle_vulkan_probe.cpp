@@ -882,7 +882,8 @@ int main(int argc, char** argv) {
                            std::string_view(argv[2]) == "--gpu-billboard-gallery" ||
                            std::string_view(argv[2]) == "--weighted-gallery" ||
                            std::string_view(argv[2]) == "--gpu-opacity-gallery" ||
-                           std::string_view(argv[2]) == "--gpu-collision-gallery"))) {
+                           std::string_view(argv[2]) == "--gpu-collision-gallery" ||
+                           std::string_view(argv[2]) == "--gpu-trail-gallery"))) {
             RefCntAutoPtr<IRenderDevice> device;
             RefCntAutoPtr<IDeviceContext> context;
             EngineVkCreateInfo create;
@@ -891,12 +892,17 @@ int main(int argc, char** argv) {
                 std::string_view(argv[2]) == "--gpu-billboard-gallery" ||
                 std::string_view(argv[2]) == "--weighted-gallery" ||
                 std::string_view(argv[2]) == "--gpu-opacity-gallery" ||
-                std::string_view(argv[2]) == "--gpu-collision-gallery")
+                std::string_view(argv[2]) == "--gpu-collision-gallery" ||
+                std::string_view(argv[2]) == "--gpu-trail-gallery")
                 create.Features.ComputeShaders = DEVICE_FEATURE_STATE_ENABLED;
             GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
             check(device && context, "Native sorted-alpha device unavailable");
             DiligentPresentation presentation(device);
-            if (argc == 4)
+            if (argc == 4 && std::string_view(argv[2]) == "--gpu-trail-gallery")
+                test_particle_alpha::gallery(presentation, context,
+                                             std::filesystem::absolute(argv[3]), argv[1], true,
+                                             false, true, false, true, false, true, true);
+            else if (argc == 4)
                 test_particle_alpha::gallery(
                     presentation, context, std::filesystem::absolute(argv[3]), argv[1],
                     std::string_view(argv[2]) == "--opacity-gallery" ||

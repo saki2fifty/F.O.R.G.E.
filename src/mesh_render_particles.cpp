@@ -155,9 +155,9 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
             each += draw.renderer.materials.capacity() * sizeof(MaterialSlotOverride);
             for (const auto& slot : draw.renderer.materials)
                 each += slot.slot.capacity();
-            if (particle_uses_billboards(data))
+            if (particle_uses_billboards(data) || particle_uses_gpu_trails(data))
                 each += sizeof(AffineTransform); // Reserved view-local aligned matrix.
-            if (particle_uses_trails(data)) {
+            if (particle_uses_trails(data) && !particle_uses_gpu(data)) {
                 const auto& trail = *data.trail;
                 auto paths = sample_particle_paths(data, emitter.time, emitter.emitter.seed,
                                                    trail.duration, trail.segments);
@@ -197,7 +197,10 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                              float(graph.maximum_size)}};
                         source->second.gpu = std::make_unique<ParticleGpuInstances>(
                             host_->presentation_, data.capacity, native, limits);
-                    } else
+                    } else if (particle_uses_gpu_trails(data))
+                        source->second.gpu = std::make_unique<ParticleGpuInstances>(
+                            host_->presentation_, data.capacity, *data.trail);
+                    else
                         source->second.gpu = std::make_unique<ParticleGpuInstances>(
                             host_->presentation_, data.capacity,
                             particle_uses_collision(data) ? ParticleGpuMotion::PlaneCollision

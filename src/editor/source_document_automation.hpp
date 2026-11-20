@@ -511,10 +511,10 @@ struct AssetDocumentAutomation {
                         const bool weighted = action == "particle_gpu_weighted";
                         const bool toggle =
                             opacity || billboards || trails || collision || weighted;
-                        const auto backend = opacity || billboards || collision
+                        const auto backend = opacity || billboards || trails || collision
                                                  ? request.value("backend", std::string("cpu"))
                                                  : std::string{};
-                        if ((opacity || billboards || collision) && backend != "cpu" &&
+                        if ((opacity || billboards || trails || collision) && backend != "cpu" &&
                             backend != "gpu")
                             throw AuthoringError("invalid_argument",
                                                  "Choose cpu or gpu particle backend");
@@ -552,7 +552,12 @@ struct AssetDocumentAutomation {
                                     if (request.contains("trail"))
                                         settings =
                                             decode_particle_trail_settings(request.at("trail"));
-                                    source.set_trails(request.at("enabled").get<bool>(), settings);
+                                    if (backend == "gpu")
+                                        source.set_gpu_trails(request.at("enabled").get<bool>(),
+                                                              settings);
+                                    else
+                                        source.set_trails(request.at("enabled").get<bool>(),
+                                                          settings);
                                 } else if (billboards) {
                                     if (backend == "gpu")
                                         source.enable_gpu_billboards(

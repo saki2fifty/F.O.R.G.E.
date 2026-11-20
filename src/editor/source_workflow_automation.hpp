@@ -113,14 +113,19 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "enabled, and "
                  "runtime_particle_gpu_billboard1 plus GPU1; graphs also need graph1."},
                 {"trails",
-                 "asset.document.particle_trails selects CPU analytic ribbons "
-                 "(values10/cpu_trail1). Optional trail={duration,segments} replaces settings; "
-                 "omission retains them. Source9 retains Mesh, backend flags, appearance and "
-                 "local stop identities. Duration0.001–30seconds, segments1–16; capacity includes "
-                 "heads plus dying tails, and capacity*segments must fit8192. Double-sided "
-                 "built-in Materials; nonidentity opacity needs sorted Blend. Current emitter "
-                 "transform applies to the whole local path. Requires runtime_particle_trail1, "
-                 "opacity1 and alpha1; no GPU trail or historical emitter-motion capture."},
+                 "asset.document.particle_trails selects analytic ribbons. Optional backend=cpu "
+                 "(default) uses values10/cpu_trail1; gpu selects built-in values23/gpu_trail1, "
+                 "24/gpu_weighted_trail1 or25/gpu_weighted_trail_opacity1. GPU activation disables "
+                 "GPU plane and camera alignment, retaining Graph inactive. Optional "
+                 "trail={duration,segments} replaces shared settings; omission retains them. "
+                 "Source14 retains independent CPU/GPU activation, Mesh, appearance and local "
+                 "stop identities. Duration0.001–30seconds, segments1–16; capacity covers heads "
+                 "and dying tails, capacity*segments<=8192. Double-sided built-in Materials; "
+                 "GPU Blend/opacity requires enabled complete-view weighted transparency. CPU "
+                 "requires runtime_particle_trail1/opacity1/alpha1; GPU requires GPU1 and "
+                 "runtime_particle_gpu_trail1, plus weighted1 and GPU opacity1 where selected. "
+                 "Current emitter transform applies to the whole local path, without historical "
+                 "emitter-motion capture; device float precision may collapse short intervals."},
                 {"collision",
                  "asset.document.particle_collision selects emitter-local analytic plane "
                  "response. Optional backend=cpu(default)|gpu selects CPU sorted-alpha Mesh "
@@ -894,6 +899,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         } else if (std::string_view(action) == "particle_trails") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
             properties["enabled"] = {{"type", "boolean"}};
+            properties["backend"] = {
+                {"type", "string"},
+                {"enum", {"cpu", "gpu"}},
+                {"default", "cpu"},
+                {"description", "CPU sorted-alpha or built-in GPU analytic ribbons. Settings "
+                                "are shared; activation choices are retained independently."}};
             properties["trail"] = automation_object(
                 {{"duration", {{"type", "number"}, {"minimum", .001}, {"maximum", 30}}},
                  {"segments", automation_integer(1, 16)}},
