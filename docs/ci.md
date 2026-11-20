@@ -1120,7 +1120,7 @@ The editor fixture routes audio through `AudioOutput::Offline` for the runner;
 this checks authored clip decoding without claiming a physical audio device.
 A package-only retry does not rebuild or relabel previous delivery binaries.
 It rejects changes outside tests, technical documentation and the build workflow.
-Its nonshipping editor acceptance fixture is rebuilt from the exact compatible
+When approved native test inputs change, its nonshipping editor acceptance fixture is rebuilt from the exact compatible
 compiled-source cache, with the workflow probe run before package acceptance.
 The evidence records the fixture revision/hash separately from the unchanged
 engine build/source identity; the fixture is never included in the delivery ZIP.
@@ -1136,6 +1136,13 @@ read-only file handoff tolerates temporary absence or sharing denial; malformed
 JSON, other I/O errors and editor exit fail. Tool permission checks, single-attempt mutations,
 credential removal and the remaining game/export assertions keep their existing
 contracts. A focused helper check includes an actual Windows sharing-handle case.
+Known package-side Python helpers, technical documentation and workflow-only
+changes reuse the exact native fixture artifact from the validated source run.
+Unknown test inputs, including unfamiliar Python generators, retain the native
+cache/rebuild requirement. Product/dependency input changes remain forbidden for
+package-only reuse. The provenance receipt records the selected fixture's actual
+compiled-source identity, rebuilt state and hash. Every final-package assertion
+still runs; a missing compilation cache is not required for an unchanged artifact.
 The imported-lightmap export checks the prepared Shader's wrapper capability and
 the exported Material's Shader identity. After source removal and relocation,
 the runtime content verifier admits the Material's embedded Shader snapshot and

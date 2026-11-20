@@ -502,11 +502,11 @@ jobs:
             Write-Output "::add-mask::$auth"
             git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin $source.head_sha
             if ($LASTEXITCODE) { throw 'Compiled source comparison fetch failed' }
-            $changed = @(git diff --name-only $source.head_sha HEAD)
-            if ($LASTEXITCODE) { throw 'Compiled source comparison failed' }
-            $unsupported = @($changed | Where-Object { $_ -notmatch '^(tests/|docs/|\.github/workflows/build\.yml$)' })
-            if ($unsupported.Count) { throw "Package-only retry changed product inputs: $unsupported" }
           }
+          python tests/package_fixture_policy_test.py
+          if ($LASTEXITCODE) { throw 'Package fixture reuse policy checks failed' }
+          python tests/package_fixture_policy.py --compiled-source $source.head_sha
+          if ($LASTEXITCODE) { throw 'Compiled fixture input comparison failed' }
           "sha=$($source.head_sha)" >> $env:GITHUB_OUTPUT
           "run=$run" >> $env:GITHUB_OUTPUT
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -552,7 +552,7 @@ jobs:
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/forge-package/game-fixture
       - name: Identify package retry fixture cache
-        if: inputs.package_source_run != ''
+        if: inputs.package_source_run != '' && steps.compiled.outputs.fixture_rebuild == 'true'
         id: retry-cache-key
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -563,7 +563,7 @@ jobs:
           if ($LASTEXITCODE) { throw 'Fixture cache identity failed' }
       - name: Restore validated compilation for retry fixtures
         id: retry-fixture-cache
-        if: inputs.package_source_run != ''
+        if: inputs.package_source_run != '' && steps.compiled.outputs.fixture_rebuild == 'true'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         env:
           NODE_OPTIONS: '--require "${{ steps.retry-cache-key.outputs.preload }}"'
@@ -577,7 +577,7 @@ jobs:
             ${{ steps.retry-cache-key.outputs.key }}-${{ steps.compiled.outputs.sha }}
           fail-on-cache-miss: true
       - name: Build current nonshipping acceptance fixture
-        if: inputs.package_source_run != ''
+        if: inputs.package_source_run != '' && steps.compiled.outputs.fixture_rebuild == 'true'
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         env:
@@ -596,11 +596,8 @@ jobs:
           if ($LASTEXITCODE) { throw 'Fixture input timestamp record failed' }
           $fixture = Join-Path $env:RUNNER_TEMP 'forge-package/editor-sdk-fixture/forge_editor_fixture.exe'
           Copy-Item -LiteralPath ../AgentFiles/b/forge_editor_fixture.exe -Destination $fixture -Force
-          $evidence = Join-Path $env:RUNNER_TEMP 'forge-package/editor-sdk-evidence'
-          New-Item -ItemType Directory -Path $evidence -Force | Out-Null
-          @{ compiled_source = $env:FORGE_SOURCE_COMMIT; fixture_source = '${{ github.sha }}'; fixture_sha256 = (Get-FileHash -LiteralPath $fixture -Algorithm SHA256).Hash.ToLower(); scope = 'Nonshipping test fixture; all delivered binaries remain from the validated compiled-source run.' } | ConvertTo-Json | Out-File "$evidence/fixture-provenance.json" -Encoding utf8
       - name: Save compatible retry fixture compilation
-        if: inputs.package_source_run != '' && steps.retry-fixture-cache.outputs.cache-hit != 'true'
+        if: inputs.package_source_run != '' && steps.compiled.outputs.fixture_rebuild == 'true' && steps.retry-fixture-cache.outputs.cache-hit != 'true'
         continue-on-error: true
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         env:
@@ -610,6 +607,18 @@ jobs:
             ${{ runner.temp }}/forge-work/AgentFiles/b
             ${{ runner.temp }}/forge-work/AgentFiles/d
           key: ${{ steps.retry-cache-key.outputs.key }}-${{ steps.compiled.outputs.sha }}-fixture-${{ github.sha }}
+      - name: Record acceptance fixture provenance
+        shell: pwsh
+        env:
+          FORGE_COMPILED_SOURCE: ${{ steps.compiled.outputs.sha }}
+          FORGE_FIXTURE_REBUILT: ${{ steps.compiled.outputs.fixture_rebuild }}
+        run: |
+          $fixture = Join-Path $env:RUNNER_TEMP 'forge-package/editor-sdk-fixture/forge_editor_fixture.exe'
+          $evidence = Join-Path $env:RUNNER_TEMP 'forge-package/editor-sdk-evidence'
+          New-Item -ItemType Directory -Path $evidence -Force | Out-Null
+          $rebuilt = $env:FORGE_FIXTURE_REBUILT -eq 'true'
+          $fixtureSource = if ($rebuilt) { '${{ github.sha }}' } else { $env:FORGE_COMPILED_SOURCE }
+          @{ compiled_source = $env:FORGE_COMPILED_SOURCE; fixture_source = $fixtureSource; fixture_rebuilt = $rebuilt; fixture_sha256 = (Get-FileHash -LiteralPath $fixture -Algorithm SHA256).Hash.ToLower(); scope = 'Nonshipping fixture from validated source artifact unless approved native test inputs changed; all final package assertions run against unchanged delivered binaries.' } | ConvertTo-Json | Out-File "$evidence/fixture-provenance.json" -Encoding utf8
       - name: Assemble and verify complete Windows package
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
