@@ -4026,3 +4026,11 @@ this comparison does not weaken the ordinary source or release gates. The audit
 scope artifact records the choice. The preceding compiler experiment passed plane
 and ordering numeric cases, while the Scene case crashed under GPU validation;
 that remains a failed diagnostic, not acceptance.
+
+The isolated native readback fixture shares the existing editor fixture's
+`fixture_crash.hpp` capture owner. It pre-opens `fixture-crash.txt` outside the
+exception filter and preserves the native exit code. Scene breadcrumbs identify
+the frame, prepare/draw/readback/finish phase and contributor counts. Captures are
+fault record/module-relative offset plus last breadcrumb; they deliberately do
+not claim that a stack captured inside a filter is the original fault stack.
+This test-only extraction adds no shipping crash reporter or acceptance fallback.

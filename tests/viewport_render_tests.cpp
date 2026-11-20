@@ -16,6 +16,7 @@
 #include "Graphics/GraphicsEngineD3D12/interface/RenderDeviceD3D12.h"
 #include "ImGuiImplDiligent.hpp"
 #include "authoring.hpp"
+#include "fixture_crash.hpp"
 #include "gpu_readback_diagnostics.hpp"
 #include "material_lightmap_gpu_tests.hpp"
 #include "particle_alpha_render_tests.hpp"
@@ -269,6 +270,8 @@ int main(int argc, char** argv) {
                 "Expected image output directory, optional render case and graph content root");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
+        forge::test::initialize_fixture_crash_capture(images);
+        forge::test::fixture_breadcrumb("viewport-start");
         ComPtr<ID3D12Debug> debug;
         if (SUCCEEDED(::D3D12GetDebugInterface(IID_PPV_ARGS(&debug))))
             debug->EnableDebugLayer();
