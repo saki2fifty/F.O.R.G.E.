@@ -4034,3 +4034,16 @@ exact ten-record closure. The same World/Game fixture requires one Graph and
 three built-in producers and four Material selections. This consumer is registered
 and locally compile-checked; native execution remains a separately recorded gap
 until its Windows job actually passes.
+
+## Focused Windows navigation checks
+
+Set `navigation_debug_only` on `build.yml` to build the two navigation fixture
+binaries and worker with the same Windows core Debug toolchain. The focused gate
+requires exactly `navigation`, `navigation_planar_assets`,
+`navigation_dynamic_obstacles`, `navigation_link_gallery` and
+`navigation_link_arc_gallery`, and runs their ordinary CTest timeouts. Planar
+publication, dynamic obstacles and runtime coverage use separate scratch roots;
+the link and arc cases each exercise both authored and source-hidden relocated
+content. No assertion or production timeout is removed. Direct fixture invocation
+without a scope still runs the original combined workload. This focused gate
+does not replace the full source matrix or establish delivery acceptance.

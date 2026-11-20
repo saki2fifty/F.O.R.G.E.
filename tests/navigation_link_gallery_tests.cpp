@@ -383,7 +383,9 @@ int main(int argc, char** argv) {
                     std::string_view(argv[1]) == "--prepare-arcs");
             return 0;
         }
-        check(argc == 3 || (argc == 4 && (std::string_view(argv[3]) == "--collision" ||
+        check(argc == 3 || (argc == 4 && (std::string_view(argv[3]) == "--links" ||
+                                          std::string_view(argv[3]) == "--arcs" ||
+                                          std::string_view(argv[3]) == "--collision" ||
                                           std::string_view(argv[3]) == "--characters" ||
                                           std::string_view(argv[3]) == "--drop-characters" ||
                                           std::string_view(argv[3]) == "--planar-drop-characters" ||
@@ -410,14 +412,17 @@ int main(int argc, char** argv) {
             (argc == 4 && std::string_view(argv[3]) == "--jump-characters");
         const bool characters = drop_characters || jump_characters || planar_characters ||
                                 (argc == 4 && std::string_view(argv[3]) == "--characters");
-        const bool collision = argc == 4 && !characters;
-        const unsigned count = characters ? 1 : 2;
+        const bool links_only = argc == 4 && std::string_view(argv[3]) == "--links";
+        const bool arcs_only = argc == 4 && std::string_view(argv[3]) == "--arcs";
+        const bool collision = argc == 4 && !characters && !links_only && !arcs_only;
+        const unsigned first = arcs_only ? 1 : 0;
+        const unsigned count = characters || links_only ? 1 : 2;
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "Gallery";
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         std::array<AssetId, 2> roots;
-        for (unsigned i = 0; i != count; ++i) {
+        for (unsigned i = first; i != count; ++i) {
             const auto source = drop_characters
                                     ? (planar_drop_characters ? planar_drop_character_scene_path
                                                               : drop_character_scene_path)
@@ -443,7 +448,7 @@ int main(int argc, char** argv) {
             std::filesystem::rename(exported, scratch / ("Relocated" + std::to_string(i)));
         }
         std::filesystem::rename(root, scratch / "SourcesOffline");
-        for (unsigned i = 0; i != count; ++i) {
+        for (unsigned i = first; i != count; ++i) {
             const auto relocated = scratch / ("Relocated" + std::to_string(i));
             const auto catalog = open_runtime_content(relocated, {"windows", "d3d12"});
             if (characters)

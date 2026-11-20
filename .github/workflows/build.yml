@@ -48,6 +48,10 @@ on:
         description: For a core-only dispatch, validate both Windows profiles while retaining separately attributed Linux evidence
         type: boolean
         default: false
+      navigation_debug_only:
+        description: Diagnose the two complete Windows Debug navigation consumers; disables other jobs, no package or full gate
+        type: boolean
+        default: false
       tile_source_only:
         description: Diagnose the complete Tile Map source workload in Windows Debug; no package or full-matrix claim
         type: boolean
@@ -61,22 +65,27 @@ on:
         type: boolean
         default: false
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}${{ inputs.core_windows_only && !inputs.windows_package && '-windows-core' || '' }}${{ inputs.standalone_audit && '-standalone' || '' }}${{ inputs.audit_performance_source_run != '' && format('-benchmark-{0}', inputs.audit_performance_source_run) || '' }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}${{ inputs.core_windows_only && !inputs.windows_package && '-windows-core' || '' }}${{ inputs.standalone_audit && '-standalone' || '' }}${{ inputs.navigation_debug_only && '-navigation-debug' || '' }}${{ inputs.audit_performance_source_run != '' && format('-benchmark-{0}', inputs.audit_performance_source_run) || '' }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 permissions:
   contents: read
   actions: read
 jobs:
+  navigation-debug:
+    if: github.event_name == 'workflow_dispatch' && inputs.navigation_debug_only
+    uses: ./.github/workflows/navigation-core-audit.yml
+    with:
+      source_commit: ${{ github.sha }}
   tile-source:
-    if: github.event_name == 'workflow_dispatch' && inputs.tile_source_only
+    if: github.event_name == 'workflow_dispatch' && inputs.tile_source_only && !inputs.navigation_debug_only
     uses: ./.github/workflows/tile-source-audit.yml
     with:
       source_commit: ${{ github.sha }}
   hlsl-profile:
-    if: github.event_name == 'workflow_dispatch' && inputs.hlsl_profile
+    if: github.event_name == 'workflow_dispatch' && inputs.hlsl_profile && !inputs.navigation_debug_only
     uses: ./.github/workflows/hlsl-profile.yml
   source-audit:
-    if: github.event_name == 'workflow_dispatch' && inputs.audit_source != '' && !inputs.hlsl_profile && !inputs.standalone_audit
+    if: github.event_name == 'workflow_dispatch' && inputs.audit_source != '' && !inputs.hlsl_profile && !inputs.standalone_audit && !inputs.navigation_debug_only
     uses: ./.github/workflows/editor-audit.yml
     with:
       source_commit: ${{ inputs.audit_source }}
@@ -87,20 +96,20 @@ jobs:
       baseline_source_run: ${{ inputs.audit_baseline_source_run }}
       clean_build: ${{ inputs.clean_build }}
   standalone-audit:
-    if: github.event_name == 'workflow_dispatch' && inputs.audit_source != '' && inputs.standalone_audit
+    if: github.event_name == 'workflow_dispatch' && inputs.audit_source != '' && inputs.standalone_audit && !inputs.navigation_debug_only
     uses: ./.github/workflows/standalone-audit.yml
     with:
       source_commit: ${{ inputs.audit_source }}
       clean_build: ${{ inputs.clean_build }}
   shared-game:
-    if: github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile
+    if: github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile && !inputs.navigation_debug_only
     uses: ./.github/workflows/standalone-audit.yml
     with:
       source_commit: ${{ github.sha }}
       build_id: ${{ inputs.build_id }}
       clean_build: ${{ inputs.clean_build }}
   core:
-    if: inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile && !inputs.tile_source_only
+    if: inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile && !inputs.tile_source_only && !inputs.navigation_debug_only
     strategy:
       fail-fast: false
       matrix:
@@ -233,7 +242,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   editor:
-    if: github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile
+    if: github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile && !inputs.navigation_debug_only
     runs-on: windows-2022
     # Cold build measured140 minutes; complete acceptance needs additional headroom.
     timeout-minutes: 360
@@ -444,7 +453,7 @@ jobs:
           retention-days: 14
   package:
     needs: [core, editor, format, shared-game]
-    if: always() && github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && (inputs.package_source_run != '' || (needs.core.result == 'success' && needs.editor.result == 'success' && needs.format.result == 'success' && needs.shared-game.result == 'success')) && !inputs.hlsl_profile
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && (inputs.package_source_run != '' || (needs.core.result == 'success' && needs.editor.result == 'success' && needs.format.result == 'success' && needs.shared-game.result == 'success')) && !inputs.hlsl_profile && !inputs.navigation_debug_only
     runs-on: windows-2022
     # Assembly, SDK onboarding and native MCP/C++/GPU/export acceptance each
     # retain their own bounded watchdog. Include the added MCP gate's headroom.
@@ -777,7 +786,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   format:
-    if: inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile
+    if: inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile && !inputs.navigation_debug_only
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
