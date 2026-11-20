@@ -388,6 +388,8 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
  set_tests_properties(mcp_sequence_binding_sources_stdio PROPERTIES TIMEOUT 180 ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
  add_test(NAME mcp_paint_texture_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_source_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_source_host> $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_CURRENT_BINARY_DIR}/mcp-paint-texture-capture.json.gz" --paint-texture-only)
  set_tests_properties(mcp_paint_texture_stdio PROPERTIES TIMEOUT 120 ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
+ add_test(NAME mcp_particle_material_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_source_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_source_host> $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_CURRENT_BINARY_DIR}/mcp-particle-material-capture.json.gz" --particle-material-only)
+ set_tests_properties(mcp_particle_material_stdio PROPERTIES TIMEOUT 600)
  add_test(NAME mcp_particle_evaluation_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_source_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_source_host> $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_CURRENT_BINARY_DIR}/mcp-particle-evaluation-capture.json.gz" --particle-evaluation-only)
  # The particle workflow covers backend, opacity, camera-plane and trail controls
  # through both protocols, including native shutdown and transcript serialization.

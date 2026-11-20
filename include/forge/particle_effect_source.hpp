@@ -17,6 +17,7 @@ inline constexpr unsigned particle_gpu_collision_profile_version = 1;
 inline constexpr unsigned particle_gpu_trail_profile_version = 1;
 inline constexpr unsigned particle_gpu_sorted_profile_version = 1;
 inline constexpr unsigned particle_scene_collision_profile_version = 1;
+inline constexpr unsigned particle_gpu_material_palette_profile_version = 1;
 // This importer ID is persisted in source settings; backend selection never changes it.
 inline constexpr const char* particle_effect_importer = "forge.particles.cpu-mesh";
 inline constexpr const char* particle_effect_legacy_recipe = "forge.particles.cpu-mesh.v1";
@@ -43,6 +44,7 @@ struct ParticleEffectSource {
     void enable_gpu_billboards(bool);
     void enable_gpu_weighted_alpha(bool);
     void enable_gpu_sorted_alpha(bool);
+    void enable_gpu_material_palette(bool);
     void enable_gpu_opacity(bool);
     void set_trails(bool enabled, std::optional<ParticleTrailSettings> = {});
     void set_gpu_trails(bool enabled, std::optional<ParticleTrailSettings> = {});

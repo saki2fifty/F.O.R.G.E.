@@ -19,11 +19,14 @@
 #include "particle_alpha_render_tests.hpp"
 #include "particle_billboard_render_tests.hpp"
 #include "particle_gpu_collision_checks.hpp"
+#include "particle_gpu_material_checks.hpp"
+#include "particle_gpu_material_scene_checks.hpp"
 #include "particle_gpu_order_checks.hpp"
 #include "particle_gpu_sorted_content_checks.hpp"
 #include "particle_gpu_sorted_render_checks.hpp"
 #include "particle_gpu_trail_checks.hpp"
 #include "particle_graph_render_tests.hpp"
+#include "particle_material_gallery_render_checks.hpp"
 #include "particle_ribbon_render_tests.hpp"
 #include "physics_2d_editor_render_tests.hpp"
 #include "physics_2d_gallery_render_tests.hpp"
@@ -267,6 +270,8 @@ int main(int argc, char** argv) {
                       std::string_view(argv[2]) == "particle-gpu-collision-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-trail-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-sorted-gallery" ||
+                      std::string_view(argv[2]) == "particle-material-gallery" ||
+                      std::string_view(argv[2]) == "particle-material-graph-gallery" ||
                       std::string_view(argv[2]) == "particle-scene-collision-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-sorted-countercases" ||
                       std::string_view(argv[2]) == "particle-gpu-opacity-gallery" ||
@@ -323,6 +328,10 @@ int main(int argc, char** argv) {
                                                          selected == "particle-gpu-billboards");
             else if (selected == "particle-gpu-order-numeric")
                 forge::particle_order_test::execute(isolated, context);
+            else if (selected == "particle-gpu-material-numeric")
+                forge::test_particle_palette::exercise(isolated, context);
+            else if (selected == "particle-gpu-material-scene")
+                forge::test_particle_palette_scene::exercise(isolated, context, images / "project");
             else if (selected == "particle-gpu-sorted-scene")
                 forge::particle_sorted_test::execute(isolated, context, images);
             else if (selected == "particle-gpu-trail-numeric") {
@@ -339,6 +348,12 @@ int main(int argc, char** argv) {
                 forge::test_particle_alpha::gallery(isolated, context, argv[3], images, true, true,
                                                     false, false, false, false, false, false, false,
                                                     true);
+            } else if (selected == "particle-material-gallery" ||
+                       selected == "particle-material-graph-gallery") {
+                require(argc == 4, "Palette Game needs source-hidden published content");
+                forge::test_particle_material_gallery::render(
+                    isolated, context, argv[3], images,
+                    selected == "particle-material-graph-gallery");
             } else if (selected == "particle-gpu-sorted-gallery") {
                 require(argc == 4, "GPU sorted render needs relocated cooked content");
                 forge::test_particle_alpha::gallery(isolated, context, argv[3], images, true, true,

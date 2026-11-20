@@ -134,21 +134,29 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            for (unsigned version = 26; version <= 37; ++version) {
+            for (const auto& entry : particle_detail::value_profiles) {
+                ParticleEffectData selected;
+                selected.version = entry.version;
+                if (!particle_uses_gpu_sorted_alpha(selected))
+                    continue;
+                const auto version = entry.version;
                 effect.metadata["forge.particle_effect"]["value_version"] = version;
                 particles.replace(effect);
                 Json kit{{"runtime_particle_effect", particle_effect_cooked_version},
                          {"runtime_particle_gpu", particle_gpu_profile_version},
                          {"runtime_particle_gpu_sorted", particle_gpu_sorted_profile_version}};
-                if (version >= 32)
+                if (particle_uses_gpu_material_palette(selected))
+                    kit["runtime_particle_gpu_material_palette"] =
+                        particle_gpu_material_palette_profile_version;
+                if (particle_uses_gpu_opacity(selected))
                     kit["runtime_particle_gpu_opacity"] = particle_gpu_opacity_profile_version;
-                if (version == 27 || version == 29 || version == 33 || version == 35)
+                if (particle_uses_graph(selected))
                     kit["runtime_particle_graph"] = particle_graph_profile_version;
-                if (version == 28 || version == 29 || version == 34 || version == 35)
+                if (particle_uses_billboards(selected))
                     kit["runtime_particle_gpu_billboard"] = particle_gpu_billboard_profile_version;
-                if (version == 30 || version == 36)
+                if (particle_detail::has(selected, particle_detail::Collision))
                     kit["runtime_particle_gpu_collision"] = particle_gpu_collision_profile_version;
-                if (version == 31 || version == 37)
+                if (particle_uses_trails(selected))
                     kit["runtime_particle_gpu_trail"] = particle_gpu_trail_profile_version;
                 validate_runtime_compatibility(particles, kit);
                 for (const auto& [capability, profile] : kit.items()) {

@@ -4,6 +4,7 @@
 #include "particle_billboard_render_tests.hpp"
 #include "particle_effect_authoring.hpp"
 #include "particle_gpu_sorted_content_checks.hpp"
+#include "particle_material_gallery_render_checks.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_entity_creation.hpp"
 #include "runtime_package.hpp"
@@ -886,6 +887,7 @@ int main(int argc, char** argv) {
                            std::string_view(argv[2]) == "--gpu-collision-gallery" ||
                            std::string_view(argv[2]) == "--gpu-trail-gallery" ||
                            std::string_view(argv[2]) == "--gpu-sorted-gallery" ||
+                           std::string_view(argv[2]) == "--gpu-material-gallery" ||
                            std::string_view(argv[2]) == "--scene-collision-gallery" ||
                            std::string_view(argv[2]) == "--gpu-sorted-countercases"))) {
             RefCntAutoPtr<IRenderDevice> device;
@@ -899,12 +901,16 @@ int main(int argc, char** argv) {
                 std::string_view(argv[2]) == "--gpu-collision-gallery" ||
                 std::string_view(argv[2]) == "--gpu-trail-gallery" ||
                 std::string_view(argv[2]) == "--gpu-sorted-gallery" ||
+                std::string_view(argv[2]) == "--gpu-material-gallery" ||
                 std::string_view(argv[2]) == "--gpu-sorted-countercases")
                 create.Features.ComputeShaders = DEVICE_FEATURE_STATE_ENABLED;
             GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
             check(device && context, "Native sorted-alpha device unavailable");
             DiligentPresentation presentation(device);
-            if (argc == 4 && std::string_view(argv[2]) == "--gpu-sorted-countercases")
+            if (argc == 4 && std::string_view(argv[2]) == "--gpu-material-gallery")
+                test_particle_material_gallery::render(presentation, context,
+                                                       std::filesystem::absolute(argv[3]), argv[1]);
+            else if (argc == 4 && std::string_view(argv[2]) == "--gpu-sorted-countercases")
                 particle_sorted_content_test::execute(presentation, context,
                                                       std::filesystem::absolute(argv[3]));
             else if (argc == 4 && std::string_view(argv[2]) == "--scene-collision-gallery")

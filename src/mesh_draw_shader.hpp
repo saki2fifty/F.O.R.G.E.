@@ -30,6 +30,21 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch&, const PbrMaterialProfile
                                 bool indirect_output = false, bool reflection_output = false,
                                 bool normal_output = false, bool area_lights = false,
                                 bool projected_decals = false);
+inline constexpr unsigned mesh_material_palette_limit = 4;
+inline constexpr unsigned mesh_material_palette_sampler_limit = 8;
+struct MeshMaterialPaletteShader {
+    // material contains composed source only. Per-member uniforms/textures and
+    // shared sampler bindings are described below, never flattened into one CB.
+    MeshDrawShader draw;
+    std::vector<MaterialShader> members;
+    std::vector<SamplerState> samplers;
+};
+// Static built-in Blend geometry with matching generated lighting/interface.
+// Members use ForgePalette<N>_ prefixes; shared samplers use ForgePaletteSampler<N>.
+// Resource/view admission remains the renderer's responsibility.
+MeshMaterialPaletteShader mesh_material_palette_shader(const MeshVertexFetch&,
+                                                       std::span<const PbrMaterialProfile>,
+                                                       bool area_lights = false);
 std::string material_graph_shader_wrapper(const SurfaceShaderDefinition&, std::string_view source,
                                           bool depth_only, bool indirect_output = false,
                                           bool reflection_output = false,

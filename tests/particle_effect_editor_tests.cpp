@@ -665,6 +665,29 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
     click("particles:redo");
     require(editor.document()->source().document == ordered_gpu_trails,
             "Sorted GPU Redo lost the exact source identities");
+    click("particles:gpu-material-palette");
+    require(editor.document()->source().compiled().version == 51 &&
+                editor.document()->source().document.at("version").get<unsigned>() == 17 &&
+                editor.document()->source().document.at("gpu_material_palette_enabled").get<bool>(),
+            "Native compatible Materials control lost sorted ribbons or opacity");
+    const auto palette_gpu_trails = editor.document()->source().document;
+    for (const auto& [key, value] : ordered_gpu_trails.items())
+        if (key != "version" && key != "profile")
+            require(palette_gpu_trails.at(key) == value,
+                    "Native Material policy edit changed retained source values or stop IDs");
+    click("particles:gpu-material-palette");
+    require(editor.document()->source().compiled().version == 37,
+            "Native Material policy opt-out changed the earlier transport");
+    click("particles:undo");
+    require(editor.document()->source().document == palette_gpu_trails,
+            "Native Material policy Undo lost its complete source");
+    click("particles:undo");
+    require(editor.document()->source().document == ordered_gpu_trails,
+            "Native Material policy Undo failed to restore the earlier source format");
+    click("particles:redo");
+    require(editor.document()->source().document == palette_gpu_trails,
+            "Native Material policy Redo lost its source identities");
+    click("particles:undo");
     click("particles:gpu-weighted");
     require(editor.document()->source().compiled().version == 25 &&
                 !editor.document()->source().document.at("gpu_sorted_enabled").get<bool>(),

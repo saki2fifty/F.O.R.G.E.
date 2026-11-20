@@ -53,6 +53,18 @@ class MeshDrawBundle {
         return lods_.at(lod).at(part)->accepts_projected(decals, images);
     }
     void prepare_material_parameters(std::span<const MaterialParameterOverride>);
+    struct PaletteMember {
+        const MeshDrawBundle* bundle{};
+        std::span<const MaterialParameterOverride> parameters;
+    };
+    // Detached candidate; caller retains every source bundle until draw destruction.
+    // The same physical part is used throughout; Material values use the existing
+    // object-parameter projection before native resource preparation.
+    std::unique_ptr<MeshDraw> prepare_palette(Diligent::IDeviceContext*, unsigned lod,
+                                              unsigned part, std::span<const PaletteMember>,
+                                              bool area_lights = false) const;
+    // Validate and mark the native leases before a retained draw submission.
+    void validate_resources() const;
     // Specialize the same admitted part before a temporal view changes targets.
     // Failure leaves the ordinary color and shadow draws available.
     void prepare_temporal(Diligent::IDeviceContext*, unsigned lod, unsigned part,
@@ -87,26 +99,24 @@ class MeshDrawBundle {
     }
     void draw(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
               std::span<const LightView>, const EnvironmentLighting* = nullptr, unsigned lod = 0);
-    void draw_part(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
-                   std::span<const LightView>, unsigned lod, unsigned part,
-                   const EnvironmentLighting* = nullptr,
-                   const std::array<float, 3>* legacy_tint = nullptr,
-                   const ShadowLighting* shadows = nullptr, std::span<const int> shadow_slots = {},
-                   const TransmissionLighting* transmission = nullptr,
-                   const MeshInstancePose* pose = nullptr,
-                   std::span<const MeshDraw::Instance> instances = {},
-                   std::span<const MaterialParameterOverride> parameters = {},
-                   const SpriteDrawValues* sprite = nullptr, const SceneDistanceFog* fog = nullptr,
-                   const GpuLease<TextureAsset>* sprite_mip = nullptr,
-                   const MeshDraw::Motion* motion = nullptr, bool indirect = false,
-                   bool reflection = false, bool normal = false,
-                   std::span<const MeshDraw::Decal> decals = {}, bool weighted = false,
-                   const RenderBounds* decal_bounds = nullptr,
-                   std::span<const MeshDraw::LightImage> images = {},
-                   std::span<const EnvironmentProbe> local_irradiance = {},
-                   std::span<const FogVolumeSample> local_fog = {},
-                   const MeshDraw::IndirectArguments* visibility = nullptr,
-                   const MeshDraw::InstanceBuffer* gpu_instances = nullptr);
+    void draw_part(
+        Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
+        std::span<const LightView>, unsigned lod, unsigned part,
+        const EnvironmentLighting* = nullptr, const std::array<float, 3>* legacy_tint = nullptr,
+        const ShadowLighting* shadows = nullptr, std::span<const int> shadow_slots = {},
+        const TransmissionLighting* transmission = nullptr, const MeshInstancePose* pose = nullptr,
+        std::span<const MeshDraw::Instance> instances = {},
+        std::span<const MaterialParameterOverride> parameters = {},
+        const SpriteDrawValues* sprite = nullptr, const SceneDistanceFog* fog = nullptr,
+        const GpuLease<TextureAsset>* sprite_mip = nullptr,
+        const MeshDraw::Motion* motion = nullptr, bool indirect = false, bool reflection = false,
+        bool normal = false, std::span<const MeshDraw::Decal> decals = {}, bool weighted = false,
+        const RenderBounds* decal_bounds = nullptr,
+        std::span<const MeshDraw::LightImage> images = {},
+        std::span<const EnvironmentProbe> local_irradiance = {},
+        std::span<const FogVolumeSample> local_fog = {},
+        const MeshDraw::IndirectArguments* visibility = nullptr,
+        const MeshDraw::InstanceBuffer* gpu_instances = nullptr, MeshDraw* palette_draw = nullptr);
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }
@@ -154,6 +164,12 @@ class MeshDrawBundle {
     std::unique_ptr<MeshDraw> prepare_draw(Diligent::IDeviceContext*, unsigned lod, unsigned part,
                                            Diligent::TEXTURE_FORMAT, MeshDrawProfile,
                                            bool area_lights = false);
+    struct DrawMaterial {
+        MaterialData values;
+        MeshDraw::Textures textures;
+        const MaterialShaderSnapshot* surface{};
+    };
+    DrawMaterial prepare_material(unsigned lod, unsigned part, MeshDrawProfile) const;
     DiligentPresentation& presentation_;
     Diligent::TEXTURE_FORMAT color_, depth_;
     // CPU revision leases survive every derived pose and native binding.

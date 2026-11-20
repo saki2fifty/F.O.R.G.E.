@@ -36,6 +36,9 @@ parameters. Exact resources include their immutable publications and generations
 matching logical Material names alone are insufficient. Preserve per-particle
 RGB/opacity, ordinary Material alpha/textures and matching lighting/fog selection.
 
+[ADR074](074-ordered-particle-material-palettes.md) defines a separate explicit
+bounded Material-palette extension. It does not change these earlier profiles.
+
 Require sorted Scene transport and admit the complete visible alpha group before
 drawing it. Opaque/masked geometry remains in the ordinary path and supplies depth
 occlusion. An incompatible transparent Material, geometry/resource selection,

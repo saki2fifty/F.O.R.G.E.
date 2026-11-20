@@ -48,6 +48,74 @@ int main() {
                     shader.uniforms.size() == modified_shader.uniforms.size() &&
                     shader.uniforms != modified_shader.uniforms,
                 "Numeric variation changed shader code/layout or omitted uniform changes");
+        {
+            auto textured = source;
+            for (const auto* role : {"baseColorTexture", "normalTexture"})
+                textured.textures[role].semantic = base.layout.textures.at(role).semantic;
+            const auto profile = prepare_pbr_material(textured);
+            const std::array<unsigned, 1> channels{0};
+            const auto original_names =
+                material_shader(profile, channels, MaterialSamplerBinding::NamedElements);
+            const auto scoped =
+                material_shader(profile, channels, MaterialSamplerBinding::NamedElements, false, {},
+                                false, MaterialShaderScope{"M0_", {}});
+            require(scoped.uniforms == original_names.uniforms &&
+                        scoped.samplers == original_names.samplers &&
+                        scoped.textures.size() == original_names.textures.size() &&
+                        scoped.source.find("cbuffer M0_ForgeMaterialValues") != std::string::npos &&
+                        scoped.source.find("M0_ForgeUV_baseColorTexture(uv)") !=
+                            std::string::npos &&
+                        scoped.source.find("float ForgeAlphaCutoff") == std::string::npos,
+                    "Scoped Material helpers changed packing, sampler ownership or names");
+            for (std::size_t i = 0; i < scoped.textures.size(); ++i)
+                require(scoped.textures[i].texture_variable ==
+                                "M0_" + original_names.textures[i].texture_variable &&
+                            scoped.textures[i].role == original_names.textures[i].role &&
+                            scoped.textures[i].sampler_slot ==
+                                original_names.textures[i].sampler_slot &&
+                            scoped.textures[i].settings == original_names.textures[i].settings,
+                        "Scoped texture bindings changed the canonical local slot identity");
+            const std::array<std::string, 1> shared{"PaletteSampler0"};
+            const auto aliased =
+                material_shader(profile, channels, MaterialSamplerBinding::NamedElements, false, {},
+                                false, MaterialShaderScope{"M1_", shared});
+            require(aliased.samplers.size() == 1 && aliased.samplers == original_names.samplers &&
+                        aliased.uniforms == original_names.uniforms &&
+                        aliased.source.find(".SampleGrad(PaletteSampler0,") != std::string::npos &&
+                        aliased.source.find("SamplerState ") == std::string::npos,
+                    "Shared sampler aliases duplicated declarations or changed local packing");
+            for (const auto* invalid : {"2bad_", "name;", "name\n", "bad space"})
+                rejects([&] {
+                    (void)material_shader(profile, channels, MaterialSamplerBinding::NamedElements,
+                                          false, {}, false, MaterialShaderScope{invalid, {}});
+                });
+            const std::array<std::string, 1> invalid_names{"Sampler[0]"};
+            const std::array<std::string, 2> extra_names{"Sampler0", "Sampler1"};
+            for (const auto names : {std::span<const std::string>(invalid_names),
+                                     std::span<const std::string>(extra_names)})
+                rejects([&] {
+                    (void)material_shader(profile, channels, MaterialSamplerBinding::NamedElements,
+                                          false, {}, false, MaterialShaderScope{"M_", names});
+                });
+            rejects([&] {
+                (void)material_shader(profile, channels, MaterialSamplerBinding::Array, false, {},
+                                      false, MaterialShaderScope{"M_", shared});
+            });
+            textured.textures["normalTexture"].sampler.min = TextureFilter::Nearest;
+            const auto distinct = prepare_pbr_material(textured);
+            const auto distinct_names =
+                material_shader(distinct, channels, MaterialSamplerBinding::NamedElements, false,
+                                {}, false, MaterialShaderScope{"M2_", extra_names});
+            require(distinct_names.samplers.size() == 2 &&
+                        distinct_names.source.find(".SampleGrad(Sampler0,") != std::string::npos &&
+                        distinct_names.source.find(".SampleGrad(Sampler1,") != std::string::npos,
+                    "Scoped helpers changed distinct canonical sampler selections");
+            const std::array<std::string, 2> repeated{"SharedSampler", "SharedSampler"};
+            rejects([&] {
+                (void)material_shader(distinct, channels, MaterialSamplerBinding::NamedElements,
+                                      false, {}, false, MaterialShaderScope{"M_", repeated});
+            });
+        }
         for (const auto& field : material_parameter_uniforms(base.values)) {
             require(field.offset % (4 * sizeof(float)) == 0 &&
                         shader.uniforms.at(field.offset / (4 * sizeof(float))) ==

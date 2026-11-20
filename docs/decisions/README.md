@@ -71,6 +71,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [063](063-particle-opacity.md) | CPU lifetime opacity shares source, sampler and existing instance/Material alpha |
 | [064](064-camera-plane-particles.md) | CPU camera-plane quads retain simulation and share per-view geometry, bounds and source ownership |
 | [065](065-gpu-camera-plane-particles.md) | GPU camera-plane projection preserves evaluator layouts and shares device, view, source and export ownership |
+| [074](074-ordered-particle-material-palettes.md) | Bounded ordered Material palettes reuse canonical shader, draw-bundle and renderer ownership; implementation in progress |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

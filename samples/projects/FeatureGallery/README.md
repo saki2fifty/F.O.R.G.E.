@@ -3329,3 +3329,23 @@ Material/texture alpha; the program still controls position, size and RGB. Both
 examples include a camera, light and opaque depth marker. Export with the matching
 packaged runtime kit. GPU fades use float age/stop precision, including Step
 transitions; their activation is independent of the retained CPU choice.
+
+
+## Compatible Materials on ordered GPU particles
+
+Open `Scenes/255-compatible-material-particles.scene.json` and press Play. Four
+emitters use separate teal, amber, violet and blue Materials, including different
+images, UV transforms and sampler choices. Open their Particle Effects and
+Materials under `Assets/Particles/Materials` in Content. The camera and light are
+included; no project C++ code is needed.
+
+Each Effect enables **Sorted alpha (GPU)**, **Compatible Materials (GPU)**,
+**Camera-aligned quads** and GPU opacity over life. Save / Publish changed assets,
+save the Scene, then restart Play or export with the packaged runtime kit. The
+Scene's **Weighted transparency** remains off. Use compatible built-in Blend
+Materials with depth testing and no depth writes, the same static geometry,
+shading model, texture roles, raster orientation and layers. Factors, images,
+UV transforms and sampler choices can differ within four distinct selections,
+eight sampler states and32texture bindings. Incompatible selections omit the
+complete group and report a reason in Problems. See the Particle effects chapter
+in the packaged manual for the full admission limits.

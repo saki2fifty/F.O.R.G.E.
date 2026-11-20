@@ -502,7 +502,8 @@ struct AssetDocumentAutomation {
                 if (action == "particle_evaluation" || action == "particle_opacity" ||
                     action == "particle_billboards" || action == "particle_trails" ||
                     action == "particle_collision" || action == "particle_gpu_weighted" ||
-                    action == "particle_gpu_sorted" || action == "particle_scene_collision") {
+                    action == "particle_gpu_sorted" || action == "particle_gpu_material_palette" ||
+                    action == "particle_scene_collision") {
                     if constexpr (std::is_same_v<Source, ParticleEffectSource>) {
                         const auto previous = doc.revision();
                         const bool opacity = action == "particle_opacity";
@@ -511,9 +512,10 @@ struct AssetDocumentAutomation {
                         const bool collision = action == "particle_collision";
                         const bool weighted = action == "particle_gpu_weighted";
                         const bool sorted = action == "particle_gpu_sorted";
+                        const bool palette = action == "particle_gpu_material_palette";
                         const bool scene_collision = action == "particle_scene_collision";
                         const bool toggle = opacity || billboards || trails || collision ||
-                                            weighted || sorted || scene_collision;
+                                            weighted || sorted || palette || scene_collision;
                         const auto backend = opacity || billboards || trails || collision
                                                  ? request.value("backend", std::string("cpu"))
                                                  : std::string{};
@@ -530,6 +532,7 @@ struct AssetDocumentAutomation {
                         doc.edit_source(
                             previous,
                             scene_collision ? "Set particle Scene collision"
+                            : palette       ? "Set GPU compatible Materials"
                             : sorted        ? "Set GPU sorted alpha"
                             : weighted      ? "Set GPU weighted alpha"
                             : billboards    ? "Toggle camera-aligned particles"
@@ -545,7 +548,10 @@ struct AssetDocumentAutomation {
                                             request.at("collision"));
                                     source.set_scene_collision(request.at("enabled").get<bool>(),
                                                                settings);
-                                } else if (sorted)
+                                } else if (palette)
+                                    source.enable_gpu_material_palette(
+                                        request.at("enabled").get<bool>());
+                                else if (sorted)
                                     source.enable_gpu_sorted_alpha(
                                         request.at("enabled").get<bool>());
                                 else if (weighted)

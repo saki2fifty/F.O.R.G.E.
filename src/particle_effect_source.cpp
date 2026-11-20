@@ -44,6 +44,11 @@ const char* gpu_evaluation_profile(const nlohmann::json& document, bool graph) {
         flags |= Weighted;
     if ((flags & (Sorted | Weighted)) && document.value("gpu_opacity_enabled", false))
         flags |= Opacity;
+    // New policy activates only in its explicitly introduced source format.
+    const auto source_version = document.at("version").get<unsigned>();
+    if (source_version >= 17 && (flags & Sorted) &&
+        document.value("gpu_material_palette_enabled", false))
+        flags |= MaterialPalette;
     for (const auto& profile : value_profiles)
         if (profile.flags == flags)
             return profile.name;
@@ -117,20 +122,25 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             stop.erase("id");
         }
     }
-    if (version > 16)
+    if (version > 17)
         throw std::runtime_error("Unknown Particle Effect source version");
     if (version < 4)
         return decode_particle_effect(values);
-    // Source4–16 retain settings while another evaluation backend is active.
+    // Source4–17 retain settings while another evaluation backend is active.
     // Only the active backend contributes runtime values and dependency edges.
     const auto profile = values.at("profile").get<std::string>();
     const auto* selected = particle_detail::value_profile(std::string_view(profile));
     // Source formats introduce contiguous immutable value-profile ranges.
-    constexpr std::array maximum_values{0u,  0u,  0u,  0u,  4u,  5u,  6u,  7u, 9u,
-                                        10u, 11u, 15u, 19u, 22u, 25u, 37u, 39u};
+    constexpr std::array maximum_values{0u,  0u,  0u,  0u,  4u,  5u,  6u,  7u,  9u,
+                                        10u, 11u, 15u, 19u, 22u, 25u, 37u, 39u, 51u};
     if (!selected || selected->version < 2 || selected->version > maximum_values.at(version))
         throw std::runtime_error("Unknown Particle Effect evaluation profile " + profile +
                                  " for source version " + std::to_string(version));
+    if (version >= 17) {
+        if (!values.at("gpu_material_palette_enabled").is_boolean())
+            throw std::runtime_error("GPU Material palette activation must be a boolean");
+        values.erase("gpu_material_palette_enabled");
+    }
     if (version >= 16) {
         if (!values.at("scene_collision_enabled").is_boolean() ||
             (values.at("scene_collision_enabled").get<bool>() &&
@@ -406,6 +416,26 @@ void ParticleEffectSource::enable_gpu_sorted_alpha(bool enabled) {
     candidate.validate();
     document = std::move(candidate.document);
 }
+void ParticleEffectSource::enable_gpu_material_palette(bool enabled) {
+    if (!enabled && !document.contains("gpu_material_palette_enabled")) {
+        validate();
+        return;
+    }
+    auto candidate = *this;
+    candidate.promote();
+    if (candidate.document.at("version").get<unsigned>() < 16)
+        candidate.set_scene_collision(false, ParticleSceneCollision{});
+    if (enabled)
+        candidate.enable_gpu_sorted_alpha(true);
+    const auto previous = candidate.document.at("profile").get<std::string>();
+    candidate.document["version"] = std::max(17u, candidate.document.at("version").get<unsigned>());
+    candidate.document["gpu_material_palette_enabled"] = enabled;
+    if (gpu_profile(std::string_view(previous)))
+        candidate.document["profile"] =
+            gpu_evaluation_profile(candidate.document, graph_profile(std::string_view(previous)));
+    candidate.validate();
+    document = std::move(candidate.document);
+}
 void ParticleEffectSource::enable_gpu_opacity(bool enabled) {
     if (!enabled && !document.contains("gpu_opacity_enabled")) {
         validate();
@@ -503,7 +533,7 @@ void ParticleEffectSource::set_scene_collision(bool enabled,
         settings = candidate.document.contains("scene_collision")
                        ? decode_particle_scene_collision(candidate.document.at("scene_collision"))
                        : ParticleSceneCollision{};
-    candidate.document["version"] = 16;
+    candidate.document["version"] = std::max(16u, candidate.document.at("version").get<unsigned>());
     candidate.document["scene_collision_enabled"] = enabled;
     candidate.document["scene_collision"] = encode_particle_scene_collision(*settings);
     if (enabled) {

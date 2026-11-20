@@ -42,6 +42,8 @@ class MeshDraw {
         Diligent::IBuffer* buffer = nullptr;
         std::uint64_t offset = 0;
         unsigned count = 0;
+        Diligent::IBuffer* material_indices = nullptr;
+        std::uint64_t material_offset = 0;
     };
     struct Motion {
         const CameraView* previous_view = nullptr;
@@ -85,6 +87,10 @@ class MeshDraw {
     // Drop every winding SRB reference before a scene releases old GPU leases.
     void clear_decals(Diligent::IDeviceContext*);
     using Textures = std::map<std::string, Diligent::RefCntAutoPtr<Diligent::ITextureView>>;
+    struct PaletteMaterial {
+        const MaterialData* values{};
+        const Textures* textures{};
+    };
     MeshDraw(DiligentPresentation&, Diligent::IDeviceContext*, const GpuMeshPart&,
              const MaterialData&, const Textures&, Diligent::TEXTURE_FORMAT color_format,
              Diligent::TEXTURE_FORMAT depth_format, bool enable_skin = true,
@@ -92,7 +98,8 @@ class MeshDraw {
              Diligent::SHADER_OPTIMIZATION_LEVEL optimization =
                  Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT,
              const MaterialShaderSnapshot* surface = nullptr,
-             MeshDrawProfile = MeshDrawProfile::Mesh, bool area_lights = false, bool wind = false);
+             MeshDrawProfile = MeshDrawProfile::Mesh, bool area_lights = false, bool wind = false,
+             std::span<const PaletteMaterial> palette = {});
     void bind_environment(const GpuEnvironment*);
     void bind_shadows(const ShadowLighting*);
     void bind_transmission(const TransmissionLighting*);
@@ -172,5 +179,6 @@ class MeshDraw {
     std::vector<std::byte> material_defaults_;
     std::vector<MaterialParameterUniform> material_parameters_;
     bool material_surface_{}, material_dynamic_bound_{};
+    unsigned palette_size_{};
 };
 } // namespace forge

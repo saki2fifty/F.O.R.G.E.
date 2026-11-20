@@ -719,7 +719,7 @@ and stop identities, components and the installed native ABI remain unchanged.
 | Built-in ribbon | 31 / `gpu_sorted_trail1` | 37 / `gpu_sorted_trail_opacity1` |
 
 All require a built-in Blend Material, depth testing without depth writes, and
-Scene weighted transparency off. The complete visible alpha group must share
+Scene weighted transparency off. For values26–37, the complete visible alpha group must share
 one physical Mesh/Material/texture bundle, part, raster parity, layer mask,
 shadow-reception choice, projected-decal selection and Material parameter values.
 Physical identity includes immutable resource publications and generations.
@@ -756,6 +756,39 @@ CPU alpha/opacity capabilities and weighted1 are not requirements of a GPU-only
 sorted profile. Missing, malformed or unsupported kit fields reject export before
 replacing a distribution. Native Windows execution and physical-device review
 remain separate from local software-device correctness evidence.
+
+## Bounded ordered Material palettes
+
+[ADR074](decisions/074-ordered-particle-material-palettes.md) adds source17's
+`gpu_material_palette_enabled` and append-only values40–51. Values40–45 mirror
+26–31's geometry/program combinations;46–51 add GPU opacity in the same order.
+The policy is inactive on retained CPU/weighted sources. Enabling it enables
+sorted GPU alpha and preserves the active Particle Graph. Values1–39, source and
+local-stop IDs, envelope3, recipe3 and the gameplay ABI keep their meanings.
+
+The complete visible group must opt in. The existing MeshSceneRenderer admits at
+most four exact physical bundle/parameter selections sharing the same static
+triangle geometry, part, shading model, canonical lighting/geometry shader body,
+Material helper interface, raster parity, layers and shadow reception. Material
+factors, texture publications, UV transforms and sampler choices may differ. The
+union has at most eight distinct sampler states and 32 texture bindings. Custom
+Material surfaces, transmission, projected decals/light images, skin, morph and
+wind do not participate. Refusal omits the whole group for that camera and retains
+the ordinary diagnostic/recovery path.
+
+MeshDrawBundle projects per-object parameters through the canonical Material
+owner. The renderer retains all source bundles until its derived native draw is
+destroyed, charges it and copied parameters to existing budgets, and adopts a
+fully prepared candidate atomically. ParticleGpuOrder carries an opaque per-source
+uint tag in a separate device buffer; canonical source/birth depth ordering and
+the seven float4 instance rows remain unchanged. No CPU particle readback, second
+clock, registry or authoritative Material cache is added. MaterialShader owns
+packing, UVs and sampler aliases for both ordinary and composed helper generation.
+
+Export requires exact integer `runtime_particle_gpu_material_palette:1` in addition
+to the profile's existing typed GPU/sorted/geometry/opacity capabilities. An older
+kit cannot silently accept a new profile. The editable Gallery scene is
+`Scenes/255-compatible-material-particles.scene.json`.
 
 ## CPU Scene geometry response
 

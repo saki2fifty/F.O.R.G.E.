@@ -278,6 +278,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "05876cf3-6f33-44e6-ba1e-898ed09ee1fb",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Materials/Violet.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "05bf985f-488d-4a4f-9473-105124cfd09a",
       "metadata": {},
       "schema_version": 4,
@@ -415,6 +425,16 @@
         "removed": false
       },
       "type": "animation_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "0750eccb-8501-4fc5-b143-662e0ac4cfd1",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Materials/Teal.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],
@@ -12607,6 +12627,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "82719b87-11a7-40a0-b3ac-5e398fd50f82",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Materials/Blue.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "8301b3fa-6737-491f-88a8-d5b75c3081f5",
       "metadata": {
         "forge.import": {
@@ -14918,6 +14948,16 @@
       "type": "scene"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a0fe609a-9ada-4980-9519-28647612ae82",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/255-compatible-material-particles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "80c55df2-1abb-42b0-9591-502e783cdc97",
         "ef4d0a73-7171-4392-8ab3-24080a160781"
@@ -15198,6 +15238,16 @@
       "type": "texture"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a31307f5-50b5-4fc2-b051-1dbc3cbe77f2",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Materials/Amber.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
       "dependencies": [
         "10be3be6-1de7-4465-8a50-733bf046bd4c",
         "c6c04d16-9e2e-4031-a6a7-c304ed8d50ba"
@@ -15345,6 +15395,16 @@
         "removed": false
       },
       "type": "skeleton"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a47aa611-16cd-4d27-b1fe-5cc8e33b658c",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Materials/Amber.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],
@@ -15791,6 +15851,16 @@
       "source": "Assets/Navigation/Generated/a978afde-bd18-4470-9e8b-f205d0a5af76/8dd73d16-c467-4a44-b66f-eeab04c7e041.fnav",
       "source_dependencies": [],
       "type": "navmesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a98c4925-37fc-4b21-b9f2-aa3cd3c444ca",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Materials/Blue.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],
@@ -16806,6 +16876,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b6580fbb-8f6b-4596-831f-5aaab00f039c",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Materials/Teal.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [],
@@ -18728,6 +18808,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d0d18050-8e06-47f7-8a17-c6336a78d2c6",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Materials/Violet.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [

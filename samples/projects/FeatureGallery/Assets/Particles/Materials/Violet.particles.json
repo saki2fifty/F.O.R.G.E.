@@ -1,0 +1,86 @@
+{
+  "acceleration": [
+    0,
+    0,
+    0
+  ],
+  "asset_id": "05876cf3-6f33-44e6-ba1e-898ed09ee1fb",
+  "billboard_enabled": false,
+  "burst_count": 32,
+  "capacity": 64,
+  "collision": {
+    "bounce_limit": 4,
+    "friction": 0.1,
+    "normal": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "offset": -1.0,
+    "radius": 0.0,
+    "restitution": 0.5
+  },
+  "collision_enabled": false,
+  "color_end": [
+    1,
+    1,
+    1
+  ],
+  "color_gradient": [],
+  "color_start": [
+    1,
+    1,
+    1
+  ],
+  "cone_angle": 15.0,
+  "direction": [
+    0.0,
+    1.0,
+    0.0
+  ],
+  "drag": 0.0,
+  "emission": "continuous",
+  "format": "forge.particle_effect",
+  "gpu_billboard_enabled": true,
+  "gpu_collision_enabled": false,
+  "gpu_material_palette_enabled": true,
+  "gpu_opacity_enabled": true,
+  "gpu_sorted_enabled": true,
+  "gpu_trail_enabled": false,
+  "gpu_weighted_enabled": false,
+  "lifetime": 4,
+  "material": "d0d18050-8e06-47f7-8a17-c6336a78d2c6",
+  "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+  "opacity_curve": [],
+  "opacity_enabled": false,
+  "opacity_end": 0,
+  "opacity_start": 1,
+  "profile": "gpu_palette_sorted_opacity_billboard1",
+  "scene_collision": {
+    "bounce_limit": 4,
+    "friction": 0.1,
+    "mask": 4294967295,
+    "radius": 0.05,
+    "restitution": 0.5
+  },
+  "scene_collision_enabled": false,
+  "shape": "box",
+  "shape_radius": 1.0,
+  "shape_size": [
+    2.0,
+    1.5,
+    1.0
+  ],
+  "size_curve": [],
+  "size_end": 0.15,
+  "size_start": 0.45,
+  "spawn_rate": 16,
+  "speed_max": 0.2,
+  "speed_min": 0.1,
+  "trail": {
+    "duration": 0.5,
+    "segments": 8
+  },
+  "trail_enabled": false,
+  "version": 17
+}

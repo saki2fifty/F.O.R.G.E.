@@ -226,6 +226,14 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                 "GPU sorted particles require the runtime kit packaged with this "
                                 "editor");
                     }
+                    if (particle_uses_gpu_material_palette(particle)) {
+                        const auto palette = engine.find("runtime_particle_gpu_material_palette");
+                        require(palette != engine.end() && palette->is_number_integer() &&
+                                    palette->get<std::uint64_t>() ==
+                                        particle_gpu_material_palette_profile_version,
+                                "GPU particle Material palettes require the runtime kit packaged "
+                                "with this editor");
+                    }
                     if (particle_uses_scene_collision(particle)) {
                         const auto collision = engine.find("runtime_particle_scene_collision");
                         require(collision != engine.end() && collision->is_number_integer() &&
