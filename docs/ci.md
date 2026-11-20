@@ -7,6 +7,14 @@ uses a separate concurrency group from a full delivery on the same branch. Each
 profile retains its own queue, required tests and watchdogs; neither manual run
 cancels the other.
 
+The Linux core matrix uses the required GCC 12 C/C++ compiler pair already present
+on its runner. Missing, broken or wrong-major compilers trigger noninteractive
+package installation with bounded network attempts and lock waits. Each apt command
+has a four-minute watchdog and the setup step has a ten-minute limit; failure stops
+before configuration. Both compiler majors are checked after setup and their paths
+and versions are logged. Compiler requirements and every build/test gate remain
+unchanged. Isolated command-stub tests cover reuse, installation and failure paths.
+
 The fixed Ninja build profiles continue independent compilation after an error,
 collecting remaining compiler diagnostics in the same job. A failed build still
 fails the gate; its test steps do not run against older executables.
