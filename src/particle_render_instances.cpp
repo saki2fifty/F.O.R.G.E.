@@ -33,11 +33,12 @@ void validate_particle_material_profile(const MaterialResourceData& material,
             "Mesh particles require built-in material models without transmission or custom "
             "Shader surfaces");
     if (!particle_uses_sorted_alpha(effect) && !particle_uses_weighted_alpha(effect) &&
-        material.values.alpha == MaterialAlpha::Blend)
+        !particle_uses_gpu_sorted_alpha(effect) && material.values.alpha == MaterialAlpha::Blend)
         throw std::runtime_error(
-            "Blend particle materials require CPU sorted alpha or GPU weighted alpha");
-    if (particle_uses_weighted_alpha(effect) && material.values.alpha != MaterialAlpha::Blend)
-        throw std::runtime_error("GPU weighted alpha requires a Blend Material");
+            "Blend particles require CPU sorted alpha or an explicit GPU alpha transport");
+    if ((particle_uses_weighted_alpha(effect) || particle_uses_gpu_sorted_alpha(effect)) &&
+        material.values.alpha != MaterialAlpha::Blend)
+        throw std::runtime_error("GPU alpha transport requires a Blend Material");
     if (particle_uses_trails(effect) && !material.values.double_sided)
         throw std::runtime_error("Particle trails require a double-sided Material");
     const bool identity_opacity =

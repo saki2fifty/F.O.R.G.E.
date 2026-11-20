@@ -653,6 +653,50 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
     click("particles:redo");
     require(editor.document()->source().document == fading_gpu_trails,
             "Native GPU ribbon Redo lost exact source identities");
+    click("particles:gpu-sorted");
+    require(editor.document()->source().compiled().version == 37 &&
+                editor.document()->source().document.at("version") == 15 &&
+                !editor.document()->source().document.at("gpu_weighted_enabled").get<bool>(),
+            "Native sorted GPU control failed to retain ribbons and opacity");
+    const auto ordered_gpu_trails = editor.document()->source().document;
+    click("particles:undo");
+    require(editor.document()->source().document == fading_gpu_trails,
+            "Sorted GPU Undo lost the exact legacy source");
+    click("particles:redo");
+    require(editor.document()->source().document == ordered_gpu_trails,
+            "Sorted GPU Redo lost the exact source identities");
+    click("particles:gpu-weighted");
+    require(editor.document()->source().compiled().version == 25 &&
+                !editor.document()->source().document.at("gpu_sorted_enabled").get<bool>(),
+            "Native weighted control failed to clear sorted GPU mode");
+    click("particles:gpu-sorted");
+    require(editor.document()->source().document == ordered_gpu_trails,
+            "Native weighted/sorted round trip lost retained settings");
+    choose("particles:evaluation", 2);
+    require(editor.document()->source().compiled().version == 33,
+            "Sorted GPU selection lost its retained Graph");
+    choose("particles:evaluation", 1);
+    click("particles:collision");
+    require(editor.document()->source().compiled().version == 36,
+            "Sorted GPU plane toggle lost opacity");
+    click("particles:trails");
+    frame();
+    click("particles:billboards");
+    require(editor.document()->source().compiled().version == 34,
+            "Sorted GPU camera toggle lost opacity");
+    click("particles:trails");
+    require(editor.document()->source().document == ordered_gpu_trails,
+            "Sorted GPU geometry round trip lost source settings");
+    click("particles:gpu-sorted");
+    require(editor.document()->source().compiled().version == 23,
+            "Sorted GPU disable leaked inactive opacity");
+    click("particles:gpu-sorted");
+    require(editor.document()->source().document == ordered_gpu_trails,
+            "Sorted GPU disable/enable lost source identities");
+    for (unsigned i = 0; i < 24 && editor.document()->source().document != fading_gpu_trails; ++i)
+        editor.undo();
+    require(editor.document()->source().document == fading_gpu_trails,
+            "Sorted GPU edits failed to restore the exact pre-edit history");
     for (unsigned i = 0; i < 32 && editor.document()->source().document != before_weighted; ++i)
         editor.undo();
     require(editor.document()->source().document == before_weighted,

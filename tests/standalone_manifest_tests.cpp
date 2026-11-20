@@ -134,6 +134,36 @@ int main(int argc, char** argv) {
                     }
                 }
             }
+            for (unsigned version = 26; version <= 37; ++version) {
+                effect.metadata["forge.particle_effect"]["value_version"] = version;
+                particles.replace(effect);
+                Json kit{{"runtime_particle_effect", particle_effect_cooked_version},
+                         {"runtime_particle_gpu", particle_gpu_profile_version},
+                         {"runtime_particle_gpu_sorted", particle_gpu_sorted_profile_version}};
+                if (version >= 32)
+                    kit["runtime_particle_gpu_opacity"] = particle_gpu_opacity_profile_version;
+                if (version == 27 || version == 29 || version == 33 || version == 35)
+                    kit["runtime_particle_graph"] = particle_graph_profile_version;
+                if (version == 28 || version == 29 || version == 34 || version == 35)
+                    kit["runtime_particle_gpu_billboard"] = particle_gpu_billboard_profile_version;
+                if (version == 30 || version == 36)
+                    kit["runtime_particle_gpu_collision"] = particle_gpu_collision_profile_version;
+                if (version == 31 || version == 37)
+                    kit["runtime_particle_gpu_trail"] = particle_gpu_trail_profile_version;
+                validate_runtime_compatibility(particles, kit);
+                for (const auto& [capability, profile] : kit.items()) {
+                    auto wrong = kit;
+                    wrong.erase(capability);
+                    reject([&] { validate_runtime_compatibility(particles, wrong); });
+                    for (const Json& invalid :
+                         {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"), Json(2),
+                          Json((std::uint64_t{1} << 32) + 1)}) {
+                        wrong = kit;
+                        wrong[capability] = invalid;
+                        reject([&] { validate_runtime_compatibility(particles, wrong); });
+                    }
+                }
+            }
             effect.metadata["forge.particle_effect"]["value_version"] = 4;
             particles.replace(effect);
             reject([&] { validate_runtime_compatibility(particles, engine); });

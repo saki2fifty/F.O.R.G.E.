@@ -3693,12 +3693,43 @@ They do not capture historical emitter motion. Continuous capacity includes head
 and dying tails; capacity times segments reserves Scene instances. Double-sided
 built-in Materials are required. CPU nonidentity opacity needs sorted Blend with
 depth testing and no depth writes. Values10 require effect3 and typed
-trail1/alpha1/opacity1 runtime support. GPU Blend and lifetime opacity require
-complete-view weighted admission; unavailable views omit the device emitters.
+trail1/alpha1/opacity1 runtime support. GPU Blend and lifetime opacity in values24/25
+require complete-view weighted admission; unavailable views omit the device emitters.
 Values23–25 require effect3/GPU1 and typed `runtime_particle_gpu_trail:1`, adding
 weighted1 for24/25 and GPU opacity1 for25. CPU capabilities are independent. Device
 float precision can collapse short intervals. Graph trajectories and collision on
 ribbons remain unsupported.
+
+## Explicit ordered device particles
+
+`asset.document.particle_gpu_sorted` requires `asset.write`,
+`editor:"particle_effect"`, the current document session/revision and boolean
+`enabled`. MCP discovers `forge_asset_document_particle_gpu_sorted` through the
+live schema; read-only clients do not receive this mutation. It uses the same
+validated source edit as **Sorted alpha (GPU)**, including no-op detection,
+atomic rejection, Undo/Redo, publication and reopen. There is no separate agent
+particle state, renderer or persistence path.
+
+Source15 retains `gpu_sorted_enabled`. Enabling selects GPU or retains an active
+Graph and clears weighted GPU alpha; enabling weighted clears sorted activation.
+Retain the selected Mesh/camera/plane/ribbon geometry, shared appearance and
+inactive CPU settings. GPU opacity preserves an active sorted transport.
+Values26–31 cover built-in/Graph Mesh, built-in/Graph camera Quad, built-in plane
+and built-in ribbon respectively;32–37 add GPU lifetime opacity in the same order.
+The [particle contract](particle-effects.md#explicit-ordered-gpu-alpha) lists exact
+immutable names and typed runtime capabilities. Save and await publication before
+Play/export.
+
+Require Scene weighted transparency off, a built-in Blend Material, depth testing
+without writes and one compatible complete visible alpha group. Physical
+Mesh/Material/texture publications, part, raster parity, layers, decal selection
+and Material parameters must match. Ordinary transparent Meshes, CPU alpha,
+incompatible GPU alpha, transmission, visible Sprite/Tile layers and unavailable
+resources refuse the sorted GPU group with diagnostics. Other paths retain their
+own behavior; opaque geometry supplies ordinary depth occlusion. There is no
+whole-emitter fallback, CPU readback or per-fragment sorting. Discovery describes
+this admission boundary; exposing the source operation does not imply arbitrary
+mixed-Material alpha support.
 
 ## Explicit weighted device particles
 
@@ -3726,13 +3757,16 @@ existing Scene setting and source/publication owners, with no parallel agent pat
 optional `backend:"gpu"`; omission preserves `backend:"cpu"`. The same asset.write,
 particle document/session/revision, validation, no-op/history and publication owner
 applies. Invalid backend values reject atomically. GPU enabling selects the existing
-weighted GPU transport and retains active Graph/alignment, admitting source12 and
-values16–19. Disabling keeps the weighted backend and shared endpoints/stop IDs.
+weighted GPU transport unless sorted GPU alpha is already active. Graph/alignment
+remain selected. Source12 values16–19 describe weighted opacity; source15 adds
+the ordered opacity values32–37. Disabling keeps the selected alpha transport and
+shared endpoints/stop IDs.
 CPU/GPU activation choices are independent. Existing validated opacity curve patches
 retain GPU only for an active explicit GPU fade; ordinary CPU callers keep their
 previous behavior. Active GPU stops must remain distinct at float precision; inactive
 CPU settings retain double precision. Discovery includes profiles, requirements,
 errors and limits. Save/status/reopen uses the existing asset pipeline. Require a
-built-in Blend Material and admitted Scene weighted view, with typed GPU opacity1
-in addition to effect3/GPU1/weighted1 and graph/billboard capabilities as selected.
+built-in Blend Material and an admitted complete view for the selected alpha
+transport, with typed GPU opacity1 in addition to effect3/GPU1, weighted1 or sorted1,
+and graph/billboard/plane/trail capabilities as selected.
 No agent-only appearance behavior or separate game-authoring state is introduced.

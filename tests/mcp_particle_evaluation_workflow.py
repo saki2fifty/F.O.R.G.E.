@@ -4,6 +4,7 @@ import time
 from uuid import uuid4
 from mcp_particle_graph_workflow import check_particle_graph
 from mcp_particle_trail_workflow import check_gpu_trails
+from mcp_particle_sorted_workflow import check_gpu_sorted
 
 
 def check_particle_evaluation(read, mutate, edit, status, content, failed, root, tools):
@@ -512,5 +513,7 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     assert edit('forge_asset_document_close', owner)['ok']
 
     check_gpu_trails(read, mutate, edit, status, content, failed, root, tools,
+                     catalog, save, trail_path)
+    check_gpu_sorted(read, mutate, edit, status, content, failed, root, tools,
                      catalog, save, trail_path)
     check_particle_graph(read, mutate, edit, status, content, failed, root)

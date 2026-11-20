@@ -24,6 +24,8 @@ class ParticleEffectPreview {
     }
     const std::filesystem::path& project() const { return project_; }
     AssetId effect() const { return effect_; }
+    bool pending() const { return frame_.pending(); }
+    const auto& diagnostics() const { return frame_.diagnostics(); }
     EditorCamera camera;
     Diligent::ITextureView* render(const ParticleEffectSource& source, double time,
                                    std::shared_ptr<const AssetCatalog> catalog, unsigned width,
@@ -31,7 +33,9 @@ class ParticleEffectPreview {
         if (source.asset() != effect_ || !width || !height)
             throw std::runtime_error("Particle preview source/dimensions changed");
         host_->catalog(std::move(catalog));
-        host_->preview_particle_effect({effect_}, source.compiled());
+        const auto data = source.compiled();
+        scene_.settings.weighted_transparency = particle_uses_weighted_alpha(data);
+        host_->preview_particle_effect({effect_}, data);
         emitter_.time = time;
         scene_.particles = {emitter_};
         Light light;

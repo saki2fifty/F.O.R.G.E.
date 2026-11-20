@@ -8,9 +8,10 @@ namespace forge::test {
 template <class Prepare>
 void publish_gallery_asset(AssetImportService& service, const std::filesystem::path& source,
                            Prepare prepare,
-                           std::chrono::milliseconds timeout = std::chrono::seconds(90)) {
+                           std::chrono::milliseconds timeout = std::chrono::seconds(90),
+                           AssetId authored_identity = {}) {
     service.submit(
-        service.prepare(source),
+        service.prepare(source, {}, authored_identity),
         [&](auto& candidate, const auto& plan, const auto&) { prepare(candidate, plan); },
         [](const auto&, const auto&) {});
     if (!service.wait_idle(timeout))

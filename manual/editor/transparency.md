@@ -48,6 +48,11 @@ multiplies each birth's Material alpha. They require this Scene setting;
 an incompatible or disabled view omits those emitters with a diagnostic. They never
 use emitter-level sorting as a replacement for particle transparency.
 
+[Ordered GPU particles](particles.md) use a separate
+complete-group transport and require **Weighted transparency** off. Their effect
+checkboxes are mutually exclusive; mixing incompatible alpha contributors omits
+the sorted GPU group with a diagnostic.
+
 - Keep **Depth test** on and **Depth write** off for every Blend Mesh in the view. A depth-writing transparent material keeps the view on ordinary sorting.
 - Rebuild a custom Surface Shader or Material Graph and its dependent Materials with the current tools. An older cook remains usable with ordinary drawing.
 - Transmission/refraction needs sorted background transport. Weighted blending does not trace light through glass or supply exact physical layer ordering.

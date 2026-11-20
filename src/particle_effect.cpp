@@ -292,7 +292,7 @@ nlohmann::json encode_particle_collision_plane(const ParticleCollisionPlane& pla
             {"friction", plane.friction}, {"bounce_limit", plane.bounce_limit}};
 }
 void validate_particle_effect(const ParticleEffectData& data) {
-    if (data.version < 1 || data.version > 25)
+    if (data.version < 1 || data.version > particle_detail::value_profiles.size())
         throw std::runtime_error("Unknown particle value version");
     if (!data.mesh.id)
         throw std::runtime_error("Particle effect requires a Mesh");
@@ -367,28 +367,8 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
         throw std::runtime_error("Unsupported particle effect format/version/profile");
     const auto version = source.at("version").get<std::uint64_t>();
     const auto profile = source.at("profile").get<std::string>();
-    if (!((version == 1 && profile == "cpu_mesh1") || (version == 2 && profile == "cpu_mesh2") ||
-          (version == 3 && profile == "gpu_mesh1") || (version == 4 && profile == "gpu_graph1") ||
-          (version == 5 && profile == "cpu_alpha1") || (version == 6 && profile == "cpu_alpha2") ||
-          (version == 7 && profile == "cpu_billboard1") ||
-          (version == 8 && profile == "gpu_billboard1") ||
-          (version == 9 && profile == "gpu_graph_billboard1") ||
-          (version == 10 && profile == "cpu_trail1") ||
-          (version == 11 && profile == "cpu_collision1") ||
-          (version == 12 && profile == "gpu_weighted1") ||
-          (version == 13 && profile == "gpu_graph_weighted1") ||
-          (version == 14 && profile == "gpu_weighted_billboard1") ||
-          (version == 15 && profile == "gpu_graph_weighted_billboard1") ||
-          (version == 16 && profile == "gpu_weighted_opacity1") ||
-          (version == 17 && profile == "gpu_graph_weighted_opacity1") ||
-          (version == 18 && profile == "gpu_weighted_opacity_billboard1") ||
-          (version == 19 && profile == "gpu_graph_weighted_opacity_billboard1") ||
-          (version == 20 && profile == "gpu_collision1") ||
-          (version == 21 && profile == "gpu_weighted_collision1") ||
-          (version == 22 && profile == "gpu_weighted_collision_opacity1") ||
-          (version == 23 && profile == "gpu_trail1") ||
-          (version == 24 && profile == "gpu_weighted_trail1") ||
-          (version == 25 && profile == "gpu_weighted_trail_opacity1")))
+    const auto* selected_profile = particle_detail::value_profile(version);
+    if (!selected_profile || profile != selected_profile->name)
         throw std::runtime_error("Unsupported particle effect format/version/profile");
     static const std::set<std::string> fields{
         "format",     "version",      "profile",     "mesh",       "material",
@@ -400,13 +380,10 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
             !(version >= 2 &&
               (name == "shape" || name == "shape_size" || name == "shape_radius" ||
                name == "drag" || name == "size_curve" || name == "color_gradient")) &&
-            !((version == 4 || version == 9 || version == 13 || version == 15 || version == 17 ||
-               version == 19) &&
-              name == "program") &&
-            !((version == 10 || (version >= 23 && version <= 25)) && name == "trail") &&
-            !((version == 11 || (version >= 20 && version <= 22)) && name == "collision") &&
-            !((version == 6 || version == 7 || version == 10 || version == 11 ||
-               (version >= 16 && version <= 19) || version == 22 || version == 25) &&
+            !((selected_profile->flags & particle_detail::Graph) && name == "program") &&
+            !((selected_profile->flags & particle_detail::Trail) && name == "trail") &&
+            !((selected_profile->flags & particle_detail::Collision) && name == "collision") &&
+            !((selected_profile->flags & particle_detail::Opacity) &&
               (name == "opacity_start" || name == "opacity_end" || name == "opacity_curve")))
             throw std::runtime_error("Unknown particle effect field: " + name);
     if (source.contains("extensions") && !source.at("extensions").is_object())
@@ -518,31 +495,7 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
     nlohmann::json result{
         {"format", "forge.particle_effect"},
         {"version", data.version},
-        {"profile", data.version == 1    ? "cpu_mesh1"
-                    : data.version == 2  ? "cpu_mesh2"
-                    : data.version == 3  ? "gpu_mesh1"
-                    : data.version == 4  ? "gpu_graph1"
-                    : data.version == 5  ? "cpu_alpha1"
-                    : data.version == 6  ? "cpu_alpha2"
-                    : data.version == 7  ? "cpu_billboard1"
-                    : data.version == 8  ? "gpu_billboard1"
-                    : data.version == 9  ? "gpu_graph_billboard1"
-                    : data.version == 10 ? "cpu_trail1"
-                    : data.version == 11 ? "cpu_collision1"
-                    : data.version == 12 ? "gpu_weighted1"
-                    : data.version == 13 ? "gpu_graph_weighted1"
-                    : data.version == 14 ? "gpu_weighted_billboard1"
-                    : data.version == 15 ? "gpu_graph_weighted_billboard1"
-                    : data.version == 16 ? "gpu_weighted_opacity1"
-                    : data.version == 17 ? "gpu_graph_weighted_opacity1"
-                    : data.version == 18 ? "gpu_weighted_opacity_billboard1"
-                    : data.version == 19 ? "gpu_graph_weighted_opacity_billboard1"
-                    : data.version == 20 ? "gpu_collision1"
-                    : data.version == 21 ? "gpu_weighted_collision1"
-                    : data.version == 22 ? "gpu_weighted_collision_opacity1"
-                    : data.version == 23 ? "gpu_trail1"
-                    : data.version == 24 ? "gpu_weighted_trail1"
-                                         : "gpu_weighted_trail_opacity1"},
+        {"profile", particle_detail::value_profile(data.version)->name},
         {"mesh", data.mesh},
         {"emission", data.emission == ParticleEmission::Burst ? "burst" : "continuous"},
         {"capacity", data.capacity},

@@ -40,6 +40,7 @@ set(forge_presentation_sources
  src/mesh_render_sprite_mips.cpp
  src/mesh_render_particles.cpp
  src/particle_gpu.cpp
+ src/particle_gpu_order.cpp
  src/mesh_render_tiles.cpp
  src/gpu_residency.cpp
  src/sampler_backend.cpp)

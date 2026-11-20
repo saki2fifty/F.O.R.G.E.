@@ -19,6 +19,9 @@
 #include "particle_alpha_render_tests.hpp"
 #include "particle_billboard_render_tests.hpp"
 #include "particle_gpu_collision_checks.hpp"
+#include "particle_gpu_order_checks.hpp"
+#include "particle_gpu_sorted_content_checks.hpp"
+#include "particle_gpu_sorted_render_checks.hpp"
 #include "particle_gpu_trail_checks.hpp"
 #include "particle_graph_render_tests.hpp"
 #include "particle_ribbon_render_tests.hpp"
@@ -262,6 +265,9 @@ int main(int argc, char** argv) {
                       std::string_view(argv[2]) == "particle-weighted-gpu-gallery" ||
                       std::string_view(argv[2]) == "particle-weighted-gpu-graph-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-collision-gallery" ||
+                      std::string_view(argv[2]) == "particle-gpu-trail-gallery" ||
+                      std::string_view(argv[2]) == "particle-gpu-sorted-gallery" ||
+                      std::string_view(argv[2]) == "particle-gpu-sorted-countercases" ||
                       std::string_view(argv[2]) == "particle-gpu-opacity-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-graph-opacity-gallery")),
                 "Expected image output directory, optional render case and graph content root");
@@ -314,12 +320,23 @@ int main(int argc, char** argv) {
             else if (selected == "particle-billboards" || selected == "particle-gpu-billboards")
                 forge::test_particle_billboard::exercise(isolated, context, images,
                                                          selected == "particle-gpu-billboards");
+            else if (selected == "particle-gpu-order-numeric")
+                forge::particle_order_test::execute(isolated, context);
+            else if (selected == "particle-gpu-sorted-scene")
+                forge::particle_sorted_test::execute(isolated, context, images);
             else if (selected == "particle-gpu-trail-numeric") {
                 forge::particle_trail_test::execute(isolated, context);
                 forge::test_particle_ribbon::gpu_scene_test(isolated, context, images);
             } else if (selected == "particle-gpu-plane-numeric") {
                 forge::particle_plane_test::check_boundaries(isolated.device(), context, isolated);
                 forge::particle_plane_test::check_runtime(isolated.device(), context, isolated);
+            } else if (selected == "particle-gpu-sorted-countercases") {
+                require(argc == 4, "GPU sorted countercases need relocated published content");
+                forge::particle_sorted_content_test::execute(isolated, context, argv[3]);
+            } else if (selected == "particle-gpu-sorted-gallery") {
+                require(argc == 4, "GPU sorted render needs relocated cooked content");
+                forge::test_particle_alpha::gallery(isolated, context, argv[3], images, true, true,
+                                                    true, false, false, false, false, true, true);
             } else if (selected == "particle-gpu-trail-gallery") {
                 require(argc == 4, "GPU trail render needs relocated cooked content");
                 forge::test_particle_alpha::gallery(isolated, context, argv[3], images, true, false,

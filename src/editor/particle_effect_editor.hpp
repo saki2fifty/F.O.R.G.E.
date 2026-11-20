@@ -207,7 +207,23 @@ class ParticleEffectEditor {
                      "Material, depth testing without depth writes, and Scene weighted "
                      "transparency. Color blending is approximate. An incompatible view omits "
                      "this emitter with a diagnostic. Use opacity over life to add device fades. "
-                     "Camera alignment and inactive CPU settings are retained.");
+                     "Camera alignment and inactive CPU settings are retained. Enabling clears "
+                     "sorted GPU alpha.");
+            bool sorted = document_->source().document.value("gpu_sorted_enabled", false);
+            if (ImGui::Checkbox("Sorted alpha (GPU)", &sorted))
+                mutate("Set GPU sorted alpha", [&](auto& value) {
+                    ParticleEffectSource candidate{value};
+                    candidate.enable_gpu_sorted_alpha(sorted);
+                    value = std::move(candidate.document);
+                });
+            FORGE_UI_PROBE("particles:gpu-sorted");
+            ui::help("Orders particles back to front on the device. Disables weighted alpha; "
+                     "Scene weighted transparency must be off. Requires one compatible shared "
+                     "Mesh/Material for the complete visible alpha group, a built-in Blend "
+                     "Material and depth testing without writes. Other transparent contributors "
+                     "or incompatible emitters omit the sorted GPU group with a diagnostic. "
+                     "Graph, alignment, ribbons, plane motion and opacity settings are retained. "
+                     "Ordering is per particle or ribbon segment, not per fragment.");
             auto program = document_->source().graph_program().value_or(ParticleGraphProgram{});
             const auto edit_program = [&](const ParticleGraphProgram& next, bool activate) {
                 mutate("Edit particle graph program", [&](auto& source) {
@@ -346,7 +362,8 @@ class ParticleEffectEditor {
             ui::help(gpu_billboards
                          ? "Align GPU or Graph particles with each camera using Engine / Quad. "
                            "Enabling replaces GPU ribbon geometry while retaining its settings. "
-                           "Use opaque/masked Materials or Blend with Weighted alpha (GPU). World "
+                           "Use opaque/masked Materials or Blend with Weighted alpha (GPU) or "
+                           "Sorted alpha (GPU). World "
                            "X/Y scale sets width "
                            "and height. Disabling restores the original Mesh selection. CPU "
                            "alignment and opacity settings remain separate and retained."

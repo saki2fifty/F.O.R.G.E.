@@ -93,9 +93,10 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "runtime_particle_opacity1 and alpha1. Explicit backend=gpu selects weighted "
                  "device opacity (values16-19, or22 with plane motion); source12 retains "
                  "independent CPU/GPU "
-                 "activation and shared endpoints/stops. It enables weighted alpha, retaining "
+                 "activation and shared endpoints/stops. It enables weighted alpha unless sorted "
+                 "GPU alpha is already selected, retaining "
                  "Graph/camera alignment. Requires a Blend Material, depth test/no writes, "
-                 "enabled complete-view Scene weighted transparency, GPU1/weighted1 and "
+                 "the matching complete-view Scene alpha transport, GPU1/weighted1 or sorted1 and "
                  "runtime_particle_gpu_opacity1, plus graph1/GPU billboard1 as selected. "
                  "Device float age/stop precision can differ from CPU at Step transitions; "
                  "inactive CPU settings retain doubles. Unsupported views omit the emitter."},
@@ -109,7 +110,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "backend=gpu selects values8/gpu_billboard1 or retains an active "
                  "graph as values9/gpu_graph_billboard1. Source8 retains independent "
                  "CPU/GPU alignment settings and original Mesh/program/opacity. GPU "
-                 "alignment requires opaque/masked Material unless explicit weighted alpha is "
+                 "alignment requires opaque/masked Material unless explicit weighted or sorted GPU "
+                 "alpha is "
                  "enabled, and "
                  "runtime_particle_gpu_billboard1 plus GPU1; graphs also need graph1."},
                 {"trails",
@@ -121,9 +123,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "Source14 retains independent CPU/GPU activation, Mesh, appearance and local "
                  "stop identities. Duration0.001–30seconds, segments1–16; capacity covers heads "
                  "and dying tails, capacity*segments<=8192. Double-sided built-in Materials; "
-                 "GPU Blend/opacity requires enabled complete-view weighted transparency. CPU "
+                 "GPU Blend/opacity requires its selected complete-view weighted or sorted "
+                 "transport. CPU "
                  "requires runtime_particle_trail1/opacity1/alpha1; GPU requires GPU1 and "
-                 "runtime_particle_gpu_trail1, plus weighted1 and GPU opacity1 where selected. "
+                 "runtime_particle_gpu_trail1, plus weighted1 or sorted1 and GPU opacity1 where "
+                 "selected. "
                  "Current emitter transform applies to the whole local path, without historical "
                  "emitter-motion capture; device float precision may collapse short intervals."},
                 {"collision",
@@ -145,6 +149,18 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "matching capabilities. GPU uses float contact times and keeps killed births "
                  "as finite zero-size rows, without readback. No Scene-collider, arbitrary "
                  "Graph-motion, ribbon or camera-plane collision combination."},
+                {"gpu_sorted",
+                 "asset.document.particle_gpu_sorted enables source15, values26-37: built-in/"
+                 "Graph Mesh or camera quads, built-in plane motion or ribbons, each optionally "
+                 "with GPU lifetime opacity. Requires runtime_particle_gpu_sorted1 and GPU1, "
+                 "plus matching graph/alignment/plane/ribbon/opacity capabilities. Disables "
+                 "weighted alpha. Scene weighted transparency must be off. Complete visible "
+                 "alpha group must share immutable Mesh/Material/texture resources, part, "
+                 "parity, layers, decal selection and Material parameters; ordinary transparent "
+                 "Mesh/CPU/Sprite/Tile contributors or incompatible/pending resources refuse "
+                 "the GPU sorted group with a diagnostic. Opaque geometry remains depth tested. "
+                 "Stable device particle/segment depth ordering, no readback or CPU fallback; "
+                 "not per-fragment ordering. Retains inactive source settings and stop IDs."},
                 {"gpu_weighted",
                  "asset.document.particle_gpu_weighted selects explicit approximate weighted "
                  "device alpha (values12/gpu_weighted1,13/gpu_graph_weighted1, "
@@ -160,10 +176,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  {{"emitters", particle_emitter_limit},
                   {"effect_capacity", 1024},
                   {"scene_capacity", particle_scene_capacity}}},
-                {"gpu", "Births, analytic motion, lifetime appearance and instance transforms "
-                        "execute on a compute-capable rendering device. There is no CPU fallback. "
-                        "Stop times must remain distinct at float precision. CPU and GPU random "
-                        "patterns differ; collisions and trails are unsupported."},
+                {"gpu",
+                 "Births, analytic motion, lifetime appearance and instance transforms "
+                 "execute on a compute-capable rendering device. There is no CPU fallback. "
+                 "Stop times must remain distinct at float precision. CPU and GPU random "
+                 "patterns differ; built-in plane and ribbon profiles have separate capabilities."},
                 {"graph",
                  "Assign a published particle-graph Shader and finite local extents/maximum size "
                  "with "
@@ -836,6 +853,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                                "particle_trails",
                                "particle_collision",
                                "particle_gpu_weighted",
+                               "particle_gpu_sorted",
                                "particle_program",
                                "paint",
                                "tile_collision",
@@ -884,8 +902,21 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  billboards ? "CPU preserves the existing default operation. GPU selects device "
                               "alignment, preserving an active graph and explicit weighted alpha."
                             : "CPU preserves the existing operation. GPU enables opacity and "
-                              "weighted alpha; requires enabled complete-view Scene weighted "
-                              "transparency. Float precision applies; no sorted device fallback."}};
+                              "weighted alpha unless sorted GPU alpha is active; requires the "
+                              "selected complete-view "
+                              "Scene transport. Float precision applies; no automatic fallback."}};
+        } else if (std::string_view(action) == "particle_gpu_sorted") {
+            properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
+            properties["enabled"] = {
+                {"type", "boolean"},
+                {"description",
+                 "Select bounded device back-to-front ordering. Disables weighted alpha; "
+                 "requires Scene weighted transparency off, built-in Blend with depth test/no "
+                 "writes and one compatible complete visible alpha group. Incompatible views "
+                 "omit the GPU sorted group with a diagnostic. Preserves Graph, geometry, "
+                 "shared appearance and inactive CPU settings. False restores retained GPU "
+                 "opaque/masked evaluation."}};
+            needed.push_back("enabled");
         } else if (std::string_view(action) == "particle_gpu_weighted") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
             properties["enabled"] = {

@@ -4,7 +4,8 @@ A particle effect is a reusable stream or burst of small meshes. Use it for
 stylized sparks, debris or fountains. Effects can use solid or masked meshes, or
 sorted transparent meshes with CPU evaluation, and camera-aligned quads with CPU,
 GPU or Graph evaluation. Explicit weighted GPU alpha supports approximate
-transparent blending and per-particle fades over life. CPU and GPU analytic ribbon
+transparent blending and per-particle fades over life. Ordered GPU alpha supports
+a compatible group of transparent emitters in one view. CPU and GPU analytic ribbon
 trails follow each particle's local path. Built-in CPU and GPU Mesh particles can
 bounce against an emitter-local plane.
 
@@ -90,7 +91,8 @@ meshes. Intersecting meshes can show sorting artifacts because triangles inside
 one particle are not sorted individually. Reduce particle counts when using this
 mode. A view containing transparent particles uses sorted rendering even when
 **Weighted transparency** is enabled. GPU and Graph evaluation use opaque or masked
-Materials unless **Weighted alpha (GPU)** is explicitly enabled; see below. A failed
+Materials unless **Weighted alpha (GPU)** or **Sorted alpha (GPU)** is explicitly
+enabled; see the corresponding workflows below. A failed
 publication retains the working selected effect.
 
 Export with the runtime kit packaged with this editor. An older kit that lacks
@@ -159,8 +161,8 @@ packaged Shader worker.
 Disabling GPU alignment restores the original Mesh and keeps the selected GPU or
 Graph evaluation. CPU alignment and opacity settings remain available when you
 switch back to CPU evaluation. GPU quads support opaque and masked Materials, or
-Blend Materials with explicit **Weighted alpha (GPU)**. Enable **Use opacity over
-life** to fade weighted GPU or Graph particles. Camera-plane orientation and the
+Blend Materials with explicit **Weighted alpha (GPU)** or **Sorted alpha (GPU)**.
+Enable **Use opacity over life** for either transparent GPU or Graph transport. Camera-plane orientation and the
 other particle limits above also apply to GPU quads.
 
 ## Weighted GPU transparency
@@ -201,6 +203,48 @@ Turning **Weighted alpha (GPU)** off restores the retained opaque/masked GPU or
 Graph profile. Switching to CPU preserves this setting and the independent CPU
 opacity, alignment, ribbon and plane settings. Undo/Redo restores source choices.
 
+## Ordered GPU transparency
+
+Open **Scenes/253-ordered-gpu-particles.scene.json** in FeatureGallery and press
+**Play**. Two tinted emitters share
+**Assets/Particles/Alpha/OrderedDeviceCloud.particles.json**, the soft cloud image
+and its Blend Material. Particles are ordered back to front on the graphics
+device. The Scene includes a camera, light and solid depth marker; it needs no
+project C++ code.
+
+![Teal and amber soft GPU particles overlapping around an opaque depth marker](../images/ordered-gpu-particles.png)
+
+The Gallery scene in the Game renderer at three seconds.
+
+1. Stop Play. Open the Particle Effect from **Content** and enable **Sorted alpha (GPU)**. This selects GPU evaluation or keeps an active Graph, and turns off **Weighted alpha (GPU)**.
+2. Select a built-in Material with **Alpha → Blend**, **Depth test** enabled and **Depth write** disabled. Set its base alpha or use a color image with alpha, then save the Material.
+3. Open **Tools > Scene lighting...**, expand **Transparency** and turn **Weighted transparency** off. Save the Scene.
+4. Optionally enable **Camera-aligned quads**, built-in plane motion or analytic ribbons. These geometry choices retain their existing combination limits. Enable **Use opacity over life** to add a fade while keeping sorted GPU blending.
+5. Choose **Save / Publish**, save the Scene and press **Play**. Use the emitters' size, RGB tint and playback controls as usual. Undo/Redo restores source choices.
+6. Export using the runtime kit packaged with this editor. The player needs compute-capable graphics; editable sources and a compiler are not required.
+
+The entire visible transparent group must use compatible sorted GPU particles.
+Emitters must share the same Mesh, Material and images, raster orientation,
+layers and other draw settings. Opaque and masked geometry can still block the
+particles through depth testing. Ordinary transparent Meshes, CPU alpha
+particles, other GPU alpha modes, visible Sprite/Tile layers and incompatible
+resources prevent this group from drawing in that view. **Problems** reports the
+reason. Resolve the incompatibility to restore the whole group; the renderer does
+not keep an arbitrary subset or reuse another camera's particles.
+
+Use CPU sorted alpha when transparent particles must share ordering with ordinary
+transparent Meshes. Weighted GPU alpha provides a separate approximate transport.
+The two GPU alpha controls are mutually exclusive. Turning sorted alpha off
+restores the retained opaque/masked GPU profile; choose an appropriate Material
+or another alpha transport before playing. CPU settings, source values and stop
+identities stay retained when changing evaluation.
+
+Ordering uses each Mesh particle's center or each ribbon segment's midpoint.
+Intersecting surfaces can still show ordering artifacts because fragments within
+a particle or segment are not sorted separately. Source changes need
+**Save / Publish** before Play or export. An older runtime kit that lacks this
+transport is rejected during export.
+
 ## GPU opacity over life
 
 Open **Scenes/249-gpu-particle-opacity.scene.json** and press **Play**. Each particle
@@ -216,10 +260,10 @@ before publishing **Assets/Particles/Opacity/GraphFade.particles.json** on Windo
 The GPU fading Gallery scene at three seconds in the Game renderer.
 
 1. Stop Play and open the Particle Effect from Content. Choose **Evaluation → GPU**, or **Graph** with a published particle program.
-2. Enable **Use opacity over life**. This also enables **Weighted alpha (GPU)** and keeps the selected Graph and camera alignment.
+2. Enable **Use opacity over life**. This enables **Weighted alpha (GPU)** unless **Sorted alpha (GPU)** is already selected, and keeps the selected Graph and camera alignment.
 3. Use a built-in **Alpha → Blend** Material with **Depth test** enabled and **Depth write** disabled. Save the Material. Optionally enable **Camera-aligned quads** for image particles.
 4. Set **Start opacity (0–1)** and **End opacity (0–1)**, or enable **Use opacity curve** and edit its 2–16 stops. **Linear** interpolates to the next stop; **Step** holds the current value until the next stop.
-5. Choose **Save / Publish**. Enable **Weighted transparency** in the Scene rendering settings, save the Scene and press Play.
+5. Choose **Save / Publish**. For **Weighted alpha (GPU)**, enable **Weighted transparency** in the Scene rendering settings. For **Sorted alpha (GPU)**, leave that Scene setting off and follow **Ordered GPU transparency** above. Save the Scene and press Play.
 6. Export with the runtime kit packaged with this editor. The player needs compute-capable graphics, without editable sources or a compiler.
 
 Opacity multiplies Material, texture and vertex alpha and leaves RGB tint and
@@ -228,11 +272,11 @@ remain distinct at that precision; Step transitions and lifetime boundaries can
 appear at a slightly different instant from CPU evaluation.
 
 Disabling **Use opacity over life** retains its endpoints and curve and keeps
-weighted blending. CPU and GPU activation choices are independent and share the
+the selected GPU alpha transport. CPU and GPU activation choices are independent and share the
 same endpoints and stops. The checkbox shows the choice for the selected backend.
 Switching evaluation, Undo/Redo and Save preserve these settings. Turning
-**Weighted alpha (GPU)** off suspends the GPU fade until weighted blending is
-re-enabled. An incompatible view omits these emitters and reports the reason in
+the selected GPU alpha transport off suspends the GPU fade until weighted or
+sorted GPU blending is re-enabled. An incompatible view omits these emitters and reports the reason in
 **Problems**, as described above.
 
 ## Analytic ribbon trails
@@ -291,7 +335,7 @@ Two emitters share one effect while retaining their own seeds and tint.
 2. Choose **GPU** under **Evaluation**, then enable **Analytic ribbon trails (GPU)**.
 3. Set **Trail duration (seconds)** and **Trail segments (1–16)**. Duration accepts 0.001–30 seconds; more segments describe curved paths and changing width in greater detail.
 4. Choose a double-sided built-in Material. The gallery's **Assets/Particles/Trails/Ribbon.material.json** is ready to use.
-5. For a Blend Material, enable **Weighted alpha (GPU)** and the Scene's weighted-transparency setting. Enable GPU opacity over life for lifetime fades. Solid or masked ribbons use identity particle opacity.
+5. For a Blend Material, select weighted GPU alpha with the Scene's weighted-transparency setting enabled, or **Sorted alpha (GPU)** with that Scene setting off (see **Ordered GPU transparency** above). Enable GPU opacity over life for lifetime fades. Solid or masked ribbons use identity particle opacity.
 6. Choose **Save / Publish**, save the Scene, then press **Play**. Export with the matching runtime kit packaged with the editor.
 
 GPU ribbons use connected Quad geometry. Enabling them turns off GPU plane
@@ -339,7 +383,8 @@ For GPU collision, choose **GPU**, then enable **Plane collision (GPU mesh)**.
 Use the same normal, offset, radius and response controls. This selects built-in
 Mesh motion and turns off GPU camera alignment. It retains an assigned Graph for
 later use. Opaque and masked Materials work directly; for Blend, enable
-**Weighted alpha (GPU)** and the Scene's **Weighted transparency** setting. You
+**Weighted alpha (GPU)** with the Scene's **Weighted transparency** enabled, or
+**Sorted alpha (GPU)** with that Scene setting off (see **Ordered GPU transparency** above). You
 can then enable **Use opacity over life** for fades. Save the Effect and Scene
 before exporting with the matching runtime kit.
 
@@ -450,8 +495,9 @@ and 8,192 reserved instances. Trails reserve one instance per segment, including
 shrinking tails. Use one static triangle part, one LOD and one material
 slot. Built-in PBR and Unlit surfaces work. **CPU (sorted alpha)** additionally
 accepts Blend Materials with depth testing and no depth writes. GPU and Graph
-accept Blend with explicit **Weighted alpha (GPU)** and complete-view weighted
-admission; their opacity-over-life setting can then apply per-particle fades.
+accept Blend with explicit **Weighted alpha (GPU)** or **Sorted alpha (GPU)**
+and their complete-view admission rules; opacity over life can then apply
+per-particle fades.
 Other evaluation profiles require opaque/masked Materials. Skinned/morphing meshes,
 transmission and custom Shader surfaces report errors. Particles do not cast shadows.
 Built-in GPU Mesh particles support the emitter-local plane response. Built-in

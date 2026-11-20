@@ -25,7 +25,10 @@ camera-aligned combinations. Source12 adds `gpu_opacity_enabled` and projects
 explicit GPU opacity values16–19. Source13 adds independent `gpu_collision_enabled`
 and explicit GPU plane values20–22 sharing the retained `collision` object with CPU.
 Source14 adds independent `gpu_trail_enabled` and explicit GPU ribbon values23–25,
-sharing the retained trail settings with CPU.
+sharing the retained trail settings with CPU. Source15 adds `gpu_sorted_enabled`
+and explicit ordered GPU values26–37. Sorted and weighted GPU transport selections
+are mutually exclusive; inactive shape, opacity, Graph, plane and trail settings
+remain retained across transport changes.
 Other backends retain inactive settings without
 applying them; CPU/GPU activation is independent with shared endpoints/stop IDs.
 Values include a Mesh reference, optional Material override, emission
@@ -47,7 +50,7 @@ New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope contai
 `format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3, graph4
 or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph camera-plane9/
 analytic-trail CPU10/plane-collision CPU11/explicit weighted GPU12–15/GPU opacity16–19/
-GPU plane20–22;
+GPU plane20–22/GPU ribbon23–25/ordered GPU26–37;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -83,7 +86,10 @@ CPU11 permits the same Material alpha/opacity profile as CPU7, using the origina
 Mesh and its explicit local collision plane. GPU12–19 require Blend with depth
 testing/no depth writes and complete-view weighted admission;16–19 apply explicit
 per-birth lifetime opacity. GPU20 admits opaque/masked Mesh plane response;21/22
-require weighted Blend, and22 also applies lifetime opacity. General Scene-collider
+require weighted Blend, and22 also applies lifetime opacity. GPU23–25 describe
+double-sided Quad ribbons with opaque/masked, weighted Blend and weighted opacity
+variants. GPU26–37 require Blend and complete-view ordered admission, with retained
+Mesh/Graph/camera/plane/ribbon choices as listed below. General Scene-collider
 response, Graph trails, historical emitter-motion capture and texture-sheet animation
 are outside these profiles. The bounded stateless graph profile below extends
 position, size and RGB without adding those capabilities.
@@ -92,7 +98,8 @@ position, size and RGB without adding those capabilities.
 
 [ADR062](decisions/062-sorted-alpha-particles.md) introduces explicit values5 and
 source5 without changing earlier value meanings, IDs, recipe3/envelope3 or the
-ParticleEmitter/gameplay ABI. `particle_uses_gpu` identifies GPU3/4/8/9/12–22 explicitly;
+ParticleEmitter/gameplay ABI. `particle_uses_gpu` derives GPU selection from the
+immutable profile descriptors, including values3/4/8/9/12–37;
 CPU5 keeps the CPU random sequence, double clock and lifetime-stop precision.
 Source5 retains optional inactive graph settings across evaluation changes.
 
@@ -571,8 +578,7 @@ resource/target/budget failure or disabled setting omits these emitters for that
 view with scoped diagnostics, preserving ordinary sorted fallback for other work.
 There is no whole-emitter sorted substitute or mixed weighted/sorted device alpha.
 Approximate weighted color is not exact layered ordering or refraction. GPU
-lifetime opacity and plane motion use the explicit profiles below; trails remain
-unsupported on the device.
+lifetime opacity, plane motion and analytic ribbons use the explicit profiles below.
 
 The original47-row evaluator/graph input remains unchanged. Reuse the existing
 supplemental projection and same-UAV barrier to choose Material tint flag2,
@@ -592,9 +598,10 @@ program Effects. Native Graph publication remains a Windows Shader-worker workfl
 [ADR069](decisions/069-gpu-particle-opacity.md) defines source12 and values16/
 `gpu_weighted_opacity1`,17/`gpu_graph_weighted_opacity1`,18/
 `gpu_weighted_opacity_billboard1`,19/`gpu_graph_weighted_opacity_billboard1`.
-`enable_gpu_opacity` validates and commits one source candidate. Enabling calls the
-existing weighted activation, preserving Graph/alignment; disabling retains the
-weighted profile, endpoints, stops and local IDs. CPU and GPU enable flags are
+`enable_gpu_opacity` validates and commits one source candidate. Enabling retains
+an active sorted GPU transport; otherwise it calls the existing weighted activation.
+Graph/alignment remain selected. Disabling retains the selected alpha transport,
+endpoints, stops and local IDs. CPU and GPU enable flags are
 independent. Shared opacity endpoints/stops retain double source precision; only
 active GPU curves require distinct representable float times. The existing lifetime
 curve operation preserves an active GPU fade; its ordinary default still selects CPU.
@@ -675,3 +682,70 @@ before replacing a distribution. Gallery252 shares one editable GPU trail Effect
 and the existing ribbon Material between two emitters, with its own saved Scene
 weighted-transparency setting. Native Windows and physical-device acceptance
 remain separate from source-hidden software rendering.
+
+## Explicit ordered GPU alpha
+
+[ADR072](decisions/072-ordered-gpu-particle-transport.md) defines a bounded sorted
+transport through the existing Mesh renderer. Source15 adds `gpu_sorted_enabled`.
+`enable_gpu_sorted_alpha` and native **Sorted alpha (GPU)** select GPU evaluation,
+preserving an active Graph, geometry, shared appearance and inactive CPU settings.
+Enabling clears `gpu_weighted_enabled`; enabling weighted alpha clears sorted
+activation. GPU opacity preserves an active sorted transport. Disabling sorted
+activation retains its settings and restores the selected opaque/masked GPU
+profile. Material authoring remains independent of the evaluation choice.
+
+The source-document operation `asset.document.particle_gpu_sorted` takes the same
+editor/session/revision guards as the other particle operations and a required
+boolean `enabled`. Native controls, automation and MCP use the existing source
+validation, Undo/Redo and publication owner. Source versions never decrease when
+geometry or evaluation changes. Existing source formats and values1–25 retain
+their exact names, version numbers and behavior; recipe/cooked envelope3, asset
+and stop identities, components and the installed native ABI remain unchanged.
+
+| Evaluation geometry | Sorted values | With GPU lifetime opacity |
+| --- | --- | --- |
+| Built-in Mesh | 26 / `gpu_sorted1` | 32 / `gpu_sorted_opacity1` |
+| Graph Mesh | 27 / `gpu_graph_sorted1` | 33 / `gpu_graph_sorted_opacity1` |
+| Built-in camera Quad | 28 / `gpu_sorted_billboard1` | 34 / `gpu_sorted_opacity_billboard1` |
+| Graph camera Quad | 29 / `gpu_graph_sorted_billboard1` | 35 / `gpu_graph_sorted_opacity_billboard1` |
+| Built-in plane motion | 30 / `gpu_sorted_collision1` | 36 / `gpu_sorted_collision_opacity1` |
+| Built-in ribbon | 31 / `gpu_sorted_trail1` | 37 / `gpu_sorted_trail_opacity1` |
+
+All require a built-in Blend Material, depth testing without depth writes, and
+Scene weighted transparency off. The complete visible alpha group must share
+one physical Mesh/Material/texture bundle, part, raster parity, layer mask,
+shadow-reception choice, projected-decal selection and Material parameter values.
+Physical identity includes immutable resource publications and generations.
+Matching logical asset names or equal-looking Material values is insufficient.
+Matching lighting, projected light images, local irradiance and fog follow the
+existing layer/view selection; per-particle RGB/opacity stays in the packets.
+
+An ordinary transparent Mesh, CPU alpha particle, incompatible GPU alpha emitter,
+transmission, visible Sprite/Tile layer, pending/invalid resource or rendering
+diagnostic refuses the complete sorted GPU group for that view. Diagnostics name
+the reason. Other existing paths keep their own behavior. Opaque/masked geometry
+continues through the ordinary depth path. Refusal, an empty view and another
+camera never draw an earlier ordered packet count. This is an explicit admission
+boundary, not unrestricted mixed-Material transparency or a fallback profile.
+
+The renderer gathers existing seven-row device packets without particle readback
+or another simulation clock. It generates center-depth/index keys, sorts indices
+back to front and gathers the final packet permutation. Static Mesh depth uses
+the transformed Mesh-part bounds center; ribbons use their segment midpoint.
+Equal depths, including signed zero, retain canonical emitter identity followed
+by birth/segment order. Padding remains finite degenerate geometry. Ordering is
+per object or segment; intersecting geometry is not sorted per fragment.
+
+The derived view resource reserves at most8192 packets and64 sources and retains
+the existing64-instance draw slices. GPU barriers order key generation, compare
+passes, final gathering and later reuse. Count clears before validation and is
+published only after successful gathering. The camera owner restores targets on
+success and failure. Source assets, immutable publications, draw bundles and
+simulation state keep their established owners.
+
+Require effect3/GPU1 and `runtime_particle_gpu_sorted:1`, plus graph1, GPU
+billboard1, GPU collision1, GPU trail1 and GPU opacity1 only where selected.
+CPU alpha/opacity capabilities and weighted1 are not requirements of a GPU-only
+sorted profile. Missing, malformed or unsupported kit fields reject export before
+replacing a distribution. Native Windows execution and physical-device review
+remain separate from local software-device correctness evidence.

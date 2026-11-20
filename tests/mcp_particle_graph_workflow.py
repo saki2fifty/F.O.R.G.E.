@@ -138,4 +138,20 @@ def check_particle_graph(read, mutate, edit, status, content, failed, root):
     assert edit('forge_asset_document_particle_billboards', owner, backend='gpu', enabled=True)['ok']
     assert content(owner) == dict(graph_fade, gpu_billboard_enabled=True,
                                   profile='gpu_graph_weighted_opacity_billboard1')
+    aligned_fade = content(owner)
+    assert edit('forge_asset_document_particle_gpu_sorted', owner, enabled=True)['ok']
+    ordered = content(owner)
+    assert ordered['version'] == 15 and ordered['profile'] == 'gpu_graph_sorted_opacity_billboard1'
+    assert ordered['program'] == program and ordered['gpu_sorted_enabled']
+    assert not ordered['gpu_weighted_enabled']
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == aligned_fade
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == ordered
+    for operation, enabled, profile in (
+            ('particle_billboards', False, 'gpu_graph_sorted_opacity1'),
+            ('particle_opacity', False, 'gpu_graph_sorted1'),
+            ('particle_billboards', True, 'gpu_graph_sorted_billboard1'),
+            ('particle_opacity', True, 'gpu_graph_sorted_opacity_billboard1')):
+        assert edit('forge_asset_document_' + operation, owner, backend='gpu', enabled=enabled)['ok']
+        assert content(owner)['profile'] == profile and content(owner)['program'] == program
+    assert content(owner) == ordered
     assert edit('forge_asset_document_close', owner, discard=True)['ok']

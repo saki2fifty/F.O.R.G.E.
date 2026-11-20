@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## Ordered GPU particles
+
+Open **Scenes/253-ordered-gpu-particles.scene.json** and press Play. Two tinted
+emitters share **Assets/Particles/Alpha/OrderedDeviceCloud.particles.json**, the
+soft cloud image and its Blend Material. Open the Effect for **Sorted alpha (GPU)**,
+camera alignment, motion and lifetime opacity. The Scene includes its camera,
+light and depth marker, with weighted transparency off. Save / Publish, save the
+Scene and export using the matching runtime kit. No project C++ code is required.
+The complete visible alpha group must share compatible Mesh/Material resources and
+draw settings; other transparent contributors or invalid resources omit the GPU
+sorted group with a Problems diagnostic. See
+[ordered GPU transparency](../../../manual/editor/particles.md#ordered-gpu-transparency).
+
 ## GPU analytic ribbon trails
 
 Open **Scenes/252-gpu-analytic-particle-trails.scene.json** and press Play. Two

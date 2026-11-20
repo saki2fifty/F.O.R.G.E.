@@ -13,57 +13,38 @@ const char* cpu_alpha_profile(const nlohmann::json& document) {
            : document.value("opacity_enabled", false)   ? "cpu_alpha2"
                                                         : "cpu_alpha1";
 }
-bool cpu_alpha_profile(std::string_view profile) {
-    return profile == "cpu_alpha1" || profile == "cpu_alpha2" || profile == "cpu_billboard1" ||
-           profile == "cpu_trail1" || profile == "cpu_collision1";
+bool named_profile_has(std::string_view name, unsigned flags) {
+    const auto* profile = particle_detail::value_profile(name);
+    return profile && (profile->flags & flags) == flags;
 }
-bool gpu_trail_profile(std::string_view profile) {
-    return profile == "gpu_trail1" || profile == "gpu_weighted_trail1" ||
-           profile == "gpu_weighted_trail_opacity1";
+bool cpu_alpha_profile(std::string_view profile) {
+    return named_profile_has(profile, particle_detail::CpuAlpha);
 }
 bool gpu_profile(std::string_view profile) {
-    return profile == "gpu_mesh1" || profile == "gpu_graph1" || profile == "gpu_billboard1" ||
-           profile == "gpu_graph_billboard1" || profile == "gpu_weighted1" ||
-           profile == "gpu_graph_weighted1" || profile == "gpu_weighted_billboard1" ||
-           profile == "gpu_graph_weighted_billboard1" || profile == "gpu_weighted_opacity1" ||
-           profile == "gpu_graph_weighted_opacity1" ||
-           profile == "gpu_weighted_opacity_billboard1" ||
-           profile == "gpu_graph_weighted_opacity_billboard1" || profile == "gpu_collision1" ||
-           profile == "gpu_weighted_collision1" || profile == "gpu_weighted_collision_opacity1" ||
-           gpu_trail_profile(profile);
+    return named_profile_has(profile, particle_detail::Gpu);
 }
 bool graph_profile(std::string_view profile) {
-    return profile == "gpu_graph1" || profile == "gpu_graph_billboard1" ||
-           profile == "gpu_graph_weighted1" || profile == "gpu_graph_weighted_billboard1" ||
-           profile == "gpu_graph_weighted_opacity1" ||
-           profile == "gpu_graph_weighted_opacity_billboard1";
+    return named_profile_has(profile, particle_detail::Graph);
 }
 const char* gpu_evaluation_profile(const nlohmann::json& document, bool graph) {
+    using namespace particle_detail;
+    unsigned flags = Gpu | (graph ? Graph : 0u);
     if (!graph && document.value("gpu_trail_enabled", false))
-        return document.value("gpu_weighted_enabled", false)
-                   ? (document.value("gpu_opacity_enabled", false) ? "gpu_weighted_trail_opacity1"
-                                                                   : "gpu_weighted_trail1")
-                   : "gpu_trail1";
-    if (!graph && document.value("gpu_collision_enabled", false))
-        return document.value("gpu_weighted_enabled", false)
-                   ? (document.value("gpu_opacity_enabled", false)
-                          ? "gpu_weighted_collision_opacity1"
-                          : "gpu_weighted_collision1")
-                   : "gpu_collision1";
-    if (document.value("gpu_weighted_enabled", false)) {
-        if (document.value("gpu_opacity_enabled", false)) {
-            if (document.value("gpu_billboard_enabled", false))
-                return graph ? "gpu_graph_weighted_opacity_billboard1"
-                             : "gpu_weighted_opacity_billboard1";
-            return graph ? "gpu_graph_weighted_opacity1" : "gpu_weighted_opacity1";
-        }
-        if (document.value("gpu_billboard_enabled", false))
-            return graph ? "gpu_graph_weighted_billboard1" : "gpu_weighted_billboard1";
-        return graph ? "gpu_graph_weighted1" : "gpu_weighted1";
-    }
-    if (document.value("gpu_billboard_enabled", false))
-        return graph ? "gpu_graph_billboard1" : "gpu_billboard1";
-    return graph ? "gpu_graph1" : "gpu_mesh1";
+        flags |= Trail;
+    else if (!graph && document.value("gpu_collision_enabled", false))
+        flags |= Collision;
+    else if (document.value("gpu_billboard_enabled", false))
+        flags |= Billboard;
+    if (document.value("gpu_sorted_enabled", false))
+        flags |= Sorted;
+    else if (document.value("gpu_weighted_enabled", false))
+        flags |= Weighted;
+    if ((flags & (Sorted | Weighted)) && document.value("gpu_opacity_enabled", false))
+        flags |= Opacity;
+    for (const auto& profile : value_profiles)
+        if (profile.flags == flags)
+            return profile.name;
+    throw std::runtime_error("Unsupported GPU particle evaluation combination");
 }
 void retain_opacity_values(nlohmann::json& document) {
     if (document.at("version").get<unsigned>() < 6) {
@@ -133,30 +114,29 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             stop.erase("id");
         }
     }
-    if (version > 14)
+    if (version > 15)
         throw std::runtime_error("Unknown Particle Effect source version");
     if (version < 4)
         return decode_particle_effect(values);
-    // Source4–14 retain settings while another evaluation backend is active.
+    // Source4–15 retain settings while another evaluation backend is active.
     // Only the active backend contributes runtime values and dependency edges.
     const auto profile = values.at("profile").get<std::string>();
-    if (profile != "cpu_mesh2" && profile != "gpu_mesh1" && profile != "gpu_graph1" &&
-        !(version >= 5 && profile == "cpu_alpha1") && !(version >= 6 && profile == "cpu_alpha2") &&
-        !(version >= 7 && profile == "cpu_billboard1") &&
-        !(version >= 8 && (profile == "gpu_billboard1" || profile == "gpu_graph_billboard1")) &&
-        !(version >= 9 && profile == "cpu_trail1") &&
-        !(version >= 10 && profile == "cpu_collision1") &&
-        !(version >= 11 &&
-          (profile == "gpu_weighted1" || profile == "gpu_graph_weighted1" ||
-           profile == "gpu_weighted_billboard1" || profile == "gpu_graph_weighted_billboard1")) &&
-        !(version >= 12 &&
-          (profile == "gpu_weighted_opacity1" || profile == "gpu_graph_weighted_opacity1" ||
-           profile == "gpu_weighted_opacity_billboard1" ||
-           profile == "gpu_graph_weighted_opacity_billboard1")) &&
-        !(version >= 13 && (profile == "gpu_collision1" || profile == "gpu_weighted_collision1" ||
-                            profile == "gpu_weighted_collision_opacity1")) &&
-        !(version >= 14 && gpu_trail_profile(profile)))
-        throw std::runtime_error("Unknown Particle Effect evaluation profile");
+    const auto* selected = particle_detail::value_profile(std::string_view(profile));
+    // Source formats introduce contiguous immutable value-profile ranges.
+    constexpr std::array maximum_values{0u, 0u,  0u,  0u,  4u,  5u,  6u,  7u,
+                                        9u, 10u, 11u, 15u, 19u, 22u, 25u, 37u};
+    if (!selected || selected->version < 2 || selected->version > maximum_values.at(version))
+        throw std::runtime_error("Unknown Particle Effect evaluation profile " + profile +
+                                 " for source version " + std::to_string(version));
+    if (version >= 15) {
+        if (!values.at("gpu_sorted_enabled").is_boolean() ||
+            (values.at("gpu_sorted_enabled").get<bool>() &&
+             values.at("gpu_weighted_enabled").get<bool>()) ||
+            (gpu_profile(std::string_view(profile)) &&
+             profile != gpu_evaluation_profile(document, graph_profile(std::string_view(profile)))))
+            throw std::runtime_error("GPU particle sorted alpha enabled state/profile mismatch");
+        values.erase("gpu_sorted_enabled");
+    }
     if (version >= 14) {
         if (!values.at("gpu_trail_enabled").is_boolean() ||
             (values.at("gpu_trail_enabled").get<bool>() &&
@@ -195,8 +175,7 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             throw std::runtime_error("Particle collision enabled state must be boolean");
         (void)decode_particle_collision_plane(values.at("collision"));
         values.erase("collision_enabled");
-        if (profile != "cpu_collision1" && profile != "gpu_collision1" &&
-            profile != "gpu_weighted_collision1" && profile != "gpu_weighted_collision_opacity1")
+        if (!(selected->flags & particle_detail::Collision))
             values.erase("collision");
     }
     if (version >= 9) {
@@ -204,7 +183,7 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             throw std::runtime_error("Particle trail enabled state must be boolean");
         (void)decode_particle_trail_settings(values.at("trail"));
         values.erase("trail_enabled");
-        if (profile != "cpu_trail1" && !gpu_trail_profile(profile))
+        if (!(selected->flags & particle_detail::Trail))
             values.erase("trail");
     }
     if (version >= 8) {
@@ -237,13 +216,7 @@ ParticleEffectData ParticleEffectSource::compiled() const {
         opacity["version"] = 6;
         opacity["profile"] = "cpu_alpha2";
         (void)decode_particle_effect(opacity);
-        if (profile != "cpu_alpha2" && profile != "cpu_billboard1" && profile != "cpu_trail1" &&
-            profile != "cpu_collision1" && profile != "gpu_weighted_opacity1" &&
-            profile != "gpu_graph_weighted_opacity1" &&
-            profile != "gpu_weighted_opacity_billboard1" &&
-            profile != "gpu_graph_weighted_opacity_billboard1" &&
-            profile != "gpu_weighted_collision_opacity1" &&
-            profile != "gpu_weighted_trail_opacity1")
+        if (!(selected->flags & particle_detail::Opacity))
             for (const auto* field : {"opacity_start", "opacity_end", "opacity_curve"})
                 values.erase(field);
         if ((profile == "cpu_billboard1" || profile == "cpu_trail1" ||
@@ -255,38 +228,10 @@ ParticleEffectData ParticleEffectSource::compiled() const {
     }
     if (version == 4 || values.contains("program"))
         (void)decode_particle_graph_program(values.at("program"));
-    if (!graph_profile(std::string_view(profile))) {
+    if (!(selected->flags & particle_detail::Graph))
         values.erase("program");
-        values["version"] = profile == "cpu_mesh2"                         ? 2
-                            : profile == "cpu_alpha1"                      ? 5
-                            : profile == "cpu_alpha2"                      ? 6
-                            : profile == "cpu_billboard1"                  ? 7
-                            : profile == "cpu_trail1"                      ? 10
-                            : profile == "cpu_collision1"                  ? 11
-                            : profile == "gpu_collision1"                  ? 20
-                            : profile == "gpu_weighted_collision1"         ? 21
-                            : profile == "gpu_weighted_collision_opacity1" ? 22
-                            : profile == "gpu_trail1"                      ? 23
-                            : profile == "gpu_weighted_trail1"             ? 24
-                            : profile == "gpu_weighted_trail_opacity1"     ? 25
-                            : profile == "gpu_weighted_opacity1"           ? 16
-                            : profile == "gpu_weighted_opacity_billboard1" ? 18
-                            : profile == "gpu_weighted1"                   ? 12
-                            : profile == "gpu_weighted_billboard1"         ? 14
-                            : profile == "gpu_billboard1"                  ? 8
-                                                                           : 3;
-    } else
-        values["version"] = profile == "gpu_graph_weighted_opacity_billboard1" ? 19
-                            : profile == "gpu_graph_weighted_opacity1"         ? 17
-                            : profile == "gpu_graph_weighted_billboard1"       ? 15
-                            : profile == "gpu_graph_weighted1"                 ? 13
-                            : profile == "gpu_graph_billboard1"                ? 9
-                                                                               : 4;
-    if (profile == "cpu_billboard1" || profile == "gpu_billboard1" ||
-        profile == "gpu_graph_billboard1" || profile == "cpu_trail1" ||
-        profile == "gpu_weighted_billboard1" || profile == "gpu_graph_weighted_billboard1" ||
-        profile == "gpu_weighted_opacity_billboard1" ||
-        profile == "gpu_graph_weighted_opacity_billboard1" || gpu_trail_profile(profile))
+    values["version"] = selected->version;
+    if (selected->flags & (particle_detail::Billboard | particle_detail::Trail))
         values["mesh"] = engine_primitive(8);
     return decode_particle_effect(values);
 }
@@ -413,9 +358,35 @@ void ParticleEffectSource::enable_gpu_weighted_alpha(bool enabled) {
     const auto previous_profile = candidate.document.at("profile").get<std::string>();
     candidate.document["version"] = std::max(11u, candidate.document.at("version").get<unsigned>());
     candidate.document["gpu_weighted_enabled"] = enabled;
+    if (enabled && candidate.document.contains("gpu_sorted_enabled"))
+        candidate.document["gpu_sorted_enabled"] = false;
     if (enabled || gpu_profile(std::string_view(previous_profile)))
         candidate.document["profile"] = gpu_evaluation_profile(
             candidate.document, graph_profile(std::string_view(previous_profile)));
+    candidate.validate();
+    document = std::move(candidate.document);
+}
+void ParticleEffectSource::enable_gpu_sorted_alpha(bool enabled) {
+    if (!enabled && !document.contains("gpu_sorted_enabled")) {
+        validate();
+        return;
+    }
+    auto candidate = *this;
+    candidate.promote();
+    if (candidate.document.at("version").get<unsigned>() < 14) {
+        const auto trail = candidate.document.contains("trail")
+                               ? decode_particle_trail_settings(candidate.document.at("trail"))
+                               : ParticleTrailSettings{};
+        candidate.set_gpu_trails(false, trail);
+    }
+    const auto previous = candidate.document.at("profile").get<std::string>();
+    candidate.document["version"] = 15;
+    candidate.document["gpu_sorted_enabled"] = enabled;
+    if (enabled)
+        candidate.document["gpu_weighted_enabled"] = false;
+    if (enabled || gpu_profile(std::string_view(previous)))
+        candidate.document["profile"] =
+            gpu_evaluation_profile(candidate.document, graph_profile(std::string_view(previous)));
     candidate.validate();
     document = std::move(candidate.document);
 }
@@ -427,7 +398,7 @@ void ParticleEffectSource::enable_gpu_opacity(bool enabled) {
     auto candidate = *this;
     candidate.promote();
     const auto previous = candidate.document.at("profile").get<std::string>();
-    if (enabled)
+    if (enabled && !candidate.document.value("gpu_sorted_enabled", false))
         candidate.enable_gpu_weighted_alpha(true);
     candidate.document["version"] = std::max(12u, candidate.document.at("version").get<unsigned>());
     candidate.document["gpu_opacity_enabled"] = enabled;
@@ -508,7 +479,7 @@ void ParticleEffectSource::set_gpu_trails(bool enabled,
     const auto previous = candidate.document.at("profile").get<std::string>();
     if (!settings)
         settings = decode_particle_trail_settings(candidate.document.at("trail"));
-    candidate.document["version"] = 14;
+    candidate.document["version"] = std::max(14u, candidate.document.at("version").get<unsigned>());
     candidate.document["gpu_trail_enabled"] = enabled;
     candidate.document["trail"] = encode_particle_trail_settings(*settings);
     if (enabled) {
@@ -668,7 +639,7 @@ ParticleEffectData decode_cooked_particle_effect(std::span<const std::byte> byte
             cooked.at("values").contains("extensions"))
             throw std::runtime_error("Particle cooked envelope has unsupported fields");
         const auto data = decode_particle_effect(cooked.at("values"));
-        if (data.version < 2 || data.version > 25)
+        if (data.version < 2 || data.version > particle_detail::value_profiles.size())
             throw std::runtime_error("Particle cooked envelope has an unsupported value profile");
         return data;
     }

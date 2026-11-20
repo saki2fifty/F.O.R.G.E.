@@ -17,6 +17,166 @@ template <class F> void reject(F action) {
     }
     throw std::runtime_error("Invalid weighted particle candidate admitted");
 }
+void immutable_profiles() {
+    constexpr const char* names[] = {"cpu_mesh1",
+                                     "cpu_mesh2",
+                                     "gpu_mesh1",
+                                     "gpu_graph1",
+                                     "cpu_alpha1",
+                                     "cpu_alpha2",
+                                     "cpu_billboard1",
+                                     "gpu_billboard1",
+                                     "gpu_graph_billboard1",
+                                     "cpu_trail1",
+                                     "cpu_collision1",
+                                     "gpu_weighted1",
+                                     "gpu_graph_weighted1",
+                                     "gpu_weighted_billboard1",
+                                     "gpu_graph_weighted_billboard1",
+                                     "gpu_weighted_opacity1",
+                                     "gpu_graph_weighted_opacity1",
+                                     "gpu_weighted_opacity_billboard1",
+                                     "gpu_graph_weighted_opacity_billboard1",
+                                     "gpu_collision1",
+                                     "gpu_weighted_collision1",
+                                     "gpu_weighted_collision_opacity1",
+                                     "gpu_trail1",
+                                     "gpu_weighted_trail1",
+                                     "gpu_weighted_trail_opacity1"};
+    for (unsigned version = 1; version <= std::size(names); ++version) {
+        ParticleEffectData data;
+        data.version = version;
+        const bool gpu =
+            version == 3 || version == 4 || version == 8 || version == 9 || version >= 12;
+        const bool graph = version == 4 || version == 9 || version == 13 || version == 15 ||
+                           version == 17 || version == 19;
+        const bool opacity = version == 6 || version == 7 || version == 10 || version == 11 ||
+                             (version >= 16 && version <= 19) || version == 22 || version == 25;
+        const bool billboard = version == 7 || version == 8 || version == 9 || version == 14 ||
+                               version == 15 || version == 18 || version == 19;
+        const bool trail = version == 10 || version >= 23;
+        const bool collision = version == 11 || (version >= 20 && version <= 22);
+        const bool weighted = (version >= 12 && version <= 19) || version == 21 || version == 22 ||
+                              version == 24 || version == 25;
+        check(
+            particle_uses_gpu(data) == gpu && particle_uses_graph(data) == graph &&
+                particle_uses_opacity(data) == opacity &&
+                particle_uses_gpu_opacity(data) == (gpu && opacity) &&
+                particle_uses_billboards(data) == billboard &&
+                particle_uses_trails(data) == trail && particle_uses_collision(data) == collision &&
+                particle_uses_weighted_alpha(data) == weighted &&
+                particle_uses_sorted_alpha(data) == (version == 5 || version == 6 || version == 7 ||
+                                                     version == 10 || version == 11) &&
+                !particle_uses_gpu_sorted_alpha(data),
+            "Immutable profile traits changed");
+        data.mesh = engine_primitive(billboard || trail ? 8 : 0);
+        if (graph)
+            data.program = ParticleGraphProgram{{AssetId::generate()}, {1, 2, 3}, 1};
+        if (trail)
+            data.trail = ParticleTrailSettings{};
+        if (collision)
+            data.collision = ParticleCollisionPlane{};
+        if (opacity) {
+            data.opacity_start = .75;
+            data.opacity_end = .25;
+        }
+        const auto encoded = encode_particle_effect(data);
+        check(encoded.at("profile") == names[version - 1] &&
+                  decode_particle_effect(encoded) == data,
+              "Immutable profile name/version round trip changed");
+        for (unsigned wrong : {0u, version == 1 ? 2u : 1u, 38u}) {
+            auto invalid = encoded;
+            invalid["version"] = wrong;
+            reject([&] { (void)decode_particle_effect(invalid); });
+        }
+    }
+}
+void sorted_profiles() {
+    auto base = ParticleEffectSource::create(AssetId::generate());
+    const auto legacy = base.document;
+    base.enable_gpu_sorted_alpha(false);
+    check(base.document == legacy, "Absent sorted disable changed a legacy source");
+    base.enable_opacity(true);
+    base.enable_lifetime(ParticleLifetimeChannel::Opacity, true);
+    base.insert_lifetime_stop(ParticleLifetimeChannel::Opacity, .25);
+    base.set_trails(true, ParticleTrailSettings{.75, 4});
+    base.set_collision(true);
+    base.set_graph_program({{AssetId::generate()}, {3, 4, 5}, 2}, false);
+    base.document["extensions"] = {{"label", "retained sorted source"}};
+    const auto retained = base.document;
+    base.enable_gpu_sorted_alpha(true);
+    check(base.document.at("version") == 15 && base.compiled().version == 26,
+          "Sorted source/value activation failed");
+    for (const auto* field : {"asset_id", "mesh", "material", "program", "opacity_enabled",
+                              "opacity_start", "opacity_end", "opacity_curve", "trail",
+                              "trail_enabled", "collision", "collision_enabled", "extensions"})
+        check(base.document.at(field) == retained.at(field),
+              "Sorted activation lost retained source settings");
+    for (unsigned mode = 0; mode < 6; ++mode)
+        for (bool opacity : {false, true}) {
+            auto source = base;
+            if (mode == 1 || mode == 3)
+                source.set_evaluation(ParticleEvaluation::Graph);
+            if (mode == 2 || mode == 3)
+                source.enable_gpu_billboards(true);
+            if (mode == 4)
+                source.set_gpu_collision(true);
+            if (mode == 5)
+                source.set_gpu_trails(true);
+            if (opacity)
+                source.enable_gpu_opacity(true);
+            const auto active = source.document;
+            const auto data = source.compiled();
+            check(data.version == 26 + mode + (opacity ? 6 : 0) &&
+                      particle_uses_gpu_sorted_alpha(data) && !particle_uses_weighted_alpha(data) &&
+                      !particle_uses_sorted_alpha(data) && particle_uses_opacity(data) == opacity &&
+                      particle_uses_graph(data) == (mode == 1 || mode == 3) &&
+                      particle_uses_billboards(data) == (mode == 2 || mode == 3) &&
+                      particle_uses_collision(data) == (mode == 4) &&
+                      particle_uses_trails(data) == (mode == 5),
+                  "Sorted profile leaked another backend or geometry");
+            check(decode_particle_effect(encode_particle_effect(data)) == data &&
+                      decode_cooked_particle_effect(source.cook(), source.asset(), 3) == data,
+                  "Sorted source/value/cooked round trip failed");
+            const auto text = active.dump();
+            check(ParticleEffectSource::parse(std::as_bytes(std::span(text))).document == active,
+                  "Sorted source reopen lost identities");
+            source.enable_gpu_sorted_alpha(true);
+            check(source.document == active, "Repeated sorted enable is not a no-op");
+            source.enable_gpu_weighted_alpha(true);
+            check(!source.document.at("gpu_sorted_enabled").get<bool>() &&
+                      particle_uses_weighted_alpha(source.compiled()),
+                  "Weighted enable failed to clear sorted mode");
+            source.enable_gpu_sorted_alpha(true);
+            check(source.document == active, "Weighted/sorted round trip lost retained settings");
+            source.set_evaluation(ParticleEvaluation::CpuAlpha);
+            check(source.document.at("gpu_sorted_enabled") == true &&
+                      !particle_uses_gpu(source.compiled()),
+                  "CPU selection lost retained GPU sorted mode");
+            source.set_evaluation(mode == 1 || mode == 3 ? ParticleEvaluation::Graph
+                                                         : ParticleEvaluation::Gpu);
+            check(source.document == active, "CPU round trip lost sorted profile/settings");
+            source.enable_gpu_sorted_alpha(false);
+            check(!particle_uses_gpu_sorted_alpha(source.compiled()) &&
+                      !particle_uses_opacity(source.compiled()),
+                  "Sorted disable leaked inactive GPU opacity");
+            source.enable_gpu_sorted_alpha(true);
+            check(source.document == active, "Sorted disable/enable lost identities");
+            for (const auto& invalid :
+                 {nlohmann::json(), nlohmann::json(0), nlohmann::json("true")}) {
+                auto wrong = source;
+                wrong.document["gpu_sorted_enabled"] = invalid;
+                reject([&] { wrong.validate(); });
+            }
+            auto wrong = source;
+            wrong.document["gpu_weighted_enabled"] = true;
+            reject([&] { wrong.validate(); });
+            wrong = source;
+            wrong.document["version"] = 14;
+            reject([&] { wrong.validate(); });
+            reject([&] { (void)sample_particle_effect(data, .5, 1); });
+        }
+}
 void profiles() {
     auto source = ParticleEffectSource::create(AssetId::generate());
     const auto original = source.document;
@@ -440,9 +600,11 @@ void materials() {
     material.values.model = "forge.gltf.unlit.v1";
     material.values.alpha = MaterialAlpha::Blend;
     material.values.depth_write = false;
-    for (unsigned version : {12u, 13u, 14u, 15u, 16u, 17u, 18u, 19u, 21u, 22u}) {
+    for (unsigned version : {12u, 13u, 14u, 15u, 16u, 17u, 18u, 19u, 21u, 22u, 26u,
+                             27u, 28u, 29u, 30u, 31u, 32u, 33u, 34u, 35u, 36u, 37u}) {
         ParticleEffectData data;
         data.version = version;
+        material.values.double_sided = particle_uses_trails(data);
         validate_particle_material_profile(material, data);
         for (const auto alpha : {MaterialAlpha::Opaque, MaterialAlpha::Mask}) {
             auto wrong = material;
@@ -465,6 +627,8 @@ void materials() {
 } // namespace
 int main() {
     try {
+        immutable_profiles();
+        sorted_profiles();
         profiles();
         opacity_profiles();
         collision_profiles();

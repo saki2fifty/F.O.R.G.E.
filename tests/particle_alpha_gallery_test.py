@@ -14,6 +14,8 @@ parser.add_argument('--trails', action='store_true')
 parser.add_argument('--collision', action='store_true')
 parser.add_argument('--gpu-collision', action='store_true')
 parser.add_argument('--gpu-trails', action='store_true')
+parser.add_argument('--gpu-sorted', action='store_true')
+parser.add_argument('--countercases', action='store_true')
 parser.add_argument('--gpu-opacity', action='store_true')
 parser.add_argument('--gpu-graph-opacity', action='store_true')
 parser.add_argument('--weighted', action='store_true')
@@ -24,14 +26,17 @@ parser.add_argument('--gpu-graph-billboards', action='store_true')
 parser.add_argument('--worker', type=Path)
 parser.add_argument('--graph-fixture', type=Path)
 arguments = parser.parse_args()
+assert not arguments.countercases or arguments.gpu_sorted, 'Countercases require GPU sorted mode'
 fixture, gallery, renderer, scratch = (getattr(arguments, name).resolve()
     for name in ('fixture', 'gallery', 'renderer', 'scratch'))
 scratch.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as temporary:
     billboards = (arguments.billboards or arguments.gpu_billboards or arguments.gpu_graph_billboards
                   or arguments.weighted or arguments.weighted_graph
-                  or arguments.gpu_opacity or arguments.gpu_graph_opacity)
-    action = ('--verify-export-gpu-trails' if arguments.gpu_trails else
+                  or arguments.gpu_opacity or arguments.gpu_graph_opacity or arguments.gpu_sorted)
+    action = ('--verify-export-gpu-sorted-countercases' if arguments.countercases else
+              '--verify-export-gpu-sorted' if arguments.gpu_sorted else
+              '--verify-export-gpu-trails' if arguments.gpu_trails else
               '--verify-export-gpu-collision' if arguments.gpu_collision else
               '--verify-export-gpu-graph-opacity' if arguments.gpu_graph_opacity else
               '--verify-export-gpu-opacity' if arguments.gpu_opacity else
@@ -45,7 +50,8 @@ with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as tempo
               '--verify-export-opacity' if arguments.opacity else '--verify-export')
     worker = [str(arguments.worker.resolve())] if billboards and arguments.worker else []
     assert not billboards or worker, 'Camera-plane texture requires its asset worker'
-    if arguments.gpu_graph_billboards or arguments.weighted_graph or arguments.gpu_graph_opacity:
+    if (arguments.gpu_graph_billboards or arguments.weighted_graph or arguments.gpu_graph_opacity
+            or (arguments.countercases and not arguments.vulkan)):
         assert not arguments.vulkan and arguments.graph_fixture, 'Program cook needs native Windows'
         source = Path(temporary) / 'graph-source'
         shutil.copytree(gallery, source)
@@ -58,7 +64,11 @@ with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as tempo
     assert len(content) == 1, content
     mode = (('--opacity-gallery' if arguments.opacity else '--alpha-gallery') if arguments.vulkan
             else ('particle-opacity-gallery' if arguments.opacity else 'particle-alpha-gallery'))
-    if arguments.gpu_trails:
+    if arguments.countercases:
+        mode = '--gpu-sorted-countercases' if arguments.vulkan else 'particle-gpu-sorted-countercases'
+    elif arguments.gpu_sorted:
+        mode = '--gpu-sorted-gallery' if arguments.vulkan else 'particle-gpu-sorted-gallery'
+    elif arguments.gpu_trails:
         mode = '--gpu-trail-gallery' if arguments.vulkan else 'particle-gpu-trail-gallery'
     elif arguments.gpu_collision:
         mode = '--gpu-collision-gallery' if arguments.vulkan else 'particle-gpu-collision-gallery'

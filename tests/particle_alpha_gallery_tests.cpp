@@ -2,6 +2,7 @@
 #include "asset_storage.hpp"
 #include "gallery_asset_publication.hpp"
 #include "material_authoring.hpp"
+#include "material_document.hpp"
 #include "material_selection.hpp"
 #include "paint_texture_source.hpp"
 #include "particle_effect_authoring.hpp"
@@ -33,6 +34,7 @@ struct Example {
     bool collision = false;
     bool weighted = false;
     bool gpu_opacity = false;
+    bool sorted = false;
 };
 constexpr Example alpha{"Scenes/240-sorted-alpha-particles.scene.json",
                         "Assets/Particles/Alpha/GlassCloud.particles.json", false};
@@ -119,6 +121,13 @@ constexpr Example gpu_ribbons{.scene = "Scenes/252-gpu-analytic-particle-trails.
                               .trails = true,
                               .weighted = true,
                               .gpu_opacity = true};
+constexpr Example gpu_sorted{.scene = "Scenes/253-ordered-gpu-particles.scene.json",
+                             .effect = "Assets/Particles/Alpha/OrderedDeviceCloud.particles.json",
+                             .opacity = true,
+                             .billboards = true,
+                             .gpu = true,
+                             .gpu_opacity = true,
+                             .sorted = true};
 constexpr const char* trail_material = "Assets/Particles/Trails/Ribbon.material.json";
 constexpr const char* alpha_material = "Assets/Particles/Alpha/Glass.material.json";
 constexpr const char* quad_material = "Assets/Particles/Billboards/SoftCloud.material.json";
@@ -126,15 +135,16 @@ constexpr const char* quad_texture = "Assets/Particles/Billboards/SoftCloud.pain
 constexpr const char* gpu_quad_material = "Assets/Particles/Billboards/DeviceCloud.material.json";
 constexpr const char* graph_effect = "Assets/Particles/Graphs/OrbitFountain.particles.json";
 const char* material_source(const Example& example) {
-    return example.collision    ? alpha_material
-           : example.trails     ? trail_material
-           : example.weighted   ? quad_material
-           : example.gpu        ? gpu_quad_material
-           : example.billboards ? quad_material
-                                : alpha_material;
+    return example.collision                      ? alpha_material
+           : example.trails                       ? trail_material
+           : (example.weighted || example.sorted) ? quad_material
+           : example.gpu                          ? gpu_quad_material
+           : example.billboards                   ? quad_material
+                                                  : alpha_material;
 }
 unsigned value_version(const Example& example) {
-    return example.gpu && example.trails      ? (example.gpu_opacity ? 25u
+    return example.sorted                     ? 34u
+           : example.gpu && example.trails    ? (example.gpu_opacity ? 25u
                                                  : example.weighted  ? 24u
                                                                      : 23u)
            : example.gpu && example.collision ? (example.gpu_opacity ? 22u
@@ -167,7 +177,7 @@ RuntimePackageTarget target() {
 }
 void author(const std::filesystem::path& root, const Example& example) {
     const auto* material_path = material_source(example);
-    const bool reuse_material = example.weighted || example.graph ||
+    const bool reuse_material = example.weighted || example.sorted || example.graph ||
                                 (example.opacity && !example.billboards && !example.trails);
     for (const auto* path : {example.scene, example.effect})
         check(!std::filesystem::exists(root / path), "Sorted-alpha Gallery source already exists");
@@ -180,9 +190,10 @@ void author(const std::filesystem::path& root, const Example& example) {
         auto& overrides = material.document["overrides"];
         overrides["model"] = "forge.gltf.unlit.v1";
         overrides["alpha"] =
-            unsigned(example.gpu && !example.weighted ? MaterialAlpha::Mask : MaterialAlpha::Blend);
+            unsigned(example.gpu && !example.weighted && !example.sorted ? MaterialAlpha::Mask
+                                                                         : MaterialAlpha::Blend);
         overrides["depth_test"] = true;
-        overrides["depth_write"] = example.gpu && !example.weighted;
+        overrides["depth_write"] = example.gpu && !example.weighted && !example.sorted;
         if (example.trails)
             overrides["double_sided"] = true;
         overrides["parameters"]["baseColorFactor"] = {
@@ -294,6 +305,8 @@ void author(const std::filesystem::path& root, const Example& example) {
         effect.enable_billboards(true);
     if (example.weighted)
         effect.enable_gpu_weighted_alpha(true);
+    if (example.sorted)
+        effect.enable_gpu_sorted_alpha(true);
     if (example.gpu_opacity)
         effect.enable_gpu_opacity(true);
     effect.validate();
@@ -370,10 +383,11 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
         asset_detail::read_bytes(root / material_path, material_source_byte_limit));
     const auto resolved = resolve_material_source(material);
     check(resolved.values.model == "forge.gltf.unlit.v1" &&
-              resolved.values.alpha ==
-                  (example.gpu && !example.weighted ? MaterialAlpha::Mask : MaterialAlpha::Blend) &&
+              resolved.values.alpha == (example.gpu && !example.weighted && !example.sorted
+                                            ? MaterialAlpha::Mask
+                                            : MaterialAlpha::Blend) &&
               resolved.values.depth_test &&
-              resolved.values.depth_write == (example.gpu && !example.weighted),
+              resolved.values.depth_write == (example.gpu && !example.weighted && !example.sorted),
           "Particle example lost its reusable admitted Material");
     const auto effect = ParticleEffectSource::parse(
         asset_detail::read_bytes(root / example.effect, particle_effect_byte_limit));
@@ -409,6 +423,12 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
     check(render.diagnostics.empty() && render.particles.size() == 2 && render.meshes.size() == 1 &&
               render.cameras.size() == 1 && render.lights.size() == 1,
           "Sorted-alpha example lost its native Scene consumers");
+    if (example.sorted)
+        check(!render.settings.weighted_transparency && effect.document.at("version") == 15 &&
+                  effect.document.at("gpu_sorted_enabled") == true &&
+                  !effect.document.at("gpu_weighted_enabled").get<bool>() &&
+                  particle_uses_gpu_sorted_alpha(effect.compiled()),
+              "Ordered Gallery source lost explicit source/effect/Scene admission");
     if (example.weighted)
         check(render.settings.weighted_transparency &&
                   effect.document.at("version").get<unsigned>() == (example.trails        ? 14u
@@ -477,6 +497,95 @@ void prepare(const std::filesystem::path& root, const Example& example,
     const std::array roots{ids[0]};
     prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
 }
+void verify_sorted_countercases(const std::filesystem::path& root,
+                                const std::filesystem::path& worker) {
+    prepare(root, gpu_sorted, true, worker);
+    const auto ids = inspect(root, gpu_sorted);
+    std::vector<AssetId> roots{ids[0]};
+    {
+        auto lease = std::make_shared<ProjectLease>(root);
+        const auto runtime = target();
+        const ImportTarget import{runtime.platform, runtime.backend,
+                                  runtime.platform == "windows" ? "desktop" : "cpu"};
+        AssetImportService materials(lease, material_import_registry(), import);
+        AssetImportService effects(lease, particle_effect_import_registry(), import);
+        const auto base_material = MaterialSource::parse(
+            asset_detail::read_bytes(root / quad_material, material_source_byte_limit));
+        const auto base_effect = ParticleEffectSource::parse(
+            asset_detail::read_bytes(root / gpu_sorted.effect, particle_effect_byte_limit));
+        std::filesystem::create_directories(root / "Assets/ParticleFixtures");
+        const auto material_copy = [&](const char* name, bool double_sided) {
+            const auto path = std::filesystem::path("Assets/ParticleFixtures") / name;
+            auto document = MaterialDocument::create(lease, path);
+            const auto id = document->source().asset();
+            document->edit_source(document->revision(), "Fixture Material", [&](auto& source) {
+                source = base_material;
+                source.document["asset_id"] = id;
+                if (double_sided)
+                    source.document["overrides"]["double_sided"] = true;
+            });
+            document->save();
+            test::publish_gallery_asset(materials, path, prepare_material_publication,
+                                        std::chrono::seconds(90), id);
+            return AssetRef<MaterialAsset>{id};
+        };
+        const auto twin = material_copy("SortedTwin.material.json", false);
+        const auto two_sided = material_copy("SortedTwoSided.material.json", true);
+        const auto effect_copy = [&](const char* name, const auto& edit) {
+            const auto path = std::filesystem::path("Assets/ParticleFixtures") / name;
+            auto document = ParticleEffectDocument::create(lease, path);
+            const auto id = document->source().asset();
+            document->edit_source(document->revision(), "Fixture Effect", [&](auto& source) {
+                source = base_effect;
+                source.document["asset_id"] = id;
+                edit(source);
+            });
+            document->save();
+            test::publish_gallery_asset(effects, path, prepare_particle_effect_publication,
+                                        std::chrono::seconds(90), id);
+            roots.push_back(id);
+        };
+        effect_copy("SortedCompatible.particles.json", [](auto&) {});
+        effect_copy("SortedDifferent.particles.json",
+                    [&](auto& source) { source.document["material"] = twin; });
+        effect_copy("SortedCpu.particles.json",
+                    [](auto& source) { source.set_evaluation(ParticleEvaluation::CpuAlpha); });
+        effect_copy("SortedWeighted.particles.json",
+                    [](auto& source) { source.enable_gpu_weighted_alpha(true); });
+        effect_copy("SortedPlane.particles.json", [&](auto& source) {
+            source.document["material"] = two_sided;
+            source.set_gpu_collision(true);
+        });
+        effect_copy("SortedRibbon.particles.json", [&](auto& source) {
+            source.document["material"] = two_sided;
+            source.document["spawn_rate"] = 24;
+            source.set_gpu_trails(true, ParticleTrailSettings{.75, 4});
+        });
+#ifdef _WIN32
+        const auto graph = ParticleEffectSource::parse(
+            asset_detail::read_bytes(root / graph_effect, particle_effect_byte_limit));
+        check(bool(graph.graph_program()), "Published countercases require the native Graph cook");
+        effect_copy("SortedGraph.particles.json",
+                    [&](auto& source) { source.set_graph_program(*graph.graph_program(), true); });
+#endif
+        EngineContext engine;
+        Scene scene(engine.world());
+        scene.load(root / gpu_sorted.scene);
+        prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
+    }
+    const auto output = root.parent_path() / "content";
+    const auto relocated = root.parent_path() / "relocated-content";
+    (void)package_runtime_content(root, output, roots, target());
+    std::filesystem::rename(root, root.parent_path() / "source-offline");
+    std::filesystem::rename(output, relocated);
+    const auto catalog = open_runtime_content(relocated, target());
+    check(!std::filesystem::exists(relocated / gpu_sorted.effect) &&
+              !std::filesystem::exists(relocated /
+                                       "Assets/ParticleFixtures/SortedDifferent.particles.json"),
+          "Countercase export retained editable Effect sources");
+    std::cout << "Published source-hidden ordered countercases; roots=" << roots.size()
+              << " records=" << catalog.records().size() << '\n';
+}
 void verify_export(const std::filesystem::path& root, const Example& example,
                    const std::filesystem::path& worker = {}) {
     const auto* material_path = material_source(example);
@@ -508,9 +617,11 @@ void verify_export(const std::filesystem::path& root, const Example& example,
               selected->material.id == ids[2],
           "Relocated source-free alpha effect has different values");
     const auto material = asset_detail::load_material_selection(relocated, catalog, {ids[2]});
-    check(material.data.values.alpha ==
-                  (example.gpu && !example.weighted ? MaterialAlpha::Mask : MaterialAlpha::Blend) &&
-              material.data.values.depth_write == (example.gpu && !example.weighted),
+    check(material.data.values.alpha == (example.gpu && !example.weighted && !example.sorted
+                                             ? MaterialAlpha::Mask
+                                             : MaterialAlpha::Blend) &&
+              material.data.values.depth_write ==
+                  (example.gpu && !example.weighted && !example.sorted),
           "Relocated source-free particle Material has different values");
     EngineContext runtime(WorldRole::Runtime, false, {particle_module(relocated)});
     Scene scene(runtime.world());
@@ -529,6 +640,10 @@ void verify_export(const std::filesystem::path& root, const Example& example,
     const auto render = extract_render_scene(simulation.presentation(1));
     check(render.diagnostics.empty() && render.particles.size() == 2 && scene.document() == saved,
           "Source-free alpha World lost its compact emitters or mutated authored values");
+    if (example.sorted)
+        check(!render.settings.weighted_transparency &&
+                  particle_uses_gpu_sorted_alpha(selected.get()),
+              "Relocated ordered Game lost explicit effect or Scene admission");
     if (example.weighted)
         check(render.settings.weighted_transparency && particle_uses_weighted_alpha(selected.get()),
               "Relocated weighted Game lost explicit effect or Scene admission");
@@ -598,7 +713,14 @@ int main(int argc, char** argv) {
         check(argc >= 3, "Need sorted-alpha Gallery action and project root");
         const auto root = std::filesystem::absolute(argv[2]);
         const std::string_view action = argv[1];
-        if (action == "--author-gpu-trails")
+        if (action == "--author-gpu-sorted")
+            author(root, gpu_sorted);
+        else if (action == "--inspect-gpu-sorted")
+            (void)inspect(root, gpu_sorted);
+        else if (action == "--prepare-gpu-sorted")
+            prepare(root, gpu_sorted, true,
+                    argc > 3 ? std::filesystem::path(argv[3]) : std::filesystem::path{});
+        else if (action == "--author-gpu-trails")
             author(root, gpu_ribbons);
         else if (action == "--inspect-gpu-trails")
             (void)inspect(root, gpu_ribbons);
@@ -672,8 +794,9 @@ int main(int argc, char** argv) {
             if (std::filesystem::exists(root / gpu_ribbons.effect))
                 prepare(root, gpu_ribbons, false);
             bool texture_prepared = false;
-            for (const auto& example : {quads, gpu_quads, graph_quads, weighted_quads,
-                                        weighted_graph_quads, gpu_fading, graph_fading}) {
+            for (const auto& example :
+                 {quads, gpu_quads, graph_quads, weighted_quads, weighted_graph_quads, gpu_fading,
+                  graph_fading, gpu_sorted}) {
 #ifndef _WIN32
                 // Source inspection is portable; program publication uses the native cook.
                 if (example.graph)
@@ -689,14 +812,21 @@ int main(int argc, char** argv) {
                 const auto worker =
                     std::filesystem::absolute(argv[3]).parent_path() / "forge_asset_build";
 #endif
-                prepare(root, example, !example.graph && !example.weighted, worker,
-                        !texture_prepared);
+                prepare(root, example, !example.graph && !example.weighted && !example.sorted,
+                        worker, !texture_prepared);
                 texture_prepared = true;
             }
         } else if (action == "--prepare-opacity") {
             // Author the new Effect against the already selected shared Material.
             // Full staging/relocation above republishes the complete target closure.
             prepare(root, fading, false);
+        } else if (action == "--verify-export-gpu-sorted-countercases") {
+            check(argc == 5, "Need countercase scratch and matching texture worker");
+            const auto copy =
+                std::filesystem::absolute(argv[3]) / AssetId::generate().str() / "source";
+            std::filesystem::create_directories(copy.parent_path());
+            std::filesystem::copy(root, copy, std::filesystem::copy_options::recursive);
+            verify_sorted_countercases(copy, std::filesystem::absolute(argv[4]));
         } else if (action == "--verify-export" || action == "--verify-export-opacity" ||
                    action == "--verify-export-billboards" ||
                    action == "--verify-export-gpu-billboards" ||
@@ -707,8 +837,10 @@ int main(int argc, char** argv) {
                    action == "--verify-export-gpu-opacity" ||
                    action == "--verify-export-gpu-graph-opacity" ||
                    action == "--verify-export-gpu-collision" ||
-                   action == "--verify-export-gpu-trails") {
-            const bool gpu = action == "--verify-export-gpu-opacity" ||
+                   action == "--verify-export-gpu-trails" ||
+                   action == "--verify-export-gpu-sorted") {
+            const bool gpu = action == "--verify-export-gpu-sorted" ||
+                             action == "--verify-export-gpu-opacity" ||
                              action == "--verify-export-gpu-graph-opacity" ||
                              action == "--verify-export-weighted" ||
                              action == "--verify-export-weighted-graph" ||
@@ -722,7 +854,8 @@ int main(int argc, char** argv) {
             std::filesystem::create_directories(copy.parent_path());
             std::filesystem::copy(root, copy, std::filesystem::copy_options::recursive);
             verify_export(copy,
-                          action == "--verify-export-gpu-trails"             ? gpu_ribbons
+                          action == "--verify-export-gpu-sorted"             ? gpu_sorted
+                          : action == "--verify-export-gpu-trails"           ? gpu_ribbons
                           : action == "--verify-export-gpu-collision"        ? gpu_colliding
                           : action == "--verify-export-gpu-opacity"          ? gpu_fading
                           : action == "--verify-export-gpu-graph-opacity"    ? graph_fading

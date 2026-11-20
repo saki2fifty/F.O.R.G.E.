@@ -5,6 +5,7 @@
 #include "mesh_texture_surface.hpp"
 #include "particle_effect_resource.hpp"
 #include "particle_gpu.hpp"
+#include "particle_gpu_order.hpp"
 #include "particle_path.hpp"
 #include "render_bounds.hpp"
 #include "runtime_reflection_gpu.hpp"
@@ -299,6 +300,7 @@ class MeshSceneRenderer {
     std::unique_ptr<ShadowRenderer> shadows_;
     std::unique_ptr<TransmissionBackground> transmission_;
     std::unique_ptr<WeightedTransparency> weighted_;
+    std::unique_ptr<ParticleGpuOrder> particle_order_;
     std::unique_ptr<MeshOcclusion> occlusion_;
     Diligent::TEXTURE_FORMAT color_;
     const std::uint64_t pose_budget_;

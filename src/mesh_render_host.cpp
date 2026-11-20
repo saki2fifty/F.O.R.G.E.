@@ -514,6 +514,7 @@ MeshSceneRenderer::MeshSceneRenderer(std::shared_ptr<MeshResourceHost> host,
     shadows_ = std::make_unique<ShadowRenderer>(host_->presentation_);
     transmission_ = std::make_unique<TransmissionBackground>(host_->presentation_);
     weighted_ = std::make_unique<WeightedTransparency>(host_->presentation_);
+    particle_order_ = std::make_unique<ParticleGpuOrder>(host_->presentation_);
     occlusion_ = std::make_unique<MeshOcclusion>(host_->presentation_);
 }
 std::shared_ptr<const MeshInstancePose>
@@ -727,6 +728,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene, std::span<const Prepare
         decal_order_.clear();
         light_image_entries_.clear();
         weighted_->clear();
+        particle_order_->clear();
         environment_ = {};
         probe_entries_.clear();
         lighting_probes_.clear();
@@ -1154,6 +1156,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     if (scene.scene != scene_)
         throw std::runtime_error("Mesh draw scene differs from prepared scene");
     validate_scene_distance_fog(scene.settings.distance_fog);
+    // A previous camera or rejected group must never leave a drawable count.
+    particle_order_->evaluate(host_->context_, {}, camera, {});
     const auto diagnostics_before = diagnostics_.size(), omitted_before = omitted_;
     const auto restore_camera_target = [&] {
         auto* target = color->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
@@ -1264,6 +1268,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         ParticleGpuInstances* gpu = nullptr;
         bool material_tint_only = false;
         bool gpu_weighted = false;
+        bool gpu_sorted = false;
+        Diligent::IBuffer* ordered_buffer = nullptr; // Borrowed derived view packets.
+        unsigned ordered_count = 0;
         const MeshRibbonValues* ribbon = nullptr;
     };
     struct Item {
@@ -1305,17 +1312,22 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         if (count == draw_part_limit_)
             throw DrawCapacityError("Mesh specialization draw-part budget exceeded");
     };
+    bool view_resources_complete = true;
     auto append = [&](const RenderMesh& mesh, DrawScope draw_scope,
                       const MeshInstancePose* instance_pose = nullptr,
                       const ParticleRibbonSegment* ribbon = nullptr) {
         if (!mesh.renderer.visible || !(mesh.renderer.layers & layers))
             return;
         const auto found = entries_.find({mesh.entity, draw_scope});
-        if (found == entries_.end() || !found->second.ready)
+        if (found == entries_.end() || !found->second.ready) {
+            view_resources_complete = false;
             return;
+        }
         auto& entry = found->second;
-        if (!entry.ready->render_textures_ready(render_texture_inputs_))
+        if (!entry.ready->render_textures_ready(render_texture_inputs_)) {
+            view_resources_complete = false;
             return;
+        }
         const auto& pose = instance_pose ? *instance_pose : *entry.pose;
         const auto queue_start = queue.size();
         try {
@@ -1374,6 +1386,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             object.gpu = gpu;
             object.gpu_weighted =
                 gpu && particle_uses_weighted_alpha(*particle_sources_.at(mesh.entity).data());
+            object.gpu_sorted =
+                gpu && particle_uses_gpu_sorted_alpha(*particle_sources_.at(mesh.entity).data());
             object.ribbon = ribbon ? &ribbon->vertices : nullptr;
             object.material_tint_only =
                 draw_scope == DrawScope::Particle &&
@@ -1413,7 +1427,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         (particle_uses_billboards(effect) || particle_uses_gpu_trails(effect))
                             ? &camera
                             : nullptr,
-                        object.gpu_weighted, opacity ? &*opacity : nullptr,
+                        object.gpu_weighted || object.gpu_sorted, opacity ? &*opacity : nullptr,
                         collision ? &*collision : nullptr);
                 } catch (...) {
                     restore_camera_target();
@@ -1502,6 +1516,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             }
             objects.push_back(std::move(object));
         } catch (const std::exception& e) {
+            view_resources_complete = false;
             queue.resize(queue_start);
             report(mesh.entity, e.what(), draw_scope);
         }
@@ -1872,6 +1887,101 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                        "transparency; this emitter is omitted from the view",
                        DrawScope::Particle);
         std::erase_if(queue, [&](const auto& item) { return objects[item.object].gpu_weighted; });
+    }
+    if (std::any_of(queue.begin(), queue.end(),
+                    [&](const auto& item) { return objects[item.object].gpu_sorted; })) {
+        try {
+            if (scene.settings.weighted_transparency)
+                throw std::runtime_error("Scene weighted transparency must be off");
+            if (!view_resources_complete || !tile_capacity_ready || pending() ||
+                !diagnostics_.empty() || omitted_)
+                throw std::runtime_error(
+                    "view resources are incomplete or have rendering diagnostics");
+            // Pending or invalid sources must not turn this into a partial alpha group.
+            for (const auto& emitter : scene.particles) {
+                if (!emitter.emitter.visible || !(emitter.emitter.layers & layers))
+                    continue;
+                const auto source = particle_sources_.find(emitter.entity);
+                const auto entry = entries_.find({emitter.entity, DrawScope::Particle});
+                if (source == particle_sources_.end() || !source->second.data() ||
+                    entry == entries_.end() || !entry->second.ready ||
+                    (particle_uses_gpu(*source->second.data()) && !source->second.gpu))
+                    throw std::runtime_error("a visible particle source is not fully admitted");
+            }
+            std::vector<Item> group;
+            for (const auto& item : queue) {
+                const auto& object = objects[item.object];
+                if (object.scope == DrawScope::Sprite || object.scope == DrawScope::TileMap)
+                    throw std::runtime_error("visible 2D layers require their own alpha ordering");
+                if (item.key.alpha != MaterialAlpha::Blend && !item.transmission)
+                    continue;
+                if (!object.gpu_sorted || item.transmission || item.key.order != 0)
+                    throw std::runtime_error(
+                        "all visible alpha contributors must use compatible GPU sorted particles");
+                group.push_back(item);
+            }
+            // Source order is independent of camera depth and input vector ordering.
+            std::sort(group.begin(), group.end(), [&](const auto& a, const auto& b) {
+                return objects[a.object].mesh->entity < objects[b.object].mesh->entity;
+            });
+            if (group.empty())
+                throw std::runtime_error("no complete GPU sorted alpha contribution is available");
+            const auto leader = group.front();
+            auto& first = objects[leader.object];
+            auto bounds = first.bounds;
+            std::vector<ParticleGpuOrder::Source> sources;
+            sources.reserve(group.size());
+            for (const auto& item : group) {
+                const auto& object = objects[item.object];
+                if (object.bundle != first.bundle || object.lod != first.lod ||
+                    item.key.part != leader.key.part || item.key.parity != leader.key.parity ||
+                    object.mesh->renderer.layers != first.mesh->renderer.layers ||
+                    object.mesh->renderer.receive_shadows != first.mesh->renderer.receive_shadows ||
+                    object.decals != first.decals ||
+                    !detail::same_material_parameter_values(
+                        slot_parameters(object.parameters,
+                                        object.bundle->slot(object.lod, item.key.part)),
+                        slot_parameters(first.parameters,
+                                        first.bundle->slot(first.lod, leader.key.part))))
+                    throw std::runtime_error(
+                        "GPU sorted particles require one shared physical Mesh/Material, part, "
+                        "parity, layers, decals and parameters");
+                sources.push_back({object.gpu->buffer(), object.gpu->count()});
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    bounds.minimum[axis] =
+                        std::min(bounds.minimum[axis], object.bounds.minimum[axis]);
+                    bounds.maximum[axis] =
+                        std::max(bounds.maximum[axis], object.bounds.maximum[axis]);
+                }
+            }
+            const auto& part = first.bundle->parts(first.lod)[leader.key.part];
+            std::array<float, 3> center;
+            for (unsigned axis = 0; axis < 3; ++axis)
+                center[axis] =
+                    float((double(part.bounds.minimum[axis]) + part.bounds.maximum[axis]) * .5);
+            try {
+                particle_order_->evaluate(host_->context_, sources, camera, center);
+            } catch (...) {
+                restore_camera_target();
+                throw;
+            }
+            restore_camera_target();
+            first.ordered_buffer = particle_order_->buffer();
+            first.ordered_count = particle_order_->count();
+            first.bounds = bounds;
+            // One ordinary sorted-alpha draw packet, still submitted in64-instance slices.
+            std::erase_if(queue, [&](const auto& item) {
+                return objects[item.object].gpu_sorted && item.object != leader.object;
+            });
+        } catch (const std::exception& error) {
+            for (const auto& object : objects)
+                if (object.gpu_sorted)
+                    report(object.mesh->entity,
+                           std::string("GPU sorted alpha unavailable: ") + error.what() +
+                               "; the complete sorted GPU group is omitted from this view",
+                           DrawScope::Particle);
+            std::erase_if(queue, [&](const auto& item) { return objects[item.object].gpu_sorted; });
+        }
     }
     // One batching rule serves visibility queries and the ordinary draw loop.
     // Derived visibility never changes queue ordering or compatibility.
@@ -2281,11 +2391,15 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             const auto motion = motion_for(object, item.key.part);
             std::span<const MeshDraw::LightImage> images;
             const auto decals = projected_surface(object, item.key.part, images);
-            const unsigned total = object.gpu ? object.gpu->count() : unsigned(count);
+            const unsigned total = object.ordered_buffer ? object.ordered_count
+                                   : object.gpu          ? object.gpu->count()
+                                                         : unsigned(count);
             for (unsigned first = 0; first < total; first += MeshDraw::instance_limit) {
                 const auto submitted = std::min(total - first, MeshDraw::instance_limit);
                 const MeshDraw::InstanceBuffer gpu_values{
-                    object.gpu ? object.gpu->buffer() : nullptr,
+                    object.ordered_buffer ? object.ordered_buffer
+                    : object.gpu          ? object.gpu->buffer()
+                                          : nullptr,
                     std::uint64_t(first) * mesh_static_instance_rows * sizeof(MeshInstanceRow),
                     submitted};
                 object.bundle->draw_part(

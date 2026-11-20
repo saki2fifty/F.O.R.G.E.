@@ -7959,6 +7959,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "539c80c9-afb5-4358-b742-d2bf074c5344",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Alpha/OrderedDeviceCloud.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "53ad81ae-db81-4af6-9c55-70f045b7470f",
       "metadata": {
         "forge.import": {
@@ -17876,6 +17886,16 @@
       "metadata": {},
       "schema_version": 4,
       "source": "Scenes/142-prefab-variants.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c527655a-fcb3-4a64-91ca-9c635d7dbc48",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/253-ordered-gpu-particles.scene.json",
       "source_dependencies": [],
       "type": "scene"
     },

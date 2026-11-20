@@ -3893,3 +3893,52 @@ editor session. Recovery performs a fresh state read before any later edit. It
 never replays a mutation, extends transport deadlines, ignores native process exit
 or accepts a failed result. Acceptance evidence records whether forced failure
 cleanup was required and the observed native exit code before cleanup.
+
+## Ordered GPU particle transport checks
+
+`particle_gpu_order_vulkan` shares its ordering fixture with native Windows
+`editor_render_particle-gpu-order-numeric`. `particle_gpu_sorted_scene_vulkan`
+shares production Scene checks with `editor_render_particle-gpu-sorted-scene`.
+Separate case dispatch keeps changed renderer checks focused while unchanged
+numeric evidence remains reusable. Numeric coverage
+checks independent stable ordering, exact seven-row packet preservation, padding,
+counts through8192, multiple input buffers, actual Mesh/camera/ribbon producers,
+non-origin Mesh centers and clear/refusal/recovery. Production frames check
+interleaved births across emitters,64-instance slicing, reversed and repeated
+cameras, opacity, resource replacement, incomplete-view refusal and recovery, and
+reflected/flipped PBR against independently submitted CPU particles. Registration
+does not establish execution on either backend.
+
+The shared full-editor acceptance selection includes these named cases and the
+particle Gallery source/export/Game families. The focused shader audit also
+selects plane, ribbon and ordered numeric/Scene/Gallery cases and explicitly
+builds the weighted-source fixture it selects. Actual execution receipts remain
+required; selection alone is not native acceptance.
+
+`particle_gpu_sorted_gallery` inspects the editable shared Effect/Material/image
+closure. The Game variants publish it through the ordinary asset owners, relocate
+and hide editable sources, prepare a runtime World and render production Game.
+Their package wrapper performs the source-free export checks before drawing.
+Native Windows uses `particle_gpu_sorted_gallery_game`; software Vulkan uses
+`particle_gpu_sorted_gallery_game_vulkan`. The worker must be the existing
+`forge_asset_build_worker` executable target, whose output is `forge_asset_build`;
+the similarly named library target is not an executable.
+
+`particle_gpu_sorted_countercases_vulkan` and native Windows
+`particle_gpu_sorted_countercases` publish additional private Effect and Material
+documents through the same source/publication owners. They use a relocated
+source-hidden RuntimeWorld to check compatible distinct Effects, distinct physical
+Materials, surviving CPU alpha, weighted refusal, plane/ribbon profiles and recovery.
+Runtime selection follows the Scene and typed cooked values; runtime source
+locators identify cooks rather than authoring filenames. The private plane fixture
+uses common emitter parity, independently of the Gallery's mirrored camera quads.
+Native Windows also publishes an authored Graph through the existing Graph fixture.
+The actual Particle Effect preview checks weighted/sorted/weighted switching through
+the shared FrameRenderer. The local preview counterpart requires the existing
+imgui and SDL targets; it adds no dependency or alternate rendering path.
+
+`manual/images/ordered-gpu-particles.png` is an unmodified640x360 Game capture of
+Gallery253 at three seconds on software Vulkan/llvmpipe. Local capture receipts
+retain its exact source/input/build/test/image provenance. The image has no editor
+chrome; native Windows, physical hardware and full editor visual acceptance remain
+separate. The manual uses this canonical asset.

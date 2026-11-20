@@ -1261,3 +1261,11 @@ to edit **Use opacity over life**, endpoints and the fade curve, then Save / Pub
 requires Windows Shader compilation before Effect publication. Both reuse the
 existing soft image and Blend Material and need Scene **Weighted transparency**.
 Follow [GPU opacity over life](../editor/particles.md) for controls and export.
+
+For device ordering, open **253-ordered-gpu-particles**. Two emitters share a
+textured Effect and Material with a lifetime fade. Open
+**Assets/Particles/Alpha/OrderedDeviceCloud.particles.json** for **Sorted alpha
+(GPU)**, save/publish, then save the Scene and export with the matching kit. Keep
+Scene **Weighted transparency** off. The complete visible alpha group must use
+compatible Mesh/Material resources and draw settings. See
+[ordered GPU transparency](../editor/particles.md).

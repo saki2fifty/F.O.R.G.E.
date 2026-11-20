@@ -1,8 +1,10 @@
 #pragma once
 #include <array>
+#include <cstdint>
 #include <forge/asset_ref.hpp>
 #include <optional>
 #include <span>
+#include <string_view>
 #include <vector>
 namespace forge {
 inline constexpr std::size_t particle_emitter_limit = 64, particle_scene_capacity = 8192;
@@ -58,7 +60,7 @@ nlohmann::json encode_particle_collision_plane(const ParticleCollisionPlane&);
 struct ParticleEffectData {
     std::uint32_t version = 1; // CPU1/2, GPU3/4, alpha5/6, camera7/8/9, trails10, collision11,
                                // weighted GPU12–15, GPU opacity16–19, GPU collision20–22,
-                               // GPU trails23–25.
+                               // GPU trails23–25, ordered GPU26–37.
     AssetRef<MeshAsset> mesh;
     AssetRef<MaterialAsset> material;
     ParticleEmission emission = ParticleEmission::Continuous;
@@ -80,44 +82,119 @@ struct ParticleEffectData {
     std::optional<ParticleCollisionPlane> collision;
     bool operator==(const ParticleEffectData&) const = default;
 };
+namespace particle_detail {
+enum ProfileFlag : unsigned {
+    Gpu = 1,
+    Graph = 2,
+    CpuAlpha = 4,
+    Opacity = 8,
+    Billboard = 16,
+    Trail = 32,
+    Collision = 64,
+    Weighted = 128,
+    Sorted = 256
+};
+struct ValueProfile {
+    unsigned version;
+    const char* name;
+    unsigned flags;
+};
+// Immutable serialized value versions. Append new profiles; never reorder old ones.
+inline constexpr std::array value_profiles{
+    ValueProfile{1, "cpu_mesh1", 0},
+    ValueProfile{2, "cpu_mesh2", 0},
+    ValueProfile{3, "gpu_mesh1", Gpu},
+    ValueProfile{4, "gpu_graph1", Gpu | Graph},
+    ValueProfile{5, "cpu_alpha1", CpuAlpha},
+    ValueProfile{6, "cpu_alpha2", CpuAlpha | Opacity},
+    ValueProfile{7, "cpu_billboard1", CpuAlpha | Opacity | Billboard},
+    ValueProfile{8, "gpu_billboard1", Gpu | Billboard},
+    ValueProfile{9, "gpu_graph_billboard1", Gpu | Graph | Billboard},
+    ValueProfile{10, "cpu_trail1", CpuAlpha | Opacity | Trail},
+    ValueProfile{11, "cpu_collision1", CpuAlpha | Opacity | Collision},
+    ValueProfile{12, "gpu_weighted1", Gpu | Weighted},
+    ValueProfile{13, "gpu_graph_weighted1", Gpu | Graph | Weighted},
+    ValueProfile{14, "gpu_weighted_billboard1", Gpu | Weighted | Billboard},
+    ValueProfile{15, "gpu_graph_weighted_billboard1", Gpu | Graph | Weighted | Billboard},
+    ValueProfile{16, "gpu_weighted_opacity1", Gpu | Weighted | Opacity},
+    ValueProfile{17, "gpu_graph_weighted_opacity1", Gpu | Graph | Weighted | Opacity},
+    ValueProfile{18, "gpu_weighted_opacity_billboard1", Gpu | Weighted | Opacity | Billboard},
+    ValueProfile{19, "gpu_graph_weighted_opacity_billboard1",
+                 Gpu | Graph | Weighted | Opacity | Billboard},
+    ValueProfile{20, "gpu_collision1", Gpu | Collision},
+    ValueProfile{21, "gpu_weighted_collision1", Gpu | Weighted | Collision},
+    ValueProfile{22, "gpu_weighted_collision_opacity1", Gpu | Weighted | Collision | Opacity},
+    ValueProfile{23, "gpu_trail1", Gpu | Trail},
+    ValueProfile{24, "gpu_weighted_trail1", Gpu | Weighted | Trail},
+    ValueProfile{25, "gpu_weighted_trail_opacity1", Gpu | Weighted | Trail | Opacity},
+    ValueProfile{26, "gpu_sorted1", Gpu | Sorted},
+    ValueProfile{27, "gpu_graph_sorted1", Gpu | Graph | Sorted},
+    ValueProfile{28, "gpu_sorted_billboard1", Gpu | Sorted | Billboard},
+    ValueProfile{29, "gpu_graph_sorted_billboard1", Gpu | Graph | Sorted | Billboard},
+    ValueProfile{30, "gpu_sorted_collision1", Gpu | Sorted | Collision},
+    ValueProfile{31, "gpu_sorted_trail1", Gpu | Sorted | Trail},
+    ValueProfile{32, "gpu_sorted_opacity1", Gpu | Sorted | Opacity},
+    ValueProfile{33, "gpu_graph_sorted_opacity1", Gpu | Graph | Sorted | Opacity},
+    ValueProfile{34, "gpu_sorted_opacity_billboard1", Gpu | Sorted | Opacity | Billboard},
+    ValueProfile{35, "gpu_graph_sorted_opacity_billboard1",
+                 Gpu | Graph | Sorted | Opacity | Billboard},
+    ValueProfile{36, "gpu_sorted_collision_opacity1", Gpu | Sorted | Collision | Opacity},
+    ValueProfile{37, "gpu_sorted_trail_opacity1", Gpu | Sorted | Trail | Opacity}};
+static_assert([] {
+    for (unsigned i = 0; i < value_profiles.size(); ++i)
+        if (value_profiles[i].version != i + 1)
+            return false;
+    return true;
+}());
+constexpr const ValueProfile* value_profile(std::uint64_t version) {
+    return version && version <= value_profiles.size() ? &value_profiles[version - 1] : nullptr;
+}
+constexpr const ValueProfile* value_profile(std::string_view name) {
+    for (const auto& profile : value_profiles)
+        if (name == profile.name)
+            return &profile;
+    return nullptr;
+}
+constexpr bool has(const ParticleEffectData& data, unsigned flags) {
+    const auto* profile = value_profile(data.version);
+    return profile && (profile->flags & flags) == flags;
+}
+} // namespace particle_detail
 constexpr bool particle_uses_gpu(const ParticleEffectData& data) {
-    return data.version == 3 || data.version == 4 || data.version == 8 || data.version == 9 ||
-           (data.version >= 12 && data.version <= 25);
+    return particle_detail::has(data, particle_detail::Gpu);
 }
 constexpr bool particle_uses_graph(const ParticleEffectData& data) {
-    return data.version == 4 || data.version == 9 || data.version == 13 || data.version == 15 ||
-           data.version == 17 || data.version == 19;
+    return particle_detail::has(data, particle_detail::Graph);
 }
 constexpr bool particle_uses_weighted_alpha(const ParticleEffectData& data) {
-    return (data.version >= 12 && data.version <= 19) || data.version == 21 || data.version == 22 ||
-           data.version == 24 || data.version == 25;
+    return particle_detail::has(data, particle_detail::Weighted);
 }
 constexpr bool particle_uses_sorted_alpha(const ParticleEffectData& data) {
-    return data.version == 5 || data.version == 6 || data.version == 7 || data.version == 10 ||
-           data.version == 11;
+    return particle_detail::has(data, particle_detail::CpuAlpha);
+}
+constexpr bool particle_uses_gpu_sorted_alpha(const ParticleEffectData& data) {
+    return particle_detail::has(data, particle_detail::Gpu | particle_detail::Sorted);
 }
 constexpr bool particle_uses_gpu_opacity(const ParticleEffectData& data) {
-    return (data.version >= 16 && data.version <= 19) || data.version == 22 || data.version == 25;
+    return particle_detail::has(data, particle_detail::Gpu | particle_detail::Opacity);
 }
 constexpr bool particle_uses_opacity(const ParticleEffectData& data) {
-    return data.version == 6 || data.version == 7 || data.version == 10 || data.version == 11 ||
-           particle_uses_gpu_opacity(data);
+    return particle_detail::has(data, particle_detail::Opacity);
 }
 constexpr bool particle_uses_gpu_trails(const ParticleEffectData& data) {
-    return data.version >= 23 && data.version <= 25;
+    return particle_detail::has(data, particle_detail::Gpu | particle_detail::Trail);
 }
 constexpr bool particle_uses_trails(const ParticleEffectData& data) {
-    return data.version == 10 || particle_uses_gpu_trails(data);
+    return particle_detail::has(data, particle_detail::Trail);
 }
 constexpr bool particle_uses_collision(const ParticleEffectData& data) {
-    return data.version == 11 || (data.version >= 20 && data.version <= 22);
+    return particle_detail::has(data, particle_detail::Collision);
+}
+constexpr bool particle_uses_billboards(const ParticleEffectData& data) {
+    return particle_detail::has(data, particle_detail::Billboard);
 }
 // Reserved draw segments, including tails after a head reaches its lifetime.
 std::size_t particle_instance_capacity(const ParticleEffectData&);
-constexpr bool particle_uses_billboards(const ParticleEffectData& data) {
-    return data.version == 7 || data.version == 8 || data.version == 9 || data.version == 14 ||
-           data.version == 15 || data.version == 18 || data.version == 19;
-}
 struct ParticleSample {
     // Emitter-scoped transient ordinal; never an entity UUID or saved handle.
     std::uint64_t birth = 0;
