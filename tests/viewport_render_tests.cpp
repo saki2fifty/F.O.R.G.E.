@@ -252,6 +252,7 @@ int main(int argc, char** argv) {
                      (std::string_view(argv[2]) == "particle-graphs" ||
                       std::string_view(argv[2]) == "particle-alpha-gallery" ||
                       std::string_view(argv[2]) == "particle-trail-gallery" ||
+                      std::string_view(argv[2]) == "particle-collision-gallery" ||
                       std::string_view(argv[2]) == "particle-opacity-gallery" ||
                       std::string_view(argv[2]) == "particle-billboard-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-billboard-gallery" ||
@@ -307,6 +308,7 @@ int main(int argc, char** argv) {
                 forge::test_particle_billboard::exercise(isolated, context, images,
                                                          selected == "particle-gpu-billboards");
             else if (selected == "particle-alpha-gallery" || selected == "particle-trail-gallery" ||
+                     selected == "particle-collision-gallery" ||
                      selected == "particle-opacity-gallery" ||
                      selected == "particle-billboard-gallery" ||
                      selected == "particle-gpu-billboard-gallery" ||
@@ -322,7 +324,7 @@ int main(int argc, char** argv) {
                     selected == "particle-gpu-billboard-gallery" ||
                         selected == "particle-gpu-graph-billboard-gallery",
                     selected == "particle-gpu-graph-billboard-gallery",
-                    selected == "particle-trail-gallery");
+                    selected == "particle-trail-gallery", selected == "particle-collision-gallery");
             } else if (selected == "lightmaps")
                 forge::lightmap_test::exercise_gpu(
                     isolated, context,

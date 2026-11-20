@@ -3693,3 +3693,24 @@ presets with asset tools disabled. Texture worker publication, its authoring lib
 compile definition and worker-backed export registration are enabled together only
 with `FORGE_BUILD_ASSET_TOOLS`; do not link a nonexistent optional library in core/SDK
 profiles. The source inspector uses the existing pure paint-texture source owner.
+
+## CPU analytic plane collision
+
+`particle_motion` checks independent exact contact equations and90 small-step RK4
+profiles, drag extrema/asymptotes, high-speed crossings, tangent/outgoing/sliding
+contacts, response limits and explicit values11 admission. `particle_paths` includes
+whole-life oblique rebound/corner bounds. `particle_lifetime_source` covers source10
+projection, retained inactive choices/stopIDs, no-op and atomic refusal.
+`standalone_manifest` rejects missing or malformed collision/effect/alpha/opacity
+kit capabilities. Native `particle_effect_editor` exercises actual controls across
+six layouts; `mcp_particle_evaluation_stdio` covers both envelopes, permission
+exclusion, revision/Undo/Save/publication and reopen with its600second case limit.
+
+`particle_collision_gallery` inspects editable Scene246 and its shared assets;
+`particle_collision_gallery_export` publishes and verifies a relocated three-asset
+source-hidden World at the fixed clock. `particle_collision_gallery_game` and
+`particle_collision_gallery_game_vulkan` use the production Game renderer with
+sources removed. Existing alpha numeric rendering also compares six collision/
+kill ages to independent ordinary-Mesh placement and verifies old-profile recovery.
+The native shader acceptance selector includes the Gallery checks. These registered
+workflows do not themselves establish a native Windows or physical-device result.

@@ -130,7 +130,8 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
         frame();
     };
     auto number = [&](const std::string& id, const char* value) {
-        if (id.starts_with("particles:color_gradient:") && id.ends_with(":value")) {
+        if ((id.starts_with("particles:color_gradient:") && id.ends_with(":value")) ||
+            id == "particles:collision-normal") {
             point(id);
             const auto box = test::ui_targets.at(id);
             // InputFloat3's group rectangle includes its label. Aim inside the
@@ -441,6 +442,43 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
     require(editor.document()->source().document == alpha_profile &&
                 trail_source.at("size_curve") == alpha_profile.at("size_curve"),
             "Trail edits lost retained appearance or failed to restore earlier history");
+    click("particles:collision");
+    frame();
+    require(editor.document()->source().compiled().version == 11 &&
+                test::ui_targets.at("particles:mesh").enabled &&
+                !test::ui_targets.at("particles:billboards").enabled &&
+                !test::ui_targets.at("particles:trails").enabled,
+            "Native collision control did not select Mesh geometry and retain alternate choices");
+    number("particles:collision-normal", "2");
+    number("particles:collision-offset", "-2");
+    number("particles:collision-radius", "0.05");
+    number("particles:collision-restitution", "0.75");
+    number("particles:collision-friction", "0.2");
+    number("particles:collision-bounces", "8");
+    const ParticleCollisionPlane expected_plane{{2, 1, 0}, -2, .05, .75, .2, 8};
+    require(editor.document()->source().compiled().collision == expected_plane,
+            "Actual native plane controls did not commit their typed source settings");
+    const auto tuned_collision = editor.document()->source().document;
+    number("particles:collision-bounces", "17");
+    require(editor.document()->source().document == tuned_collision && !editor.diagnostic().empty(),
+            "Invalid native bounce count partially changed collision source");
+    number("particles:collision-radius", "-1");
+    require(editor.document()->source().document == tuned_collision && !editor.diagnostic().empty(),
+            "Invalid native collision radius did not preserve the current source");
+    click("particles:collision");
+    frame();
+    require(
+        editor.document()->source().compiled().version == 5 &&
+            editor.document()->source().document.at("collision") == tuned_collision.at("collision"),
+        "Disabling native plane collision lost retained settings or restored the wrong profile");
+    click("particles:undo");
+    require(editor.document()->source().document == tuned_collision,
+            "Native collision Undo did not retain exact source identity");
+    for (unsigned i = 0; i < 20 && editor.document()->source().document != alpha_profile; ++i)
+        editor.undo();
+    require(editor.document()->source().document == alpha_profile,
+            "Native collision edits could not restore the original source/history");
+
     click("particles:undo");
     // Keep the original lifecycle/close checks applicable, including start-size editing.
     for (unsigned i = 0; i < 32 && editor.document()->source().document != before_extended; ++i)

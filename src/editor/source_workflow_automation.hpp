@@ -111,6 +111,18 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "built-in Materials; nonidentity opacity needs sorted Blend. Current emitter "
                  "transform applies to the whole local path. Requires runtime_particle_trail1, "
                  "opacity1 and alpha1; no GPU trail or historical emitter-motion capture."},
+                {"collision",
+                 "asset.document.particle_collision selects CPU Mesh plane response "
+                 "(values11/cpu_collision1). Optional "
+                 "collision={normal,offset,radius,restitution,friction,bounce_limit} "
+                 "replaces settings; omission retains them. Source10 preserves inactive alignment, "
+                 "ribbons, appearance and local stop identities. The plane is emitter-local; "
+                 "offset is signed meters along its normalized normal and radius is independent "
+                 "of visual size. Restitution and tangent velocity loss are0–1;0–16rebounds, "
+                 "then the next incoming contact kills. Zero kills on first contact. "
+                 "Initially penetrating births and sustained zero-rebound inward contacts end. "
+                 "Requires runtime_particle_collision1, opacity1 and alpha1. No Scene-collider, "
+                 "GPU, ribbon or camera-plane collision combination."},
                 {"limits",
                  {{"emitters", particle_emitter_limit},
                   {"effect_capacity", 1024},
@@ -784,11 +796,26 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                     return invoke(std::string("preview_") + action, request);
                 }));
         }
-    for (const auto* action :
-         {"patch", "particle_evaluation", "particle_opacity", "particle_billboards",
-          "particle_trails", "particle_program", "paint", "tile_collision", "tile_animation",
-          "tile_autotile", "stroke", "mesh_stroke", "fill", "copy_pixels", "cancel_pixels", "undo",
-          "redo", "save", "close"}) {
+    for (const auto* action : {"patch",
+                               "particle_evaluation",
+                               "particle_opacity",
+                               "particle_billboards",
+                               "particle_trails",
+                               "particle_collision",
+                               "particle_program",
+                               "paint",
+                               "tile_collision",
+                               "tile_animation",
+                               "tile_autotile",
+                               "stroke",
+                               "mesh_stroke",
+                               "fill",
+                               "copy_pixels",
+                               "cancel_pixels",
+                               "undo",
+                               "redo",
+                               "save",
+                               "close"}) {
         auto properties = fields;
         auto needed = required;
         if (std::string_view(action) == "patch") {
@@ -827,6 +854,20 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 {{"duration", {{"type", "number"}, {"minimum", .001}, {"maximum", 30}}},
                  {"segments", automation_integer(1, 16)}},
                 {"duration", "segments"});
+            needed.push_back("enabled");
+        } else if (std::string_view(action) == "particle_collision") {
+            properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
+            properties["enabled"] = {{"type", "boolean"}};
+            properties["collision"] = automation_object(
+                {{"normal",
+                  automation_array(
+                      Json{{"type", "number"}, {"minimum", -1000000}, {"maximum", 1000000}}, 3, 3)},
+                 {"offset", {{"type", "number"}, {"minimum", -1000000}, {"maximum", 1000000}}},
+                 {"radius", {{"type", "number"}, {"minimum", 0}, {"maximum", 1000}}},
+                 {"restitution", {{"type", "number"}, {"minimum", 0}, {"maximum", 1}}},
+                 {"friction", {{"type", "number"}, {"minimum", 0}, {"maximum", 1}}},
+                 {"bounce_limit", automation_integer(0, 16)}},
+                {"normal", "offset", "radius", "restitution", "friction", "bounce_limit"});
             needed.push_back("enabled");
         } else if (std::string_view(action) == "particle_program") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};

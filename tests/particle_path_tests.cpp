@@ -334,6 +334,38 @@ void ribbon_geometry() {
     bad_world.m[0] = std::numeric_limits<double>::infinity();
     reject([&] { (void)particle_ribbon_segments(paths, bad_world, CameraView{}); });
 }
+void collision_bounds() {
+    auto data = straight();
+    data.version = 11;
+    data.mesh = engine_primitive(0);
+    data.lifetime = 1.5;
+    data.speed_min = data.speed_max = 0;
+    data.acceleration = {0, -8, 0};
+    data.collision = ParticleCollisionPlane{{1, 1, 0}, -1, 0, 1, 0, 16};
+    AffineTransform sheared;
+    sheared.m = {2, .3, 0, 1e5, 0, -.5, .2, -2e5, .1, 0, 3, 17};
+    const MeshBounds mesh{{-.5f, -.5f, -.5f}, {.5f, .5f, .5f}};
+    bool redirected = false;
+    for (const auto& world : {AffineTransform{}, sheared})
+        for (double time : {.125, .5, .75, 1., 1.25, 1.49}) {
+            const auto bounds = particle_effect_bounds(data, mesh, world, 2);
+            const auto draws = particle_render_instances(data, time, 17, world, 64, 2);
+            for (const auto& draw : draws) {
+                redirected |= std::abs(draw.world.m[3] - world.m[3]) > .5;
+                for (unsigned corner = 0; corner < 8; ++corner) {
+                    const auto point = draw.world.point(
+                        {corner & 1 ? .5 : -.5, corner & 2 ? .5 : -.5, corner & 4 ? .5 : -.5});
+                    for (unsigned axis = 0; axis < 3; ++axis)
+                        check(
+                            point[axis] >= bounds.minimum[axis] &&
+                                point[axis] <= bounds.maximum[axis],
+                            "Particle bounds omitted acceleration redirected by an oblique plane");
+                }
+            }
+        }
+    check(redirected, "Collision bounds fixture did not exercise redirected motion");
+    reject([&] { (void)sample_particle_paths(data, 1, 17, .5, 8); });
+}
 } // namespace
 int main() {
     try {
@@ -343,6 +375,7 @@ int main() {
         admission();
         trail_values();
         ribbon_geometry();
+        collision_bounds();
         std::cout
             << "Analytic path membership, shared seeded births, tail decay and budgets pass\n";
         return 0;

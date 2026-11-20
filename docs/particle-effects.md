@@ -18,7 +18,9 @@ CPU values7/`cpu_billboard1` with retained original Mesh and alignment selection
 Source8 retains separate CPU/GPU alignment selections and projects GPU values8/
 `gpu_billboard1` or graph values9/`gpu_graph_billboard1` when GPU alignment is active.
 Source9 retains analytic trail settings and selects CPU values10/`cpu_trail1`
-when trails are active. Other backends retain the settings without applying them.
+when trails are active. Source10 retains a collision plane/enabled flag and selects
+CPU values11/`cpu_collision1` for Mesh collision. Other backends retain inactive settings
+without applying them.
 Values include a Mesh reference, optional Material override, emission
 mode, capacity, burst count, rate, lifetime, direction/cone half-angle, speed range,
 constant acceleration, start/end size and linear RGB. Version 2 adds spawn shape,
@@ -37,7 +39,7 @@ editable sources nor a compiler.
 New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope containing
 `format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3, graph4
 or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph camera-plane9/
-analytic-trail CPU10;
+analytic-trail CPU10/plane-collision CPU11;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -69,7 +71,9 @@ with identity opacity; nonidentity opacity requires the same Blend profile. Skin
 morphs, point/line topology, transmission and custom Shader surfaces reject with
 diagnostics. CPU10 additionally requires double-sided Quad geometry; it permits
 opaque/masked Materials with identity opacity or the same sorted Blend profile.
-Collision, GPU trails, historical emitter-motion capture and texture-sheet animation
+CPU11 permits the same Material alpha/opacity profile as CPU7, using the original
+Mesh and its explicit local collision plane. General Scene-collider response, GPU
+collision/trails, historical emitter-motion capture and texture-sheet animation
 are outside these profiles. The bounded stateless graph profile below extends
 position, size and RGB without adding those capabilities.
 
@@ -460,3 +464,40 @@ particle mode, displaying Gallery239 unchanged. `particle_graph_canvas` renders
 ImGui draw data through the SDL software backend at1440×1000 and asserts display
 does not edit the source. Local build21/check21 captured it and it was personally
 reviewed. No retouch, complete-editor screenshot, Windows or physical GPU claim.
+
+## Analytic CPU plane collision
+
+[ADR067](decisions/067-particle-plane-collision.md) defines source10, values11/
+`cpu_collision1` and typed `runtime_particle_collision:1` with effect3/alpha1/opacity1.
+Source retains `collision_enabled` and `collision:{normal,offset,radius,restitution,
+friction,bounce_limit}`. Enabling selects CPU Mesh collision; disabling restores
+retained trail/camera alignment/opacity choices in CPU sorted-alpha. Source version
+never decreases during inactive trail/GPU edits. Old source/value/cook meanings,
+importer/stop IDs, recipe3/envelope3 and gameplay component ABI remain unchanged.
+
+One extracted free-flight owner supplies stable acceleration/linear-drag integrals
+for ordinary births, analytic paths and collisions. A normalized local plane uses
+metric offset and a constant0–1000m radius, independently of visual size. Source
+normal components are finite within±1e6 with length at least1e-12; offsets are±1e6m.
+Restitution and tangent velocity loss are0–1;0–16rebounds are admitted. The next
+incoming contact kills, as do penetrating births and sustained zero-rebound inward
+contact. Tangent touches are not impacts. With no inward force, a zero rebound
+can slide or release. Incoming roots are bracketed across the single distance
+extremum and bisected with a fixed iteration bound. Drag-only asymptotic approach
+does not create a finite collision when expm1 rounds its excursion to the limit.
+
+The fixed clock still owns birth age. Each sample reconstructs from the same
+seeded birth, independent of seek order, and appearance retains original lifetime
+normalization. Dead births are omitted from the existing draw stream. No particle
+history, Scene physics queries, collision events or additional entity manager exists.
+Whole-life bounds use speed plus acceleration norm to cover oblique rebounds;
+ordinary Mesh alpha/depth/culling/sorting and admission budgets remain authoritative.
+Native controls and `asset.document.particle_collision` share source validation,
+revision/history/publication; partial/invalid settings fail atomically. GPU, Scene
+geometry and ribbon/camera-plane collision combinations remain unsupported.
+
+The canonical `manual/images/particle-plane-collision.png` was captured from
+Gallery246 at three seconds in the source-hidden relocated production Game,
+640×360 using software Vulkan/llvmpipe. The original PNG was inspected and copied
+without retouching. `particle_collision_gallery_game_vulkan` owns the capture
+workflow; this records software output, not Windows or physical-device acceptance.

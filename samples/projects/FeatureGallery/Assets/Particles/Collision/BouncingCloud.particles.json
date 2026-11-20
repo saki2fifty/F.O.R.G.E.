@@ -1,0 +1,91 @@
+{
+  "acceleration": [
+    0,
+    -4,
+    0
+  ],
+  "asset_id": "a9acc65b-09f6-48d3-b186-b6a43e43169d",
+  "billboard_enabled": false,
+  "burst_count": 32,
+  "capacity": 128,
+  "collision": {
+    "bounce_limit": 2,
+    "friction": 0.15,
+    "normal": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "offset": -1.0,
+    "radius": 0.06,
+    "restitution": 0.65
+  },
+  "collision_enabled": true,
+  "color_end": [
+    1,
+    1,
+    1
+  ],
+  "color_gradient": [],
+  "color_start": [
+    1,
+    1,
+    1
+  ],
+  "cone_angle": 35,
+  "direction": [
+    0.0,
+    1.0,
+    0.0
+  ],
+  "drag": 0.1,
+  "emission": "continuous",
+  "format": "forge.particle_effect",
+  "gpu_billboard_enabled": false,
+  "lifetime": 4,
+  "material": "ef4d0a73-7171-4392-8ab3-24080a160781",
+  "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+  "opacity_curve": [
+    {
+      "id": "406d8401-e558-4def-b7de-8865cad723d7",
+      "interpolation": "linear",
+      "time": 0.0,
+      "value": 0.0
+    },
+    {
+      "id": "63fb934c-bb91-4fca-a6ba-4ce715fc1d1b",
+      "interpolation": "linear",
+      "time": 0.15,
+      "value": 1
+    },
+    {
+      "id": "dd47b4b0-bfd3-4f8b-9bee-c1c457fed40b",
+      "interpolation": "linear",
+      "time": 1.0,
+      "value": 0.0
+    }
+  ],
+  "opacity_enabled": true,
+  "opacity_end": 0,
+  "opacity_start": 0,
+  "profile": "cpu_collision1",
+  "shape": "box",
+  "shape_radius": 1.0,
+  "shape_size": [
+    2,
+    0.25,
+    1
+  ],
+  "size_curve": [],
+  "size_end": 0.06,
+  "size_start": 0.12,
+  "spawn_rate": 24,
+  "speed_max": 1.5,
+  "speed_min": 0.5,
+  "trail": {
+    "duration": 0.5,
+    "segments": 8
+  },
+  "trail_enabled": false,
+  "version": 10
+}

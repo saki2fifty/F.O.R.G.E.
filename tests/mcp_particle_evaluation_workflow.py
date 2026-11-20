@@ -279,4 +279,54 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     assert content(owner) == trail_source
     assert edit('forge_asset_document_close', owner)['ok']
 
+    assert 'cpu_collision1' in catalog['collision'] and 'runtime_particle_collision1' in catalog['collision']
+    collision_path = 'Assets/PlaneEffect.particles.json'
+    assert mutate('forge_asset_document_create', editor=owner, path=collision_path)['ok']
+    original_collision = content(owner)
+    before = status(owner)
+    assert edit('forge_asset_document_particle_collision', owner, enabled=False)['ok']
+    assert content(owner) == original_collision and status(owner)['revision'] == before['revision']
+    plane = dict(normal=[1, 3, 0], offset=-2, radius=.05, restitution=.75, friction=.2, bounce_limit=8)
+    assert edit('forge_asset_document_particle_collision', owner, enabled=True, collision=plane)['ok']
+    collision_source = content(owner)
+    assert collision_source['version'] == 10 and collision_source['profile'] == 'cpu_collision1'
+    assert collision_source['collision'] == plane and collision_source['collision_enabled']
+    assert collision_source['mesh'] == original_collision['mesh']
+    assert collision_source['asset_id'] == original_collision['asset_id']
+    failed(mutate('forge_asset_document_particle_collision', editor=owner,
+                  document_session=before['session'], document_revision=before['revision'],
+                  enabled=False), 'stale_document')
+    failed(mutate('forge_asset_document_particle_collision', editor=owner,
+                  document_session=before['session'] + 1000,
+                  document_revision=status(owner)['revision'], enabled=False), 'wrong_document')
+    revision = status(owner)['revision']
+    assert edit('forge_asset_document_particle_collision', owner, enabled=True)['ok']
+    assert content(owner) == collision_source and status(owner)['revision'] == revision
+    for invalid in (dict(plane, normal=[0, 0, 0]), dict(plane, normal=[0, 1]),
+                    dict(plane, normal=[0, True, 0]), dict(plane, offset=True),
+                    dict(plane, radius=-.1), dict(plane, restitution=1.01),
+                    dict(plane, friction=-1), dict(plane, bounce_limit=17),
+                    dict(plane, bounce_limit=1.5), dict(plane, future=True),
+                    {key: value for key, value in plane.items() if key != 'normal'}):
+        assert not edit('forge_asset_document_particle_collision', owner,
+                        enabled=True, collision=invalid)['ok']
+        assert content(owner) == collision_source and status(owner)['revision'] == revision
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == original_collision
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == collision_source
+    for evaluation, profile in (('gpu', 'gpu_mesh1'), ('cpu', 'cpu_mesh2'), ('cpu_alpha', 'cpu_collision1')):
+        assert edit('forge_asset_document_particle_evaluation', owner, evaluation=evaluation)['ok']
+        assert content(owner) == dict(collision_source, profile=profile)
+    assert edit('forge_asset_document_particle_collision', owner, enabled=False)['ok']
+    assert content(owner) == dict(collision_source, profile='cpu_alpha1', collision_enabled=False)
+    assert edit('forge_asset_document_particle_collision', owner, enabled=True)['ok']
+    assert content(owner) == collision_source
+    settled = save()
+    metadata = read('forge_asset_read', asset=settled['asset'])['metadata']['forge.particle_effect']
+    assert metadata['version'] == 3 and metadata['value_version'] == 11
+    assert json.loads((root / 'Game' / collision_path).read_text()) == collision_source
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=collision_path)['ok']
+    assert content(owner) == collision_source
+    assert edit('forge_asset_document_close', owner)['ok']
+
     check_particle_graph(read, mutate, edit, status, content, failed, root)

@@ -7053,6 +7053,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "472c491a-fa18-43fb-b51c-8dc5f17a2304",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/246-particle-plane-collision.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "47d14aa4-eefb-4d8d-a188-12bd26627079",
       "metadata": {},
       "schema_version": 3,
@@ -15691,6 +15701,16 @@
       "source": "Scenes/152-camera-render-textures.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a9acc65b-09f6-48d3-b186-b6a43e43169d",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Collision/BouncingCloud.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],

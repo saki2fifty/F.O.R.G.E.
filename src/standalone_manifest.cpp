@@ -155,7 +155,7 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                     require(value_version != metadata->end() && value_version->is_number_integer(),
                             "Invalid Particle Effect value profile");
                     const auto values = value_version->get<std::uint64_t>();
-                    require(values >= 2 && values <= 10,
+                    require(values >= 2 && values <= 11,
                             "Unsupported Particle Effect value profile");
                     if (values == 3 || values == 4 || values == 8 || values == 9) {
                         const auto gpu = engine.find("runtime_particle_gpu");
@@ -171,14 +171,14 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                 "Particle graph Effects require the runtime kit packaged with this "
                                 "editor");
                     }
-                    if ((values >= 5 && values <= 7) || values == 10) {
+                    if ((values >= 5 && values <= 7) || values == 10 || values == 11) {
                         const auto alpha = engine.find("runtime_particle_alpha");
                         require(alpha != engine.end() && alpha->is_number_integer() &&
                                     alpha->get<std::uint64_t>() == particle_alpha_profile_version,
                                 "Sorted-alpha Particle Effects require the runtime kit packaged "
                                 "with this editor");
                     }
-                    if (values == 6 || values == 7 || values == 10) {
+                    if (values == 6 || values == 7 || values == 10 || values == 11) {
                         const auto opacity = engine.find("runtime_particle_opacity");
                         require(
                             opacity != engine.end() && opacity->is_number_integer() &&
@@ -199,6 +199,14 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                             trail != engine.end() && trail->is_number_integer() &&
                                 trail->get<std::uint64_t>() == particle_trail_profile_version,
                             "Particle trails require the runtime kit packaged with this editor");
+                    }
+                    if (values == 11) {
+                        const auto collision = engine.find("runtime_particle_collision");
+                        require(collision != engine.end() && collision->is_number_integer() &&
+                                    collision->get<std::uint64_t>() ==
+                                        particle_collision_profile_version,
+                                "Particle plane collision requires the runtime kit packaged with "
+                                "this editor");
                     }
                     if (values == 8 || values == 9) {
                         const auto billboard = engine.find("runtime_particle_gpu_billboard");

@@ -1,3 +1,4 @@
+#include "particle_motion.hpp"
 #include "particle_path.hpp"
 #include <algorithm>
 #include <cmath>
@@ -146,7 +147,8 @@ ParticleBirthState particle_birth_state(const ParticleEffectData& data,
     return state;
 }
 ParticleSample sample_particle_birth(const ParticleEffectData& data,
-                                     const ParticleBirthState& state, double age) {
+                                     const ParticleBirthState& state, double age,
+                                     const ParticleMotionState* collision_motion = nullptr) {
     ParticleSample particle;
     particle.birth = state.ordinal;
     particle.age = age;
@@ -159,29 +161,13 @@ ParticleSample sample_particle_birth(const ParticleEffectData& data,
                                             : sample_stops(data.size_curve, fraction);
     if (!data.color_gradient.empty())
         particle.color = sample_stops(data.color_gradient, fraction);
-    double damping = 1, velocity_integral = particle.age,
-           acceleration_integral = .5 * particle.age * particle.age;
-    if (data.drag > 0) {
-        const auto x = data.drag * particle.age;
-        damping = std::exp(-x);
-        velocity_integral = -std::expm1(-x) / data.drag;
-        // Integral of the velocity response: stable near zero drag*age.
-        acceleration_integral =
-            x < .001 ? particle.age * particle.age *
-                           (.5 + x * (-1. / 6 + x * (1. / 24 + x * (-1. / 120 + x / 720))))
-                     : (particle.age - velocity_integral) / data.drag;
-    }
+    const auto motion = collision_motion
+                            ? *collision_motion
+                            : evaluate_particle_motion({state.origin, state.velocity},
+                                                       data.acceleration, data.drag, particle.age);
+    particle.position = motion.position;
+    particle.velocity = motion.velocity;
     for (unsigned i = 0; i < 3; ++i) {
-        const auto initial = state.velocity[i];
-        if (data.drag == 0) {
-            particle.position[i] = state.origin[i] + initial * particle.age +
-                                   .5 * data.acceleration[i] * particle.age * particle.age;
-            particle.velocity[i] = initial + data.acceleration[i] * particle.age;
-        } else {
-            particle.position[i] = state.origin[i] + initial * velocity_integral +
-                                   data.acceleration[i] * acceleration_integral;
-            particle.velocity[i] = initial * damping + data.acceleration[i] * velocity_integral;
-        }
         if (data.color_gradient.empty())
             particle.color[i] =
                 float(std::lerp(double(data.color_start[i]), double(data.color_end[i]), fraction));
@@ -283,8 +269,30 @@ nlohmann::json encode_particle_trail_settings(const ParticleTrailSettings& trail
     validate_particle_trail_settings(trail);
     return {{"duration", trail.duration}, {"segments", trail.segments}};
 }
+ParticleCollisionPlane decode_particle_collision_plane(const nlohmann::json& source) {
+    if (!source.is_object() || source.size() != 6 || !source.at("bounce_limit").is_number_integer())
+        throw std::runtime_error(
+            "Particle collision plane requires six fields and integer bounce limit");
+    ParticleCollisionPlane plane;
+    vector_value(source.at("normal"), plane.normal);
+    plane.offset = scalar(source.at("offset"));
+    plane.radius = scalar(source.at("radius"));
+    plane.restitution = scalar(source.at("restitution"));
+    plane.friction = scalar(source.at("friction"));
+    const auto bounces = scalar(source.at("bounce_limit"));
+    range(bounces, 0, 16, "plane bounce limit [0,16]");
+    plane.bounce_limit = unsigned(bounces);
+    validate_particle_collision_plane(plane);
+    return plane;
+}
+nlohmann::json encode_particle_collision_plane(const ParticleCollisionPlane& plane) {
+    validate_particle_collision_plane(plane);
+    return {{"normal", plane.normal},     {"offset", plane.offset},
+            {"radius", plane.radius},     {"restitution", plane.restitution},
+            {"friction", plane.friction}, {"bounce_limit", plane.bounce_limit}};
+}
 void validate_particle_effect(const ParticleEffectData& data) {
-    if (data.version < 1 || data.version > 10)
+    if (data.version < 1 || data.version > 11)
         throw std::runtime_error("Unknown particle value version");
     if (!data.mesh.id)
         throw std::runtime_error("Particle effect requires a Mesh");
@@ -297,6 +305,10 @@ void validate_particle_effect(const ParticleEffectData& data) {
             throw std::runtime_error("Particle trails require Engine/Quad geometry");
         validate_trail_parameters(data, data.trail->duration, data.trail->segments);
     }
+    if (particle_uses_collision(data) != bool(data.collision))
+        throw std::runtime_error("Particle plane collision settings require cpu_collision1 values");
+    if (data.collision)
+        validate_particle_collision_plane(*data.collision);
     if (data.emission > ParticleEmission::Burst)
         throw std::runtime_error("Unknown particle emission mode");
     range(data.capacity, 1, 1024, "capacity");
@@ -361,7 +373,8 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
           (version == 7 && profile == "cpu_billboard1") ||
           (version == 8 && profile == "gpu_billboard1") ||
           (version == 9 && profile == "gpu_graph_billboard1") ||
-          (version == 10 && profile == "cpu_trail1")))
+          (version == 10 && profile == "cpu_trail1") ||
+          (version == 11 && profile == "cpu_collision1")))
         throw std::runtime_error("Unsupported particle effect format/version/profile");
     static const std::set<std::string> fields{
         "format",     "version",      "profile",     "mesh",       "material",
@@ -374,8 +387,8 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
               (name == "shape" || name == "shape_size" || name == "shape_radius" ||
                name == "drag" || name == "size_curve" || name == "color_gradient")) &&
             !((version == 4 || version == 9) && name == "program") &&
-            !(version == 10 && name == "trail") &&
-            !((version == 6 || version == 7 || version == 10) &&
+            !(version == 10 && name == "trail") && !(version == 11 && name == "collision") &&
+            !((version == 6 || version == 7 || version == 10 || version == 11) &&
               (name == "opacity_start" || name == "opacity_end" || name == "opacity_curve")))
             throw std::runtime_error("Unknown particle effect field: " + name);
     if (source.contains("extensions") && !source.at("extensions").is_object())
@@ -384,6 +397,8 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
     data.version = std::uint32_t(version);
     if (particle_uses_trails(data))
         data.trail = decode_particle_trail_settings(source.at("trail"));
+    if (particle_uses_collision(data))
+        data.collision = decode_particle_collision_plane(source.at("collision"));
     data.mesh = source.at("mesh").get<AssetRef<MeshAsset>>();
     if (source.contains("material"))
         data.material = source.at("material").get<AssetRef<MaterialAsset>>();
@@ -485,16 +500,17 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
     nlohmann::json result{
         {"format", "forge.particle_effect"},
         {"version", data.version},
-        {"profile", data.version == 1   ? "cpu_mesh1"
-                    : data.version == 2 ? "cpu_mesh2"
-                    : data.version == 3 ? "gpu_mesh1"
-                    : data.version == 4 ? "gpu_graph1"
-                    : data.version == 5 ? "cpu_alpha1"
-                    : data.version == 6 ? "cpu_alpha2"
-                    : data.version == 7 ? "cpu_billboard1"
-                    : data.version == 8 ? "gpu_billboard1"
-                    : data.version == 9 ? "gpu_graph_billboard1"
-                                        : "cpu_trail1"},
+        {"profile", data.version == 1    ? "cpu_mesh1"
+                    : data.version == 2  ? "cpu_mesh2"
+                    : data.version == 3  ? "gpu_mesh1"
+                    : data.version == 4  ? "gpu_graph1"
+                    : data.version == 5  ? "cpu_alpha1"
+                    : data.version == 6  ? "cpu_alpha2"
+                    : data.version == 7  ? "cpu_billboard1"
+                    : data.version == 8  ? "gpu_billboard1"
+                    : data.version == 9  ? "gpu_graph_billboard1"
+                    : data.version == 10 ? "cpu_trail1"
+                                         : "cpu_collision1"},
         {"mesh", data.mesh},
         {"emission", data.emission == ParticleEmission::Burst ? "burst" : "continuous"},
         {"capacity", data.capacity},
@@ -531,6 +547,8 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
     }
     if (data.trail)
         result["trail"] = encode_particle_trail_settings(*data.trail);
+    if (data.collision)
+        result["collision"] = encode_particle_collision_plane(*data.collision);
     if (data.program)
         result["program"] = encode_particle_graph_program(*data.program);
     if (particle_uses_opacity(data)) {
@@ -556,12 +574,23 @@ std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData& dat
     std::vector<ParticleSample> result;
     result.reserve(std::size_t(window.last - window.first));
     const auto frame = particle_spawn_frame(data);
+    const auto plane = data.collision
+                           ? std::optional{prepare_particle_collision_plane(*data.collision)}
+                           : std::nullopt;
     for (auto ordinal = window.first; ordinal < window.last; ++ordinal) {
         const auto age = particle_birth_age(data, window, seconds, ordinal);
         if (!age)
             continue;
         const auto state = particle_birth_state(data, frame, seed, ordinal);
-        const auto particle = sample_particle_birth(data, state, *age);
+        std::optional<ParticleMotionState> motion;
+        if (plane) {
+            const auto contact = evaluate_particle_plane_motion(
+                {state.origin, state.velocity}, data.acceleration, data.drag, *age, *plane);
+            if (contact.death_age)
+                continue;
+            motion = contact.state;
+        }
+        const auto particle = sample_particle_birth(data, state, *age, motion ? &*motion : nullptr);
         if (result.size() >= data.capacity || result.size() >= budget)
             throw std::runtime_error("Particle sample exceeds instance budget");
         result.push_back(particle);
@@ -572,8 +601,8 @@ ParticlePathSamples sample_particle_paths(const ParticleEffectData& data, double
                                           std::uint32_t seed, double duration, unsigned segments,
                                           std::size_t budget) {
     validate_particle_effect(data);
-    if (particle_uses_gpu(data))
-        throw std::runtime_error("Particle paths require CPU evaluation");
+    if (particle_uses_gpu(data) || particle_uses_collision(data))
+        throw std::runtime_error("Particle paths require CPU evaluation without plane collision");
     range(seconds, 0, 1e9, "sample time");
     validate_trail_parameters(data, duration, segments);
     const auto window = particle_birth_window(data, seconds, duration);

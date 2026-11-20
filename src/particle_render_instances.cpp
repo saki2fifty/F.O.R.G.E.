@@ -42,7 +42,8 @@ void validate_particle_material_profile(const MaterialResourceData& material,
             : std::all_of(effect.opacity_curve.begin(), effect.opacity_curve.end(),
                           [](const auto& stop) { return stop.value == 1; });
     if ((effect.version == 6 ||
-         ((particle_uses_billboards(effect) || particle_uses_trails(effect)) &&
+         ((particle_uses_billboards(effect) || particle_uses_trails(effect) ||
+           particle_uses_collision(effect)) &&
           !identity_opacity)) &&
         material.values.alpha != MaterialAlpha::Blend)
         throw std::runtime_error("Particle opacity requires a CPU sorted-alpha Blend Material");
@@ -88,8 +89,12 @@ RenderBounds particle_effect_bounds(const ParticleEffectData& data, const MeshBo
         size = data.program->maximum_size;
     size *= multiplier;
     for (unsigned axis = 0; axis < 3; ++axis) {
-        const auto travel = data.speed_max * data.lifetime +
-                            .5 * std::abs(data.acceleration[axis]) * data.lifetime * data.lifetime;
+        const auto acceleration =
+            particle_uses_collision(data)
+                ? std::hypot(data.acceleration[0], data.acceleration[1], data.acceleration[2])
+                : std::abs(data.acceleration[axis]);
+        const auto travel =
+            data.speed_max * data.lifetime + .5 * acceleration * data.lifetime * data.lifetime;
         const auto origin = data.shape == ParticleSpawnShape::Box     ? .5 * data.shape_size[axis]
                             : data.shape == ParticleSpawnShape::Point ? 0.
                                                                       : data.shape_radius;

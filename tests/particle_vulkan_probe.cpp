@@ -876,6 +876,7 @@ int main(int argc, char** argv) {
                            std::string_view(argv[2]) == "--gpu-billboards")) ||
             (argc == 4 && (std::string_view(argv[2]) == "--alpha-gallery" ||
                            std::string_view(argv[2]) == "--trail-gallery" ||
+                           std::string_view(argv[2]) == "--collision-gallery" ||
                            std::string_view(argv[2]) == "--opacity-gallery" ||
                            std::string_view(argv[2]) == "--billboard-gallery" ||
                            std::string_view(argv[2]) == "--gpu-billboard-gallery"))) {
@@ -897,7 +898,8 @@ int main(int argc, char** argv) {
                     std::string_view(argv[2]) == "--billboard-gallery" ||
                         std::string_view(argv[2]) == "--gpu-billboard-gallery",
                     std::string_view(argv[2]) == "--gpu-billboard-gallery", false,
-                    std::string_view(argv[2]) == "--trail-gallery");
+                    std::string_view(argv[2]) == "--trail-gallery",
+                    std::string_view(argv[2]) == "--collision-gallery");
             else if (std::string_view(argv[2]) == "--billboards" ||
                      std::string_view(argv[2]) == "--gpu-billboards")
                 test_particle_billboard::exercise(presentation, context,

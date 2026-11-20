@@ -649,7 +649,7 @@ void trail_profiles() {
         reject([&] { (void)parse(invalid); });
     }
     auto invalid = authored;
-    invalid["version"] = 10;
+    invalid["version"] = 11;
     reject([&] { (void)parse(invalid); });
     invalid = authored;
     invalid["trail"]["segments"] = 17;
@@ -659,11 +659,96 @@ void trail_profiles() {
     invalid["trail"] = authored.at("trail");
     reject([&] { (void)parse(invalid); });
 }
+void collision_profiles() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    const auto legacy = source.document;
+    source.set_collision(false);
+    require(source.document == legacy, "Disabling absent collision changed legacy bytes");
+    source.enable_billboards(true);
+    source.enable_opacity(true);
+    source.enable_lifetime(ParticleLifetimeChannel::Opacity, true);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Opacity, .5);
+    source.enable_gpu_billboards(true);
+    const ParticleGraphProgram program{AssetRef<ShaderAsset>{AssetId::generate()}, {3, 4, 5}, 2};
+    source.set_graph_program(program, false);
+    source.set_trails(true, ParticleTrailSettings{.75, 12});
+    const auto before = source.document;
+    const ParticleCollisionPlane plane{{1, 3, 0}, -2, .05, .75, .2, 8};
+    source.set_collision(true, plane);
+    const auto authored = source.document;
+    const auto values = source.compiled();
+    require(authored.at("version") == 10 && authored.at("profile") == "cpu_collision1" &&
+                values.version == 11 && values.collision == plane && !values.trail &&
+                values.mesh == engine_primitive(0) && authored.at("mesh") == legacy.at("mesh") &&
+                authored.at("trail") == before.at("trail") &&
+                authored.at("opacity_curve") == before.at("opacity_curve") &&
+                authored.at("program") == before.at("program") && !values.opacity_curve.empty() &&
+                parse(authored).document == authored &&
+                decode_cooked_particle_effect(source.cook(), source.asset(), 3) == values,
+            "Plane collision lost source/cook identity, retained geometry or lifetime stops");
+    for (auto backend : {ParticleEvaluation::Cpu, ParticleEvaluation::Gpu,
+                         ParticleEvaluation::Graph, ParticleEvaluation::CpuAlpha}) {
+        source.set_evaluation(backend);
+        const auto current = source.compiled();
+        const unsigned version = backend == ParticleEvaluation::Cpu     ? 2
+                                 : backend == ParticleEvaluation::Gpu   ? 8
+                                 : backend == ParticleEvaluation::Graph ? 9
+                                                                        : 11;
+        require(current.version == version &&
+                    source.document.at("collision") == authored.at("collision") &&
+                    source.document.at("opacity_curve") == authored.at("opacity_curve") &&
+                    parse(source.document).document == source.document,
+                "Backend selection changed retained collision or source-only identities");
+    }
+    require(source.document == authored, "Backend round trip changed collision source");
+    source.enable_opacity(false);
+    require(source.compiled().version == 11 && source.compiled().opacity_start == 1 &&
+                source.compiled().opacity_end == 1 && source.compiled().opacity_curve.empty(),
+            "Inactive opacity did not project identity values for collision");
+    source.enable_opacity(true);
+    require(source.document == authored, "Opacity toggle changed retained collision appearance");
+    source.set_collision(false);
+    require(source.compiled().version == 10 && source.document.at("version") == 10 &&
+                source.document.at("collision") == authored.at("collision"),
+            "Disabling collision did not restore retained trails or retain source version");
+    source.set_collision(true);
+    require(source.document == authored, "Collision reenable changed saved settings");
+    source.set_trails(false);
+    require(source.compiled().version == 11 && source.document.at("version") == 10,
+            "Inactive trail operation downgraded collision source");
+    source.set_trails(true);
+    require(source.document == authored, "Inactive trail toggles changed collision values");
+    source.set_evaluation(ParticleEvaluation::Gpu);
+    source.set_collision(false, plane);
+    require(source.compiled().version == 8 && source.document.at("version") == 10,
+            "Retaining inactive plane settings unexpectedly activated CPU collision");
+    source = parse(authored);
+    for (const auto& flag : nlohmann::json::array({nullptr, 1, 1.0, "true", false})) {
+        auto invalid = authored;
+        invalid["collision_enabled"] = flag;
+        reject([&] { (void)parse(invalid); });
+    }
+    auto invalid = authored;
+    invalid["version"] = 11;
+    reject([&] { (void)parse(invalid); });
+    invalid = authored;
+    invalid["collision"]["normal"] = {0, 0, 0};
+    reject([&] { (void)parse(invalid); });
+    auto bad = plane;
+    bad.bounce_limit = 17;
+    reject([&] { source.set_collision(true, bad); });
+    require(source.document == authored, "Rejected plane values partially changed source");
+    invalid = legacy;
+    invalid["collision_enabled"] = true;
+    invalid["collision"] = authored.at("collision");
+    reject([&] { (void)parse(invalid); });
+}
 int main() {
     try {
         billboard_profiles();
         gpu_billboard_profiles();
         trail_profiles();
+        collision_profiles();
         graph_program_profiles();
         sorted_alpha_profiles();
         opacity_profiles();

@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## Particle plane collision
+
+Open **Scenes/246-particle-plane-collision.scene.json** and press Play. Two tinted
+emitters share **Assets/Particles/Collision/BouncingCloud.particles.json** and the
+existing glass Material. The gray floor marks their emitter-local collision plane;
+it is a visual guide, not a physics collider. Open the Effect for **Plane collision
+(CPU mesh)**, normal/offset, constant radius, restitution, tangent friction and
+permitted bounces. Zero kills at first contact; after the allowed rebounds the
+next incoming contact ends the particle. Save / Publish, save the Scene and export
+using the matching kit. Camera/light are included; no C++ module is required.
+See [plane collision](../../../manual/editor/particles.md#plane-collision) for
+local-space and geometry-combination limits.
+
 ## Particle opacity over life
 
 Open **Scenes/241-particle-opacity.scene.json** and press Play. The teal and amber

@@ -241,6 +241,50 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
         emitter.time = 1;
     host->preview_particle_effect(effect, data);
     check(draw() == sorted, "Opacity profile recovery changed earlier sorted-alpha pixels");
+    data.version = 11;
+    data.lifetime = 4;
+    data.acceleration = {0, -2, 0};
+    data.collision = ParticleCollisionPlane{{0, 1, 0}, -1, 0, 1, 0, 1};
+    host->preview_particle_effect(effect, data);
+    for (double age : {.5, 1., 1.5, 2., 2.75, 3.}) {
+        const auto emitters = std::exchange(scene.particles, {});
+        if (age < 3)
+            for (const auto& emitter : emitters) {
+                RenderMesh reference;
+                reference.entity = emitter.entity;
+                reference.renderer.mesh = data.mesh;
+                reference.renderer.cast_shadows = false;
+                reference.renderer.materials = {{slot, material}};
+                reference.renderer.material_parameters = {
+                    {slot,
+                     "baseColorFactor",
+                     {MaterialParameterType::LinearColor4,
+                      {emitter.emitter.tint_r, emitter.emitter.tint_g, emitter.emitter.tint_b,
+                       .5f}}}};
+                reference.world = emitter.world;
+                const auto phase = age - 1;
+                // Independent exact trajectory: fall to y=-1 at t=1, then one
+                // elastic gravity arc. The next incoming contact at t=3 kills.
+                reference.world.m[7] += age < 1 ? -age * age : -1 + 2 * phase - phase * phase;
+                scene.meshes.push_back(std::move(reference));
+            }
+        const auto expected_collision = draw();
+        scene.meshes.clear();
+        scene.particles = emitters;
+        for (auto& emitter : scene.particles)
+            emitter.time = age;
+        check(draw() == expected_collision &&
+                  renderer.draw_stats().instances == (age < 3 ? 2u : 0u),
+              "Plane collision rendering differs from independently placed ordinary Meshes");
+    }
+    data.version = 5;
+    data.lifetime = 2;
+    data.acceleration = {};
+    data.collision.reset();
+    for (auto& emitter : scene.particles)
+        emitter.time = 1;
+    host->preview_particle_effect(effect, data);
+    check(draw() == sorted, "Plane collision left stale geometry after restoring an older profile");
     context->WaitForIdle();
     std::ofstream receipt(root / "particle-alpha.json");
     receipt << nlohmann::json{{"frames", frames},
@@ -255,7 +299,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
 inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
                     const std::filesystem::path& content, const std::filesystem::path& images,
                     bool opacity = false, bool billboards = false, bool gpu = false,
-                    bool graph = false, bool trails = false) {
+                    bool graph = false, bool trails = false, bool collision = false) {
     using test_bloom::check;
 #ifdef _WIN32
     const RuntimePackageTarget target{"windows", "d3d12"};
@@ -281,7 +325,8 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     check(effects.wait(ticket, std::chrono::seconds(15)), "Source-free alpha Effect load stalled");
     const auto selected = effects.acquire(ticket);
     check(selected &&
-              selected->version == (trails       ? 10u
+              selected->version == (collision    ? 11u
+                                    : trails     ? 10u
                                     : graph      ? 9u
                                     : gpu        ? 8u
                                     : billboards ? 7u
@@ -340,7 +385,8 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
         changed += rendered[i] != empty[i];
     check(changed > 100, "Source-free alpha Game did not draw its particles");
     std::filesystem::create_directories(images);
-    save_view_png(images / (trails       ? "analytic-particle-trails.png"
+    save_view_png(images / (collision    ? "particle-plane-collision.png"
+                            : trails     ? "analytic-particle-trails.png"
                             : graph      ? "gpu-graph-camera-particles.png"
                             : gpu        ? "gpu-camera-particles.png"
                             : billboards ? "camera-aligned-particles.png"

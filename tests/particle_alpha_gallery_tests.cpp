@@ -30,6 +30,7 @@ struct Example {
     bool gpu = false;
     bool graph = false;
     bool trails = false;
+    bool collision = false;
 };
 constexpr Example alpha{"Scenes/240-sorted-alpha-particles.scene.json",
                         "Assets/Particles/Alpha/GlassCloud.particles.json", false};
@@ -53,6 +54,14 @@ constexpr Example ribbons{"Scenes/245-analytic-particle-trails.scene.json",
                           false,
                           false,
                           true};
+constexpr Example colliding{"Scenes/246-particle-plane-collision.scene.json",
+                            "Assets/Particles/Collision/BouncingCloud.particles.json",
+                            true,
+                            false,
+                            false,
+                            false,
+                            false,
+                            true};
 constexpr const char* trail_material = "Assets/Particles/Trails/Ribbon.material.json";
 constexpr const char* alpha_material = "Assets/Particles/Alpha/Glass.material.json";
 constexpr const char* quad_material = "Assets/Particles/Billboards/SoftCloud.material.json";
@@ -66,7 +75,8 @@ const char* material_source(const Example& example) {
                                 : alpha_material;
 }
 unsigned value_version(const Example& example) {
-    return example.trails       ? 10u
+    return example.collision    ? 11u
+           : example.trails     ? 10u
            : example.graph      ? 9u
            : example.gpu        ? 8u
            : example.billboards ? 7u
@@ -185,6 +195,18 @@ void author(const std::filesystem::path& root, const Example& example) {
         effect.document["size_end"] = .03;
         effect.set_trails(true, ParticleTrailSettings{.75, 8});
     }
+    if (example.collision) {
+        effect.document["spawn_rate"] = 24;
+        effect.document["shape_size"] = {2, .25, 1};
+        effect.document["cone_angle"] = 35;
+        effect.document["speed_min"] = .5;
+        effect.document["speed_max"] = 1.5;
+        effect.document["acceleration"] = {0, -4, 0};
+        effect.document["drag"] = .1;
+        effect.document["size_start"] = .12;
+        effect.document["size_end"] = .06;
+        effect.set_collision(true, ParticleCollisionPlane{{0, 1, 0}, -1, .06, .65, .15, 2});
+    }
     if (example.graph) {
         const auto retained = ParticleEffectSource::parse(
             asset_detail::read_bytes(root / graph_effect, particle_effect_byte_limit));
@@ -216,7 +238,8 @@ void author(const std::filesystem::path& root, const Example& example) {
         entity.set<Primitive>({no_primitive});
         return entity;
     };
-    auto teal = actor(example.trails    ? "Teal analytic ribbon trails"
+    auto teal = actor(example.collision ? "Teal bouncing plane particles"
+                      : example.trails  ? "Teal analytic ribbon trails"
                       : example.gpu     ? "Teal camera quads - shared device effect"
                       : example.opacity ? "Teal fade - shared opacity effect"
                                         : "Teal glass - shared sorted-alpha effect");
@@ -229,7 +252,8 @@ void author(const std::filesystem::path& root, const Example& example) {
     teal.set<ParticleEmitter>(emitter);
     if (example.billboards)
         teal.set<LocalScale>({1.4f, 1, 0});
-    auto amber = actor(example.trails    ? "Amber analytic ribbon trails"
+    auto amber = actor(example.collision ? "Amber bouncing plane particles"
+                       : example.trails  ? "Amber analytic ribbon trails"
                        : example.gpu     ? "Amber camera quads - shared device effect"
                        : example.opacity ? "Amber fade - shared opacity effect"
                                          : "Amber glass - shared sorted-alpha effect");
@@ -241,12 +265,13 @@ void author(const std::filesystem::path& root, const Example& example) {
     amber.set<ParticleEmitter>(emitter);
     if (example.billboards)
         amber.set<LocalScale>({-.8f, 1.3f, 1});
-    auto marker = actor("Opaque depth marker");
+    auto marker = actor(example.collision ? "Collision plane visual guide" : "Opaque depth marker");
     MeshRenderer mesh;
     mesh.mesh = engine_primitive(0);
     marker.set<MeshRenderer>(mesh);
-    marker.set<LocalTranslation>({0, 1, -.75f});
-    marker.set<LocalScale>({.2f, 2, .2f});
+    marker.set<LocalTranslation>(example.collision ? LocalTranslation{0, -.05f, 0}
+                                                   : LocalTranslation{0, 1, -.75f});
+    marker.set<LocalScale>(example.collision ? LocalScale{7, .1f, 5} : LocalScale{.2f, 2, .2f});
     auto camera = actor("Game Camera");
     camera.set<Camera>({});
     camera.set<LocalTranslation>({0, 2, -9});
@@ -280,6 +305,12 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
                   effect.compiled().trail == ParticleTrailSettings{.75, 8} &&
                   particle_instance_capacity(effect.compiled()) == 1024,
               "Trail example lost joined geometry, retained Mesh, settings or segment reservation");
+    if (example.collision)
+        check(effect.document.at("version") == 10 &&
+                  effect.compiled().collision ==
+                      ParticleCollisionPlane{{0, 1, 0}, -1, .06, .65, .15, 2} &&
+                  effect.compiled().mesh == engine_primitive(0),
+              "Collision example lost its typed plane, bounded response or ordinary Mesh");
     if (example.opacity)
         check(effect.compiled().opacity_curve.size() == 3 &&
                   effect.compiled().opacity_curve[0].value == 0 &&
@@ -419,8 +450,14 @@ void verify_export(const std::filesystem::path& root, const Example& example,
             continue;
         }
         const auto samples = particles->sample(scene.entity(emitter.entity.str()).id(), 1);
-        check(emitter.time == 3 && samples.size() == (example.trails ? 20u : 96u),
+        check(emitter.time == 3 &&
+                  (example.collision ? !samples.empty() && samples.size() < 72
+                                     : samples.size() == (example.trails ? 20u : 96u)),
               "Source-free alpha emitter lost fixed-clock CPU birth membership");
+        if (example.collision)
+            for (const auto& particle : samples)
+                check(particle.position[1] >= -.94 - 1e-10,
+                      "Source-hidden World tunneled a live center through its collision plane");
         if (example.trails) {
             const auto paths =
                 sample_particle_paths(selected.get(), emitter.time, emitter.emitter.seed,
@@ -448,7 +485,13 @@ int main(int argc, char** argv) {
         check(argc >= 3, "Need sorted-alpha Gallery action and project root");
         const auto root = std::filesystem::absolute(argv[2]);
         const std::string_view action = argv[1];
-        if (action == "--author-trails")
+        if (action == "--author-collision")
+            author(root, colliding);
+        else if (action == "--inspect-collision")
+            (void)inspect(root, colliding);
+        else if (action == "--prepare-collision")
+            prepare(root, colliding);
+        else if (action == "--author-trails")
             author(root, ribbons);
         else if (action == "--inspect-trails")
             (void)inspect(root, ribbons);
@@ -480,6 +523,8 @@ int main(int argc, char** argv) {
                 prepare(root, fading, false);
             if (std::filesystem::exists(root / ribbons.effect))
                 prepare(root, ribbons);
+            if (std::filesystem::exists(root / colliding.effect))
+                prepare(root, colliding, false);
             bool texture_prepared = false;
             for (const auto& example : {quads, gpu_quads, graph_quads}) {
 #ifndef _WIN32
@@ -508,7 +553,7 @@ int main(int argc, char** argv) {
                    action == "--verify-export-billboards" ||
                    action == "--verify-export-gpu-billboards" ||
                    action == "--verify-export-gpu-graph-billboards" ||
-                   action == "--verify-export-trails") {
+                   action == "--verify-export-trails" || action == "--verify-export-collision") {
             const bool gpu = action == "--verify-export-gpu-billboards" ||
                              action == "--verify-export-gpu-graph-billboards";
             const bool billboards = action == "--verify-export-billboards" || gpu;
@@ -519,7 +564,8 @@ int main(int argc, char** argv) {
             std::filesystem::create_directories(copy.parent_path());
             std::filesystem::copy(root, copy, std::filesystem::copy_options::recursive);
             verify_export(copy,
-                          action == "--verify-export-trails"                 ? ribbons
+                          action == "--verify-export-collision"              ? colliding
+                          : action == "--verify-export-trails"               ? ribbons
                           : action == "--verify-export-gpu-graph-billboards" ? graph_quads
                           : gpu                                              ? gpu_quads
                           : billboards                                       ? quads

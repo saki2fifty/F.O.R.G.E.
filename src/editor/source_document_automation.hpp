@@ -500,13 +500,15 @@ struct AssetDocumentAutomation {
                         "document_busy",
                         "Wait for publication or settle the active source gesture/close request");
                 if (action == "particle_evaluation" || action == "particle_opacity" ||
-                    action == "particle_billboards" || action == "particle_trails") {
+                    action == "particle_billboards" || action == "particle_trails" ||
+                    action == "particle_collision") {
                     if constexpr (std::is_same_v<Source, ParticleEffectSource>) {
                         const auto previous = doc.revision();
                         const bool opacity = action == "particle_opacity";
                         const bool billboards = action == "particle_billboards";
                         const bool trails = action == "particle_trails";
-                        const bool toggle = opacity || billboards || trails;
+                        const bool collision = action == "particle_collision";
+                        const bool toggle = opacity || billboards || trails || collision;
                         const auto backend = billboards
                                                  ? request.value("backend", std::string("cpu"))
                                                  : std::string{};
@@ -520,12 +522,19 @@ struct AssetDocumentAutomation {
                                                  "Choose cpu, cpu_alpha, gpu or graph evaluation");
                         doc.edit_source(
                             previous,
-                            billboards ? "Toggle camera-aligned particles"
-                            : trails   ? "Set particle trails"
-                            : opacity  ? "Toggle particle opacity"
-                                       : "Set particle evaluation",
+                            billboards  ? "Toggle camera-aligned particles"
+                            : collision ? "Set particle plane collision"
+                            : trails    ? "Set particle trails"
+                            : opacity   ? "Toggle particle opacity"
+                                        : "Set particle evaluation",
                             [&](Source& source) {
-                                if (trails) {
+                                if (collision) {
+                                    std::optional<ParticleCollisionPlane> plane;
+                                    if (request.contains("collision"))
+                                        plane = decode_particle_collision_plane(
+                                            request.at("collision"));
+                                    source.set_collision(request.at("enabled").get<bool>(), plane);
+                                } else if (trails) {
                                     std::optional<ParticleTrailSettings> settings;
                                     if (request.contains("trail"))
                                         settings =

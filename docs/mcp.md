@@ -3629,6 +3629,25 @@ source publication/reopen, invalid/stale/no-op guards and Undo/Redo.
 
 ## Analytic particle trails through the source owner
 
+`asset.document.particle_collision` requires `asset.write`, `editor:"particle_effect"`,
+current document session/revision and boolean `enabled`. Optional `collision` replaces
+the complete `{normal,offset,radius,restitution,friction,bounce_limit}` object; omission
+retains it. Normal is a nonzero three-number vector within±1e6, offset is±1e6m,
+radius is0–1000m, restitution/friction are0–1 and bounce limit is an integer0–16.
+The offset uses meters along the normalized emitter-local normal. Radius is constant
+and independent of visual size. Zero rebounds kills on the first incoming contact;
+after the permitted rebounds the next incoming contact kills. Initial penetration
+and sustained zero-rebound inward contacts end the particle.
+
+Enabling selects values11/`cpu_collision1` through the native **Plane collision
+(CPU mesh)** source operation. Source10 retains alternate geometry, appearance and
+local identities; turning collision off restores CPU sorted-alpha choices. Absent
+disable is a no-op. Discovery provides `forge_asset_document_particle_collision`
+only with the write grant. Invalid settings, stale scope, history, Save/publication
+and reopen use the existing source owner. Requires effect3/alpha1/opacity1 and
+`runtime_particle_collision:1`. GPU, Scene-collider, ribbon/camera-plane combinations
+and collision callbacks are outside this profile.
+
 `asset.document.particle_trails` requires `asset.write`, `editor:"particle_effect"`,
 the current document session/revision and boolean `enabled`. Optional
 `trail:{"duration":0.75,"segments":8}` replaces both settings; omission retains them.

@@ -248,10 +248,59 @@ class ParticleEffectEditor {
                     "They also control visibility bounds. Nonfinite outputs use bounded analytic "
                     "values.");
             }
+            bool collision = document_->source().document.value("collision_enabled", false);
+            if (ImGui::Checkbox("Plane collision (CPU mesh)", &collision))
+                mutate("Set particle plane collision", [&](auto& value) {
+                    ParticleEffectSource candidate{value};
+                    candidate.set_collision(collision);
+                    value = std::move(candidate.document);
+                });
+            FORGE_UI_PROBE("particles:collision");
+            ui::help("Enabling selects CPU (sorted alpha) Mesh particles. The infinite plane is "
+                     "emitter-local and follows its current transform. Radius is independent of "
+                     "visual size. Restitution sets normal rebound; friction removes tangent "
+                     "velocity per contact. After the permitted bounces the next incoming "
+                     "contact kills; zero kills at first contact. Initially penetrating births "
+                     "and sustained zero-rebound inward contacts end. Turn collision off to "
+                     "restore retained ribbon/camera alignment. Scene colliders are not used.");
+            if (collision && document_->source().document.contains("collision")) {
+                auto plane =
+                    decode_particle_collision_plane(document_->source().document.at("collision"));
+                ImGui::BeginDisabled(!particle_uses_collision(data));
+                bool submit = ImGui::InputScalarN("Plane normal", ImGuiDataType_Double,
+                                                  plane.normal.data(), 3, nullptr, nullptr, "%.5g",
+                                                  ImGuiInputTextFlags_EnterReturnsTrue);
+                FORGE_UI_PROBE("particles:collision-normal");
+                const auto number = [&](const char* label, [[maybe_unused]] const char* probe,
+                                        double& value) {
+                    const bool changed = ImGui::InputDouble(label, &value, 0, 0, "%.5g",
+                                                            ImGuiInputTextFlags_EnterReturnsTrue);
+                    FORGE_UI_PROBE(probe);
+                    return changed;
+                };
+                submit |= number("Plane offset (m)", "particles:collision-offset", plane.offset);
+                submit |=
+                    number("Collision radius (m)", "particles:collision-radius", plane.radius);
+                submit |= number("Restitution (0–1)", "particles:collision-restitution",
+                                 plane.restitution);
+                submit |= number("Tangent friction (0–1)", "particles:collision-friction",
+                                 plane.friction);
+                submit |= ImGui::InputScalar("Permitted bounces (0–16)", ImGuiDataType_U32,
+                                             &plane.bounce_limit, nullptr, nullptr, "%u",
+                                             ImGuiInputTextFlags_EnterReturnsTrue);
+                FORGE_UI_PROBE("particles:collision-bounces");
+                if (submit)
+                    mutate("Edit particle plane collision", [&](auto& value) {
+                        ParticleEffectSource candidate{value};
+                        candidate.set_collision(true, plane);
+                        value = std::move(candidate.document);
+                    });
+                ImGui::EndDisabled();
+            }
             const bool gpu_billboards = particle_uses_gpu(data);
             bool billboards = document_->source().document.value(
                 gpu_billboards ? "gpu_billboard_enabled" : "billboard_enabled", false);
-            ImGui::BeginDisabled(particle_uses_trails(data));
+            ImGui::BeginDisabled(particle_uses_trails(data) || particle_uses_collision(data));
             if (ImGui::Checkbox("Camera-aligned quads", &billboards))
                 mutate("Toggle camera-aligned particles", [&](auto& value) {
                     ParticleEffectSource candidate{value};
@@ -273,6 +322,7 @@ class ParticleEffectEditor {
                            "Other evaluation backends retain this CPU setting without applying "
                            "it. Disabling restores the original Mesh selection.");
             bool trails = document_->source().document.value("trail_enabled", false);
+            ImGui::BeginDisabled(particle_uses_collision(data));
             if (ImGui::Checkbox("Analytic ribbon trails (CPU)", &trails))
                 mutate("Set particle trails", [&](auto& value) {
                     ParticleEffectSource candidate{value};
@@ -280,6 +330,7 @@ class ParticleEffectEditor {
                     value = std::move(candidate.document);
                 });
             FORGE_UI_PROBE("particles:trails");
+            ImGui::EndDisabled();
             ui::help("Enabling selects CPU (sorted alpha) with connected Engine / Quad ribbons. "
                      "The current emitter transform applies to the whole local path. Tails shrink "
                      "after a head dies. Requires a double-sided Material; opacity needs Blend. "

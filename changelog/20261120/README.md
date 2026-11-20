@@ -1,5 +1,21 @@
 # 2026-11-20
 
+## CPU particle plane collision
+
+Particle Effects offer **Plane collision (CPU mesh)** with an emitter-local plane,
+constant radius, restitution, tangential velocity loss and a bounded rebound/kill
+limit. The same seeded birth sampler, fixed clock, appearance, native controls,
+MCP and publication owners remain authoritative. Source10 retains inactive settings;
+values11 require a collision-capable kit. Original source/cook meanings and gameplay
+component ABI remain unchanged. Scene geometry, GPU and ribbon/quad collision
+combinations remain outside this profile.
+
+Gallery246 reuses the existing glass Material and includes an editable bouncing
+cloud, floor guide, camera/light and source-hidden exported Game coverage. The
+manual includes an unmodified authentic Game image. Independent ODE/contact and
+ordinary-Mesh pixel comparisons accompany the implementation; native Windows and
+physical review remain separate.
+
 ## Analytic particle ribbons
 
 Particle Effects offer **Analytic ribbon trails (CPU)** with duration, segment count,

@@ -4,7 +4,7 @@ A particle effect is a reusable stream or burst of small meshes. Use it for
 stylized sparks, debris or fountains. Effects can use solid or masked meshes, or
 sorted transparent meshes with CPU evaluation, and camera-aligned quads with CPU,
 GPU or Graph evaluation. CPU analytic ribbon trails follow each particle's local
-path. Particle collision is not supported.
+path. CPU Mesh particles can bounce against an emitter-local plane.
 
 ## Try the Gallery
 
@@ -197,7 +197,37 @@ changes from Step curves. Higher segment counts resolve more detail.
 Switching evaluation retains trail settings. Select **CPU (sorted alpha)** to
 apply them again. In **CPU (sorted alpha)**, disabling trails restores the retained mesh/quad settings;
 Undo/Redo restores the complete edit. GPU and Graph trails, historical emitter
-motion and particle collision are not available.
+motion are not available. Collision cannot be combined with ribbon trails.
+
+## Plane collision
+
+Open **Scenes/246-particle-plane-collision.scene.json** in FeatureGallery and press
+**Play**. Teal and amber cubes bounce above the gray floor and fade over their
+lifetimes. The floor is a visual guide; each emitter's Effect defines its plane.
+Open **Assets/Particles/Collision/BouncingCloud.particles.json** to adjust it.
+
+![Teal and amber particles bouncing above a gray floor](../images/particle-plane-collision.png)
+
+The Gallery scene in the Game view at three seconds.
+
+1. Stop Play. Open a Particle Effect in Content and enable **Plane collision (CPU mesh)**. This selects **CPU (sorted alpha)** with its saved Mesh.
+2. Set a nonzero **Plane normal**. **Plane offset (m)** measures signed distance from the emitter origin along the normalized normal. For normal `(0,1,0)`, offset `-1` places the plane one meter below that origin.
+3. Set **Collision radius (m)**. Particle centers stay this far above the plane. Radius is constant and independent of the Mesh size or lifetime size curve; choose a radius that fits the visual shape.
+4. Set **Restitution (0–1)** for normal rebound speed and **Tangent friction (0–1)** for the fraction of tangent velocity removed at each contact.
+5. Set **Permitted bounces (0–16)**. After that many rebounds, the next incoming contact ends the particle. Use `0` to end particles at first contact. Births already below the plane end immediately. A zero rebound under inward acceleration ends the particle; without inward force it can slide or depart.
+6. Press Enter to commit numeric values. Choose **Save / Publish**, save the Scene and press Play. Export using the runtime kit packaged with this editor.
+
+For the Gallery scene, the emitter origins are one meter above the floor; offset
+`-1` therefore matches its top. Move or rotate an emitter and its local plane
+follows the current transform. This mode does not collide with Scene colliders,
+record past world-space emitter motion or apply impulses to physical bodies.
+
+Collision uses ordinary Mesh particles. Camera alignment and ribbons are retained
+while inactive; turn collision off to restore them in **CPU (sorted alpha)**.
+Switching to another evaluation backend retains plane settings without applying
+them. GPU/Graph collision, collision callbacks and combining collision with
+ribbons or camera-aligned quads are unavailable. Nonidentity particle opacity
+needs a Blend Material with depth testing enabled and depth writing disabled.
 
 ## Opacity over life
 
