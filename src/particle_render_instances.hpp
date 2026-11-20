@@ -17,6 +17,12 @@ std::vector<ParticleRenderInstance>
 particle_render_instances(const ParticleEffectData&, double, std::uint32_t, const AffineTransform&,
                           std::size_t budget = 1024, double size = 1,
                           std::array<float, 3> tint = {1, 1, 1});
+std::vector<ParticleRenderInstance>
+particle_world_render_instances(const ParticleEffectData&, std::span<const ParticleWorldSample>,
+                                double time, double size = 1,
+                                std::array<float, 3> tint = {1, 1, 1});
+std::optional<RenderBounds>
+particle_world_bounds(const MeshBounds&, std::span<const ParticleRenderInstance>, bool billboards);
 // Conservative whole-lifetime local-space trajectory envelope, transformed by
 // the emitter's full affine (including parent scale/shear). No saved AABB authority.
 RenderBounds particle_effect_bounds(const ParticleEffectData&, const MeshBounds&,

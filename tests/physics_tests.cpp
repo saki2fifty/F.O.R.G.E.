@@ -94,15 +94,27 @@ void collision_filters() {
         overlap |= !sensor.physics->contacts().empty();
     }
     check(overlap && y(sensor) < -1, "Sensor did not report overlap without solid response");
+    const auto sensor_ref = *sensor.engine.world().reference(cube.id());
+    const auto query_sensor = [&] {
+        const auto hit = sensor.physics->raycast({0, y(sensor), -5}, {0, 0, 10});
+        check(!hit || hit->entity == sensor_ref, "Closest ray changed its canonical body owner");
+        return bool(hit);
+    };
+    check(query_sensor(), "Realized sensor has no closest-ray owner");
     body.enabled = false;
     cube.set<PhysicsBody>(body);
     sensor.physics->synchronize(0);
     check(sensor.physics->status().at("bodies") == 1, "Disabled body remained realized");
+    check(!query_sensor(), "Disabled body retained its closest-ray owner");
     body.enabled = true;
+    cube.set<PhysicsBody>(body);
+    sensor.physics->synchronize(0);
+    check(query_sensor(), "Recreated native body lost its canonical closest-ray owner");
+    const auto realized = sensor.physics->status().at("bodies");
     body.layer = 31;
     cube.set<PhysicsBody>(body);
     reject([&] { sensor.physics->synchronize(0); });
-    check(sensor.physics->status().at("bodies") == 1, "Invalid project layer damaged world");
+    check(sensor.physics->status().at("bodies") == realized, "Invalid project layer damaged world");
 }
 void signed_scale_physics() {
     for (unsigned shape = 0; shape < 4; ++shape) {

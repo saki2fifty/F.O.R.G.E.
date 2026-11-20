@@ -156,8 +156,9 @@ class ParticleEffectEditor {
         if (expanded && document_) {
             ImGui::TextUnformatted(path_utf8(document_->locator()).c_str());
             ImGui::TextWrapped(
-                "Mesh particles move in emitter-local space. Scene and exported games use the "
-                "same cooked effect. Press Enter to commit numeric fields.");
+                "Particle Effects define reusable emission and appearance. Local effects follow "
+                "the emitter; Scene collision keeps births in world space. Scene and exported "
+                "games use the same cooked effect. Press Enter to commit numeric fields.");
             ImGui::BeginDisabled(locked || pending());
             if (ui::button(
                     "Save / Publish",
@@ -276,6 +277,53 @@ class ParticleEffectEditor {
                     "Outputs clamp to these symmetric local position extents and maximum size. "
                     "They also control visibility bounds. Nonfinite outputs use bounded analytic "
                     "values.");
+            }
+            if (!particle_uses_gpu(data)) {
+                bool scene_collision = particle_uses_scene_collision(data);
+                const auto edit_scene = [&](bool enabled,
+                                            std::optional<ParticleSceneCollision> settings = {}) {
+                    mutate("Set particle Scene collision", [&](auto& value) {
+                        ParticleEffectSource candidate{value};
+                        candidate.set_scene_collision(enabled, settings);
+                        value = std::move(candidate.document);
+                    });
+                };
+                if (ImGui::Checkbox("Scene collision (CPU)", &scene_collision))
+                    edit_scene(scene_collision);
+                FORGE_UI_PROBE("particles:scene-collision");
+                ui::help("Use realized 3D Scene colliders during Play. Sensors are ignored. Births "
+                         "retain their world position and visual basis when this emitter moves. "
+                         "Enabling selects CPU sorted alpha and deactivates local plane/ribbons, "
+                         "retaining their settings. Camera alignment and lifetime appearance are "
+                         "supported.");
+                if (scene_collision && document_->source().document.contains("scene_collision")) {
+                    auto settings = decode_particle_scene_collision(
+                        document_->source().document.at("scene_collision"));
+                    bool submit = ImGui::InputDouble("Scene radius (m)", &settings.radius, 0, 0,
+                                                     "%.5g", ImGuiInputTextFlags_EnterReturnsTrue);
+                    FORGE_UI_PROBE("particles:scene-radius");
+                    submit |= ImGui::InputDouble("Scene restitution", &settings.restitution, 0, 0,
+                                                 "%.5g", ImGuiInputTextFlags_EnterReturnsTrue);
+                    FORGE_UI_PROBE("particles:scene-restitution");
+                    submit |= ImGui::InputDouble("Scene friction", &settings.friction, 0, 0, "%.5g",
+                                                 ImGuiInputTextFlags_EnterReturnsTrue);
+                    FORGE_UI_PROBE("particles:scene-friction");
+                    submit |= ImGui::InputScalar("Scene permitted bounces", ImGuiDataType_U32,
+                                                 &settings.bounce_limit, nullptr, nullptr, "%u",
+                                                 ImGuiInputTextFlags_EnterReturnsTrue);
+                    FORGE_UI_PROBE("particles:scene-bounces");
+                    submit |= physics_layer_picker(document_->project(), "Scene collision layers",
+                                                   settings.mask, true);
+                    if (submit)
+                        edit_scene(true, settings);
+                    ui::help(
+                        "Radius is a positive world-space metric, independent of visual size. "
+                        "The next incoming contact after the permitted bounces ends a birth; "
+                        "zero ends it at first contact. Curved paths use bounded sphere sweeps "
+                        "against the current physics snapshot. There are no impulses on Scene "
+                        "bodies or resting contacts. Reduce emission or playback speed if the "
+                        "fixed-update collision budget is exceeded.");
+                }
             }
             const bool gpu_collision = particle_uses_gpu(data);
             bool collision = document_->source().document.value(
@@ -549,6 +597,9 @@ class ParticleEffectEditor {
             FORGE_UI_PROBE("particles:attach");
             ImGui::EndDisabled();
             ImGui::SeparatorText("Isolated preview");
+            const bool scene_preview =
+                particle_uses_scene_collision(document_->source().compiled());
+            ImGui::BeginDisabled(scene_preview);
             if (ui::button(playing_ ? "Pause preview" : "Play preview",
                            "Control this effect preview only; gameplay time and scene values are "
                            "unchanged."))
@@ -572,7 +623,8 @@ class ParticleEffectEditor {
             }
             FORGE_UI_PROBE("particles:preview_time");
             ImGui::EndDisabled();
-            if (locked)
+            ImGui::EndDisabled();
+            if (locked || scene_preview)
                 playing_ = false;
             if (playing_) {
                 time_ =

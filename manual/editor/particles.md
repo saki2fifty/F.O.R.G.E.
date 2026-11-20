@@ -7,7 +7,8 @@ GPU or Graph evaluation. Explicit weighted GPU alpha supports approximate
 transparent blending and per-particle fades over life. Ordered GPU alpha supports
 a compatible group of transparent emitters in one view. CPU and GPU analytic ribbon
 trails follow each particle's local path. Built-in CPU and GPU Mesh particles can
-bounce against an emitter-local plane.
+bounce against an emitter-local plane. CPU Scene collision responds to realized
+3D Scene colliders and keeps existing particles in world space as emitters move.
 
 ## Try the Gallery
 
@@ -39,7 +40,7 @@ shapes, damping, growth and color. These scenes need no C++ compiler.
 3. Choose **Evaluation → CPU** or **GPU**, then its **Mesh** and optional **Material**. Start with the built-in cube.
 4. Choose Continuous or Burst. Set capacity, lifetime and either particles/second or burst count. Enter numeric values to commit them. Continuous capacity must accommodate rate times lifetime; errors retain the previous valid values.
 5. Choose Point, Box, Sphere or Disc. Box uses full dimensions in meters; Sphere fills its radius and Disc fills a plane perpendicular to Direction. Adjust direction, cone, speed, acceleration and drag. Zero drag preserves free motion.
-6. Use preview Play/Pause, time and Reset. Preview is independent of game Play and does not change the scene. Orbit/zoom its image. Undo/Redo edits source values.
+6. For analytic effects, use preview Play/Pause, time and Reset. Preview is independent of game Play and does not change the scene. Orbit/zoom its image. Scene collision requires Play in the main editor with realized Scene colliders. Undo/Redo edits source values.
 7. Choose **Save / Publish**. This saves and builds the runtime effect. A failed build reports the problem and retains the working published revision.
 
 ## Choose evaluation
@@ -406,10 +407,54 @@ CPU ribbons. GPU evaluation uses float precision, so contact times near tangency
 or the rebound limit can differ from CPU results. Killed GPU births use zero-size
 geometry within the reserved instance budget until their ordinary lifetime ends.
 
-Collision uses ordinary Mesh particles. Scene-collider response, collision
+Plane collision uses ordinary Mesh particles. Scene-collider response, collision
 callbacks, arbitrary Graph trajectories, ribbons and camera-aligned quads cannot
 be combined with this plane response. Nonidentity particle opacity needs a Blend
 Material with depth testing enabled and depth writing disabled.
+
+## Scene collision
+
+Open **Scenes/254-scene-particle-collision.scene.json** in FeatureGallery and press
+**Play**. Two tinted emitters share
+**Assets/Particles/Collision/SceneBounces.particles.json**. Particles respond to the
+real floor and inclined obstacle. Stop, select either obstacle in Hierarchy and
+move, resize or rotate it, then press Play again. The camera and light are included;
+no project C++ code is required.
+
+![Teal and amber world-space particles above a floor and inclined obstacle](../images/scene-particle-collision.png)
+
+The Scene collision Gallery running in the Game renderer at three seconds.
+
+1. Stop Play. Open the Particle Effect from Content and choose a CPU **Evaluation**.
+2. Enable **Scene collision (CPU)**. This selects **CPU (sorted alpha)** and turns off local-plane and ribbon activation while retaining their settings.
+3. Set **Scene radius (m)** from 0.001 to 1,000. It is a world-space sphere radius, independent of the visible mesh size, emitter scale and lifetime size curve.
+4. Set **Scene restitution** and **Scene friction** from 0 to 1. Restitution controls normal rebound speed; friction removes a fraction of tangent velocity at each impact. These Effect settings control the response; Scene bodies do not receive particle impulses.
+5. Set **Scene permitted bounces** from 0 to 16. After that many rebounds, the next incoming contact ends the particle. Zero ends it at the first contact. Initially penetrating births and sustained inward-force contact without normal rebound also end.
+6. Use **Scene collision layers** to choose the named Physics layers to query. **No layers** allows free flight inside the running World. Sensor shapes are ignored. These collision layers are separate from the emitter's rendering layers.
+7. Keep camera alignment enabled for quads, or turn it off to use the saved Mesh. Lifetime size, color and opacity controls remain available. Fading transparent particles need a Blend Material with depth testing enabled and depth writing disabled.
+8. Choose **Save / Publish**, save the Scene and press **Play**. Add enabled 3D Physics bodies and colliders for any other surfaces the particles should hit. Export through **Export Game** using the runtime kit packaged with this editor.
+
+Each birth uses the emitter's adopted fixed-update position, orientation and
+scale. Its velocity and acceleration transform into world space at birth.
+Moving or rotating an emitter later affects new births; it does not drag existing
+particles. **Size multiplier** and **Tint R / G / B** remain adjustable in
+**Live gameplay** and do not change collision radius or motion.
+
+Test this mode during Play. Stopped Scene, isolated Effect and Timeline previews
+have no live collision simulation and display a Play notice. Isolated preview
+playback and seeking are disabled. Stop/restart, changing seed or Effect,
+disabling/re-enabling an emitter and visual recovery restart its transient history.
+Particle histories are not saved into the Scene.
+
+Scene collision supports CPU Mesh and camera-plane particles. It does not combine
+with GPU evaluation, ribbons or the local-plane response. Queries use bounded
+straight sphere sweeps to approximate curved paths against the current physics
+snapshot; this is not continuous moving-surface collision. There are no resting
+contacts, 2D Scene queries, collision callbacks or two-way rigid-body response.
+Scene collision reserves at most 1,024 births across enabled emitters, within the
+ordinary 8,192-instance Scene budget. High rates, playback speeds, small radii or
+many contacts can exceed the per-update collision work budget. Reduce these
+settings or the number/capacity of emitters when a budget error is reported.
 
 ## Opacity over life
 
@@ -453,8 +498,9 @@ birth to 1 at death. Enter commits values.
 - Remove interior stops. Each channel supports 2–16 stops.
 - Disable a channel to return to its retained start/end values. Undo restores the previous stops and values.
 
-Preview Play/Pause and time show the same motion and lifetime values used by the
-exported game. Changes stay in the effect draft until **Save / Publish**. Existing
+For analytic profiles, preview Play/Pause and time show the same motion and
+lifetime values used by the exported game. Scene collision requires Play in a
+Scene. Changes stay in the effect draft until **Save / Publish**. Existing
 effects stay loadable; adding extended controls updates the source format in the
 same Undo step, without changing its asset identity.
 
@@ -463,7 +509,8 @@ same Undo step, without changing its asset identity.
 Add **Particle Emitter** to an object through Inspector, then assign the published
 effect. The effect document also has **Assign to selected Particle Emitter**.
 The object can also have an ordinary MeshRenderer. Place a game camera and light,
-save and press Play. Scene view uses a frozen sample while editing.
+save and press Play. Analytic effects use a frozen sample in stopped Scene view;
+Scene collision displays a Play notice instead.
 
 Changes made during Play are temporary live values. Stop to edit and save the
 authored scene. Export through **Export Game** normally: selected effects, meshes
@@ -503,6 +550,9 @@ transmission and custom Shader surfaces report errors. Particles do not cast sha
 Built-in GPU Mesh particles support the emitter-local plane response. Built-in
 GPU ribbons use the separate analytic trail setting. Plane response for authored
 Graph trajectories, ribbons or camera-aligned quads is unavailable.
+CPU Scene collision is separate: it supports Mesh/camera-plane geometry, requires
+the running World's 3D physics module and reserves at most 1,024 births across
+enabled emitters. It uses the matching Scene-collision runtime-kit capability.
 
 Changing the seed restarts the effect with a different pattern. C++ can adjust the
 native component; `sdk/sample/particle_probe.cpp` demonstrates seed/speed changes

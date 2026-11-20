@@ -16,6 +16,7 @@
 #include <cmath>
 #include <forge/authoring.hpp>
 #include <forge/engine_assets.hpp>
+#include <forge/physics.hpp>
 #include <forge/primitive_catalog.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
@@ -35,6 +36,7 @@ struct Example {
     bool weighted = false;
     bool gpu_opacity = false;
     bool sorted = false;
+    bool scene_collision = false;
 };
 constexpr Example alpha{"Scenes/240-sorted-alpha-particles.scene.json",
                         "Assets/Particles/Alpha/GlassCloud.particles.json", false};
@@ -129,6 +131,12 @@ constexpr Example gpu_sorted{.scene = "Scenes/253-ordered-gpu-particles.scene.js
                              .gpu_opacity = true,
                              .sorted = true};
 constexpr const char* trail_material = "Assets/Particles/Trails/Ribbon.material.json";
+constexpr Example scene_colliding{.scene = "Scenes/254-scene-particle-collision.scene.json",
+                                  .effect =
+                                      "Assets/Particles/Collision/SceneBounces.particles.json",
+                                  .opacity = true,
+                                  .billboards = true,
+                                  .scene_collision = true};
 constexpr const char* alpha_material = "Assets/Particles/Alpha/Glass.material.json";
 constexpr const char* quad_material = "Assets/Particles/Billboards/SoftCloud.material.json";
 constexpr const char* quad_texture = "Assets/Particles/Billboards/SoftCloud.paint-texture.json";
@@ -143,7 +151,8 @@ const char* material_source(const Example& example) {
                                                   : alpha_material;
 }
 unsigned value_version(const Example& example) {
-    return example.sorted                     ? 34u
+    return example.scene_collision            ? 39u
+           : example.sorted                   ? 34u
            : example.gpu && example.trails    ? (example.gpu_opacity ? 25u
                                                  : example.weighted  ? 24u
                                                                      : 23u)
@@ -177,7 +186,8 @@ RuntimePackageTarget target() {
 }
 void author(const std::filesystem::path& root, const Example& example) {
     const auto* material_path = material_source(example);
-    const bool reuse_material = example.weighted || example.sorted || example.graph ||
+    const bool reuse_material = example.scene_collision || example.weighted || example.sorted ||
+                                example.graph ||
                                 (example.opacity && !example.billboards && !example.trails);
     for (const auto* path : {example.scene, example.effect})
         check(!std::filesystem::exists(root / path), "Sorted-alpha Gallery source already exists");
@@ -277,7 +287,7 @@ void author(const std::filesystem::path& root, const Example& example) {
         else
             effect.set_trails(true, ParticleTrailSettings{.75, 8});
     }
-    if (example.collision) {
+    if (example.collision || example.scene_collision) {
         effect.document["spawn_rate"] = 24;
         effect.document["shape_size"] = {2, .25, 1};
         effect.document["cone_angle"] = 35;
@@ -288,7 +298,9 @@ void author(const std::filesystem::path& root, const Example& example) {
         effect.document["size_start"] = .12;
         effect.document["size_end"] = .06;
         const ParticleCollisionPlane plane{{0, 1, 0}, -1, .06, .65, .15, 2};
-        if (example.gpu)
+        if (example.scene_collision)
+            effect.set_scene_collision(true, ParticleSceneCollision{.06, .65, .15, 2, UINT32_MAX});
+        else if (example.gpu)
             effect.set_gpu_collision(true, plane);
         else
             effect.set_collision(true, plane);
@@ -314,7 +326,7 @@ void author(const std::filesystem::path& root, const Example& example) {
     auto catalog = AssetCatalog::open_project(root);
     if (!reuse_material)
         catalog.add({material.asset(), MaterialAsset::type, material_path, 1, {}});
-    if (example.billboards && !example.gpu) {
+    if (example.billboards && !example.gpu && !reuse_material) {
         const auto texture = PaintTextureSource::parse(
             asset_detail::read_bytes(root / quad_texture, paint_texture_source_byte_limit));
         catalog.add({texture.asset(), TextureAsset::type, quad_texture, 1, {}});
@@ -330,12 +342,13 @@ void author(const std::filesystem::path& root, const Example& example) {
         entity.set<Primitive>({no_primitive});
         return entity;
     };
-    auto teal = actor(example.collision ? "Teal bouncing plane particles"
-                      : example.trails  ? "Teal analytic ribbon trails"
-                      : example.gpu     ? "Teal camera quads - shared device effect"
-                      : example.opacity ? "Teal fade - shared opacity effect"
-                                        : "Teal glass - shared sorted-alpha effect");
-    teal.set<LocalTranslation>({-.7f, 1, .5f});
+    auto teal = actor(example.scene_collision ? "Teal Scene-collision particles"
+                      : example.collision     ? "Teal bouncing plane particles"
+                      : example.trails        ? "Teal analytic ribbon trails"
+                      : example.gpu           ? "Teal camera quads - shared device effect"
+                      : example.opacity       ? "Teal fade - shared opacity effect"
+                                              : "Teal glass - shared sorted-alpha effect");
+    teal.set<LocalTranslation>({-.7f, example.scene_collision ? 2.5 : 1, .5f});
     ParticleEmitter emitter;
     emitter.effect = {effect.asset()};
     emitter.seed = 41;
@@ -344,12 +357,13 @@ void author(const std::filesystem::path& root, const Example& example) {
     teal.set<ParticleEmitter>(emitter);
     if (example.billboards)
         teal.set<LocalScale>({1.4f, 1, 0});
-    auto amber = actor(example.collision ? "Amber bouncing plane particles"
-                       : example.trails  ? "Amber analytic ribbon trails"
-                       : example.gpu     ? "Amber camera quads - shared device effect"
-                       : example.opacity ? "Amber fade - shared opacity effect"
-                                         : "Amber glass - shared sorted-alpha effect");
-    amber.set<LocalTranslation>({.7f, 1, -.5f});
+    auto amber = actor(example.scene_collision ? "Amber Scene-collision particles"
+                       : example.collision     ? "Amber bouncing plane particles"
+                       : example.trails        ? "Amber analytic ribbon trails"
+                       : example.gpu           ? "Amber camera quads - shared device effect"
+                       : example.opacity       ? "Amber fade - shared opacity effect"
+                                               : "Amber glass - shared sorted-alpha effect");
+    amber.set<LocalTranslation>({.7f, example.scene_collision ? 2.5 : 1, -.5f});
     emitter.seed = 71;
     emitter.tint_r = 1;
     emitter.tint_g = .4f;
@@ -357,13 +371,29 @@ void author(const std::filesystem::path& root, const Example& example) {
     amber.set<ParticleEmitter>(emitter);
     if (example.billboards)
         amber.set<LocalScale>({-.8f, 1.3f, 1});
-    auto marker = actor(example.collision ? "Collision plane visual guide" : "Opaque depth marker");
+    auto marker = actor(example.scene_collision ? "Floor - move or resize before Play"
+                        : example.collision     ? "Collision plane visual guide"
+                                                : "Opaque depth marker");
     MeshRenderer mesh;
     mesh.mesh = engine_primitive(0);
     marker.set<MeshRenderer>(mesh);
-    marker.set<LocalTranslation>(example.collision ? LocalTranslation{0, -.05f, 0}
-                                                   : LocalTranslation{0, 1, -.75f});
-    marker.set<LocalScale>(example.collision ? LocalScale{7, .1f, 5} : LocalScale{.2f, 2, .2f});
+    marker.set<LocalTranslation>((example.collision || example.scene_collision)
+                                     ? LocalTranslation{0, -.05f, 0}
+                                     : LocalTranslation{0, 1, -.75f});
+    marker.set<LocalScale>(example.scene_collision ? LocalScale{12, .1f, 10}
+                           : example.collision     ? LocalScale{7, .1f, 5}
+                                                   : LocalScale{.2f, 2, .2f});
+    if (example.scene_collision) {
+        marker.set<PhysicsBody>({});
+        marker.set<BoxCollider>({1, 1, 1});
+        auto obstacle = actor("Inclined obstacle - rotate before Play");
+        obstacle.set<MeshRenderer>(mesh);
+        obstacle.set<LocalTranslation>({0, .5, 0});
+        obstacle.set<LocalScale>({2, .25f, 2});
+        obstacle.set<LocalRotation>(rotation_about_axis({0, 0, 1}, 25));
+        obstacle.set<PhysicsBody>({});
+        obstacle.set<BoxCollider>({1, 1, 1});
+    }
     auto camera = actor("Game Camera");
     camera.set<Camera>({});
     camera.set<LocalTranslation>({0, 2, -9});
@@ -420,9 +450,23 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
     Scene scene(engine.world());
     scene.load(root / example.scene);
     const auto render = extract_render_scene(scene.effective_document());
-    check(render.diagnostics.empty() && render.particles.size() == 2 && render.meshes.size() == 1 &&
+    check(render.diagnostics.empty() && render.particles.size() == 2 &&
+              render.meshes.size() == (example.scene_collision ? 2u : 1u) &&
               render.cameras.size() == 1 && render.lights.size() == 1,
           "Sorted-alpha example lost its native Scene consumers");
+    if (example.scene_collision) {
+        check(effect.document.at("version") == 16 &&
+                  effect.compiled().scene_collision ==
+                      ParticleSceneCollision{.06, .65, .15, 2, UINT32_MAX} &&
+                  !effect.compiled().collision && scene.document().at("entities").size() == 6,
+              "Scene example lost explicit World collision settings or its six native actors");
+        for (const auto& mesh : render.meshes) {
+            auto entity = scene.entity(mesh.entity.str());
+            check(entity.has<PhysicsBody>() && entity.has<BoxCollider>(),
+                  "Scene collision example contains a visual obstacle without realized collider "
+                  "intent");
+        }
+    }
     if (example.sorted)
         check(!render.settings.weighted_transparency && effect.document.at("version") == 15 &&
                   effect.document.at("gpu_sorted_enabled") == true &&
@@ -623,7 +667,10 @@ void verify_export(const std::filesystem::path& root, const Example& example,
               material.data.values.depth_write ==
                   (example.gpu && !example.weighted && !example.sorted),
           "Relocated source-free particle Material has different values");
-    EngineContext runtime(WorldRole::Runtime, false, {particle_module(relocated)});
+    std::vector<EngineModule> modules{particle_module(relocated)};
+    if (example.scene_collision)
+        modules.push_back(physics_module());
+    EngineContext runtime(WorldRole::Runtime, false, std::move(modules));
     Scene scene(runtime.world());
     scene.load(relocated / catalog.records().at(ids[0]).source);
     const auto saved = scene.document();
@@ -679,9 +726,18 @@ void verify_export(const std::filesystem::path& root, const Example& example,
         }
         const auto samples = particles->sample(scene.entity(emitter.entity.str()).id(), 1);
         check(emitter.time == 3 &&
-                  (example.collision ? !samples.empty() && samples.size() < 72
-                                     : samples.size() == (example.trails ? 20u : 96u)),
+                  (example.scene_collision ? !samples.empty() && samples.size() <= 72
+                   : example.collision     ? !samples.empty() && samples.size() < 72
+                                           : samples.size() == (example.trails ? 20u : 96u)),
               "Source-free alpha emitter lost fixed-clock CPU birth membership");
+        if (example.scene_collision) {
+            check(emitter.world_samples && emitter.world_samples->size() == samples.size(),
+                  "Source-hidden Scene effect lost its copied World observations");
+            for (const auto& particle : samples)
+                if (std::abs(particle.position[0]) < 5.9 && std::abs(particle.position[2]) < 4.9)
+                    check(particle.position[1] >= .06 - 1e-5,
+                          "Source-hidden Scene particle tunneled a live center through the floor");
+        }
         if (example.collision)
             for (const auto& particle : samples)
                 check(particle.position[1] >= -.94 - 1e-10,
@@ -713,7 +769,14 @@ int main(int argc, char** argv) {
         check(argc >= 3, "Need sorted-alpha Gallery action and project root");
         const auto root = std::filesystem::absolute(argv[2]);
         const std::string_view action = argv[1];
-        if (action == "--author-gpu-sorted")
+        if (action == "--author-scene-collision")
+            author(root, scene_colliding);
+        else if (action == "--inspect-scene-collision")
+            (void)inspect(root, scene_colliding);
+        else if (action == "--prepare-scene-collision")
+            prepare(root, scene_colliding, true,
+                    argc > 3 ? std::filesystem::path(argv[3]) : std::filesystem::path{});
+        else if (action == "--author-gpu-sorted")
             author(root, gpu_sorted);
         else if (action == "--inspect-gpu-sorted")
             (void)inspect(root, gpu_sorted);
@@ -796,7 +859,7 @@ int main(int argc, char** argv) {
             bool texture_prepared = false;
             for (const auto& example :
                  {quads, gpu_quads, graph_quads, weighted_quads, weighted_graph_quads, gpu_fading,
-                  graph_fading, gpu_sorted}) {
+                  graph_fading, gpu_sorted, scene_colliding}) {
 #ifndef _WIN32
                 // Source inspection is portable; program publication uses the native cook.
                 if (example.graph)
@@ -812,7 +875,9 @@ int main(int argc, char** argv) {
                 const auto worker =
                     std::filesystem::absolute(argv[3]).parent_path() / "forge_asset_build";
 #endif
-                prepare(root, example, !example.graph && !example.weighted && !example.sorted,
+                prepare(root, example,
+                        !example.graph && !example.weighted && !example.sorted &&
+                            !example.scene_collision,
                         worker, !texture_prepared);
                 texture_prepared = true;
             }
@@ -838,7 +903,8 @@ int main(int argc, char** argv) {
                    action == "--verify-export-gpu-graph-opacity" ||
                    action == "--verify-export-gpu-collision" ||
                    action == "--verify-export-gpu-trails" ||
-                   action == "--verify-export-gpu-sorted") {
+                   action == "--verify-export-gpu-sorted" ||
+                   action == "--verify-export-scene-collision") {
             const bool gpu = action == "--verify-export-gpu-sorted" ||
                              action == "--verify-export-gpu-opacity" ||
                              action == "--verify-export-gpu-graph-opacity" ||
@@ -846,7 +912,8 @@ int main(int argc, char** argv) {
                              action == "--verify-export-weighted-graph" ||
                              action == "--verify-export-gpu-billboards" ||
                              action == "--verify-export-gpu-graph-billboards";
-            const bool billboards = action == "--verify-export-billboards" || gpu;
+            const bool billboards = action == "--verify-export-billboards" ||
+                                    action == "--verify-export-scene-collision" || gpu;
             check(argc == (billboards ? 5 : 4),
                   "Need private verification scratch root and optional texture worker");
             const auto copy =
@@ -854,7 +921,8 @@ int main(int argc, char** argv) {
             std::filesystem::create_directories(copy.parent_path());
             std::filesystem::copy(root, copy, std::filesystem::copy_options::recursive);
             verify_export(copy,
-                          action == "--verify-export-gpu-sorted"             ? gpu_sorted
+                          action == "--verify-export-scene-collision"        ? scene_colliding
+                          : action == "--verify-export-gpu-sorted"           ? gpu_sorted
                           : action == "--verify-export-gpu-trails"           ? gpu_ribbons
                           : action == "--verify-export-gpu-collision"        ? gpu_colliding
                           : action == "--verify-export-gpu-opacity"          ? gpu_fading

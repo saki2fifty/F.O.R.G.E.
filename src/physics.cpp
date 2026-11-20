@@ -774,7 +774,7 @@ struct PhysicsRuntime::Impl {
                 prior->second.last.scale == pose.scale)
                 continue;
             auto next = std::make_unique<physics_detail::Character>(system, allocator, c, pose,
-                                                                    group_filter.GetPtr());
+                                                                    group_filter.GetPtr(), id);
             JPH::BodyID ignored;
             if (prior != characters.end()) {
                 auto& old = *prior->second.owner;
@@ -1180,6 +1180,18 @@ struct PhysicsRuntime::Impl {
                 "Physics service is stopped or accessed outside its owning thread");
         if (native_2d)
             native_2d->check();
+    }
+    std::optional<EntityRef> native_reference(JPH::BodyID native) const {
+        // Native metadata is only a lookup hint. The existing records and full
+        // native generation still admit the copied canonical reference.
+        const auto entity = system.GetBodyInterface().GetUserData(native);
+        if (const auto found = bodies.find(entity);
+            found != bodies.end() && found->second.id == native)
+            return found->second.ref;
+        if (const auto found = characters.find(entity);
+            found != characters.end() && found->second.owner->native().GetInnerBodyID() == native)
+            return found->second.ref;
+        return {};
     }
     const Body* find_body(EntityRef ref) const {
         check();
@@ -1642,6 +1654,7 @@ struct PhysicsRuntime::Impl {
         JPH::BodyCreationSettings settings(
             prepared.GetPtr(), position(pose.translation), rotation(pose.rotation),
             static_cast<JPH::EMotionType>(c.body.motion), c.body.motion ? 1 : 0);
+        settings.mUserData = entity;
         const JPH::RefConst<ProjectGroupFilter> body_filter =
             new ProjectGroupFilter(&excluded_joint_pairs, entity);
         settings.mCollisionGroup =
@@ -2294,13 +2307,7 @@ std::optional<PhysicsHit> PhysicsRuntime::raycast_filtered(Double3 origin, Doubl
     JPH::RayCastResult hit;
     if (!s.system.GetNarrowPhaseQuery().CastRay(ray, hit, {}, {}, s.query_filter(filter)))
         return {};
-    std::optional<EntityRef> ref;
-    for (const auto& [id, body] : s.bodies)
-        if (body.id == hit.mBodyID)
-            ref = body.ref;
-    for (const auto& [id, c] : s.characters)
-        if (c.owner->native().GetInnerBodyID() == hit.mBodyID)
-            ref = c.ref;
+    const auto ref = s.native_reference(hit.mBodyID);
     if (!ref)
         throw std::runtime_error("Physics ray hit an unowned body");
     const auto p = ray.GetPointOnRay(hit.mFraction);
@@ -2410,13 +2417,7 @@ std::optional<PhysicsHit> PhysicsRuntime::shape_cast(const PhysicsSweep& request
     if (!collector.HadHit())
         return {};
     const auto& hit = collector.mHit;
-    std::optional<EntityRef> ref;
-    for (const auto& [id, body] : s.bodies)
-        if (body.id == hit.mBodyID2)
-            ref = body.ref;
-    for (const auto& [id, c] : s.characters)
-        if (c.owner->native().GetInnerBodyID() == hit.mBodyID2)
-            ref = c.ref;
+    const auto ref = s.native_reference(hit.mBodyID2);
     if (!ref)
         throw std::runtime_error("Shape query hit an unowned body");
     const auto point = origin + hit.mContactPointOn2;
@@ -3418,7 +3419,7 @@ void PhysicsRuntime::restore(const Json& payload) {
         const auto id = s.context.resolve(ref).entity;
         const auto& [config, pose] = desired_chars.at(id);
         auto owner = std::make_unique<physics_detail::Character>(
-            s.system, s.allocator, config, pose, s.group_filter.GetPtr(),
+            s.system, s.allocator, config, pose, s.group_filter.GetPtr(), id,
             JPH::BodyID(item.at("body").get<std::uint32_t>()));
         owner->restore_motion(item.at("intent").get<Double3>(), item.at("takeoff").get<Double3>(),
                               item.at("jump").get<float>(), item.at("crouched").get<bool>(),

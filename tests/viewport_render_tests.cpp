@@ -267,6 +267,7 @@ int main(int argc, char** argv) {
                       std::string_view(argv[2]) == "particle-gpu-collision-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-trail-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-sorted-gallery" ||
+                      std::string_view(argv[2]) == "particle-scene-collision-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-sorted-countercases" ||
                       std::string_view(argv[2]) == "particle-gpu-opacity-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-graph-opacity-gallery")),
@@ -333,6 +334,11 @@ int main(int argc, char** argv) {
             } else if (selected == "particle-gpu-sorted-countercases") {
                 require(argc == 4, "GPU sorted countercases need relocated published content");
                 forge::particle_sorted_content_test::execute(isolated, context, argv[3]);
+            } else if (selected == "particle-scene-collision-gallery") {
+                require(argc == 4, "Scene particle render needs relocated cooked content");
+                forge::test_particle_alpha::gallery(isolated, context, argv[3], images, true, true,
+                                                    false, false, false, false, false, false, false,
+                                                    true);
             } else if (selected == "particle-gpu-sorted-gallery") {
                 require(argc == 4, "GPU sorted render needs relocated cooked content");
                 forge::test_particle_alpha::gallery(isolated, context, argv[3], images, true, true,

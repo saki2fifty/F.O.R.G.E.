@@ -1180,10 +1180,13 @@ Json Scene::serialize(bool effective, bool ui_only) const {
     for (const auto& item : opaque_.at("entities"))
         fragments[item.at("id")] = &item;
     for (auto item : doc.at("entities")) {
-        // Runtime activity is derived by RuntimeSimulation, never by an opaque
-        // source extension copied into an authoring/presentation projection.
-        if (effective)
+        // Runtime activity and particle playback come from their live owners,
+        // never opaque source fields copied into a presentation projection.
+        // Authored round trips still retain the original unknown source data.
+        if (effective) {
             item.erase("state_active");
+            item.erase("particle_playback");
+        }
         auto e = entity(item.at("id"));
         if (!e || !e.is_alive()) {
             if (item.contains("prefab_member") ||

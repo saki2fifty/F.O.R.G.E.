@@ -89,7 +89,8 @@ CharacterShapes character_shapes(const CharacterController& c, LocalScale scale)
 }
 Character::Character(JPH::PhysicsSystem& system, JPH::TempAllocator& allocator,
                      CharacterController config, LocalTransform pose,
-                     const JPH::GroupFilter* group_filter, JPH::BodyID requested)
+                     const JPH::GroupFilter* group_filter, std::uint64_t entity,
+                     JPH::BodyID requested)
     : system_(system), allocator_(allocator), config_(config),
       shapes_(character_shapes(config, pose.scale)) {
     auto q = normalized(pose.rotation);
@@ -115,6 +116,7 @@ Character::Character(JPH::PhysicsSystem& system, JPH::TempAllocator& allocator,
         &system_);
     if (character_->GetInnerBodyID().IsInvalid())
         throw std::runtime_error("Character inner body capacity exhausted");
+    system_.GetBodyInterface().SetUserData(character_->GetInnerBodyID(), entity);
     system_.GetBodyInterface().SetCollisionGroup(
         character_->GetInnerBodyID(), JPH::CollisionGroup(group_filter, config.mask, config.layer));
 }

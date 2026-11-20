@@ -6849,6 +6849,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "437d69d2-ccb4-4cf3-ba1e-e6251b820871",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Collision/SceneBounces.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "44a06101-dfd4-4547-b57f-21d76be4d65a",
       "metadata": {},
       "schema_version": 3,
@@ -19237,6 +19247,16 @@
       "source": "Assets/AnimatedProperties/AudioPulse.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d6d93afc-0bc1-448d-86ce-6d3935e5196b",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/254-scene-particle-collision.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

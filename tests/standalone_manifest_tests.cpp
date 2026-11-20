@@ -164,6 +164,37 @@ int main(int argc, char** argv) {
                     }
                 }
             }
+            for (unsigned values : {38u, 39u}) {
+                effect.metadata["forge.particle_effect"]["value_version"] = values;
+                particles.replace(effect);
+                Json scene_kit{
+                    {"runtime_particle_effect", particle_effect_cooked_version},
+                    {"runtime_particle_alpha", particle_alpha_profile_version},
+                    {"runtime_particle_opacity", particle_opacity_profile_version},
+                    {"runtime_particle_scene_collision", particle_scene_collision_profile_version}};
+                if (values == 39) {
+                    reject([&] { validate_runtime_compatibility(particles, scene_kit); });
+                    scene_kit["runtime_particle_billboard"] = particle_billboard_profile_version;
+                }
+                validate_runtime_compatibility(particles, scene_kit);
+                for (const Json& invalid :
+                     {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"), Json(2),
+                      Json((std::uint64_t{1} << 32) + 1)}) {
+                    auto wrong = scene_kit;
+                    wrong["runtime_particle_scene_collision"] = invalid;
+                    reject([&] { validate_runtime_compatibility(particles, wrong); });
+                }
+                for (const auto* missing :
+                     {"runtime_particle_effect", "runtime_particle_alpha",
+                      "runtime_particle_opacity", "runtime_particle_scene_collision",
+                      "runtime_particle_billboard"}) {
+                    if (values == 38 && std::string_view(missing) == "runtime_particle_billboard")
+                        continue;
+                    auto wrong = scene_kit;
+                    wrong.erase(missing);
+                    reject([&] { validate_runtime_compatibility(particles, wrong); });
+                }
+            }
             effect.metadata["forge.particle_effect"]["value_version"] = 4;
             particles.replace(effect);
             reject([&] { validate_runtime_compatibility(particles, engine); });

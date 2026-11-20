@@ -44,6 +44,12 @@ void character_physics_tests() {
           "Shared host character projection changed existing3D support/velocity meaning");
     const auto hit = f.physics->raycast({0, 1, -5}, {0, 0, 10});
     check(hit && hit->entity == ref, "Character inner body not mapped to EntityRef");
+    PhysicsSweep character_sweep;
+    character_sweep.origin = {0, 1, -5};
+    character_sweep.dimensions = {.05, 0, 0};
+    character_sweep.displacement = {0, 0, 10};
+    const auto swept = f.physics->shape_cast(character_sweep, {});
+    check(swept && swept->entity == ref, "Character sweep lost its canonical inner-body owner");
     const std::array<EntityRef, 1> excluded{ref};
     const PhysicsQueryFilter filter{UINT32_MAX, true, excluded};
     check(!f.physics->raycast_filtered({0, 1, -5}, {0, 0, 10}, filter) &&
@@ -58,6 +64,11 @@ void character_physics_tests() {
         Fixture restored;
         restored.scene.restore_snapshot(f.scene.snapshot());
         restored.physics->restore(queued_once);
+        const auto restored_ray = restored.physics->raycast({0, 1, -5}, {0, 0, 10});
+        const auto restored_sweep = restored.physics->shape_cast(character_sweep, {});
+        check(restored_ray && restored_sweep && restored_ray->entity == ref &&
+                  restored_sweep->entity == ref,
+              "Restored character lost its canonical ray/sweep owner");
         f.tick();
         restored.tick();
         const auto moved = f.physics->character(ref);

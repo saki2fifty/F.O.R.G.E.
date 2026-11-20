@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Scene particle collision
+
+Open **Scenes/254-scene-particle-collision.scene.json** and press Play. Two tinted
+emitters share **Assets/Particles/Collision/SceneBounces.particles.json** and the
+existing soft cloud image/Material. The floor and inclined obstacle have real 3D
+Physics bodies and Box Colliders. Stop, move or rotate either obstacle, then press
+Play to test the response. Existing particles keep their world positions when an
+emitter moves. Open the Effect for **Scene collision (CPU)**, metric radius,
+response, named collision layers, camera alignment and lifetime appearance.
+This mode requires Play; isolated preview playback is disabled. Save / Publish,
+save the Scene and export using the matching runtime kit. No project C++ code is
+required. Open **Help → User Manual** and choose the particle-effects guide for
+steps and current limits.
+
 ## Ordered GPU particles
 
 Open **Scenes/253-ordered-gpu-particles.scene.json** and press Play. Two tinted

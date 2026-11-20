@@ -1,5 +1,6 @@
 #pragma once
 #include <forge/fog_volume.hpp>
+#include <forge/particle_effect.hpp>
 #include <forge/reflection_probe.hpp>
 #include <forge/render_view.hpp>
 #include <forge/scene_render_settings.hpp>
@@ -67,6 +68,7 @@ struct RenderParticleEmitter {
     double time = .5; // Frozen authoring sample when no runtime capture exists.
     std::string revision;
     std::uint64_t generation = 0;
+    std::optional<std::vector<ParticleWorldSample>> world_samples = std::nullopt;
 };
 struct RenderSprite {
     EntityId entity;

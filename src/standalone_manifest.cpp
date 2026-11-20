@@ -187,7 +187,7 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                 opacity->get<std::uint64_t>() == particle_opacity_profile_version,
                             "Particle opacity requires the runtime kit packaged with this editor");
                     }
-                    if (values == 7) {
+                    if (!particle_uses_gpu(particle) && particle_uses_billboards(particle)) {
                         const auto billboard = engine.find("runtime_particle_billboard");
                         require(billboard != engine.end() && billboard->is_number_integer() &&
                                     billboard->get<std::uint64_t>() ==
@@ -225,6 +225,14 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                         particle_gpu_sorted_profile_version,
                                 "GPU sorted particles require the runtime kit packaged with this "
                                 "editor");
+                    }
+                    if (particle_uses_scene_collision(particle)) {
+                        const auto collision = engine.find("runtime_particle_scene_collision");
+                        require(collision != engine.end() && collision->is_number_integer() &&
+                                    collision->get<std::uint64_t>() ==
+                                        particle_scene_collision_profile_version,
+                                "Scene particle collision requires the runtime kit packaged with "
+                                "this editor");
                     }
                     if (values == 11) {
                         const auto collision = engine.find("runtime_particle_collision");

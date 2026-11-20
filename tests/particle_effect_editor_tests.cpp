@@ -702,6 +702,53 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
     require(editor.document()->source().document == before_weighted,
             "Native GPU trail edits did not restore exact prior source/history");
 
+    const auto before_scene_collision = editor.document()->source().document;
+    choose("particles:evaluation", 0);
+    if (editor.document()->source().document.value("billboard_enabled", false))
+        click("particles:billboards");
+    click("particles:scene-collision");
+    frame();
+    require(editor.document()->source().compiled().version == 38 &&
+                editor.document()->source().document.at("version") == 16 &&
+                !test::ui_targets.at("particles:preview_play").enabled &&
+                !test::ui_targets.at("particles:preview_time").enabled && !editor.preview_playing(),
+            "Native Scene collision did not select world-space Mesh motion or disable isolated "
+            "seeking");
+    number("particles:scene-radius", ".025");
+    number("particles:scene-restitution", ".75");
+    number("particles:scene-friction", ".2");
+    number("particles:scene-bounces", "8");
+    choose("physics-layer-picker:Scene collision layers", 1);
+    require(
+        editor.document()->source().compiled().scene_collision ==
+            ParticleSceneCollision{.025, .75, .2, 8, 0},
+        "Native Scene controls did not commit shared metric settings and named-layer selection");
+    const auto tuned_scene = editor.document()->source().document;
+    number("particles:scene-radius", "0");
+    require(editor.document()->source().document == tuned_scene && !editor.diagnostic().empty(),
+            "Zero Scene collision radius changed the source candidate");
+    number("particles:scene-bounces", "17");
+    require(editor.document()->source().document == tuned_scene && !editor.diagnostic().empty(),
+            "Invalid Scene rebound count changed the source candidate");
+    click("particles:billboards");
+    frame();
+    require(editor.document()->source().compiled().version == 39 &&
+                !test::ui_targets.at("particles:mesh").enabled,
+            "Native Scene collision did not support camera-plane geometry");
+    click("particles:scene-collision");
+    frame();
+    require(!particle_uses_scene_collision(editor.document()->source().compiled()) &&
+                test::ui_targets.at("particles:preview_play").enabled,
+            "Disabling Scene collision did not restore the isolated analytic preview");
+    click("particles:undo");
+    require(editor.document()->source().compiled().version == 39,
+            "Scene collision Undo did not restore the world-space profile");
+    for (unsigned i = 0; i < 48 && editor.document()->source().document != before_scene_collision;
+         ++i)
+        editor.undo();
+    require(editor.document()->source().document == before_scene_collision,
+            "Scene collision controls did not restore exact prior settings and source history");
+
     click("particles:undo");
     // Keep the original lifecycle/close checks applicable, including start-size editing.
     for (unsigned i = 0; i < 32 && editor.document()->source().document != before_extended; ++i)

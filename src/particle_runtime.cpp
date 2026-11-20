@@ -67,7 +67,7 @@ void ParticleRuntime::synchronize() {
             effects_.unload(entry.config.effect);
     std::erase_if(entries_, [&](const auto& entry) { return !used.contains(entry.first); });
     effects_.pump();
-    std::size_t capacity = 0;
+    std::size_t capacity = 0, scene_capacity = 0;
     for (const auto& [entity, config] : sources) {
         auto& entry = entries_[entity];
         if (!entry.ticket || entry.config.effect != config.effect ||
@@ -83,6 +83,15 @@ void ParticleRuntime::synchronize() {
             require(entry.effect->capacity <= particle_scene_capacity - capacity,
                     "Particle scene exceeds the 8192 reserved-instance budget");
             capacity += entry.effect->capacity;
+            if (particle_uses_scene_collision(entry.effect.get())) {
+                require(world_.role() == WorldRole::Runtime &&
+                            world_.services().available(Capability::Physics),
+                        "Scene collision particles require their Runtime World's physics module");
+                require(entry.effect->capacity <=
+                            particle_scene_collision_capacity - scene_capacity,
+                        "Scene collision particles exceed the 1024 reserved-birth World budget");
+                scene_capacity += entry.effect->capacity;
+            }
         } else {
             const auto state = entry.ticket.inspect();
             if (resource_detail::terminal(state.state))
@@ -107,10 +116,40 @@ void ParticleRuntime::tick(float dt) {
         if (entry.effect)
             require(entry.current + double(dt) * entry.config.playback_speed <= 1e9,
                     "Particle visual time exceeds the supported range");
+    std::map<flecs::entity_t, ParticleSceneHistory> candidates;
+    ParticleSceneWork work;
+    for (const auto& [id, entry] : entries_) {
+        if (!entry.effect || !particle_uses_scene_collision(entry.effect.get()))
+            continue;
+        if (candidates.empty())
+            world_.evaluate_world_transforms();
+        const auto entity = world_.world().entity(id);
+        require(entity.has<WorldTransform>() && entity.get<WorldTransform>().resolved,
+                "Scene collision particles require a resolved birth transform");
+        const auto physics = world_.services().physics();
+        const PhysicsQueryFilter filter{entry.effect->scene_collision->mask, false};
+        candidates.emplace(id,
+                           advance_particle_scene_history(
+                               entry.scene, entry.effect.get(), entry.config.seed, entry.current,
+                               entry.current + double(dt) * entry.config.playback_speed,
+                               entity.get<WorldTransform>().affine,
+                               [&](const Double3& origin, const Double3& delta, double radius) {
+                                   PhysicsSweep sweep;
+                                   sweep.origin = {origin[0], origin[1], origin[2]};
+                                   sweep.dimensions = {radius, 0, 0};
+                                   sweep.displacement = delta;
+                                   return physics->shape_cast(sweep, filter);
+                               },
+                               work));
+    }
+    // All queries and bounded candidate allocations succeeded. A failure above
+    // leaves every entry's emission interval and contact history unchanged.
     for (auto& [id, entry] : entries_) {
         entry.previous = entry.current;
         if (entry.effect)
             entry.current += double(dt) * entry.config.playback_speed;
+        if (const auto found = candidates.find(id); found != candidates.end())
+            entry.scene = std::move(found->second);
     }
 }
 void ParticleRuntime::reset() {
@@ -118,8 +157,10 @@ void ParticleRuntime::reset() {
     // Reset the visual clock while retaining admitted resources. The next
     // synchronization removes obsolete native generations and cancels effects
     // no longer referenced; resetting must not discard that retirement evidence.
-    for (auto& [entity, entry] : entries_)
+    for (auto& [entity, entry] : entries_) {
         entry.previous = entry.current = 0;
+        entry.scene = {};
+    }
     effects_.collect();
 }
 Json ParticleRuntime::presentation(flecs::entity_t entity, double alpha) const {
@@ -128,17 +169,30 @@ Json ParticleRuntime::presentation(flecs::entity_t entity, double alpha) const {
     if (found == entries_.end() || !found->second.effect)
         return {};
     const auto& entry = found->second;
-    return {{"time", age(entry.previous, entry.current, alpha)},
-            {"revision", entry.effect.identity().revision},
-            {"generation", entry.ticket.inspect().source_generation},
-            {"seed", entry.config.seed}};
+    const auto seconds = age(entry.previous, entry.current, alpha);
+    Json result{{"time", seconds},
+                {"revision", entry.effect.identity().revision},
+                {"generation", entry.ticket.inspect().source_generation},
+                {"seed", entry.config.seed}};
+    if (particle_uses_scene_collision(entry.effect.get()))
+        result["world_samples"] = encode_particle_world_samples(sample_particle_scene_history(
+            entry.scene, entry.effect.get(), entry.previous, entry.current, seconds));
+    return result;
 }
 std::vector<ParticleSample> ParticleRuntime::sample(flecs::entity_t entity, double alpha) const {
     check();
     const auto& entry = entries_.at(entity);
     require(bool(entry.effect), "Particle effect is not ready");
-    auto samples = sample_particle_effect(
-        entry.effect.get(), age(entry.previous, entry.current, alpha), entry.config.seed);
+    std::vector<ParticleSample> samples;
+    const auto seconds = age(entry.previous, entry.current, alpha);
+    if (particle_uses_scene_collision(entry.effect.get())) {
+        const auto world_samples = sample_particle_scene_history(
+            entry.scene, entry.effect.get(), entry.previous, entry.current, seconds);
+        samples.reserve(world_samples.size());
+        for (const auto& value : world_samples)
+            samples.push_back(value.sample);
+    } else
+        samples = sample_particle_effect(entry.effect.get(), seconds, entry.config.seed);
     modulate_particle_samples(samples, entry.config.size_multiplier,
                               {entry.config.tint_r, entry.config.tint_g, entry.config.tint_b});
     return samples;

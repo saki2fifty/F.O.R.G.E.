@@ -2,6 +2,7 @@
 // Private native implementation: include Jolt/Jolt.h first.
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <Jolt/Physics/Collision/GroupFilter.h>
+#include <cstdint>
 #include <forge/character_components.hpp>
 #include <forge/transform.hpp>
 namespace forge::physics_detail {
@@ -16,7 +17,7 @@ CharacterShapes character_shapes(const CharacterController&, LocalScale);
 class Character {
   public:
     Character(JPH::PhysicsSystem&, JPH::TempAllocator&, CharacterController, LocalTransform,
-              const JPH::GroupFilter*, JPH::BodyID requested = {});
+              const JPH::GroupFilter*, std::uint64_t entity, JPH::BodyID requested = {});
     void movement(Double3 world_planar_velocity);
     void jump(float speed);
     bool crouch(bool value);

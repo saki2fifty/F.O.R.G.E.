@@ -3770,3 +3770,29 @@ built-in Blend Material and an admitted complete view for the selected alpha
 transport, with typed GPU opacity1 in addition to effect3/GPU1, weighted1 or sorted1,
 and graph/billboard/plane/trail capabilities as selected.
 No agent-only appearance behavior or separate game-authoring state is introduced.
+
+### Scene particle collision source
+
+`asset.document.particle_scene_collision` and
+`forge_asset_document_particle_scene_collision` edit the shared Particle Effect
+source. Supply editor=`particle_effect`, the current document_session and
+document_revision, and boolean enabled. Optional collision is a complete object
+with radius(0.001–1000 world meters), restitution/friction(0–1), bounce_limit(0–16)
+and mask(uint32). Omission retains settings. Invalid inactive settings also reject.
+The operation uses ordinary asset-write grants, source validation, history,
+publication, target/revision/sequence handling and errors; read-only discovery
+omits it. False on an absent setting is an exact no-op.
+
+Source16 projects CPU Mesh38 or camera-plane39 Scene response and retains source
+IDs, lifetime stops, inactive GPU/plane/ribbon settings and extensions. Enabling
+Scene response deactivates local-plane/ribbon flags; explicit activation of either
+restores that mode and deactivates Scene response. Use the existing billboard and
+lifetime operations for geometry/appearance, and the normal save/publish workflow.
+
+During Play, the existing PhysicsService queries realized3D Scene geometry with
+sensor exclusion. Births retain adopted world-space motion/bases. Existing entity,
+Physics, Play, live appearance and export tools remain authoritative; no separate
+agent simulation is added. Stopped Scene/asset/Timeline previews cannot simulate
+this profile. Discovery exposes reservations, interval trace and query limits.
+Export needs the matching Scene-collision runtime-kit capability; GPU/2D queries,
+resting contacts, callbacks, moving-surface CCD and stateful ribbons are excluded.

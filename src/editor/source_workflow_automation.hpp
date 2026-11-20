@@ -149,6 +149,21 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "matching capabilities. GPU uses float contact times and keeps killed births "
                  "as finite zero-size rows, without readback. No Scene-collider, arbitrary "
                  "Graph-motion, ribbon or camera-plane collision combination."},
+                {"scene_collision",
+                 "asset.document.particle_scene_collision selects Source16 CPU Scene response: "
+                 "values38/cpu_scene_collision1 or39/cpu_scene_collision_billboard1. Optional "
+                 "collision={radius,restitution,friction,bounce_limit,mask} replaces settings; "
+                 "omission retains them. Uses the Runtime World's realized 3D colliders after "
+                 "physics adoption; sensors are ignored. Births retain adopted world position, "
+                 "velocity, acceleration and visual basis when the emitter moves. Radius is "
+                 "positive world meters, independent of visual size/scale. Bounded curved-path "
+                 "sphere sweeps approximate the current geometry snapshot. No two-way impulses, "
+                 "resting solver, continuous moving-surface dynamics, GPU/2D queries or ribbon "
+                 "history. Local-plane/ribbon activation is disabled with settings retained. "
+                 "Requires runtime_particle_scene_collision1, effect3/alpha1/opacity1 and CPU "
+                 "billboard1 when selected. Stopped Scene/asset/Timeline previews require Play; "
+                 "there is no analytic fallback. Budgets reject without committing any particle "
+                 "clock/contact state."},
                 {"gpu_sorted",
                  "asset.document.particle_gpu_sorted enables source15, values26-37: built-in/"
                  "Graph Mesh or camera quads, built-in plane motion or ribbons, each optionally "
@@ -175,7 +190,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 {"limits",
                  {{"emitters", particle_emitter_limit},
                   {"effect_capacity", 1024},
-                  {"scene_capacity", particle_scene_capacity}}},
+                  {"scene_capacity", particle_scene_capacity},
+                  {"scene_collision_capacity", particle_scene_collision_capacity},
+                  {"scene_collision_traces", particle_scene_trace_limit},
+                  {"scene_collision_queries", particle_scene_query_limit},
+                  {"scene_collision_birth_queries", particle_scene_birth_query_limit}}},
                 {"gpu",
                  "Births, analytic motion, lifetime appearance and instance transforms "
                  "execute on a compute-capable rendering device. There is no CPU fallback. "
@@ -852,6 +871,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                                "particle_billboards",
                                "particle_trails",
                                "particle_collision",
+                               "particle_scene_collision",
                                "particle_gpu_weighted",
                                "particle_gpu_sorted",
                                "particle_program",
@@ -960,6 +980,17 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  {"friction", {{"type", "number"}, {"minimum", 0}, {"maximum", 1}}},
                  {"bounce_limit", automation_integer(0, 16)}},
                 {"normal", "offset", "radius", "restitution", "friction", "bounce_limit"});
+            needed.push_back("enabled");
+        } else if (std::string_view(action) == "particle_scene_collision") {
+            properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
+            properties["enabled"] = {{"type", "boolean"}};
+            properties["collision"] = automation_object(
+                {{"radius", {{"type", "number"}, {"minimum", .001}, {"maximum", 1000}}},
+                 {"restitution", {{"type", "number"}, {"minimum", 0}, {"maximum", 1}}},
+                 {"friction", {{"type", "number"}, {"minimum", 0}, {"maximum", 1}}},
+                 {"bounce_limit", automation_integer(0, 16)},
+                 {"mask", automation_integer(0, UINT32_MAX)}},
+                {"radius", "restitution", "friction", "bounce_limit", "mask"});
             needed.push_back("enabled");
         } else if (std::string_view(action) == "particle_program") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
@@ -1100,6 +1131,17 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "discards pending work without changing history. Poll status until settled, "
                 "refresh document_revision and inspect diagnostics. Fill uses exact byte RGBA; "
                 "pixels reads exact stored bytes." +
+                (std::string_view(action) == "particle_scene_collision"
+                     ? " Select CPU particles that sweep the Runtime World's realized 3D colliders "
+                       "during Play. Optional full collision settings retain world-metric radius, "
+                       "restitution, tangent loss, permitted rebounds and layer mask. Sensors are "
+                       "ignored. New births keep their adopted world basis; local-plane/ribbon "
+                       "activation is disabled with settings retained. Supports Mesh/camera-plane "
+                       "and lifetime appearance. Requires the matching Scene-collision kit; "
+                       "stopped "
+                       "previews have no simulation. See asset.particles.catalog for budgets and "
+                       "limits."
+                     : "") +
                 (std::string_view(action) == "mesh_stroke"
                      ? " Map explicit published Mesh triangle samples through the supplied "
                        "Material's slot (default baseColorTexture), selected lod (default0) and "

@@ -78,6 +78,25 @@ std::vector<RenderMesh> MeshSceneRenderer::prepare_particle_sources(const Render
                             source.effect_ticket.inspect().source_generation == emitter.generation,
                         "Particle runtime and presentation selections differ; restart Play");
             }
+            if (particle_uses_scene_collision(*data)) {
+                if (!emitter.world_samples && emitter.revision.empty()) {
+                    Diagnostic notice{Severity::Info,
+                                      "render.particles.play_required",
+                                      "Scene collision particles simulate during Play; stopped "
+                                      "previews have no physics World.",
+                                      {}};
+                    notice.context.asset = scene.scene;
+                    notice.context.entity = emitter.entity;
+                    notice.context.property = "forge.particle_emitter";
+                    notice.context.source = "presentation";
+                    report(std::move(notice));
+                    continue;
+                }
+                require(emitter.world_samples.has_value() && !emitter.revision.empty(),
+                        "Scene collision particles require an immutable live World capture");
+            } else
+                require(!emitter.world_samples,
+                        "Particle World capture requires a Scene collision effect profile");
             const auto reserved = particle_instance_capacity(*data);
             require(reserved <= particle_scene_capacity - capacity,
                     "Scene exceeds the 8192 reserved particle-instance budget");
@@ -143,10 +162,20 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
             const auto& data = *source->second.data();
             for (const auto& [id, material] : prepared.materials)
                 validate_particle_material_profile(material.get(), data);
-            const auto bounds =
-                particle_effect_bounds(data, prepared.mesh->mesh.lods.front().parts.front().bounds,
-                                       emitter.world, emitter.emitter.size_multiplier);
-            particle_bounds_.emplace_back(emitter.entity, bounds);
+            std::vector<ParticleRenderInstance> world_values;
+            const auto& mesh_bounds = prepared.mesh->mesh.lods.front().parts.front().bounds;
+            if (particle_uses_scene_collision(data)) {
+                require(emitter.world_samples.has_value(), "Particle World capture is missing");
+                world_values = particle_world_render_instances(
+                    data, *emitter.world_samples, emitter.time, emitter.emitter.size_multiplier,
+                    {emitter.emitter.tint_r, emitter.emitter.tint_g, emitter.emitter.tint_b});
+                if (const auto bounds = particle_world_bounds(mesh_bounds, world_values,
+                                                              particle_uses_billboards(data)))
+                    particle_bounds_.emplace_back(emitter.entity, *bounds);
+            } else
+                particle_bounds_.emplace_back(
+                    emitter.entity, particle_effect_bounds(data, mesh_bounds, emitter.world,
+                                                           emitter.emitter.size_multiplier));
             if (!emitter.emitter.visible)
                 continue;
             auto draw = proxy(emitter, data, prepared.mesh.get());
@@ -212,11 +241,14 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                 particle_instances_.emplace_back(std::move(draw), *entry->second.pose);
                 continue;
             }
-            const auto values = particle_render_instances(
-                data, emitter.time, emitter.emitter.seed, emitter.world,
-                particle_scene_capacity - particle_instances_.size(),
-                emitter.emitter.size_multiplier,
-                {emitter.emitter.tint_r, emitter.emitter.tint_g, emitter.emitter.tint_b});
+            const auto values =
+                particle_uses_scene_collision(data)
+                    ? std::move(world_values)
+                    : particle_render_instances(
+                          data, emitter.time, emitter.emitter.seed, emitter.world,
+                          particle_scene_capacity - particle_instances_.size(),
+                          emitter.emitter.size_multiplier,
+                          {emitter.emitter.tint_r, emitter.emitter.tint_g, emitter.emitter.tint_b});
             require(values.size() <= (byte_limit - bytes) / each,
                     "Particle instance CPU payload exceeds the 8 MiB frame budget");
             bytes += values.size() * each;

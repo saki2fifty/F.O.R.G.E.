@@ -1,3 +1,4 @@
+#include "particle_birth.hpp"
 #include "particle_motion.hpp"
 #include "particle_path.hpp"
 #include <algorithm>
@@ -99,20 +100,13 @@ template <class Stops> auto sample_stops(const Stops& stops, double time) {
         return value;
     }
 }
-struct ParticleSpawnFrame {
-    std::array<double, 3> axis, side, up;
-    double cosine;
-};
+} // namespace
 ParticleSpawnFrame particle_spawn_frame(const ParticleEffectData& data) {
     const auto axis = normalized(data.direction);
     const auto side = normalized(
         cross(axis, std::abs(axis[1]) > .9 ? std::array{1., 0., 0.} : std::array{0., 1., 0.}));
     return {axis, side, cross(axis, side), std::cos(data.cone_angle * std::numbers::pi / 180)};
 }
-struct ParticleBirthState {
-    std::uint64_t ordinal;
-    std::array<double, 3> origin{}, velocity{};
-};
 ParticleBirthState particle_birth_state(const ParticleEffectData& data,
                                         const ParticleSpawnFrame& frame, std::uint32_t seed,
                                         std::uint64_t ordinal) {
@@ -148,7 +142,7 @@ ParticleBirthState particle_birth_state(const ParticleEffectData& data,
 }
 ParticleSample sample_particle_birth(const ParticleEffectData& data,
                                      const ParticleBirthState& state, double age,
-                                     const ParticleMotionState* collision_motion = nullptr) {
+                                     const ParticleMotionState* collision_motion) {
     ParticleSample particle;
     particle.birth = state.ordinal;
     particle.age = age;
@@ -174,12 +168,8 @@ ParticleSample sample_particle_birth(const ParticleEffectData& data,
     }
     return particle;
 }
-struct ParticleBirthWindow {
-    double phase, units, lifetime;
-    std::uint64_t first = 0, last = 0;
-};
 ParticleBirthWindow particle_birth_window(const ParticleEffectData& data, double seconds,
-                                          double tail = 0) {
+                                          double tail) {
     ParticleBirthWindow result{seconds * data.spawn_rate, (data.lifetime + tail) * data.spawn_rate,
                                data.lifetime + tail};
     if (data.emission == ParticleEmission::Burst) {
@@ -209,6 +199,7 @@ std::optional<double> particle_birth_age(const ParticleEffectData& data,
     // Preserve a live phase that rounds to the exact lifetime in seconds.
     return std::min(phase_age / data.spawn_rate, std::nextafter(window.lifetime, 0.));
 }
+namespace {
 bool stop_hold(const nlohmann::json& stop) {
     if (!stop.is_object() || stop.size() != 3 || !stop.contains("time") ||
         !stop.contains("value") || !stop.contains("interpolation"))
@@ -291,6 +282,36 @@ nlohmann::json encode_particle_collision_plane(const ParticleCollisionPlane& pla
             {"radius", plane.radius},     {"restitution", plane.restitution},
             {"friction", plane.friction}, {"bounce_limit", plane.bounce_limit}};
 }
+void validate_particle_scene_collision(const ParticleSceneCollision& settings) {
+    range(settings.radius, .001, 1000, "Scene collision radius");
+    range(settings.restitution, 0, 1, "Scene collision restitution");
+    range(settings.friction, 0, 1, "Scene collision friction");
+    if (settings.bounce_limit > 16)
+        throw std::runtime_error("Particle Scene collision permits at most 16 bounces");
+}
+nlohmann::json encode_particle_scene_collision(const ParticleSceneCollision& settings) {
+    validate_particle_scene_collision(settings);
+    return {{"radius", settings.radius},
+            {"restitution", settings.restitution},
+            {"friction", settings.friction},
+            {"bounce_limit", settings.bounce_limit},
+            {"mask", settings.mask}};
+}
+ParticleSceneCollision decode_particle_scene_collision(const nlohmann::json& value) {
+    if (!value.is_object() || value.size() != 5 || !value.at("bounce_limit").is_number_integer() ||
+        !value.at("mask").is_number_integer())
+        throw std::runtime_error(
+            "Particle Scene collision requires five fields and integer limits");
+    const auto bounces = value.at("bounce_limit").get<std::uint64_t>();
+    const auto mask = value.at("mask").get<std::uint64_t>();
+    if (bounces > 16 || mask > UINT32_MAX)
+        throw std::runtime_error("Particle Scene collision integer value is out of range");
+    ParticleSceneCollision settings{scalar(value.at("radius")), scalar(value.at("restitution")),
+                                    scalar(value.at("friction")), unsigned(bounces),
+                                    std::uint32_t(mask)};
+    validate_particle_scene_collision(settings);
+    return settings;
+}
 void validate_particle_effect(const ParticleEffectData& data) {
     if (data.version < 1 || data.version > particle_detail::value_profiles.size())
         throw std::runtime_error("Unknown particle value version");
@@ -309,6 +330,11 @@ void validate_particle_effect(const ParticleEffectData& data) {
         throw std::runtime_error("Particle plane settings require a collision evaluation profile");
     if (data.collision)
         validate_particle_collision_plane(*data.collision);
+    if (particle_uses_scene_collision(data) != bool(data.scene_collision))
+        throw std::runtime_error(
+            "Particle Scene settings require an explicit Scene evaluation profile");
+    if (data.scene_collision)
+        validate_particle_scene_collision(*data.scene_collision);
     if (data.emission > ParticleEmission::Burst)
         throw std::runtime_error("Unknown particle emission mode");
     range(data.capacity, 1, 1024, "capacity");
@@ -383,6 +409,8 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
             !((selected_profile->flags & particle_detail::Graph) && name == "program") &&
             !((selected_profile->flags & particle_detail::Trail) && name == "trail") &&
             !((selected_profile->flags & particle_detail::Collision) && name == "collision") &&
+            !((selected_profile->flags & particle_detail::SceneCollision) &&
+              name == "scene_collision") &&
             !((selected_profile->flags & particle_detail::Opacity) &&
               (name == "opacity_start" || name == "opacity_end" || name == "opacity_curve")))
             throw std::runtime_error("Unknown particle effect field: " + name);
@@ -394,6 +422,8 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
         data.trail = decode_particle_trail_settings(source.at("trail"));
     if (particle_uses_collision(data))
         data.collision = decode_particle_collision_plane(source.at("collision"));
+    if (particle_uses_scene_collision(data))
+        data.scene_collision = decode_particle_scene_collision(source.at("scene_collision"));
     data.mesh = source.at("mesh").get<AssetRef<MeshAsset>>();
     if (source.contains("material"))
         data.material = source.at("material").get<AssetRef<MaterialAsset>>();
@@ -534,6 +564,8 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
         result["trail"] = encode_particle_trail_settings(*data.trail);
     if (data.collision)
         result["collision"] = encode_particle_collision_plane(*data.collision);
+    if (data.scene_collision)
+        result["scene_collision"] = encode_particle_scene_collision(*data.scene_collision);
     if (data.program)
         result["program"] = encode_particle_graph_program(*data.program);
     if (particle_uses_opacity(data)) {
@@ -552,6 +584,8 @@ std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData& dat
     validate_particle_effect(data);
     if (particle_uses_gpu(data))
         throw std::runtime_error("GPU particle samples require a rendering device");
+    if (particle_uses_scene_collision(data))
+        throw std::runtime_error("Scene collision particles require their live physics World");
     range(seconds, 0, 1e9, "sample time");
     const auto window = particle_birth_window(data, seconds);
     if (data.emission == ParticleEmission::Burst && !window.last)
@@ -586,7 +620,8 @@ ParticlePathSamples sample_particle_paths(const ParticleEffectData& data, double
                                           std::uint32_t seed, double duration, unsigned segments,
                                           std::size_t budget) {
     validate_particle_effect(data);
-    if (particle_uses_gpu(data) || particle_uses_collision(data))
+    if (particle_uses_gpu(data) || particle_uses_collision(data) ||
+        particle_uses_scene_collision(data))
         throw std::runtime_error("Particle paths require CPU evaluation without plane collision");
     range(seconds, 0, 1e9, "sample time");
     validate_trail_parameters(data, duration, segments);

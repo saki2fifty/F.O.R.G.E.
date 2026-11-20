@@ -1,0 +1,98 @@
+"""Scene particle source, grants, history and publication through shared MCP owners."""
+import json
+import time
+from uuid import uuid4
+
+
+def check_particle_scene(read, mutate, edit, status, content, failed, root, tools):
+    owner = 'particle_effect'
+    name = 'forge_asset_document_particle_scene_collision'
+    tool = next(item for item in tools if item['name'] == name)
+    schema = tool['inputSchema']['properties']
+    assert schema['editor']['const'] == owner and schema['enabled']['type'] == 'boolean'
+    assert set(schema['collision']['required']) == {'radius', 'restitution', 'friction', 'bounce_limit', 'mask'}
+    assert not tool['annotations']['readOnlyHint']
+    catalog = read('forge_asset_particles_catalog')
+    assert 'runtime_particle_scene_collision1' in catalog['scene_collision']
+    assert {key: catalog['limits'][key] for key in (
+        'scene_collision_capacity', 'scene_collision_traces', 'scene_collision_queries',
+        'scene_collision_birth_queries')} == dict(scene_collision_capacity=1024,
+            scene_collision_traces=2048, scene_collision_queries=8192, scene_collision_birth_queries=256)
+    path = 'Assets/SceneResponse.particles.json'
+    stops = [dict(id=str(uuid4()), time=t, value=size, interpolation='linear')
+             for t, size in ((0, .2), (1, .5))]
+    assert mutate('forge_asset_document_create', editor=owner, path=path, patch=[
+        dict(op='add', path='/size_curve', value=stops),
+        dict(op='add', path='/extensions', value={'retained': 'source extension'})])['ok']
+    original = content(owner)
+    old = status(owner)
+    assert edit(name, owner, enabled=False)['ok']
+    assert content(owner) == original and status(owner)['revision'] == old['revision']
+    settings = dict(radius=.025, restitution=.75, friction=.2, bounce_limit=8, mask=0x80000001)
+    assert edit(name, owner, enabled=True, collision=settings)['ok']
+    scene = content(owner)
+    assert scene['version'] == 16 and scene['profile'] == 'cpu_scene_collision1'
+    assert scene['scene_collision_enabled'] and scene['scene_collision'] == settings
+    assert not scene['collision_enabled'] and not scene['trail_enabled']
+    assert scene['asset_id'] == original['asset_id'] and scene['size_curve'] == stops
+    assert scene['extensions'] == original['extensions']
+    failed(mutate(name, editor=owner, enabled=False, document_session=old['session'],
+                  document_revision=old['revision']), 'stale_document')
+    current = status(owner)
+    failed(mutate(name, editor=owner, enabled=False, document_session=current['session'] + 1000,
+                  document_revision=current['revision']), 'wrong_document')
+    for invalid in (None, 1, 'true'):
+        assert not edit(name, owner, enabled=invalid)['ok']
+        assert content(owner) == scene and status(owner)['revision'] == current['revision']
+    invalid_settings = [dict(settings, radius=0), dict(settings, restitution=1.1),
+        dict(settings, friction=-.1), dict(settings, bounce_limit=17),
+        dict(settings, mask=-1), dict(settings, mask=2**32), dict(settings, mask=1.5),
+        dict(settings, extra=True), {key: value for key, value in settings.items() if key != 'radius'}]
+    for invalid in invalid_settings:
+        assert not edit(name, owner, enabled=False, collision=invalid)['ok']
+        assert content(owner) == scene and status(owner)['revision'] == current['revision']
+    assert not edit(name, owner, enabled=True, backend='gpu')['ok']
+    assert edit(name, owner, enabled=True)['ok']
+    assert content(owner) == scene and status(owner)['revision'] == current['revision']
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == original
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == scene
+
+    def save(version):
+        assert edit('forge_asset_document_save', owner)['ok']
+        deadline = time.monotonic() + 35
+        while True:
+            settled = status(owner)
+            if not settled['save_requested'] and not settled['publishing']:
+                break
+            assert time.monotonic() < deadline, settled
+            time.sleep(.02)
+        assert not settled['dirty'] and not settled['unpublished'] and not settled['diagnostic'], settled
+        metadata = read('forge_asset_read', asset=settled['asset'])['metadata']['forge.particle_effect']
+        assert metadata['version'] == 3 and metadata['value_version'] == version
+        assert json.loads((root / 'Game' / path).read_text()) == content(owner)
+
+    save(38)
+    assert edit('forge_asset_document_particle_billboards', owner, enabled=True)['ok']
+    camera = content(owner)
+    assert camera['profile'] == 'cpu_scene_collision_billboard1' and camera['scene_collision'] == settings
+    save(39)
+    assert edit('forge_asset_document_particle_evaluation', owner, evaluation='gpu')['ok']
+    assert content(owner)['profile'] == 'gpu_mesh1'
+    assert content(owner)['scene_collision'] == settings
+    assert edit('forge_asset_document_particle_evaluation', owner, evaluation='cpu_alpha')['ok']
+    assert content(owner) == camera
+    assert edit('forge_asset_document_particle_collision', owner, enabled=True)['ok']
+    assert content(owner)['profile'] == 'cpu_collision1'
+    assert not content(owner)['scene_collision_enabled'] and content(owner)['scene_collision'] == settings
+    assert edit(name, owner, enabled=True)['ok']
+    assert content(owner) == camera
+    assert edit('forge_asset_document_particle_billboards', owner, enabled=False)['ok']
+    assert content(owner) == scene
+    save(38)
+    previous_session = status(owner)
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
+    assert content(owner) == scene
+    failed(mutate(name, editor=owner, enabled=False, document_session=previous_session['session'],
+                  document_revision=previous_session['revision']), 'wrong_document')
+    assert edit('forge_asset_document_close', owner)['ok']

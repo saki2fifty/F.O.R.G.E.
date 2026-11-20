@@ -26,7 +26,9 @@ explicit GPU opacity values16–19. Source13 adds independent `gpu_collision_ena
 and explicit GPU plane values20–22 sharing the retained `collision` object with CPU.
 Source14 adds independent `gpu_trail_enabled` and explicit GPU ribbon values23–25,
 sharing the retained trail settings with CPU. Source15 adds `gpu_sorted_enabled`
-and explicit ordered GPU values26–37. Sorted and weighted GPU transport selections
+and explicit ordered GPU values26–37. Source16 adds retained Scene-collision settings
+and CPU values38/`cpu_scene_collision1` or39/`cpu_scene_collision_billboard1`.
+Sorted and weighted GPU transport selections
 are mutually exclusive; inactive shape, opacity, Graph, plane and trail settings
 remain retained across transport changes.
 Other backends retain inactive settings without
@@ -50,7 +52,7 @@ New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope contai
 `format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3, graph4
 or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph camera-plane9/
 analytic-trail CPU10/plane-collision CPU11/explicit weighted GPU12–15/GPU opacity16–19/
-GPU plane20–22/GPU ribbon23–25/ordered GPU26–37;
+GPU plane20–22/GPU ribbon23–25/ordered GPU26–37/CPU Scene collision38–39;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -385,12 +387,17 @@ Ordinary meshes and emitters may coexist on an entity. Camera culling, visibilit
 and layers apply; hidden effects keep aging. This profile does not cast particle
 shadows. A conservative outward-rounded lifetime envelope includes maximum speed,
 acceleration, origin extent, peak curve size and the full emitter affine for preview framing; actual
-CPU instances/segments are culled during drawing; GPU emitters use their lifetime envelope. Unsupported profiles and overflow produce
+CPU instances/segments are culled during drawing; GPU emitters use their lifetime envelope.
+Scene-collision profiles instead derive bounds from copied World samples; the current
+emitter's lifetime envelope cannot enclose earlier births after emitter movement.
+Unsupported profiles and overflow produce
 diagnostics instead of successful silent truncation.
 
-The central Particle Effect document owns source controls and isolated playback,
+The central Particle Effect document owns source controls and analytic isolated playback,
 seek and reset. Preview uses the same evaluator/resources with one private draft
-override; it does not mutate or tick live Play. Assignment is one Scene Undo
+override; it does not mutate or tick live Play. Scene-collision profiles require Play;
+stopped Scene/asset/Timeline views have no physics simulation or analytic fallback.
+Assignment is one Scene Undo
 operation. C++ edits the native value through the matching SDK. Public value/header
 changes require matching module rebuilds; ABI 1/C function-table layouts remain.
 
@@ -749,3 +756,62 @@ CPU alpha/opacity capabilities and weighted1 are not requirements of a GPU-only
 sorted profile. Missing, malformed or unsupported kit fields reject export before
 replacing a distribution. Native Windows execution and physical-device review
 remain separate from local software-device correctness evidence.
+
+## CPU Scene geometry response
+
+[ADR073](decisions/073-scene-particle-collision.md) assigns transient histories to
+ParticleRuntime::Entry, which retains its existing emission clock and immutable
+resource selection. Source16 projects explicit values38/39; profiles1–37, recipe3,
+envelope3, logical/local-stop identities and gameplay component/ABI layouts retain
+their meanings. Scene activation deactivates local plane/ribbons while retaining
+their settings. Explicit local-plane/ribbon activation deactivates Scene response.
+CPU camera alignment and lifetime appearance compose with Scene response; GPU
+selection retains inactive Scene settings without projecting them.
+
+`scene_collision` has exactly radius, restitution, friction, bounce_limit and mask.
+Radius is0.001–1000 world meters, coefficients0–1, rebounds0–16 and mask a uint32.
+PhysicsService owns sphere sweeps against realized3D geometry after physics adoption;
+sensors are ignored. Particle radius and response do not inherit visual size or
+mix Scene-body contact materials. There are no two-way impulses, resting solver,
+continuous moving-surface dynamics,2D/GPU Scene queries, ribbon histories or callbacks.
+At birth the adopted fixed-update affine transforms position, velocity and
+acceleration; its linear basis is retained. Existing births do not follow later
+emitter/parent transforms. This does not reconstruct historical sub-tick poses.
+
+The shared analytic force/drag owner supplies endpoints and velocities. Curved
+motion uses chords with h<=1/120 and deviation bound min(radius*.01,.001); constant
+velocity needs no subdivision. Query/precision failures reject explicitly. Contact
+traces retain both sides of an impact and consume remaining travel. Initial
+penetration, exhausted rebound allowance and sustained zero-normal-speed inward
+acceleration end births. A metric/coordinate-aware bias handles native departing
+touch without excluding other surfaces of the same body. Initial zero-duration
+births receive a contact probe; frozen existing births do not query physics.
+
+The World reserves1024 Scene births,2048 interval birth traces,8192casts per particle
+update and256casts per birth. All next histories/ages commit only after every
+candidate succeeds; prior gameplay/physics/resource adoption is not rolled back.
+Continuous phases use the shared exact membership rules, including births/deaths
+inside one fixed interval and large clocks. Burst initialization does not replay
+killed births. Disable/state inactivation, seed/effect replacement and existing
+visual reset discard corresponding histories. Recovery restarts visual emission.
+
+The existing playback object adds bounded `world_samples` only for Scene profiles.
+Each contains birth, age, position, velocity, size, RGB, opacity and a row-major3x3
+birth basis. Scalar/type/order/count guards, immutable revision/generation/seed
+binding and live-phase checks protect extraction/rendering. Effective Scene
+projection removes opaque playback fields before the runtime attaches native data;
+authored unknown-field round trips retain their input. ParticleRuntime.sample
+returns world positions for these profiles, local positions for earlier analytic
+profiles, and applies emitter modulation once. Presentation carries raw appearance;
+the renderer applies that same modulation once and reuses ordinary instancing,
+per-view camera alignment and cross-object CPU sorting. Bounds use actual samples.
+
+Export requires effect3/alpha1/opacity1 and `runtime_particle_scene_collision:1`,
+plus CPU billboard1 for values39. Unsupported or malformed kit fields reject
+before replacing output. Native controls and
+`asset.document.particle_scene_collision` share source candidates, sessions,
+revisions, history and publication; the corresponding MCP tool is
+`forge_asset_document_particle_scene_collision`. Stopped views display the
+`render.particles.play_required` information diagnostic, without free-flight
+substitution or a second preview World. Implementation/local/native/physical
+acceptance are recorded separately.

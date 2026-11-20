@@ -249,6 +249,7 @@ RenderScene extract_render_scene(const Json& source) {
     std::set<EntityId> identities;
     const auto rows = detail::index_json_rows(entities);
     std::map<EntityId, ModelSource> models;
+    std::size_t particle_world_count = 0;
     for (const auto& row : entities) {
         require(row.is_object(), "Presentation entity must be an object");
         const auto id = row.at("id").get<EntityId>();
@@ -420,7 +421,16 @@ RenderScene extract_render_scene(const Json& source) {
                             particle.generation &&
                             playback.at("seed").get<std::uint32_t>() == emitter.seed,
                         "Particle playback capture does not match its emitter");
+                if (playback.contains("world_samples")) {
+                    particle.world_samples =
+                        decode_particle_world_samples(playback.at("world_samples"));
+                    require(particle.world_samples->size() <=
+                                particle_scene_collision_capacity - particle_world_count,
+                            "Particle World capture exceeds the 1024-birth Scene budget");
+                }
             }
+            if (particle.world_samples)
+                particle_world_count += particle.world_samples->size();
             result.particles.push_back(std::move(particle));
         });
     }

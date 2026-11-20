@@ -82,6 +82,13 @@ class ParticleEffectPreview {
     }
     void draw(const ParticleEffectSource& source, double time,
               std::shared_ptr<const AssetCatalog> catalog) {
+        if (particle_uses_scene_collision(source.compiled())) {
+            ImGui::TextWrapped("Scene collision particles require Play. Add this effect to a Scene "
+                               "with 3D colliders and press Play to inspect its response. This "
+                               "asset preview has no physics World.");
+            FORGE_UI_PROBE("particles:scene_play_required");
+            return;
+        }
         if (ui::button("Frame effect",
                        "Fit the lifetime envelope; orbit and zoom remain local to this preview."))
             auto_frame_ = true;

@@ -12,6 +12,7 @@ parser.add_argument('--vulkan', action='store_true')
 parser.add_argument('--opacity', action='store_true')
 parser.add_argument('--trails', action='store_true')
 parser.add_argument('--collision', action='store_true')
+parser.add_argument('--scene-collision', action='store_true')
 parser.add_argument('--gpu-collision', action='store_true')
 parser.add_argument('--gpu-trails', action='store_true')
 parser.add_argument('--gpu-sorted', action='store_true')
@@ -33,8 +34,10 @@ scratch.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as temporary:
     billboards = (arguments.billboards or arguments.gpu_billboards or arguments.gpu_graph_billboards
                   or arguments.weighted or arguments.weighted_graph
-                  or arguments.gpu_opacity or arguments.gpu_graph_opacity or arguments.gpu_sorted)
-    action = ('--verify-export-gpu-sorted-countercases' if arguments.countercases else
+                  or arguments.gpu_opacity or arguments.gpu_graph_opacity or arguments.gpu_sorted
+                  or arguments.scene_collision)
+    action = ('--verify-export-scene-collision' if arguments.scene_collision else
+              '--verify-export-gpu-sorted-countercases' if arguments.countercases else
               '--verify-export-gpu-sorted' if arguments.gpu_sorted else
               '--verify-export-gpu-trails' if arguments.gpu_trails else
               '--verify-export-gpu-collision' if arguments.gpu_collision else
@@ -64,7 +67,9 @@ with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as tempo
     assert len(content) == 1, content
     mode = (('--opacity-gallery' if arguments.opacity else '--alpha-gallery') if arguments.vulkan
             else ('particle-opacity-gallery' if arguments.opacity else 'particle-alpha-gallery'))
-    if arguments.countercases:
+    if arguments.scene_collision:
+        mode = '--scene-collision-gallery' if arguments.vulkan else 'particle-scene-collision-gallery'
+    elif arguments.countercases:
         mode = '--gpu-sorted-countercases' if arguments.vulkan else 'particle-gpu-sorted-countercases'
     elif arguments.gpu_sorted:
         mode = '--gpu-sorted-gallery' if arguments.vulkan else 'particle-gpu-sorted-gallery'

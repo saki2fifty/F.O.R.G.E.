@@ -25,6 +25,7 @@ from mcp_mesh_foliage_workflow import check_mesh_foliage_workflow
 from gallery_project_fixture import copy_gallery_project
 from mcp_clip_preview_workflow import check_clip_preview
 from mcp_particle_evaluation_workflow import check_particle_evaluation
+from mcp_particle_scene_workflow import check_particle_scene
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
 # Keep the wire evidence on assertion failure as well as successful completion.
@@ -57,6 +58,7 @@ CURVED_MESH_ONLY = "--curved-mesh-only" in sys.argv[5:]
 MESH_FOLIAGE_ONLY = "--mesh-foliage-only" in sys.argv[5:]
 CLIP_PREVIEW_ONLY = '--clip-preview-only' in sys.argv[5:]
 PARTICLE_EVALUATION_ONLY = '--particle-evaluation-only' in sys.argv[5:]
+PARTICLE_SCENE_ONLY = '--particle-scene-only' in sys.argv[5:]
 
 
 @contextmanager
@@ -181,6 +183,7 @@ for legacy in protocol_cases():
         assert 'forge_asset_document_particle_collision' not in names
         assert 'forge_asset_document_particle_gpu_weighted' not in names
         assert 'forge_asset_document_particle_gpu_sorted' not in names
+        assert 'forge_asset_document_particle_scene_collision' not in names
         assert 'forge_asset_document_preview_read' in names
         assert not {'forge_asset_document_preview_seek', 'forge_asset_document_preview_stop'} & names
         assert {'forge_asset_skeleton_joints', 'forge_asset_animation_retarget_catalog',
@@ -254,6 +257,9 @@ for legacy in protocol_cases():
         kinds = read('forge_asset_document_types')['editors']
         assert len(kinds) == 20 and all(not item['status']['open'] for item in kinds), kinds
         assert [item['editor'] for item in kinds if item['animation_preview']] == ['animation_timeline']
+        if PARTICLE_SCENE_ONLY:
+            check_particle_scene(read, mutate, edit, status, content, failed, root, declared_tools)
+            continue
         if PARTICLE_EVALUATION_ONLY:
             check_particle_evaluation(read, mutate, edit, status, content, failed, root, declared_tools)
             continue

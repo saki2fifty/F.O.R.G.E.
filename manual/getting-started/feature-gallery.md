@@ -1269,3 +1269,13 @@ textured Effect and Material with a lifetime fade. Open
 Scene **Weighted transparency** off. The complete visible alpha group must use
 compatible Mesh/Material resources and draw settings. See
 [ordered GPU transparency](../editor/particles.md).
+
+For actual Scene geometry response, open **254-scene-particle-collision**. Its
+two tinted emitters share **Assets/Particles/Collision/SceneBounces.particles.json**,
+the existing soft cloud image and Material. The floor and inclined obstacle have
+3D Physics bodies and Box Colliders. Stop, move or rotate either obstacle and
+press Play again. Open the Effect for **Scene collision (CPU)**, world-metric
+radius, response, named collision layers, camera alignment and lifetime fades.
+This mode requires Play; isolated preview seeking is disabled. Save / Publish,
+save the Scene and export with the matching runtime kit. See
+[particle effects and Scene collision](../editor/particles.md).

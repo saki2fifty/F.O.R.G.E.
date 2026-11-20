@@ -256,11 +256,11 @@ mutation = next(tool for tool in catalog if tool['name'] == 'forge_entity_create
 with response_peer(lambda valid: valid, delay=13, discard_first=True) as config, \
         Client(config, response_timeout=30) as client:
     recovered = []
-    assert read_tool(client, readonly, recovered)['ok']
+    assert read_tool(client, readonly, recovered, client.process)['ok']
     assert len(recovered) == 1 and recovered[0]['tool'] == 'forge_discover'
     before = len(CAPTURE)
     try:
-        read_tool(client, mutation, recovered)
+        read_tool(client, mutation, recovered, client.process)
         raise RuntimeError('A mutating tool entered automatic read recovery')
     except AssertionError as error:
         assert 'read-only tool' in str(error), error
@@ -277,7 +277,7 @@ def denied_discovery(valid):
 with response_peer(denied_discovery) as config, Client(config) as client:
     recovered = []
     try:
-        read_tool(client, readonly, recovered)
+        read_tool(client, readonly, recovered, client.process)
         raise RuntimeError('A denied read entered automatic recovery')
     except AssertionError as error:
         assert 'permission_denied' in str(error), error

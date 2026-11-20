@@ -1,9 +1,25 @@
 #include "particle_render_instances.hpp"
+#include "particle_birth.hpp"
 #include "pbr_material.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>
 namespace forge {
+namespace {
+ParticleRenderInstance instance(const ParticleSample& sample, const AffineTransform& emitter) {
+    AffineTransform local;
+    for (unsigned row = 0; row < 3; ++row) {
+        for (unsigned column = 0; column < 3; ++column)
+            local.m[row * 4 + column] = row == column ? sample.size : 0;
+        local.m[row * 4 + 3] = sample.position[row];
+    }
+    auto world = emitter * local;
+    for (const auto value : world.m)
+        if (!std::isfinite(value))
+            throw std::runtime_error("Particle instance has a nonfinite world transform");
+    return {sample.birth, world, sample.color, sample.opacity};
+}
+} // namespace
 void validate_particle_mesh_profile(const MeshResourceData& resource) {
     const auto& mesh = resource.mesh;
     if (mesh.lods.size() != 1 || mesh.lods.front().parts.size() != 1 || mesh.material_slots != 1 ||
@@ -48,7 +64,7 @@ void validate_particle_material_profile(const MaterialResourceData& material,
                           [](const auto& stop) { return stop.value == 1; });
     if ((effect.version == 6 ||
          ((particle_uses_billboards(effect) || particle_uses_trails(effect) ||
-           particle_uses_collision(effect)) &&
+           particle_uses_collision(effect) || particle_uses_scene_collision(effect)) &&
           !identity_opacity)) &&
         material.values.alpha != MaterialAlpha::Blend)
         throw std::runtime_error("Particle lifetime opacity requires a Blend Material");
@@ -67,24 +83,84 @@ std::vector<ParticleRenderInstance> particle_render_instances(const ParticleEffe
     modulate_particle_samples(samples, size, tint);
     std::vector<ParticleRenderInstance> result;
     result.reserve(samples.size());
-    for (const auto& sample : samples) {
-        AffineTransform local;
+    for (const auto& sample : samples)
+        result.push_back(instance(sample, emitter));
+    return result;
+}
+std::vector<ParticleRenderInstance>
+particle_world_render_instances(const ParticleEffectData& effect,
+                                std::span<const ParticleWorldSample> samples, double time,
+                                double size, std::array<float, 3> tint) {
+    validate_particle_effect(effect);
+    validate_particle_world_samples(samples);
+    validate_particle_instance_parameters(size, tint);
+    if (!particle_uses_scene_collision(effect) || samples.size() > effect.capacity ||
+        !std::isfinite(time) || time < 0 || time > 1e9)
+        throw std::runtime_error(
+            "Particle World capture does not match its effect or time profile");
+    const auto window = particle_birth_window(effect, time);
+    std::vector<ParticleSample> values;
+    values.reserve(samples.size());
+    for (const auto& value : samples) {
+        const auto ordinal = value.sample.birth;
+        if (effect.emission == ParticleEmission::Burst && ordinal >= effect.burst_count)
+            throw std::runtime_error("Particle World capture has a foreign burst ordinal");
+        const auto age = particle_birth_age(effect, window, time, ordinal);
+        if (!age || (effect.emission == ParticleEmission::Burst && !window.last) ||
+            *age != value.sample.age)
+            throw std::runtime_error("Particle World capture is outside its live emission phase");
+        values.push_back(value.sample);
+    }
+    modulate_particle_samples(values, size, tint);
+    std::vector<ParticleRenderInstance> result;
+    result.reserve(values.size());
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        AffineTransform frame;
         for (unsigned row = 0; row < 3; ++row) {
             for (unsigned column = 0; column < 3; ++column)
-                local.m[row * 4 + column] = row == column ? sample.size : 0;
-            local.m[row * 4 + 3] = sample.position[row];
+                frame.m[row * 4 + column] = samples[i].basis[row * 3 + column];
+            frame.m[row * 4 + 3] = values[i].position[row];
         }
-        auto world = emitter * local;
-        for (const auto value : world.m)
-            if (!std::isfinite(value))
-                throw std::runtime_error("Particle instance has a nonfinite world transform");
-        result.push_back({sample.birth, world, sample.color, sample.opacity});
+        values[i].position = {};
+        result.push_back(instance(values[i], frame));
+    }
+    return result;
+}
+std::optional<RenderBounds> particle_world_bounds(const MeshBounds& mesh,
+                                                  std::span<const ParticleRenderInstance> values,
+                                                  bool billboards) {
+    std::optional<RenderBounds> result;
+    for (const auto& value : values) {
+        auto bounds = transform_bounds(mesh, value.world);
+        if (billboards) {
+            const auto& m = value.world.m;
+            const auto width = std::hypot(m[0], m[4], m[8]);
+            const auto height = std::hypot(m[1], m[5], m[9]);
+            const auto radius = .5 * std::hypot(width, height);
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                bounds.minimum[axis] = std::nextafter(m[axis * 4 + 3] - radius,
+                                                      -std::numeric_limits<double>::infinity());
+                bounds.maximum[axis] = std::nextafter(m[axis * 4 + 3] + radius,
+                                                      std::numeric_limits<double>::infinity());
+                if (!std::isfinite(bounds.minimum[axis]) || !std::isfinite(bounds.maximum[axis]))
+                    throw std::runtime_error("Particle World bounds exceed finite range");
+            }
+        }
+        if (!result)
+            result = bounds;
+        else
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                result->minimum[axis] = std::min(result->minimum[axis], bounds.minimum[axis]);
+                result->maximum[axis] = std::max(result->maximum[axis], bounds.maximum[axis]);
+            }
     }
     return result;
 }
 RenderBounds particle_effect_bounds(const ParticleEffectData& data, const MeshBounds& mesh,
                                     const AffineTransform& world, double multiplier) {
     validate_particle_effect(data);
+    if (particle_uses_scene_collision(data))
+        throw std::runtime_error("Scene collision bounds require copied live World samples");
     validate_particle_instance_parameters(multiplier, {1, 1, 1});
     MeshBounds envelope;
     auto size = std::max(data.size_start, data.size_end);

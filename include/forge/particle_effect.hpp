@@ -8,6 +8,9 @@
 #include <vector>
 namespace forge {
 inline constexpr std::size_t particle_emitter_limit = 64, particle_scene_capacity = 8192;
+inline constexpr std::size_t particle_scene_collision_capacity = 1024;
+inline constexpr std::size_t particle_scene_trace_limit = 2048, particle_scene_query_limit = 8192;
+inline constexpr unsigned particle_scene_birth_query_limit = 256;
 // Source/admission values, not an installed gameplay implementation API.
 // Runtime emitter components will reference this logical asset through AssetRef.
 enum class ParticleEmission : std::uint32_t { Continuous, Burst };
@@ -57,10 +60,19 @@ struct ParticleCollisionPlane {
 void validate_particle_collision_plane(const ParticleCollisionPlane&);
 ParticleCollisionPlane decode_particle_collision_plane(const nlohmann::json&);
 nlohmann::json encode_particle_collision_plane(const ParticleCollisionPlane&);
+struct ParticleSceneCollision {
+    double radius = .05, restitution = .5, friction = .1;
+    unsigned bounce_limit = 4;
+    std::uint32_t mask = UINT32_MAX;
+    bool operator==(const ParticleSceneCollision&) const = default;
+};
+void validate_particle_scene_collision(const ParticleSceneCollision&);
+nlohmann::json encode_particle_scene_collision(const ParticleSceneCollision&);
+ParticleSceneCollision decode_particle_scene_collision(const nlohmann::json&);
 struct ParticleEffectData {
     std::uint32_t version = 1; // CPU1/2, GPU3/4, alpha5/6, camera7/8/9, trails10, collision11,
                                // weighted GPU12–15, GPU opacity16–19, GPU collision20–22,
-                               // GPU trails23–25, ordered GPU26–37.
+                               // GPU trails23–25, ordered GPU26–37, Scene CPU38/39.
     AssetRef<MeshAsset> mesh;
     AssetRef<MaterialAsset> material;
     ParticleEmission emission = ParticleEmission::Continuous;
@@ -80,6 +92,7 @@ struct ParticleEffectData {
     std::vector<ParticleOpacityStop> opacity_curve;
     std::optional<ParticleTrailSettings> trail;
     std::optional<ParticleCollisionPlane> collision;
+    std::optional<ParticleSceneCollision> scene_collision;
     bool operator==(const ParticleEffectData&) const = default;
 };
 namespace particle_detail {
@@ -92,7 +105,8 @@ enum ProfileFlag : unsigned {
     Trail = 32,
     Collision = 64,
     Weighted = 128,
-    Sorted = 256
+    Sorted = 256,
+    SceneCollision = 512
 };
 struct ValueProfile {
     unsigned version;
@@ -139,7 +153,10 @@ inline constexpr std::array value_profiles{
     ValueProfile{35, "gpu_graph_sorted_opacity_billboard1",
                  Gpu | Graph | Sorted | Opacity | Billboard},
     ValueProfile{36, "gpu_sorted_collision_opacity1", Gpu | Sorted | Collision | Opacity},
-    ValueProfile{37, "gpu_sorted_trail_opacity1", Gpu | Sorted | Trail | Opacity}};
+    ValueProfile{37, "gpu_sorted_trail_opacity1", Gpu | Sorted | Trail | Opacity},
+    ValueProfile{38, "cpu_scene_collision1", CpuAlpha | Opacity | SceneCollision},
+    ValueProfile{39, "cpu_scene_collision_billboard1",
+                 CpuAlpha | Opacity | SceneCollision | Billboard}};
 static_assert([] {
     for (unsigned i = 0; i < value_profiles.size(); ++i)
         if (value_profiles[i].version != i + 1)
@@ -190,6 +207,9 @@ constexpr bool particle_uses_trails(const ParticleEffectData& data) {
 constexpr bool particle_uses_collision(const ParticleEffectData& data) {
     return particle_detail::has(data, particle_detail::Collision);
 }
+constexpr bool particle_uses_scene_collision(const ParticleEffectData& data) {
+    return particle_detail::has(data, particle_detail::SceneCollision);
+}
 constexpr bool particle_uses_billboards(const ParticleEffectData& data) {
     return particle_detail::has(data, particle_detail::Billboard);
 }
@@ -204,6 +224,16 @@ struct ParticleSample {
     double opacity = 1;
     bool operator==(const ParticleSample&) const = default;
 };
+// Copied transient World observation; neither an authored value nor saved body.
+// Position/velocity are world-space. The row-major birth basis has no translation.
+struct ParticleWorldSample {
+    ParticleSample sample;
+    std::array<double, 9> basis{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    bool operator==(const ParticleWorldSample&) const = default;
+};
+void validate_particle_world_samples(std::span<const ParticleWorldSample>);
+nlohmann::json encode_particle_world_samples(std::span<const ParticleWorldSample>);
+std::vector<ParticleWorldSample> decode_particle_world_samples(const nlohmann::json&);
 void validate_particle_effect(const ParticleEffectData&);
 ParticleEffectData decode_particle_effect(const nlohmann::json&);
 nlohmann::json encode_particle_effect(const ParticleEffectData&);

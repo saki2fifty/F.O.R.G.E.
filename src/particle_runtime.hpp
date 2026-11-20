@@ -1,5 +1,6 @@
 #pragma once
 #include "particle_effect_resource.hpp"
+#include "particle_scene_state.hpp"
 #include <forge/render_components.hpp>
 #include <forge/world.hpp>
 namespace forge {
@@ -13,6 +14,8 @@ class ParticleRuntime {
     void tick(float);
     void reset();
     Json presentation(flecs::entity_t, double) const;
+    // Analytic profiles return local positions; Scene profiles return copied
+    // World positions. Both apply the existing per-emitter appearance once.
     std::vector<ParticleSample> sample(flecs::entity_t, double) const;
     Json tune_appearance(EntityRef, const std::string& property, const Json& value);
     void shutdown();
@@ -23,6 +26,7 @@ class ParticleRuntime {
         ResourceTicket ticket;
         ResourceLease<ParticleEffectAsset> effect;
         double previous = 0, current = 0;
+        ParticleSceneHistory scene;
     };
     void check() const;
     WorldContext& world_;

@@ -300,7 +300,8 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
                     const std::filesystem::path& content, const std::filesystem::path& images,
                     bool opacity = false, bool billboards = false, bool gpu = false,
                     bool graph = false, bool trails = false, bool collision = false,
-                    bool weighted = false, bool gpu_opacity = false, bool sorted = false) {
+                    bool weighted = false, bool gpu_opacity = false, bool sorted = false,
+                    bool scene_collision = false) {
     using test_bloom::check;
 #ifdef _WIN32
     const RuntimePackageTarget target{"windows", "d3d12"};
@@ -326,7 +327,8 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     check(effects.wait(ticket, std::chrono::seconds(15)), "Source-free alpha Effect load stalled");
     const auto selected = effects.acquire(ticket);
     check(selected &&
-              selected->version == (sorted             ? 34u
+              selected->version == (scene_collision    ? 39u
+                                    : sorted           ? 34u
                                     : gpu && trails    ? (gpu_opacity ? 25u
                                                           : weighted  ? 24u
                                                                       : 23u)
@@ -362,14 +364,15 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
         world.simulation.tick(.25f);
     auto snapshot = extract_render_scene(world.simulation.presentation(1));
     check(snapshot.diagnostics.empty() && snapshot.particles.size() == 2 &&
-              snapshot.cameras.size() == 1 && snapshot.meshes.size() == 1,
+              snapshot.cameras.size() == 1 && snapshot.meshes.size() == (scene_collision ? 2u : 1u),
           "Source-free alpha Game lost its native consumers");
     auto host = std::make_shared<MeshResourceHost>(presentation, context, content);
     host->catalog(catalog);
     FrameRenderer renderer(presentation);
     renderer.resources(host);
-    auto draw = [&] {
+    auto draw = [&](bool play_notice = false) {
         test_sprite_draw::Pixels pixels;
+        bool notice_seen = false;
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(45);
         do {
             presentation.begin_frame();
@@ -381,22 +384,51 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
                 test_sprite_draw::read_pixels(presentation.device(), context, view->GetTexture());
             context->FinishFrame();
             presentation.device()->ReleaseStaleResources();
-            if (!renderer.diagnostics().empty())
-                throw std::runtime_error(renderer.diagnostics().front().text);
+            for (const auto& diagnostic : renderer.diagnostics()) {
+                if (play_notice && diagnostic.category == "render.particles.play_required" &&
+                    diagnostic.severity == Severity::Info)
+                    notice_seen = true;
+                else
+                    throw std::runtime_error(diagnostic.text);
+            }
             check(std::chrono::steady_clock::now() < end, "Alpha Game resource adoption stalled");
         } while (renderer.pending());
+        check(!play_notice || notice_seen, "Stopped Scene response omitted its Play notice");
         return pixels;
     };
+    const auto captured = snapshot;
     const auto rendered = draw();
+    if (scene_collision) {
+        for (auto& emitter : snapshot.particles) {
+            check(emitter.world_samples && !emitter.world_samples->empty(),
+                  "Scene Game has no copied native collision observations");
+            emitter.world.m[3] += 1000;
+        }
+        check(draw() == rendered,
+              "World-space particle pixels/culling followed the current emitter proxy");
+    }
     snapshot.particles.clear();
     const auto empty = draw();
     unsigned changed = 0;
     for (std::size_t i = 0; i < rendered.size(); ++i)
         changed += rendered[i] != empty[i];
     check(changed > 100, "Source-free alpha Game did not draw its particles");
+    if (scene_collision) {
+        snapshot = captured;
+        for (auto& emitter : snapshot.particles) {
+            emitter.world_samples.reset();
+            emitter.revision.clear();
+            emitter.generation = 0;
+        }
+        check(draw(true) == empty,
+              "Stopped Scene response substituted analytic particles instead of requiring Play");
+        snapshot = captured;
+        check(draw() == rendered, "Live Scene particles did not recover after the stopped view");
+    }
     std::filesystem::create_directories(images);
     save_view_png(
-        images / (sorted             ? "ordered-gpu-particles.png"
+        images / (scene_collision    ? "scene-particle-collision.png"
+                  : sorted           ? "ordered-gpu-particles.png"
                   : gpu && trails    ? "gpu-analytic-particle-trails.png"
                   : gpu && collision ? "gpu-particle-plane-collision.png"
                   : gpu_opacity

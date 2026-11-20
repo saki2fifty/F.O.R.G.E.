@@ -3942,3 +3942,45 @@ Gallery253 at three seconds on software Vulkan/llvmpipe. Local capture receipts
 retain its exact source/input/build/test/image provenance. The image has no editor
 chrome; native Windows, physical hardware and full editor visual acceptance remain
 separate. The manual uses this canonical asset.
+
+## Scene particle response checks
+
+`particle_scene_source` checks Source16 and explicit values38/39, retained inactive
+settings, CPU camera alignment, lifetime opacity, publication bytes and profile
+refusal. `particle_scene_motion` uses actual native sphere queries for thin
+geometry, contact departure, filters, force/drag, rebound remainder and bounded
+failure. `particle_scene_state` covers emission phases, birth frames, interpolation,
+within-interval death, frozen histories, work limits and capture codecs.
+`particle_scene_runtime` checks the published Runtime World, shared physics owner,
+immutable playback/extraction, reset/disable/seed changes and all-particle-clock
+failure atomicity. The existing physics regression exercises copied canonical
+closest-hit ownership through body replacement and character recovery.
+
+`particle_effect_editor` exercises the native Scene toggle, numeric settings,
+named physics layers, history and disabled stopped preview across its supported
+layouts. `mcp_particle_scene_stdio` runs source edits, discovery, schemas, grants,
+session/revision guards, invalid/no-op changes, Undo/Redo, Save and reopen through
+the same owners; both supported protocol formats must pass with graceful native
+host shutdown. Source registration alone does not establish acceptance.
+
+`particle_scene_collision_gallery` inspects the editable Scene and shared assets.
+Its `_export` variant publishes a private copy through the normal asset worker,
+relocates the four-asset runtime closure and hides editable sources before running
+the actual World. Global Gallery preparation includes the same Scene profile and
+reuses its already prepared shared Material/image. Existing Gallery records and
+files are checked for preservation.
+
+The production Game variants are `particle_scene_collision_gallery_game` on native
+Windows and `particle_scene_collision_gallery_game_vulkan` on software Vulkan.
+They check actual pixels after native collision, retained world-space birth bounds
+when current emitter proxies move, repeatable drawing and a stopped Play notice
+with no analytic substitution. The full editor and focused shader selections
+include the new source, motion, state, runtime, Gallery and MCP checks. The native
+viewport dispatcher admits its relocated-content argument explicitly.
+
+`manual/images/scene-particle-collision.png` is the unmodified640x360 Game capture
+of Gallery254 at three seconds, produced by the source-hidden relocated software
+Vulkan/llvmpipe check and personally reviewed. The canonical asset is used by the
+manual; local receipts retain source, build, test and image provenance. This image
+shows Game output without editor chrome. Native Windows execution, physical GPU
+acceptance and full editor visual review remain separate.
