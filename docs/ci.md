@@ -3634,6 +3634,11 @@ substitute for it. The package preparers retain Shader-before-Effect order and
 publish the shared camera-plane Texture once. Native acceptance selectors include
 these cases, without claiming execution before a passing run is recorded.
 
+The two native GPU Gallery cases use short private `grid-test-images/pgb` and
+`grid-test-images/pgg` scratch roots. Their nested source copies include generated
+cache files; keep the scratch prefix short enough for Windows file-copy limits.
+Test names and retained artifacts keep their descriptive names.
+
 The native Effect fixture tests GPU/Graph checkbox history and Mesh restoration
 in six layouts. `particle_runtime` also checks the combined graph9 lifetime bounds
 against actual camera-plane geometry at declared position/size limits, including
