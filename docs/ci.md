@@ -4018,3 +4018,11 @@ selection. Graphics and explicit compiler choices retain their previous policy.
 This is an experiment against the failed native baseline, not an accepted shipping
 compiler policy or a release source. It requires focused native evidence before
 any production recommendation and the normal full compatibility gates afterward.
+
+The isolated diagnostic's `particle_gpu_validation` input defaults to true. Set it
+to false only with `particle_readback_only` to compare the same three cases without
+GPU-based shader instrumentation. The native CPU debug layer remains enabled;
+this comparison does not weaken the ordinary source or release gates. The audit
+scope artifact records the choice. The preceding compiler experiment passed plane
+and ordering numeric cases, while the Scene case crashed under GPU validation;
+that remains a failed diagnostic, not acceptance.
