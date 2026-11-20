@@ -17,12 +17,14 @@ class ParticleGpuInstances {
     bool supported() const;
     // Compute unbinds render targets. The camera composition owner restores them
     // before drawing. Success publishes only this submission's instance count.
-    void evaluate(Diligent::IDeviceContext*, const ParticleGpuValues&);
+    void evaluate(Diligent::IDeviceContext*, const ParticleGpuValues&,
+                  const CameraView* billboard_view = nullptr);
     Diligent::IBuffer* buffer() const { return output_; }
     unsigned count() const { return count_; }
 
   private:
     void prepare();
+    void prepare_billboards();
     DiligentPresentation& presentation_;
     unsigned capacity_, count_ = 0;
     Diligent::RefCntAutoPtr<Diligent::IShader> graph_program_;
@@ -31,5 +33,8 @@ class ParticleGpuInstances {
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> values_, output_;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> billboard_pipeline_;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> billboard_binding_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> billboard_values_;
 };
 } // namespace forge

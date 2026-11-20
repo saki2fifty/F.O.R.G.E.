@@ -1374,7 +1374,11 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                     emitter->world, camera, emitter->emitter.size_multiplier,
                     {emitter->emitter.tint_r, emitter->emitter.tint_g, emitter->emitter.tint_b});
                 try {
-                    gpu->evaluate(host_->context_, values);
+                    gpu->evaluate(
+                        host_->context_, values,
+                        particle_uses_billboards(*particle_sources_.at(mesh.entity).data())
+                            ? &camera
+                            : nullptr);
                 } catch (...) {
                     restore_camera_target();
                     throw;

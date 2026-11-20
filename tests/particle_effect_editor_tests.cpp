@@ -371,6 +371,43 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
                 editor.document()->source().document.at("opacity_curve") ==
                     opacity_source.at("opacity_curve"),
             "Disabling native alignment lost opacity or failed to restore Mesh projection");
+    choose("particles:evaluation", 1);
+    frame();
+    const auto before_gpu_alignment = editor.document()->source().document;
+    click("particles:billboards");
+    frame();
+    const auto gpu_alignment = editor.document()->source().document;
+    require(editor.document()->source().compiled().version == 8 &&
+                gpu_alignment.at("gpu_billboard_enabled").get<bool>() &&
+                gpu_alignment.at("mesh") == opacity_source.at("mesh") &&
+                gpu_alignment.at("opacity_curve") == opacity_source.at("opacity_curve") &&
+                !test::ui_targets.at("particles:mesh").enabled,
+            "GPU native alignment did not use its selected backend and retained source owner");
+    click("particles:undo");
+    require(editor.document()->source().document == before_gpu_alignment,
+            "GPU native alignment Undo changed the older source representation");
+    click("particles:redo");
+    require(editor.document()->source().document == gpu_alignment,
+            "GPU native alignment Redo changed its source state");
+    choose("particles:evaluation", 2);
+    frame();
+    require(editor.document()->source().compiled().version == 9 &&
+                editor.document()->source().compiled().program &&
+                !test::ui_targets.at("particles:mesh").enabled,
+            "Graph native selection did not restore retained GPU alignment");
+    click("particles:billboards");
+    frame();
+    require(editor.document()->source().compiled().version == 4 &&
+                !editor.document()->source().document.at("gpu_billboard_enabled").get<bool>() &&
+                test::ui_targets.at("particles:mesh").enabled,
+            "Disabling native GPU alignment did not restore the authored Mesh projection");
+    choose("particles:evaluation", 3);
+    frame();
+    require(editor.document()->source().compiled().version == 6 &&
+                editor.document()->source().document.at("version").get<unsigned>() == 8 &&
+                editor.document()->source().document.at("opacity_curve") ==
+                    opacity_source.at("opacity_curve"),
+            "Returning to CPU opacity discarded retained GPU source settings");
     for (unsigned i = 0; i < 16 && editor.document()->source().document != alpha_profile; ++i)
         editor.undo();
     frame();

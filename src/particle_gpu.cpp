@@ -3,6 +3,7 @@
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "mesh_instance_layout.hpp"
 #include "particle_gpu_shaders.hpp"
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -99,7 +100,54 @@ void ParticleGpuInstances::prepare() {
     values_ = std::move(values);
     output_ = std::move(instances);
 }
-void ParticleGpuInstances::evaluate(IDeviceContext* context, const ParticleGpuValues& values) {
+void ParticleGpuInstances::prepare_billboards() {
+    if (billboard_pipeline_)
+        return;
+    const auto rows = std::to_string(mesh_static_instance_rows);
+    const ShaderMacro macros[]{{"FORGE_STATIC_INSTANCE_ROWS", rows.c_str()}};
+    ShaderCreateInfo shader;
+    shader.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+    shader.EntryPoint = "main";
+    shader.Desc.Name = "FORGE GPU particle camera projection";
+    shader.Desc.ShaderType = SHADER_TYPE_COMPUTE;
+    shader.Source = particle_gpu_billboard_compute;
+    shader.Macros = {macros, 1};
+    RefCntAutoPtr<IShader> native;
+    presentation_.shader(shader, &native);
+    if (!native)
+        throw std::runtime_error("GPU particle camera shader unavailable");
+    ComputePipelineStateCreateInfo info;
+    info.PSODesc.Name = "FORGE GPU particle camera projection";
+    info.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+    info.pCS = native;
+    RefCntAutoPtr<IPipelineState> pipeline;
+    presentation_.compute(info, &pipeline);
+    if (!pipeline)
+        throw std::runtime_error("GPU particle camera pipeline unavailable");
+    RefCntAutoPtr<IShaderResourceBinding> binding;
+    pipeline->CreateShaderResourceBinding(&binding, true);
+    if (!binding || !binding->GetVariableByName(SHADER_TYPE_COMPUTE, "ParticleBillboardValues") ||
+        !binding->GetVariableByName(SHADER_TYPE_COMPUTE, "ParticleRows"))
+        throw std::runtime_error("GPU particle camera binding unavailable");
+    BufferDesc input;
+    input.Name = "FORGE GPU particle camera values";
+    input.Size = sizeof(ParticleGpuBillboardValues);
+    input.Usage = USAGE_DYNAMIC;
+    input.BindFlags = BIND_UNIFORM_BUFFER;
+    input.CPUAccessFlags = CPU_ACCESS_WRITE;
+    RefCntAutoPtr<IBuffer> values;
+    presentation_.device()->CreateBuffer(input, nullptr, &values);
+    if (!values)
+        throw std::runtime_error("GPU particle camera buffer unavailable");
+    binding->GetVariableByName(SHADER_TYPE_COMPUTE, "ParticleBillboardValues")->Set(values);
+    binding->GetVariableByName(SHADER_TYPE_COMPUTE, "ParticleRows")
+        ->Set(output_->GetDefaultView(BUFFER_VIEW_UNORDERED_ACCESS));
+    billboard_pipeline_ = std::move(pipeline);
+    billboard_binding_ = std::move(binding);
+    billboard_values_ = std::move(values);
+}
+void ParticleGpuInstances::evaluate(IDeviceContext* context, const ParticleGpuValues& values,
+                                    const CameraView* billboard_view) {
     count_ = 0;
     if (!context || !supported())
         throw std::runtime_error("GPU particle evaluation requires enabled compute support");
@@ -108,9 +156,20 @@ void ParticleGpuInstances::evaluate(IDeviceContext* context, const ParticleGpuVa
         throw std::runtime_error("GPU particle input exceeds its bounded compute profile");
     if (graph_program_)
         validate_particle_gpu_graph_envelope(values, graph_limits_);
+    const auto alignment = billboard_view ? std::optional(prepare_particle_gpu_billboard_values(
+                                                *billboard_view, values.births[0]))
+                                          : std::nullopt;
     if (!values.births[0])
         return;
     prepare();
+    if (alignment) {
+        prepare_billboards();
+        MapHelper<ParticleGpuBillboardValues> mapped(context, billboard_values_, MAP_WRITE,
+                                                     MAP_FLAG_DISCARD);
+        if (!static_cast<ParticleGpuBillboardValues*>(mapped))
+            throw std::runtime_error("GPU particle camera upload unavailable");
+        mapped[0] = *alignment;
+    }
     {
         MapHelper<ParticleGpuValues> mapped(context, values_, MAP_WRITE, MAP_FLAG_DISCARD);
         if (!static_cast<ParticleGpuValues*>(mapped))
@@ -121,6 +180,15 @@ void ParticleGpuInstances::evaluate(IDeviceContext* context, const ParticleGpuVa
     context->SetPipelineState(pipeline_);
     context->CommitShaderResources(binding_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->DispatchCompute(DispatchComputeAttribs{(values.births[0] + 63) / 64, 1, 1});
+    if (alignment) {
+        StateTransitionDesc barrier(output_, RESOURCE_STATE_UNORDERED_ACCESS,
+                                    RESOURCE_STATE_UNORDERED_ACCESS);
+        context->TransitionResourceStates(1, &barrier);
+        context->SetPipelineState(billboard_pipeline_);
+        context->CommitShaderResources(billboard_binding_,
+                                       RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->DispatchCompute(DispatchComputeAttribs{(values.births[0] + 63) / 64, 1, 1});
+    }
     count_ = values.births[0];
 }
 } // namespace forge

@@ -99,4 +99,34 @@ float3 ForgeParticleColor(float u){
     ParticleRows[row+6u]=float4(color,1);
 }
 )";
+// Project the existing device rows in place after analytic or authored evaluation.
+// The original evaluator's constants and RNG remain unchanged.
+inline constexpr const char* particle_gpu_billboard_compute = R"(
+cbuffer ParticleBillboardValues {uint4 BillboardCounts;float4 CameraRows[3];};
+RWStructuredBuffer<float4> ParticleRows;
+float ForgeParticleColumnLength(float3 value){
+    float scale=max(max(abs(value.x),abs(value.y)),abs(value.z));
+    return scale>0?scale*length(value/scale):0;
+}
+[numthreads(64,1,1)]void main(uint3 thread:SV_DispatchThreadID){
+    uint id=thread.x;if(id>=BillboardCounts.x)return;
+    uint row=id*FORGE_STATIC_INSTANCE_ROWS;
+    float4 a=ParticleRows[row],b=ParticleRows[row+1u],c=ParticleRows[row+2u];
+    float width=ForgeParticleColumnLength(float3(a.x,b.x,c.x));
+    float height=ForgeParticleColumnLength(float3(a.y,b.y,c.y));
+    float3 sizes=float3(width,height,max(width,height));
+    float3 basis[3];
+    [unroll]for(uint r=0u;r<3u;r++)basis[r]=CameraRows[r].xyz*sizes;
+    float maximum=max(max(max(abs(basis[0].x),abs(basis[0].y)),abs(basis[0].z)),
+                      max(max(max(abs(basis[1].x),abs(basis[1].y)),abs(basis[1].z)),
+                          max(max(abs(basis[2].x),abs(basis[2].y)),abs(basis[2].z))));
+    ParticleRows[row]=float4(basis[0],a.w);
+    ParticleRows[row+1u]=float4(basis[1],b.w);
+    ParticleRows[row+2u]=float4(basis[2],c.w);
+    [unroll]for(uint r=0u;r<3u;r++)
+        ParticleRows[row+3u+r]=float4(maximum>0?basis[r]/maximum:float3(0,0,0),0);
+    float4 tint=ParticleRows[row+6u];
+    ParticleRows[row+6u]=float4(tint.xyz,2);
+}
+)";
 } // namespace forge

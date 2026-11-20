@@ -131,7 +131,7 @@ nlohmann::json encode_particle_graph_program(const ParticleGraphProgram& program
             {"maximum_size", program.maximum_size}};
 }
 void validate_particle_effect(const ParticleEffectData& data) {
-    if (data.version < 1 || data.version > 7)
+    if (data.version < 1 || data.version > 9)
         throw std::runtime_error("Unknown particle value version");
     if (!data.mesh.id)
         throw std::runtime_error("Particle effect requires a Mesh");
@@ -177,7 +177,7 @@ void validate_particle_effect(const ParticleEffectData& data) {
     if (!particle_uses_opacity(data) &&
         (data.opacity_start != 1 || data.opacity_end != 1 || !data.opacity_curve.empty()))
         throw std::runtime_error("Particle opacity requires the CPU opacity profile");
-    if (data.version == 4) {
+    if (particle_uses_graph(data)) {
         if (!data.program)
             throw std::runtime_error("Particle graph requires a program");
         validate_particle_graph_program(*data.program);
@@ -198,7 +198,9 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
     if (!((version == 1 && profile == "cpu_mesh1") || (version == 2 && profile == "cpu_mesh2") ||
           (version == 3 && profile == "gpu_mesh1") || (version == 4 && profile == "gpu_graph1") ||
           (version == 5 && profile == "cpu_alpha1") || (version == 6 && profile == "cpu_alpha2") ||
-          (version == 7 && profile == "cpu_billboard1")))
+          (version == 7 && profile == "cpu_billboard1") ||
+          (version == 8 && profile == "gpu_billboard1") ||
+          (version == 9 && profile == "gpu_graph_billboard1")))
         throw std::runtime_error("Unsupported particle effect format/version/profile");
     static const std::set<std::string> fields{
         "format",     "version",      "profile",     "mesh",       "material",
@@ -210,7 +212,7 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
             !(version >= 2 &&
               (name == "shape" || name == "shape_size" || name == "shape_radius" ||
                name == "drag" || name == "size_curve" || name == "color_gradient")) &&
-            !(version == 4 && name == "program") &&
+            !((version == 4 || version == 9) && name == "program") &&
             !((version == 6 || version == 7) &&
               (name == "opacity_start" || name == "opacity_end" || name == "opacity_curve")))
             throw std::runtime_error("Unknown particle effect field: " + name);
@@ -309,7 +311,7 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
                 }
             }
     }
-    if (data.version == 4)
+    if (particle_uses_graph(data))
         data.program = decode_particle_graph_program(source.at("program"));
     validate_particle_effect(data);
     return data;
@@ -325,7 +327,9 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
                     : data.version == 4 ? "gpu_graph1"
                     : data.version == 5 ? "cpu_alpha1"
                     : data.version == 6 ? "cpu_alpha2"
-                                        : "cpu_billboard1"},
+                    : data.version == 7 ? "cpu_billboard1"
+                    : data.version == 8 ? "gpu_billboard1"
+                                        : "gpu_graph_billboard1"},
         {"mesh", data.mesh},
         {"emission", data.emission == ParticleEmission::Burst ? "burst" : "continuous"},
         {"capacity", data.capacity},

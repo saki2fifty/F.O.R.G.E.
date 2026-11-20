@@ -8,7 +8,7 @@
 #include <thread>
 namespace forge::test_particle_billboard {
 inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
-                     const std::filesystem::path& root) {
+                     const std::filesystem::path& root, bool gpu = false) {
     using namespace Diligent;
     using test_bloom::check;
     std::filesystem::create_directories(root);
@@ -25,7 +25,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     host->preview_material(material, surface);
     const AssetRef<ParticleEffectAsset> effect{AssetId::generate()};
     ParticleEffectData data;
-    data.version = 7;
+    data.version = gpu ? 8 : 7;
     data.mesh = engine_primitive(8);
     data.material = material;
     data.emission = ParticleEmission::Burst;
@@ -152,32 +152,47 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     scene.particles.front().world.m[11] = 0;
     camera.projection = unsigned(CameraProjection::Orthographic);
     settle();
-    // The opacity path is the same sorted queue and packet as mesh particles.
-    values.alpha = MaterialAlpha::Blend;
-    values.depth_write = false;
-    host->preview_material(material, surface);
-    data.opacity_start = data.opacity_end = .5;
-    host->preview_particle_effect(effect, data);
-    settle();
-    center(draw(camera, side), .75f);
-    check(renderer.draw_stats().instances == 2 && renderer.draw_stats().calls == 2 &&
-              !renderer.draw_stats().batched_calls,
-          "Transparent camera-plane births were merged into an unordered batch");
-    data.opacity_start = data.opacity_end = 0;
-    host->preview_particle_effect(effect, data);
-    settle();
-    center(draw(camera, front), 0);
-    // An unsupported resource must disappear, then recover through the same owner.
-    values.alpha = MaterialAlpha::Opaque;
-    host->preview_material(material, surface);
-    settle();
-    center(draw(camera, front, true), 0);
-    values.alpha = MaterialAlpha::Blend;
-    host->preview_material(material, surface);
-    data.opacity_start = data.opacity_end = 1;
-    host->preview_particle_effect(effect, data);
-    settle();
-    center(draw(camera, side), 1);
+    if (!gpu) {
+        // The opacity path is the same sorted queue and packet as mesh particles.
+        values.alpha = MaterialAlpha::Blend;
+        values.depth_write = false;
+        host->preview_material(material, surface);
+        data.opacity_start = data.opacity_end = .5;
+        host->preview_particle_effect(effect, data);
+        settle();
+        center(draw(camera, side), .75f);
+        check(renderer.draw_stats().instances == 2 && renderer.draw_stats().calls == 2 &&
+                  !renderer.draw_stats().batched_calls,
+              "Transparent camera-plane births were merged into an unordered batch");
+        data.opacity_start = data.opacity_end = 0;
+        host->preview_particle_effect(effect, data);
+        settle();
+        center(draw(camera, front), 0);
+        // An unsupported resource must disappear, then recover through the same owner.
+        values.alpha = MaterialAlpha::Opaque;
+        host->preview_material(material, surface);
+        settle();
+        center(draw(camera, front, true), 0);
+        values.alpha = MaterialAlpha::Blend;
+        host->preview_material(material, surface);
+        data.opacity_start = data.opacity_end = 1;
+        host->preview_particle_effect(effect, data);
+        settle();
+        center(draw(camera, side), 1);
+    } else {
+        // Device quads retain the explicit sorted-alpha refusal and recover
+        // through the same Material/effect resource owners.
+        values.alpha = MaterialAlpha::Blend;
+        values.depth_write = false;
+        host->preview_material(material, surface);
+        settle();
+        center(draw(camera, front, true), 0);
+        values.alpha = MaterialAlpha::Opaque;
+        values.depth_write = true;
+        host->preview_material(material, surface);
+        settle();
+        center(draw(camera, side), 1);
+    }
     // An offset, nonintegral checker region distinguishes horizontal/vertical
     // mirroring. The engine image uses nearest texels and no alpha attenuation.
     values.alpha = MaterialAlpha::Opaque;
@@ -220,6 +235,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     receipt << nlohmann::json{{"format", "forge.particle-billboard-numeric"},
                               {"version", 1},
                               {"frames", frames},
+                              {"profile", gpu ? "gpu_billboard1" : "cpu_billboard1"},
                               {"single_sided", true},
                               {"view_bases", 2},
                               {"lens_flip_combinations", 4},
@@ -228,7 +244,8 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                               {"cross_view_retention", true},
                               {"texture_orientation", true},
                               {"opaque_batching", true},
-                              {"opacity", true},
+                              {"opacity", !gpu},
+                              {"blend_refusal", gpu},
                               {"recovery", true}}
                    .dump(2)
             << '\n';

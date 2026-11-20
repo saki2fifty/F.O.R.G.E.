@@ -254,7 +254,8 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
 }
 inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
                     const std::filesystem::path& content, const std::filesystem::path& images,
-                    bool opacity = false, bool billboards = false) {
+                    bool opacity = false, bool billboards = false, bool gpu = false,
+                    bool graph = false) {
     using test_bloom::check;
 #ifdef _WIN32
     const RuntimePackageTarget target{"windows", "d3d12"};
@@ -270,17 +271,22 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
         if (record.type == ParticleEffectAsset::type)
             effect = id;
     }
-    check(catalog->records().size() == (billboards ? 4u : 3u) && scene && effect,
+    check(catalog->records().size() == (graph        ? 5u
+                                        : billboards ? 4u
+                                                     : 3u) &&
+              scene && effect,
           "Sorted-alpha content closure differs from Scene, Effect and Material");
     ResourcePool<ParticleEffectAsset> effects;
     const auto ticket = request_particle_effect(effects, content, catalog, {effect});
     check(effects.wait(ticket, std::chrono::seconds(15)), "Source-free alpha Effect load stalled");
     const auto selected = effects.acquire(ticket);
     check(selected &&
-              selected->version == (billboards ? 7u
-                                    : opacity  ? 6u
-                                               : 5u) &&
-              !selected->program,
+              selected->version == (graph        ? 9u
+                                    : gpu        ? 8u
+                                    : billboards ? 7u
+                                    : opacity    ? 6u
+                                                 : 5u) &&
+              bool(selected->program) == graph,
           "Source-free alpha content selected another evaluation profile");
     RuntimeWorld world({}, {}, std::nullopt, content, false);
     world.scene.restore_snapshot(load_game_scene(content, {scene}));
@@ -333,12 +339,15 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
         changed += rendered[i] != empty[i];
     check(changed > 100, "Source-free alpha Game did not draw its particles");
     std::filesystem::create_directories(images);
-    save_view_png(images / (billboards ? "camera-aligned-particles.png"
-                            : opacity  ? "particle-opacity.png"
-                                       : "sorted-alpha-particles.png"),
+    save_view_png(images / (graph        ? "gpu-graph-camera-particles.png"
+                            : gpu        ? "gpu-camera-particles.png"
+                            : billboards ? "camera-aligned-particles.png"
+                            : opacity    ? "particle-opacity.png"
+                                         : "sorted-alpha-particles.png"),
                   640, 360,
                   {reinterpret_cast<const std::uint8_t*>(rendered.data()), rendered.size() * 4});
     context->WaitForIdle();
-    std::cout << "PARTICLE_ALPHA_SOURCE_HIDDEN emitters=2 changed_pixels=" << changed << '\n';
+    std::cout << "PARTICLE_SOURCE_HIDDEN profile=" << selected->version
+              << " emitters=2 changed_pixels=" << changed << '\n';
 }
 } // namespace forge::test_particle_alpha

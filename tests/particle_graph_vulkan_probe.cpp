@@ -2,10 +2,12 @@
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 #include "particle_gpu.hpp"
+#include "particle_gpu_camera_reference.hpp"
 #include "particle_gpu_reference.hpp"
 #include "particle_graph_shader.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <tuple>
@@ -183,6 +185,43 @@ void compare(DiligentPresentation& presentation, IDeviceContext* context, const 
                           "Particle graph published a nonfinite instance row");
         }
     }
+    const auto baseline = particle_gpu_test::read_particles(context, instances, staging);
+    unsigned camera_cases = 0;
+    const double diagonal = std::sqrt(.5);
+    const std::array<AffineTransform, 3> view_worlds{
+        AffineTransform{},
+        AffineTransform{{diagonal, -diagonal, 0, 10, diagonal, diagonal, 0, 5, 0, 0, 1, 7}},
+        AffineTransform{{0, 0, 1, 10, 0, 1, 0, 5, -1, 0, 0, 7}}};
+    for (const auto basis : {ViewBasis::ForgePositiveZ, ViewBasis::GltfNegativeZ})
+        for (const auto& world : view_worlds) {
+            Camera camera;
+            camera.basis = std::uint32_t(basis);
+            const auto view = camera_view(camera, world, 64, 64);
+            instances.evaluate(context, values, &view);
+            const auto projected = particle_gpu_test::read_particles(context, instances, staging);
+            check(projected.size() == baseline.size(),
+                  "Graph camera projection changed membership");
+            for (std::size_t id = 0; id < projected.size(); ++id) {
+                const auto expected = particle_gpu_test::billboard_reference(baseline[id], view);
+                for (unsigned row = 0; row < 7; ++row)
+                    for (unsigned column = 0; column < 4; ++column) {
+                        const auto actual = projected[id][row][column];
+                        if ((row < 3 && column == 3) || (row == 6 && column < 3))
+                            check(std::memcmp(&actual, &baseline[id][row][column],
+                                              sizeof(actual)) == 0,
+                                  "Graph camera projection changed device centers or RGB");
+                        check(std::isfinite(actual) &&
+                                  std::abs(double(actual) - expected[row][column]) <=
+                                      3e-4 + 3e-5 * std::abs(double(expected[row][column])),
+                              "Authored camera projection differs from independent geometry");
+                    }
+            }
+            ++camera_cases;
+        }
+    std::cout << "PARTICLE_GRAPH_CAMERA cases=" << camera_cases
+              << " particles=" << camera_cases * baseline.size()
+              << " nonfinite_program=" << overflow
+              << " backend=software-Vulkan generated-code-only\n";
     auto bad = values;
     bad.emitter[0][0] = std::numeric_limits<float>::max();
     rejects([&] { instances.evaluate(context, bad); });

@@ -41,6 +41,10 @@ if(BUILD_TESTING)
  set_tests_properties(particle_opacity_gallery_game PROPERTIES TIMEOUT 300)
  add_test(NAME particle_billboard_gallery_game COMMAND ${Python3_EXECUTABLE} "${PROJECT_SOURCE_DIR}/tests/particle_alpha_gallery_test.py" $<TARGET_FILE:forge_particle_alpha_gallery_tests> "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" $<TARGET_FILE:forge_viewport_tests> "${CMAKE_BINARY_DIR}/grid-test-images/particle-billboard-gallery" --billboards --worker $<TARGET_FILE:forge_asset_build_worker>)
  set_tests_properties(particle_billboard_gallery_game PROPERTIES TIMEOUT 300)
+ add_test(NAME particle_gpu_billboard_gallery_game COMMAND ${Python3_EXECUTABLE} "${PROJECT_SOURCE_DIR}/tests/particle_alpha_gallery_test.py" $<TARGET_FILE:forge_particle_alpha_gallery_tests> "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" $<TARGET_FILE:forge_viewport_tests> "${CMAKE_BINARY_DIR}/grid-test-images/particle-gpu-billboard-gallery" --gpu-billboards --worker $<TARGET_FILE:forge_asset_build_worker>)
+ set_tests_properties(particle_gpu_billboard_gallery_game PROPERTIES TIMEOUT 300)
+ add_test(NAME particle_gpu_graph_billboard_gallery_export COMMAND ${Python3_EXECUTABLE} "${PROJECT_SOURCE_DIR}/tests/particle_alpha_gallery_test.py" $<TARGET_FILE:forge_particle_alpha_gallery_tests> "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" $<TARGET_FILE:forge_viewport_tests> "${CMAKE_BINARY_DIR}/grid-test-images/particle-gpu-graph-billboard-gallery" --gpu-graph-billboards --worker $<TARGET_FILE:forge_asset_build_worker> --graph-fixture $<TARGET_FILE:forge_particle_graph_gallery_tests>)
+ set_tests_properties(particle_gpu_graph_billboard_gallery_export PROPERTIES TIMEOUT 1200)
  # Program cooking belongs to the native editor profile. CPU source admission is
  # shared with the existing cross-platform Sprite Gallery test.
  add_executable(forge_sprite_material_gallery_tests tests/sprite_material_gallery_tests.cpp)
@@ -371,7 +375,7 @@ if(BUILD_TESTING)
  # post-compilation device render. The viewport case shares its device across
  # the remaining renderer consumers, without repeating those long compilations.
  set_tests_properties(editor_viewport_render PROPERTIES TIMEOUT 1260)
- foreach(render_case IN ITEMS morph skin frame optics sequence-frames sprites sprite-surfaces sprite-bloom tile-canvas tile-gallery physics-2d physics-tiles particle-alpha particle-billboards)
+ foreach(render_case IN ITEMS morph skin frame optics sequence-frames sprites sprite-surfaces sprite-bloom tile-canvas tile-gallery physics-2d physics-tiles particle-alpha particle-billboards particle-gpu-billboards)
   add_test(NAME editor_render_${render_case} COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images/${render_case}" ${render_case})
   set_tests_properties(editor_render_${render_case} PROPERTIES TIMEOUT 60)
  endforeach()

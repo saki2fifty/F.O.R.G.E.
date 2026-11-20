@@ -872,27 +872,36 @@ int main(int argc, char** argv) {
         check(argc >= 2 && argc <= 4,
               "Need native particle scratch root, optional Gallery and optional --gpu");
         if ((argc == 3 && (std::string_view(argv[2]) == "--alpha" ||
-                           std::string_view(argv[2]) == "--billboards")) ||
+                           std::string_view(argv[2]) == "--billboards" ||
+                           std::string_view(argv[2]) == "--gpu-billboards")) ||
             (argc == 4 && (std::string_view(argv[2]) == "--alpha-gallery" ||
                            std::string_view(argv[2]) == "--opacity-gallery" ||
-                           std::string_view(argv[2]) == "--billboard-gallery"))) {
+                           std::string_view(argv[2]) == "--billboard-gallery" ||
+                           std::string_view(argv[2]) == "--gpu-billboard-gallery"))) {
             RefCntAutoPtr<IRenderDevice> device;
             RefCntAutoPtr<IDeviceContext> context;
             EngineVkCreateInfo create;
             create.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;
+            if (std::string_view(argv[2]) == "--gpu-billboards" ||
+                std::string_view(argv[2]) == "--gpu-billboard-gallery")
+                create.Features.ComputeShaders = DEVICE_FEATURE_STATE_ENABLED;
             GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
             check(device && context, "Native sorted-alpha device unavailable");
             DiligentPresentation presentation(device);
             if (argc == 4)
-                test_particle_alpha::gallery(presentation, context,
-                                             std::filesystem::absolute(argv[3]), argv[1],
-                                             std::string_view(argv[2]) == "--opacity-gallery" ||
-                                                 std::string_view(argv[2]) == "--billboard-gallery",
-                                             std::string_view(argv[2]) == "--billboard-gallery");
-            else if (std::string_view(argv[2]) == "--billboards")
+                test_particle_alpha::gallery(
+                    presentation, context, std::filesystem::absolute(argv[3]), argv[1],
+                    std::string_view(argv[2]) == "--opacity-gallery" ||
+                        std::string_view(argv[2]) == "--billboard-gallery",
+                    std::string_view(argv[2]) == "--billboard-gallery" ||
+                        std::string_view(argv[2]) == "--gpu-billboard-gallery",
+                    std::string_view(argv[2]) == "--gpu-billboard-gallery");
+            else if (std::string_view(argv[2]) == "--billboards" ||
+                     std::string_view(argv[2]) == "--gpu-billboards")
                 test_particle_billboard::exercise(presentation, context,
                                                   std::filesystem::absolute(argv[1]) /
-                                                      AssetId::generate().str());
+                                                      AssetId::generate().str(),
+                                                  std::string_view(argv[2]) == "--gpu-billboards");
             else
                 test_particle_alpha::exercise(presentation, context,
                                               std::filesystem::absolute(argv[1]) /

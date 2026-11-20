@@ -2,7 +2,8 @@
 
 A particle effect is a reusable stream or burst of small meshes. Use it for
 stylized sparks, debris or fountains. Effects can use solid or masked meshes, or
-sorted transparent meshes and camera-aligned quads with CPU evaluation. Trails
+sorted transparent meshes with CPU evaluation, and camera-aligned quads with CPU,
+GPU or Graph evaluation. Trails
 and particle collision are not supported.
 
 ## Try the Gallery
@@ -106,8 +107,8 @@ Open **Assets/Particles/Billboards/SoftCloud.particles.json** to edit the effect
 The Gallery scene at three seconds in the Game renderer.
 
 Use **Camera-aligned quads** in the Particle Effect document for flat particles
-that follow each camera's view plane. Enabling it selects **CPU (sorted alpha)**
-and displays **Engine / Quad** in the disabled **Mesh** field.
+that follow each camera's view plane. With CPU evaluation, enabling it selects
+**CPU (sorted alpha)** and displays **Engine / Quad** in the disabled **Mesh** field.
 
 1. Stop Play and open or create a Particle Effect in Content.
 2. Enable **Camera-aligned quads**. Choose a built-in Material. Use **Alpha → Blend**, **Depth test** enabled and **Depth write** disabled for a transparent image.
@@ -117,14 +118,47 @@ and displays **Engine / Quad** in the disabled **Mesh** field.
 6. Choose **Save / Publish**, save the scene and press Play. Export using the runtime kit packaged with this editor.
 
 Disabling **Camera-aligned quads** restores the original Mesh selection and retains
-opacity settings. Choosing **CPU**, **GPU** or **Graph** retains alignment without
-applying it. Return to **CPU (sorted alpha)** to apply it again. Undo/Redo restores
-the source settings. Each camera aligns its own view independently.
+opacity settings. CPU and GPU alignment settings are separate. Choosing **GPU**
+or **Graph** retains the CPU setting; the checkbox then shows the GPU setting.
+Return to **CPU (sorted alpha)** to apply the retained CPU alignment again.
+Undo/Redo restores the source settings. Each camera aligns its own view independently.
 
 Quads stay parallel to the camera plane, including in perspective views. They do
 not rotate toward each particle's eye direction, face along velocity or support
-axis locks. Particle spin, GPU alignment, collision and trails are unavailable.
+axis locks. Particle spin, collision and trails are unavailable.
 Transparent quads share the sorting and particle-count limits described above.
+
+## GPU camera-aligned quads
+
+Open **Scenes/243-gpu-camera-particles.scene.json** and press **Play**. The blue
+and amber emitters share **Assets/Particles/Billboards/DeviceCloud.particles.json**
+and a masked Material. They reuse the image from the CPU camera-aligned example.
+The image's alpha cuts out the quad shape; the visible pixels write depth.
+
+![Blue and amber masked particle quads around a solid depth marker](../images/gpu-camera-particles.png)
+
+The Gallery scene at three seconds in the Game renderer.
+
+1. Stop Play and open the Particle Effect in Content.
+2. Choose **Evaluation → GPU** for built-in motion, or **Graph** for an assigned, compiled [particle program](particle-graphs.md).
+3. Enable **Camera-aligned quads**. GPU keeps built-in motion; Graph keeps its assigned program. Both use **Engine / Quad**.
+4. Choose a built-in Material with **Alpha → Opaque** or **Mask**. For an image cutout, assign a color texture with alpha and choose **Mask**. Save the Material.
+5. Adjust particle size and emitter X/Y scale for width and height. Choose **Save / Publish**, save the Scene and press Play.
+6. Export with the runtime kit packaged with this editor. The player needs compute-capable graphics; no source files or compiler are required.
+
+For the authored-program example, open
+**Scenes/244-gpu-graph-camera-particles.scene.json**. Compile
+**Assets/Particles/Graphs/Orbit.graph.shader.json** first, then publish
+**Assets/Particles/Billboards/GraphCloud.particles.json**. It uses the same masked
+Material as the built-in example. Shader compilation requires Windows and the
+packaged Shader worker.
+
+Disabling GPU alignment restores the original Mesh and keeps the selected GPU or
+Graph evaluation. CPU alignment and opacity settings remain available when you
+switch back to CPU evaluation. GPU quads support opaque and masked Materials;
+Blend Materials and per-particle opacity are unavailable. Use CPU sorted alpha
+for transparent or fading particles. Camera-plane orientation and the other
+particle limits above also apply to GPU quads.
 
 ## Opacity over life
 

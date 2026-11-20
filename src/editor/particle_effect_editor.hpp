@@ -178,8 +178,8 @@ class ParticleEffectEditor {
             ImGui::EndDisabled();
             const auto data = document_->source().compiled();
             int evaluation = particle_uses_sorted_alpha(data) ? 3
-                             : data.version == 4              ? 2
-                             : data.version == 3              ? 1
+                             : particle_uses_graph(data)      ? 2
+                             : particle_uses_gpu(data)        ? 1
                                                               : 0;
             if (ImGui::Combo("Evaluation", &evaluation, "CPU\0GPU\0Graph\0CPU (sorted alpha)\0"))
                 mutate("Set particle evaluation", [&](auto& source) {
@@ -248,18 +248,28 @@ class ParticleEffectEditor {
                     "They also control visibility bounds. Nonfinite outputs use bounded analytic "
                     "values.");
             }
-            bool billboards = document_->source().document.value("billboard_enabled", false);
+            const bool gpu_billboards = particle_uses_gpu(data);
+            bool billboards = document_->source().document.value(
+                gpu_billboards ? "gpu_billboard_enabled" : "billboard_enabled", false);
             if (ImGui::Checkbox("Camera-aligned quads", &billboards))
                 mutate("Toggle camera-aligned particles", [&](auto& value) {
                     ParticleEffectSource candidate{value};
-                    candidate.enable_billboards(billboards);
+                    if (gpu_billboards)
+                        candidate.enable_gpu_billboards(billboards);
+                    else
+                        candidate.enable_billboards(billboards);
                     value = std::move(candidate.document);
                 });
             FORGE_UI_PROBE("particles:billboards");
-            ui::help("Enabling selects CPU (sorted alpha) with Engine / Quad. Each camera "
-                     "sets the quad orientation; world X/Y scale sets width and height. "
-                     "Other evaluation backends retain this setting without applying it. "
-                     "Disabling restores the original Mesh selection.");
+            ui::help(gpu_billboards
+                         ? "Align GPU or Graph particles with each camera using Engine / Quad. "
+                           "Requires an opaque or masked Material. World X/Y scale sets width "
+                           "and height. Disabling restores the original Mesh selection. CPU "
+                           "alignment and opacity settings remain separate and retained."
+                         : "Enabling selects CPU (sorted alpha) with Engine / Quad. Each camera "
+                           "sets the quad orientation; world X/Y scale sets width and height. "
+                           "Other evaluation backends retain this CPU setting without applying "
+                           "it. Disabling restores the original Mesh selection.");
             Json mesh = data.mesh, material = data.material.id ? Json(data.material) : Json();
             ImGui::BeginDisabled(particle_uses_billboards(data));
             if (asset_ref_picker(*catalog_, mesh, MeshAsset::type, "Mesh", false))

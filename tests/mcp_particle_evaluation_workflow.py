@@ -20,6 +20,8 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     billboard_tool = next(t for t in tools if t['name'] == 'forge_asset_document_particle_billboards')
     assert billboard_tool['inputSchema']['properties']['editor']['const'] == owner
     assert billboard_tool['inputSchema']['properties']['enabled']['type'] == 'boolean'
+    assert billboard_tool['inputSchema']['properties']['backend']['enum'] == ['cpu', 'gpu']
+    assert billboard_tool['inputSchema']['properties']['backend']['default'] == 'cpu'
     assert 'cpu_billboard1' in catalog['billboards'] and 'runtime_particle_billboard1' in catalog['billboards']
     def save(editor=owner):
         assert edit('forge_asset_document_save', editor)['ok']
@@ -183,6 +185,52 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
     assert content(owner) == billboard
     assert edit('forge_asset_document_particle_evaluation', owner, evaluation='cpu')['ok']
+    assert edit('forge_asset_document_close', owner, discard=True)['ok']
+
+    # Explicit GPU alignment retains CPU settings; the existing default stays CPU.
+    assert mutate('forge_asset_document_create', editor='material',
+                  path='Assets/GpuQuads.material.json', patch=[
+                      dict(op='replace', path='/overrides',
+                           value=dict(model='forge.gltf.unlit.v1', alpha=1,
+                                      depth_test=True, depth_write=True))])['ok']
+    gpu_material = content('material')['asset_id']
+    save('material')
+    assert edit('forge_asset_document_close', 'material')['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
+    before = status(owner)
+    assert edit('forge_asset_document_particle_billboards', owner, backend='gpu', enabled=True)['ok']
+    gpu_billboard = dict(billboard, version=8, profile='gpu_billboard1', gpu_billboard_enabled=True)
+    assert content(owner) == gpu_billboard
+    failed(mutate('forge_asset_document_particle_billboards', editor=owner, backend='gpu',
+                  document_session=before['session'], document_revision=before['revision'],
+                  enabled=False), 'stale_document')
+    revision = status(owner)['revision']
+    assert edit('forge_asset_document_particle_billboards', owner, backend='gpu', enabled=True)['ok']
+    assert status(owner)['revision'] == revision
+    for invalid in (None, 0, 'GPU', 'cpu_alpha', []):
+        assert not edit('forge_asset_document_particle_billboards', owner,
+                        backend=invalid, enabled=False)['ok']
+        assert content(owner) == gpu_billboard and status(owner)['revision'] == revision
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == billboard
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == gpu_billboard
+    assert edit('forge_asset_document_particle_billboards', owner, backend='gpu', enabled=False)['ok']
+    assert content(owner) == dict(gpu_billboard, profile='gpu_mesh1', gpu_billboard_enabled=False)
+    assert edit('forge_asset_document_particle_billboards', owner, backend='gpu', enabled=True)['ok']
+    # The device profile needs opaque/masked output; retain the old Blend selection
+    # in source history and bind a real published masked Material through its owner.
+    assert edit('forge_asset_document_patch', owner, patch=[
+        dict(op='replace', path='/material', value=gpu_material)])['ok']
+    gpu_billboard = dict(gpu_billboard, material=gpu_material)
+    assert content(owner) == gpu_billboard
+    settled = save()
+    metadata = read('forge_asset_read', asset=settled['asset'])['metadata']['forge.particle_effect']
+    assert metadata['version'] == 3 and metadata['value_version'] == 8
+    assert json.loads((root / 'Game' / path).read_text()) == gpu_billboard
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
+    assert content(owner) == gpu_billboard
+    assert edit('forge_asset_document_particle_evaluation', owner, evaluation='cpu')['ok']
+    assert content(owner) == dict(gpu_billboard, profile='cpu_mesh2')
     assert edit('forge_asset_document_close', owner, discard=True)['ok']
 
     check_particle_graph(read, mutate, edit, status, content, failed, root)

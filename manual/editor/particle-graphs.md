@@ -53,6 +53,12 @@ Selecting CPU or GPU retains the assigned graph and bounds. CPU uses ordinary
 processor evaluation; GPU uses the built-in compute behavior. Return to Graph to
 use the retained program. Save/publish each backend change before Play or export.
 
+With **Evaluation → Graph**, enable **Camera-aligned quads** to use the program's
+position, size and color on quads that follow each camera. Use an opaque or masked
+built-in Material. Disabling alignment restores the original Mesh while keeping
+the program. See [GPU camera-aligned quads](particles.md)
+for the editable Gallery example and export steps.
+
 ## Save and export
 
 Publish the Shader first, then the Effect, and save the Scene. Set that Scene as

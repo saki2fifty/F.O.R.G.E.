@@ -8,6 +8,7 @@ inline constexpr unsigned particle_gpu_profile_version = 1;
 inline constexpr unsigned particle_alpha_profile_version = 1;
 inline constexpr unsigned particle_opacity_profile_version = 1;
 inline constexpr unsigned particle_billboard_profile_version = 1;
+inline constexpr unsigned particle_gpu_billboard_profile_version = 1;
 // This importer ID is persisted in source settings; backend selection never changes it.
 inline constexpr const char* particle_effect_importer = "forge.particles.cpu-mesh";
 inline constexpr const char* particle_effect_legacy_recipe = "forge.particles.cpu-mesh.v1";
@@ -31,6 +32,7 @@ struct ParticleEffectSource {
     void set_evaluation(ParticleEvaluation);
     void enable_opacity(bool);
     void enable_billboards(bool);
+    void enable_gpu_billboards(bool);
     void set_graph_program(const ParticleGraphProgram&, bool activate = true);
     std::optional<ParticleGraphProgram> graph_program() const;
     void enable_lifetime(ParticleLifetimeChannel, bool);

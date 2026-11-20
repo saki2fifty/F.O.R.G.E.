@@ -22,6 +22,14 @@ struct alignas(16) ParticleGpuValues {
     std::array<ParticleGpuRow, 16> size_stops{}, color_stops{};
 };
 static_assert(sizeof(ParticleGpuValues) == 47 * 16);
+// Separate view projection preserves the original evaluator and immutable graph
+// program input layout. The camera comes from the shared admitted view owner.
+struct alignas(16) ParticleGpuBillboardValues {
+    std::array<std::uint32_t, 4> counts{};
+    std::array<ParticleGpuRow, 3> camera{};
+};
+static_assert(sizeof(ParticleGpuBillboardValues) == 4 * 16);
+ParticleGpuBillboardValues prepare_particle_gpu_billboard_values(const CameraView&, unsigned count);
 void validate_particle_gpu_graph_envelope(const ParticleGpuValues&, const ParticleGpuGraphLimits&);
 ParticleGpuValues prepare_particle_gpu_values(const ParticleEffectData&, double seconds,
                                               std::uint32_t seed, const AffineTransform&,

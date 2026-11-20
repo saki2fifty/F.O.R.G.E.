@@ -15,6 +15,8 @@ adds explicit CPU values5/profile `cpu_alpha1` for sorted transparent meshes.
 Source6 adds CPU values6/`cpu_alpha2` for opacity over life while retaining inactive
 opacity and graph settings across evaluation changes. Source7 adds camera-plane
 CPU values7/`cpu_billboard1` with retained original Mesh and alignment selection.
+Source8 retains separate CPU/GPU alignment selections and projects GPU values8/
+`gpu_billboard1` or graph values9/`gpu_graph_billboard1` when GPU alignment is active.
 Values include a Mesh reference, optional Material override, emission
 mode, capacity, burst count, rate, lifetime, direction/cone half-angle, speed range,
 constant acceleration, start/end size and linear RGB. Version 2 adds spawn shape,
@@ -32,7 +34,7 @@ editable sources nor a compiler.
 
 New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope containing
 `format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3, graph4
-or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7;
+or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph camera-plane9;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -57,7 +59,7 @@ source IDs, duplicate IDs and unknown interpolation reject atomically. Extension
 are opaque source metadata, with no runtime interpretation or reference guessing.
 
 All profiles admit one static triangle part, one LOD and one material slot with
-built-in PBR or Unlit Materials. CPU1/2 and GPU3/4 require opaque/masked Materials.
+built-in PBR or Unlit Materials. CPU1/2 and GPU3/4/8/9 require opaque/masked Materials.
 CPU5 additionally admits Blend with depth testing and no depth writes; CPU6
 requires this Blend profile for opacity. CPU7 also permits opaque/masked Materials
 with identity opacity; nonidentity opacity requires the same Blend profile. Skinning,
@@ -70,7 +72,7 @@ position, size and RGB without adding those capabilities.
 
 [ADR062](decisions/062-sorted-alpha-particles.md) introduces explicit values5 and
 source5 without changing earlier value meanings, IDs, recipe3/envelope3 or the
-ParticleEmitter/gameplay ABI. `particle_uses_gpu` identifies GPU3/4 explicitly;
+ParticleEmitter/gameplay ABI. `particle_uses_gpu` identifies GPU3/4/8/9 explicitly;
 CPU5 keeps the CPU random sequence, double clock and lifetime-stop precision.
 Source5 retains optional inactive graph settings across evaluation changes.
 
@@ -130,6 +132,40 @@ The native **Camera-aligned quads** control and
 The active Mesh picker is read-only; toggling alignment restores the original Mesh.
 Values7 require effect3/alpha1/opacity1 and `runtime_particle_billboard:1` in the kit.
 No dependency, gameplay ABI, importer or earlier immutable artifact changes.
+
+## Camera-plane GPU profiles
+
+[ADR065](decisions/065-gpu-camera-plane-particles.md) adds explicit values8/9.
+The original built-in or authored evaluator retains its 47-row constants, RNG and
+seven-row device output. A second bounded compute dispatch projects those same
+rows in place. Separate 64-byte camera constants and the existing same-UAV barrier
+pattern order the projection. Width/height retain original world-column lengths;
+camera right/up/minus-forward determine orientation. Device centers and RGB stay
+unchanged. No CPU readback, particle transform array or second simulation is used.
+
+The shared renderer supplies per-view placeholder parity and lifetime bounds,
+including reflected/sheared and zero-Z emitters. Tint flag2 applies Material RGB.
+The published instance count is cleared before preparation and becomes visible
+only after both dispatches succeed; existing target restoration covers failures.
+GPU transparency and per-particle opacity remain unsupported. Cross-emitter/
+ordinary-Mesh transparency cannot be replaced with emitter-only sorting.
+
+Source8 retains `gpu_billboard_enabled` independently from CPU `billboard_enabled`,
+opacity stops, the original Mesh and graph selection. Reading source7 never enables
+GPU alignment implicitly. Enabling GPU alignment preserves an active Graph or
+selects built-in GPU evaluation; disabling restores GPU3/graph4 Mesh geometry.
+The native checkbox targets the selected backend. Automation's optional
+`backend:"gpu"` calls the same source operation; omission preserves the CPU default.
+History, publication, grants, revisions and identities retain their existing owners.
+
+Values8/9 require effect3/GPU1 and typed `runtime_particle_gpu_billboard:1` support;
+values9 also require graph1. CPU alpha/opacity/billboard capabilities are independent.
+Missing, malformed and unsupported kit values reject before distribution replacement.
+Gallery243 supplies a built-in effect and shared masked Material; Gallery244 reuses
+the Material and Gallery239 program. Their texture remains Gallery242's original
+logical asset. The existing Windows package preparers cook the Shader before the
+graph Effect. Actual graph9 bytecode realization and export require native Windows
+acceptance, separately from generated-program software-device tests.
 
 ## Equations and time
 
@@ -369,7 +405,8 @@ owner exits. `particle_graph_vulkan` verifies generated Compute on software Vulk
 it is not cooked Windows acceptance. `particle_graph_gallery_export` is the
 Windows gate for actual worker cook, relocated source-hidden closure, immutable
 bytecode realization,64particle numeric readback and production fixed-clock Game
-rendering. Its native Windows execution is pending until a passing run is recorded.
+rendering. Native Windows execution requires its own passing recorded run;
+generated-program software-device checks do not establish it.
 
 Canonical `manual/images/particle-graph.png` is the actual MaterialGraphCanvas in
 particle mode, displaying Gallery239 unchanged. `particle_graph_canvas` renders

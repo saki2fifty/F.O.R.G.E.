@@ -3603,3 +3603,50 @@ The existing alpha preparer also stages this example for the combined Windows ZI
 using matching native workers; source preparation publishes only the new assets.
 The native shader acceptance selector includes these cases. Registrations alone
 are not Windows acceptance; use the immutable run evidence.
+
+## GPU camera-plane particle checks
+
+`particle_gpu_vulkan` retains the original 1344 independent analytic cases and adds
+180 camera projections covering 65400 particles. Centers/RGB compare bytewise with
+the original device rows; an independent double geometry reference checks aligned
+columns. Extreme finite transforms use relative as well as absolute tolerances.
+`particle_graph_vulkan` adds 12 generated-program camera cases/768 particles,
+including nonfinite-output fallback. Generated Compute testing is separate from
+native realization of an immutable cooked D3D12 program.
+
+`particle_gpu_billboard_vulkan` and native `editor_render_particle-gpu-billboards`
+use the same 27-frame numeric renderer fixture. It checks single-sided textured
+geometry, view bases/flips/roll, reflected/sheared/zero-Z emitters, opaque batching,
+view retention, frustum edges and Blend refusal/recovery. Original CPU renderer
+coverage remains separate. These are software-device correctness checks, not
+physical-device performance measurements.
+
+`particle_gpu_billboard_gallery` and `particle_gpu_graph_billboard_gallery` inspect
+editable Scenes243/244 through the shared Gallery fixture. The builtin export case
+publishes Texture/Material/Effect, hides source, relocates the exact four-asset
+closure and checks the compact fixed-clock World without CPU particle sampling.
+`particle_gpu_billboard_gallery_game_vulkan` and native
+`particle_gpu_billboard_gallery_game` draw the actual source-hidden production Game.
+Native `particle_gpu_graph_billboard_gallery_export` first invokes the existing239
+Shader preparer, then publishes graph9 and renders its five-asset source-hidden
+closure. That Windows case is required; generated-program Vulkan tests do not
+substitute for it. The package preparers retain Shader-before-Effect order and
+publish the shared camera-plane Texture once. Native acceptance selectors include
+these cases, without claiming execution before a passing run is recorded.
+
+The native Effect fixture tests GPU/Graph checkbox history and Mesh restoration
+in six layouts. `particle_runtime` also checks the combined graph9 lifetime bounds
+against actual camera-plane geometry at declared position/size limits, including
+both camera bases, roll, flips, reflections, shear and flattened emitters. Both MCP
+formats test the optional explicit GPU backend and its
+ordinary source/history/publication/reopen owners. Model and exporter checks cover
+retained inactive CPU settings, old source/cook meanings and missing/malformed/
+unsupported `runtime_particle_gpu_billboard` kit support.
+
+Canonical `manual/images/gpu-camera-particles.png` is unmodified 640×360 Game output
+from Scene243 at three seconds, captured by
+`particle_gpu_billboard_gallery_game_vulkan` with editable source hidden and
+runtime content relocated. It was visually reviewed. The software adapter was
+llvmpipe; this is neither a full editor screenshot nor Windows, physical hardware
+or graph9 rendering acceptance. Its exact source/image/test hashes are retained
+in the local capture receipt.

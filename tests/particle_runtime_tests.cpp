@@ -82,6 +82,27 @@ void gpu_packet_admission() {
         {0, .1, false}, {.5, .2, false}, {std::nextafter(.5, 1.), .3, false}, {1, .1, false}};
     reject([&] { (void)prepare_particle_gpu_values(collapsed, .5, 17, world, camera); });
 }
+void gpu_billboard_packet_admission() {
+    for (const auto basis : {ViewBasis::ForgePositiveZ, ViewBasis::GltfNegativeZ}) {
+        Camera camera;
+        camera.basis = std::uint32_t(basis);
+        const auto view = camera_view(camera, AffineTransform{}, 64, 64);
+        for (const unsigned count : {0u, 65u, 1024u}) {
+            const auto values = prepare_particle_gpu_billboard_values(view, count);
+            require(values.counts == std::array<std::uint32_t, 4>{count, 0, 0, 0},
+                    "GPU camera packet changed its bounded count or reserved lanes");
+            for (unsigned row = 0; row < 3; ++row)
+                require(values.camera[row] == ParticleGpuRow{float(view.right[row]),
+                                                             float(view.up[row]),
+                                                             float(-view.forward[row]), 0},
+                        "GPU camera packet changed its admitted camera axes");
+        }
+        reject([&] { (void)prepare_particle_gpu_billboard_values(view, 1025); });
+        auto invalid = view;
+        invalid.up[1] = std::numeric_limits<double>::quiet_NaN();
+        reject([&] { (void)prepare_particle_gpu_billboard_values(invalid, 1); });
+    }
+}
 void affine_and_envelope() {
     auto source = ParticleEffectSource::create(AssetId::generate());
     auto data = source.compiled();
@@ -244,6 +265,58 @@ void graph_envelope() {
     reject([&] { (void)particle_effect_bounds(invalid, mesh, world); });
     reject([&] { (void)prepare_particle_gpu_values(invalid, .5, 17, world, camera); });
 }
+void gpu_graph_billboard_envelope() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    const ParticleGraphProgram program{AssetRef<ShaderAsset>{AssetId::generate()}, {2, 3, 4}, 5};
+    source.set_graph_program(program);
+    source.enable_gpu_billboards(true);
+    const auto data = source.compiled();
+    require(data.version == 9, "Graph camera bounds need the combined device profile");
+    const MeshBounds quad{{-.5f, -.5f, 0}, {.5f, .5f, 0}};
+    AffineTransform reflected, flattened, side, roll;
+    reflected.m = {-2, .3, 0, 10, 0, 3, .4, -2, 0, 0, .5, 7};
+    flattened.m = {-2, .5, 0, 10, 0, 3, 0, -2, .4, 0, 0, 7};
+    side.m = {0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0};
+    roll.m = {.8, -.6, 0, 0, .6, .8, 0, 0, 0, 0, 1, 0};
+    for (const auto& emitter : {AffineTransform{}, reflected, flattened})
+        for (double multiplier : {.01, 1., 16.}) {
+            const auto envelope = particle_effect_bounds(data, quad, emitter, multiplier);
+            const auto packet =
+                prepare_particle_gpu_values(data, .5, 17, emitter, CameraView{}, multiplier);
+            validate_particle_gpu_graph_envelope(packet, {{2, 3, 4, 5}});
+            for (unsigned position_corner = 0; position_corner < 8; ++position_corner) {
+                Double3 position{};
+                for (unsigned axis = 0; axis < 3; ++axis)
+                    position[axis] =
+                        ((position_corner & (1u << axis)) ? 1 : -1) * program.extent[axis];
+                const auto center = emitter.point(position);
+                for (double size : {0., program.maximum_size * multiplier}) {
+                    auto pose = emitter;
+                    for (unsigned axis = 0; axis < 3; ++axis) {
+                        for (unsigned column = 0; column < 3; ++column)
+                            pose.m[axis * 4 + column] *= size;
+                        pose.m[axis * 4 + 3] = center[axis];
+                    }
+                    for (const auto& camera_world : {AffineTransform{}, side, roll})
+                        for (unsigned basis : {0u, 1u})
+                            for (unsigned flips = 0; flips < 4; ++flips) {
+                                Camera values;
+                                values.basis = basis;
+                                values.flip_x = bool(flips & 1);
+                                values.flip_y = bool(flips & 2);
+                                const auto view = camera_view(values, camera_world, 320, 180);
+                                const auto actual =
+                                    transform_bounds(quad, particle_billboard_world(pose, view));
+                                for (unsigned axis = 0; axis < 3; ++axis)
+                                    require(actual.minimum[axis] >= envelope.minimum[axis] &&
+                                                actual.maximum[axis] <= envelope.maximum[axis],
+                                            "Graph lifetime envelope clipped an admitted camera "
+                                            "quad at a declared position/size limit");
+                            }
+                }
+            }
+        }
+}
 void billboard_geometry() {
     auto source = ParticleEffectSource::create(AssetId::generate());
     source.enable_billboards(true);
@@ -378,8 +451,10 @@ int main(int argc, char** argv) {
         }
         require(argc == 2, "Need particle runtime scratch root");
         gpu_packet_admission();
+        gpu_billboard_packet_admission();
         affine_and_envelope();
         graph_envelope();
+        gpu_graph_billboard_envelope();
         instance_parameters();
         billboard_geometry();
         resource_profile();

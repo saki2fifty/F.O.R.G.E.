@@ -2129,6 +2129,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "14751244-1a2b-4a06-b8bf-c25887f92156",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/244-gpu-graph-camera-particles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "15100000-1510-4151-8151-151000000000",
       "metadata": {},
       "schema_version": 3,
@@ -4401,6 +4411,60 @@
     },
     {
       "dependencies": [
+        "05420c39-1aa8-46ae-b73e-f61680bea5db",
+        "40854239-105f-4867-b852-d291ba25720d"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "2c7900a13115b653595a499a04f09bec23f82c8bda4da3a6871a606d2371a48b",
+          "role": "particles.mesh",
+          "target": "05420c39-1aa8-46ae-b73e-f61680bea5db",
+          "type": "mesh"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f5abd3016efbdebd7b28ad5359455c00c0899efc4b0287c499a3db42d1d62abf",
+          "role": "particles.material",
+          "target": "40854239-105f-4867-b852-d291ba25720d",
+          "type": "material"
+        }
+      ],
+      "id": "28e99908-912b-4b49-b699-204945dda0a4",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "c04a0b277d94574bf1fd72e402f57f6985138d1ca91807d2d828ec825722dcfc",
+          "backend": "none",
+          "dependency_digest": "4592902b45eb7bf0297d9fb659483321cb126cd44fa752663c5c2a55179406e4",
+          "generation": 1,
+          "importer": "forge.particles.cpu-mesh",
+          "importer_revision": "forge.particles.mesh.v3",
+          "key": "283f3b83ebccdb5dd91602b67f0f93bc38bd44b98d5fb0bd7d5e9f3e7f1528bb",
+          "output_format": "forge.particle-effect-cooked",
+          "output_version": 3,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "4d2f8efbb2501a83453c0e7444bdf2e199e964a485d5af31fdb0a5a191046b60",
+          "source_digest": "6f837ae466dc1c53e3c23a49f6a38a26550079fc107e0d59519a265b4dcb8ef3",
+          "version": 1
+        },
+        "forge.particle_effect": {
+          "bytes": 670,
+          "file": "effect.json",
+          "sha256": "c14f9bdc00e3cff8368baeaaaf3dab3708fb1dd6ff2c67e2abe8c1e7bf84aff2",
+          "value_version": 8,
+          "version": 3
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Particles/Billboards/DeviceCloud.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
+      "dependencies": [
         "cf8130ea-5707-491c-90e9-a371c5ed9039"
       ],
       "dependency_edges": [
@@ -6504,6 +6568,53 @@
       "type": "ui_document"
     },
     {
+      "dependencies": [
+        "581dc579-3047-4c41-985f-90ca8191cbec"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "86ce38eef0d1ce77e564df5b5b6d2b2c2ea67e3d3076f2bccf3e5b3e68a5922e",
+          "role": "material.texture:baseColorTexture",
+          "target": "581dc579-3047-4c41-985f-90ca8191cbec",
+          "type": "texture"
+        }
+      ],
+      "id": "40854239-105f-4867-b852-d291ba25720d",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "06721a5f8d22c545650e046480e37a4651aa85d4be42325d1b83145c4a9e1d22",
+          "backend": "none",
+          "dependency_digest": "267723f3eabdb9b27989caaef9933ed4e17215fc7362de8a680e7690c8b585f8",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "71d6183b0e9c691bb5c91169e4b67933f77ad1e1224b129af502ea856b427d8f",
+          "key": "f5abd3016efbdebd7b28ad5359455c00c0899efc4b0287c499a3db42d1d62abf",
+          "output_format": "forge.material-bundle",
+          "output_version": 3,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "ae8faeb47423e445e1203af9bbbc648f7864301b7e77a33ad1a493f8185e0995",
+          "source_digest": "929ccd6e25dd556539763a2f86ac1fd461f8545d181005afb420f18523263ddc",
+          "version": 1
+        },
+        "forge.material": {
+          "render_textures": {},
+          "shader": null,
+          "textures": {
+            "baseColorTexture": "581dc579-3047-4c41-985f-90ca8191cbec"
+          },
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Particles/Billboards/DeviceCloud.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "408ce979-5139-4038-9a09-abe9421a4291",
@@ -8337,7 +8448,7 @@
           "artifact_digest": "7cdb56fd5a3a1f434d3d01557006b20fee47cecd068bc9fafe614e095966db8b",
           "backend": "none",
           "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
-          "generation": 1,
+        "generation": 1,
           "importer": "forge.texture.paint",
           "importer_revision": "918e8d8bdd55d74bc30a622dd929539bde19e65138897b5597f0b002f524e269",
           "key": "86ce38eef0d1ce77e564df5b5b6d2b2c2ea67e3d3076f2bccf3e5b3e68a5922e",
@@ -11142,6 +11253,16 @@
       "source": "Assets/Physics2D/Solid.material.json",
       "source_dependencies": [],
       "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "799544f1-3e69-468a-bfa9-a260507216c3",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/243-gpu-camera-particles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -22350,6 +22471,16 @@
       "source": "Assets/UI/MaterialEffects/Still.material.json",
       "source_dependencies": [],
       "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "fd136ef1-0124-47f2-a327-fccd169ccf21",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Billboards/GraphCloud.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],

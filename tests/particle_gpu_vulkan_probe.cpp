@@ -3,6 +3,7 @@
 #include "engine_render_resource.hpp"
 #include "mesh_draw.hpp"
 #include "particle_gpu.hpp"
+#include "particle_gpu_camera_reference.hpp"
 #include "particle_gpu_reference.hpp"
 #include <algorithm>
 #include <cmath>
@@ -109,6 +110,8 @@ std::array<ParticleGpuRow, 7> reference(const ParticleGpuValues& p, unsigned id)
     rows[6][3] = 1;
     return rows;
 }
+using particle_gpu_test::billboard_reference;
+using particle_gpu_test::read_particles;
 constexpr const char* draw_kernel = R"(
 RWStructuredBuffer<float4> ParticleRows;
 [numthreads(64,1,1)]void main(uint3 thread:SV_DispatchThreadID){
@@ -370,6 +373,80 @@ int main() {
                                     }
                                 }
                             }
+        std::uint64_t billboard_cases = 0, billboard_particles = 0;
+        double billboard_error = 0;
+        ParticleEffectData aligned;
+        aligned.version = 3;
+        aligned.mesh = engine_primitive(0);
+        aligned.emission = ParticleEmission::Burst;
+        aligned.burst_count = 65; // Cross the native 64-thread group boundary.
+        aligned.capacity = 1024;
+        const double diagonal = std::sqrt(.5);
+        const std::array<AffineTransform, 3> views{
+            AffineTransform{},
+            AffineTransform{{diagonal, -diagonal, 0, 10, diagonal, diagonal, 0, 5, 0, 0, 1, 7}},
+            AffineTransform{{0, 0, 1, 10, 0, 1, 0, 5, -1, 0, 0, 7}}};
+        const std::array<AffineTransform, 5> emitters{
+            world, AffineTransform{{2, 0, 0, 10, 0, 3, 0, -2, 0, 0, 0, 7}},
+            AffineTransform{{0, 0, 0, 10, 0, 3, 0, -2, 0, 0, 1, 7}},
+            AffineTransform{{0, 0, 0, 10, 0, 0, 0, -2, 0, 0, 0, 7}},
+            AffineTransform{{-1e24, 3e23, 0, 10, 0, 2e24, 4e23, -2, 0, 0, 1e24, 7}}};
+        for (const unsigned count : {1u, 65u, 1024u})
+            for (const auto basis : {ViewBasis::ForgePositiveZ, ViewBasis::GltfNegativeZ})
+                for (const auto& view_world : views) {
+                    Camera configuration;
+                    configuration.basis = std::uint32_t(basis);
+                    const auto view = camera_view(configuration, view_world, 64, 64);
+                    for (const auto& emitter : emitters)
+                        for (bool minimum_size : {false, true}) {
+                            aligned.burst_count = count;
+                            aligned.size_start = minimum_size ? .001 : .25;
+                            aligned.size_end = minimum_size ? .001 : .125;
+                            const auto plan =
+                                prepare_particle_gpu_values(aligned, .5, 123, emitter, view);
+                            particles.evaluate(context, plan);
+                            const auto baseline = read_particles(context, particles, staging);
+                            particles.evaluate(context, plan, &view);
+                            require(particles.count() == count,
+                                    "Camera projection changed native membership");
+                            const auto projected = read_particles(context, particles, staging);
+                            require(baseline.size() == projected.size(),
+                                    "Camera projection changed its device output range");
+                            for (unsigned id = 0; id < particles.count(); ++id) {
+                                const auto expected = billboard_reference(baseline[id], view);
+                                for (unsigned r = 0; r < 7; ++r)
+                                    for (unsigned c = 0; c < 4; ++c) {
+                                        const auto actual = projected[id][r][c];
+                                        if ((r < 3 && c == 3) || (r == 6 && c < 3))
+                                            require(
+                                                std::memcmp(&actual, &baseline[id][r][c],
+                                                            sizeof(actual)) == 0,
+                                                "Camera projection changed device centers or RGB");
+                                        const auto error =
+                                            std::abs(double(actual) - expected[r][c]);
+                                        billboard_error = std::max(billboard_error, error);
+                                        if (!std::isfinite(actual) ||
+                                            error > 3e-4 + 3e-5 * std::abs(double(expected[r][c])))
+                                            throw std::runtime_error(
+                                                "GPU camera projection mismatch case=" +
+                                                std::to_string(billboard_cases) + " particle=" +
+                                                std::to_string(id) + " row=" + std::to_string(r) +
+                                                " column=" + std::to_string(c));
+                                    }
+                                ++billboard_particles;
+                            }
+                            ++billboard_cases;
+                        }
+                }
+        auto invalid_view = camera_view(Camera{}, AffineTransform{}, 64, 64);
+        invalid_view.right[0] = std::numeric_limits<double>::quiet_NaN();
+        const auto valid_plan = prepare_particle_gpu_values(aligned, .5, 123, world, camera);
+        rejects([&] { particles.evaluate(context, valid_plan, &invalid_view); });
+        require(particles.count() == 0, "Failed camera projection retained a published count");
+        std::cout << "GPU_CAMERA_CONTRACT {\"cases\":" << billboard_cases
+                  << ",\"particles\":" << billboard_particles
+                  << ",\"maximum_absolute_error\":" << billboard_error
+                  << ",\"backend\":\"software Vulkan\"}\n";
         rejects([&] { ParticleGpuInstances invalid(presentation, 0); });
         rejects([&] { ParticleGpuInstances invalid(presentation, 1025); });
         auto bad = prepare_particle_gpu_values(data, .5, 1, world, camera);

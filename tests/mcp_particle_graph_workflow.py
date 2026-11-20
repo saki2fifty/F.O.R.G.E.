@@ -103,4 +103,19 @@ def check_particle_graph(read, mutate, edit, status, content, failed, root):
     assert content(owner) == cpu
     assert edit('forge_asset_document_particle_evaluation', owner, evaluation='graph')['ok']
     assert content(owner) == graph
+    assert edit('forge_asset_document_particle_billboards', owner, backend='gpu', enabled=True)['ok']
+    aligned = dict(graph, version=8, profile='gpu_graph_billboard1', gpu_billboard_enabled=True,
+                   billboard_enabled=False, opacity_enabled=False, opacity_start=1,
+                   opacity_end=0, opacity_curve=[])
+    assert content(owner) == aligned
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == graph
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == aligned
+    assert edit('forge_asset_document_particle_billboards', owner, backend='gpu', enabled=False)['ok']
+    assert content(owner) == dict(aligned, profile='gpu_graph1', gpu_billboard_enabled=False)
+    assert edit('forge_asset_document_particle_billboards', owner, backend='gpu', enabled=True)['ok']
+    assert content(owner) == aligned
+    assert edit('forge_asset_document_particle_evaluation', owner, evaluation='cpu')['ok']
+    assert content(owner) == dict(aligned, profile='cpu_mesh2')
+    assert edit('forge_asset_document_particle_evaluation', owner, evaluation='graph')['ok']
+    assert content(owner) == aligned
     assert edit('forge_asset_document_close', owner, discard=True)['ok']

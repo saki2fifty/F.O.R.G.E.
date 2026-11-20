@@ -133,6 +133,35 @@ int main(int argc, char** argv) {
             }
             opacity_kit.erase("runtime_particle_alpha");
             reject([&] { validate_runtime_compatibility(particles, opacity_kit); });
+            for (unsigned values : {8u, 9u}) {
+                effect.metadata["forge.particle_effect"]["value_version"] = values;
+                particles.replace(effect);
+                Json gpu_billboard_kit{{"runtime_particle_effect", particle_effect_cooked_version},
+                                       {"runtime_particle_gpu", particle_gpu_profile_version}};
+                if (values == 9)
+                    gpu_billboard_kit["runtime_particle_graph"] = particle_graph_profile_version;
+                reject([&] { validate_runtime_compatibility(particles, gpu_billboard_kit); });
+                gpu_billboard_kit["runtime_particle_gpu_billboard"] =
+                    particle_gpu_billboard_profile_version;
+                // Device alignment requires neither CPU sorted alpha nor CPU opacity/alignment.
+                validate_runtime_compatibility(particles, gpu_billboard_kit);
+                for (const Json& invalid :
+                     {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"), Json(2),
+                      Json((std::uint64_t{1} << 32) + 1)}) {
+                    auto wrong = gpu_billboard_kit;
+                    wrong["runtime_particle_gpu_billboard"] = invalid;
+                    reject([&] { validate_runtime_compatibility(particles, wrong); });
+                }
+                for (const auto* missing :
+                     {"runtime_particle_effect", "runtime_particle_gpu",
+                      "runtime_particle_gpu_billboard", "runtime_particle_graph"}) {
+                    if (values == 8 && std::string_view(missing) == "runtime_particle_graph")
+                        continue;
+                    auto wrong = gpu_billboard_kit;
+                    wrong.erase(missing);
+                    reject([&] { validate_runtime_compatibility(particles, wrong); });
+                }
+            }
             effect.metadata["forge.particle_effect"]["value_version"] = 4;
             particles.replace(effect);
             AssetRecord graph_shader{AssetId::generate(), ShaderAsset::type,

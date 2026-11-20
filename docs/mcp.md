@@ -3599,7 +3599,8 @@ CPU transport checks are separate from cooked native Windows shader execution.
 
 `asset.document.particle_billboards` requires `asset.write`,
 `editor:"particle_effect"`, the current document session/revision and boolean
-`enabled`. Enabling selects CPU camera-plane values7/`cpu_billboard1` through the
+`enabled`. Optional `backend` accepts `cpu` (default) or `gpu`. With CPU, enabling selects
+camera-plane values7/`cpu_billboard1` through the
 same source operation as **Camera-aligned quads**. Source7 retains the original
 Mesh, opacity and optional graph settings. Other evaluation backends retain but
 do not apply alignment. Disabling returns to ordinary Mesh projection, preserving
@@ -3614,3 +3615,14 @@ Undo/Redo, publication and reopen use the existing source rules. Nonidentity opa
 requires Blend/depth-test/no-depth-write; identity opacity permits opaque/masked
 Materials. Save and wait for publication before Play/export. Values7 require the
 matching effect3/alpha1/opacity1/billboard1 runtime kit, without GPU/graph support.
+
+Explicit `backend:"gpu"` enables values8/`gpu_billboard1` for built-in motion or
+preserves an active Graph as values9/`gpu_graph_billboard1`. Source8 retains separate
+CPU/GPU alignment settings, the original Mesh, graph program and CPU opacity stops.
+Disabling GPU alignment restores GPU3/graph4 Mesh projection. Backend changes retain
+inactive settings; old source7 CPU flags never activate GPU alignment implicitly.
+GPU quads require an opaque/masked built-in Material and effect3/GPU1 plus
+`runtime_particle_gpu_billboard:1`; graph quads also require graph1. Blend and
+per-particle opacity remain CPU capabilities. The tool name and shared history/
+publication owners are unchanged. Both MCP formats exercise the explicit backend,
+source publication/reopen, invalid/stale/no-op guards and Undo/Redo.

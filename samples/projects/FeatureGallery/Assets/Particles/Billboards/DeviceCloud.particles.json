@@ -1,0 +1,54 @@
+{
+  "acceleration": [
+    0,
+    0,
+    0
+  ],
+  "asset_id": "28e99908-912b-4b49-b699-204945dda0a4",
+  "billboard_enabled": false,
+  "burst_count": 32,
+  "capacity": 128,
+  "color_end": [
+    1,
+    1,
+    1
+  ],
+  "color_gradient": [],
+  "color_start": [
+    1,
+    1,
+    1
+  ],
+  "cone_angle": 15.0,
+  "direction": [
+    0.0,
+    1.0,
+    0.0
+  ],
+  "drag": 0.0,
+  "emission": "continuous",
+  "format": "forge.particle_effect",
+  "gpu_billboard_enabled": true,
+  "lifetime": 4,
+  "material": "40854239-105f-4867-b852-d291ba25720d",
+  "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+  "opacity_curve": [],
+  "opacity_enabled": false,
+  "opacity_end": 0,
+  "opacity_start": 1,
+  "profile": "gpu_billboard1",
+  "shape": "box",
+  "shape_radius": 1.0,
+  "shape_size": [
+    2.5,
+    1.5,
+    2
+  ],
+  "size_curve": [],
+  "size_end": 0.1,
+  "size_start": 0.35,
+  "spawn_rate": 32,
+  "speed_max": 0.5,
+  "speed_min": 0.2,
+  "version": 8
+}

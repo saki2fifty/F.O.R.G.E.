@@ -247,10 +247,13 @@ int main(int argc, char** argv) {
     ComPtr<ID3D12InfoQueue> diagnostics;
     try {
         require(argc == 2 || argc == 3 ||
-                    (argc == 4 && (std::string_view(argv[2]) == "particle-graphs" ||
-                                   std::string_view(argv[2]) == "particle-alpha-gallery" ||
-                                   std::string_view(argv[2]) == "particle-opacity-gallery" ||
-                                   std::string_view(argv[2]) == "particle-billboard-gallery")),
+                    (argc == 4 &&
+                     (std::string_view(argv[2]) == "particle-graphs" ||
+                      std::string_view(argv[2]) == "particle-alpha-gallery" ||
+                      std::string_view(argv[2]) == "particle-opacity-gallery" ||
+                      std::string_view(argv[2]) == "particle-billboard-gallery" ||
+                      std::string_view(argv[2]) == "particle-gpu-billboard-gallery" ||
+                      std::string_view(argv[2]) == "particle-gpu-graph-billboard-gallery")),
                 "Expected image output directory, optional render case and graph content root");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
@@ -294,16 +297,25 @@ int main(int argc, char** argv) {
                 forge::test_particle_graph_render::exercise(isolated, context, argv[3], images);
             } else if (selected == "particle-alpha")
                 forge::test_particle_alpha::exercise(isolated, context, images);
-            else if (selected == "particle-billboards")
-                forge::test_particle_billboard::exercise(isolated, context, images);
+            else if (selected == "particle-billboards" || selected == "particle-gpu-billboards")
+                forge::test_particle_billboard::exercise(isolated, context, images,
+                                                         selected == "particle-gpu-billboards");
             else if (selected == "particle-alpha-gallery" ||
                      selected == "particle-opacity-gallery" ||
-                     selected == "particle-billboard-gallery") {
+                     selected == "particle-billboard-gallery" ||
+                     selected == "particle-gpu-billboard-gallery" ||
+                     selected == "particle-gpu-graph-billboard-gallery") {
                 require(argc == 4, "Sorted-alpha render needs relocated cooked content");
-                forge::test_particle_alpha::gallery(isolated, context, argv[3], images,
-                                                    selected == "particle-opacity-gallery" ||
-                                                        selected == "particle-billboard-gallery",
-                                                    selected == "particle-billboard-gallery");
+                forge::test_particle_alpha::gallery(
+                    isolated, context, argv[3], images,
+                    selected == "particle-opacity-gallery" ||
+                        selected == "particle-billboard-gallery",
+                    selected == "particle-billboard-gallery" ||
+                        selected == "particle-gpu-billboard-gallery" ||
+                        selected == "particle-gpu-graph-billboard-gallery",
+                    selected == "particle-gpu-billboard-gallery" ||
+                        selected == "particle-gpu-graph-billboard-gallery",
+                    selected == "particle-gpu-graph-billboard-gallery");
             } else if (selected == "lightmaps")
                 forge::lightmap_test::exercise_gpu(
                     isolated, context,

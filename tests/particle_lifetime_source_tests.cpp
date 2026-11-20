@@ -485,9 +485,106 @@ void billboard_profiles() {
                 "Billboard support changed older value profile roundtrip");
     }
 }
+void gpu_billboard_profiles() {
+    auto fresh = ParticleEffectSource::create(AssetId::generate());
+    const auto original = fresh.document;
+    fresh.enable_gpu_billboards(false);
+    require(fresh.document == original, "Disabling absent GPU alignment changed legacy source");
+    fresh.enable_gpu_billboards(true);
+    require(fresh.compiled().version == 8 && fresh.document.at("version").get<unsigned>() == 8 &&
+                !fresh.document.at("billboard_enabled").get<bool>() &&
+                !fresh.document.at("opacity_enabled").get<bool>() &&
+                fresh.document.at("mesh") == original.at("mesh"),
+            "GPU alignment did not retain original geometry and inactive appearance");
+    fresh.enable_gpu_billboards(false);
+    require(fresh.compiled().version == 3 &&
+                fresh.compiled().mesh == original.at("mesh").get<AssetRef<MeshAsset>>(),
+            "Disabling GPU alignment did not restore the original GPU Mesh");
+
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    const ParticleGraphProgram program{AssetRef<ShaderAsset>{AssetId::generate()}, {3, 4, 5}, 2};
+    source.set_graph_program(program, false);
+    source.enable_billboards(true);
+    source.enable_opacity(true);
+    source.enable_lifetime(ParticleLifetimeChannel::Opacity, true);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Opacity, .5);
+    source.insert_lifetime_stop(ParticleLifetimeChannel::Opacity, std::nextafter(.5, 1.));
+    source.set_evaluation(ParticleEvaluation::Gpu);
+    const auto old = source.document;
+    const auto old_values = encode_particle_effect(source.compiled());
+    require(parse(old).document == old && source.compiled().version == 3 &&
+                !source.document.contains("gpu_billboard_enabled") &&
+                decode_cooked_particle_effect(source.cook(), source.asset(), 3) ==
+                    source.compiled(),
+            "Old GPU source reinterpreted its retained inactive CPU alignment");
+    source.enable_gpu_billboards(true);
+    auto data = source.compiled();
+    require(data.version == 8 && particle_uses_gpu(data) && particle_uses_billboards(data) &&
+                !particle_uses_graph(data) && !particle_uses_sorted_alpha(data) &&
+                !particle_uses_opacity(data) && data.mesh == engine_primitive(8) &&
+                source.document.at("mesh") == old.at("mesh") &&
+                source.document.at("opacity_curve") == old.at("opacity_curve") &&
+                source.document.at("billboard_enabled").get<bool>() && data.opacity_end == 1,
+            "GPU alignment lost retained CPU/opacity settings or changed its value family");
+    reject([&] { (void)sample_particle_effect(data, .5, 17); });
+    source.enable_gpu_billboards(false);
+    require(encode_particle_effect(source.compiled()) == old_values,
+            "Disabling GPU alignment changed original GPU values");
+    source.enable_gpu_billboards(true);
+    source.set_graph_program(program, true);
+    data = source.compiled();
+    require(data.version == 9 && particle_uses_graph(data) && data.program == program &&
+                data.mesh == engine_primitive(8) &&
+                decode_particle_effect(encode_particle_effect(data)) == data &&
+                decode_cooked_particle_effect(source.cook(), source.asset(), 3) == data &&
+                parse(source.document).document == source.document,
+            "Authored GPU alignment did not preserve its program or source/cooked projection");
+    const auto baseline = source.document;
+    for (auto backend : {ParticleEvaluation::Cpu, ParticleEvaluation::CpuAlpha,
+                         ParticleEvaluation::Gpu, ParticleEvaluation::Graph}) {
+        source.set_evaluation(backend);
+        require(source.compiled().version == (backend == ParticleEvaluation::Cpu        ? 2u
+                                              : backend == ParticleEvaluation::CpuAlpha ? 7u
+                                              : backend == ParticleEvaluation::Gpu      ? 8u
+                                                                                        : 9u) &&
+                    source.document.at("opacity_curve") == old.at("opacity_curve") &&
+                    source.document.at("mesh") == old.at("mesh") &&
+                    source.document.at("gpu_billboard_enabled").get<bool>() &&
+                    source.document.at("billboard_enabled").get<bool>() &&
+                    source.graph_program() == program,
+                "Backend switch lost independent retained camera/opacity/program state");
+    }
+    require(source.document == baseline, "GPU camera roundtrip changed retained source bytes");
+    source.enable_billboards(false);
+    source.enable_opacity(false);
+    require(source.compiled().version == 9 && source.document.at("version").get<unsigned>() == 8,
+            "Inactive CPU appearance control downgraded active GPU camera source");
+    source.enable_gpu_billboards(false);
+    require(source.compiled().version == 4 && source.compiled().program == program,
+            "Disabling authored GPU alignment discarded the original graph profile");
+    source.enable_gpu_billboards(true);
+    for (const auto& invalid_flag : nlohmann::json::array({nullptr, 1, 1.0, "true"})) {
+        auto invalid = source.document;
+        invalid["gpu_billboard_enabled"] = invalid_flag;
+        reject([&] { (void)parse(invalid); });
+    }
+    auto invalid = source.document;
+    invalid["profile"] = "gpu_graph1";
+    reject([&] { (void)parse(invalid); });
+    invalid = source.document;
+    invalid["version"] = 9;
+    reject([&] { (void)parse(invalid); });
+    invalid = encode_particle_effect(source.compiled());
+    invalid["mesh"] = engine_primitive(0);
+    reject([&] { (void)decode_particle_effect(invalid); });
+    invalid = encode_particle_effect(source.compiled());
+    invalid.erase("program");
+    reject([&] { (void)decode_particle_effect(invalid); });
+}
 int main() {
     try {
         billboard_profiles();
+        gpu_billboard_profiles();
         graph_program_profiles();
         sorted_alpha_profiles();
         opacity_profiles();

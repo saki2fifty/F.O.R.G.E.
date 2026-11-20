@@ -38,7 +38,7 @@ void validate_particle_graph_program(const ParticleGraphProgram&);
 ParticleGraphProgram decode_particle_graph_program(const nlohmann::json&);
 nlohmann::json encode_particle_graph_program(const ParticleGraphProgram&);
 struct ParticleEffectData {
-    std::uint32_t version = 1; // CPU1/2, GPU3/4, sorted-alpha CPU5/6, camera-plane CPU7.
+    std::uint32_t version = 1; // CPU1/2, GPU3/4, CPU alpha5/6, CPU plane7, GPU planes8/9.
     AssetRef<MeshAsset> mesh;
     AssetRef<MaterialAsset> material;
     ParticleEmission emission = ParticleEmission::Continuous;
@@ -59,7 +59,10 @@ struct ParticleEffectData {
     bool operator==(const ParticleEffectData&) const = default;
 };
 constexpr bool particle_uses_gpu(const ParticleEffectData& data) {
-    return data.version == 3 || data.version == 4;
+    return data.version == 3 || data.version == 4 || data.version == 8 || data.version == 9;
+}
+constexpr bool particle_uses_graph(const ParticleEffectData& data) {
+    return data.version == 4 || data.version == 9;
 }
 constexpr bool particle_uses_sorted_alpha(const ParticleEffectData& data) {
     return data.version == 5 || data.version == 6 || data.version == 7;
@@ -68,7 +71,7 @@ constexpr bool particle_uses_opacity(const ParticleEffectData& data) {
     return data.version == 6 || data.version == 7;
 }
 constexpr bool particle_uses_billboards(const ParticleEffectData& data) {
-    return data.version == 7;
+    return data.version == 7 || data.version == 8 || data.version == 9;
 }
 struct ParticleSample {
     // Emitter-scoped transient ordinal; never an entity UUID or saved handle.

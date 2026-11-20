@@ -1,4 +1,5 @@
 #include "particle_gpu_plan.hpp"
+#include "particle_render_instances.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -32,6 +33,18 @@ template <class Stops> void gpu_times(const Stops& stops) {
     }
 }
 } // namespace
+ParticleGpuBillboardValues prepare_particle_gpu_billboard_values(const CameraView& camera,
+                                                                 unsigned count) {
+    if (count > 1024)
+        throw std::runtime_error("GPU particle camera projection exceeds its capacity");
+    const auto frame = particle_billboard_world(AffineTransform{}, camera);
+    ParticleGpuBillboardValues result;
+    result.counts[0] = count;
+    for (unsigned row = 0; row < 3; ++row)
+        for (unsigned column = 0; column < 3; ++column)
+            result.camera[row][column] = gpu(frame.m[4 * row + column]);
+    return result;
+}
 void validate_particle_gpu_graph_limits(const ParticleGpuGraphLimits& limits) {
     validate_particle_graph_bounds(
         {limits.extent_size[0], limits.extent_size[1], limits.extent_size[2]},
@@ -58,7 +71,7 @@ ParticleGpuValues prepare_particle_gpu_values(const ParticleEffectData& data, do
                                               const CameraView& camera, double size,
                                               std::array<float, 3> tint) {
     validate_particle_effect(data);
-    if (data.version != 3 && data.version != 4)
+    if (!particle_uses_gpu(data))
         throw std::runtime_error("GPU particle evaluation requires a GPU value profile");
     validate_particle_instance_parameters(size, tint);
     if (!std::isfinite(seconds) || seconds < 0 || seconds > 1e9)

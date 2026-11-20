@@ -90,12 +90,18 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                             "Opacity stops use local UUIDs, normalized0–1 time/value and "
                             "Step/Linear interpolation, like size stops. GPU/Graph do not apply "
                             "opacity. Requires runtime_particle_opacity1 and alpha1."},
-                {"billboards", "asset.document.particle_billboards selects CPU camera-plane "
-                               "quads (values7/cpu_billboard1). Source7 retains the original Mesh "
-                               "and opacity settings across backend changes. Quad width/height "
-                               "use world X/Y scale; orientation follows each camera. Opaque and "
-                               "masked Materials require identity opacity. Requires "
-                               "runtime_particle_billboard1, opacity1 and alpha1."},
+                {"billboards",
+                 "asset.document.particle_billboards selects CPU camera-plane "
+                 "quads (values7/cpu_billboard1). Source7 retains the original Mesh "
+                 "and opacity settings across backend changes. Quad width/height "
+                 "use world X/Y scale; orientation follows each camera. Opaque and "
+                 "masked Materials require identity opacity. Requires "
+                 "runtime_particle_billboard1, opacity1 and alpha1. Explicit "
+                 "backend=gpu selects values8/gpu_billboard1 or retains an active "
+                 "graph as values9/gpu_graph_billboard1. Source8 retains independent "
+                 "CPU/GPU alignment settings and original Mesh/program/opacity. GPU "
+                 "alignment requires opaque/masked Material and "
+                 "runtime_particle_gpu_billboard1 plus GPU1; graphs also need graph1."},
                 {"limits",
                  {{"emitters", particle_emitter_limit},
                   {"effect_capacity", 1024},
@@ -791,11 +797,19 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["enabled"] = {
                 {"type", "boolean"},
                 {"description", billboards
-                                    ? "Enable camera-plane quads and select CPU sorted-alpha. "
-                                      "False restores the retained Mesh projection."
+                                    ? "Enable camera-plane quads for the explicit backend. CPU "
+                                      "selects sorted-alpha; GPU retains an active authored graph. "
+                                      "False restores that backend's retained Mesh projection."
                                     : "Enable opacity over life and select CPU sorted-alpha. False "
                                       "retains opacity settings."}};
             needed.push_back("enabled");
+            if (billboards)
+                properties["backend"] = {
+                    {"type", "string"},
+                    {"enum", {"cpu", "gpu"}},
+                    {"default", "cpu"},
+                    {"description", "CPU preserves the existing default operation. GPU selects "
+                                    "opaque/masked device alignment, preserving an active graph."}};
         } else if (std::string_view(action) == "particle_program") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
             properties["program"] = automation_object(

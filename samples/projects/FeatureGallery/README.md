@@ -3198,3 +3198,20 @@ lifetime, opacity and **Camera-aligned quads**; publish before playing/exporting
 Open `SoftCloud.paint-texture.json` to paint the original soft alpha image.
 Emitter X/Y scale changes quad dimensions; each camera controls orientation.
 The scene includes a camera, light and opaque depth marker; no C++ code is required.
+
+### GPU camera-aligned particles
+
+Open `Scenes/243-gpu-camera-particles.scene.json` and press Play. The blue and
+amber emitters share `Assets/Particles/Billboards/DeviceCloud.particles.json` and
+its masked Material. The image is shared with the CPU camera-aligned example.
+Open the Effect in Content, choose **Evaluation → GPU** and toggle
+**Camera-aligned quads** to compare camera-plane quads with its retained Mesh.
+Publish source changes before playing or exporting. This scene includes a camera,
+light and solid depth marker and needs compute-capable graphics.
+
+Open `Scenes/244-gpu-graph-camera-particles.scene.json` for the authored-program
+variant. Compile `Assets/Particles/Graphs/Orbit.graph.shader.json`, then publish
+`Assets/Particles/Billboards/GraphCloud.particles.json`. Its **Evaluation → Graph**
+retains the assigned program when camera alignment changes. Both GPU examples
+require opaque or masked built-in Materials; use CPU sorted alpha for transparency
+or opacity over life. Shader compilation requires Windows and the packaged worker.

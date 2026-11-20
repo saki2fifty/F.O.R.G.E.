@@ -1,0 +1,50 @@
+{
+  "build_inputs": {
+    "backend": "none",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "2c7900a13115b653595a499a04f09bec23f82c8bda4da3a6871a606d2371a48b",
+        "role": "particles.mesh",
+        "target": "05420c39-1aa8-46ae-b73e-f61680bea5db",
+        "type": "mesh"
+      },
+      {
+        "kind": "runtime",
+        "revision": "f5abd3016efbdebd7b28ad5359455c00c0899efc4b0287c499a3db42d1d62abf",
+        "role": "particles.material",
+        "target": "40854239-105f-4867-b852-d291ba25720d",
+        "type": "material"
+      }
+    ],
+    "importer": "forge.particles.cpu-mesh",
+    "importer_revision": "forge.particles.mesh.v3",
+    "key_version": 1,
+    "output_format": "forge.particle-effect-cooked",
+    "output_version": 3,
+    "platform": "linux",
+    "profile": "cpu",
+    "settings": {},
+    "settings_version": 1,
+    "source": "6f837ae466dc1c53e3c23a49f6a38a26550079fc107e0d59519a265b4dcb8ef3",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.particle-effect.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "28e99908-912b-4b49-b699-204945dda0a4",
+    "source": "Assets/Particles/Billboards/DeviceCloud.particles.json",
+    "source_digest": "6f837ae466dc1c53e3c23a49f6a38a26550079fc107e0d59519a265b4dcb8ef3",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.particles.cpu-mesh",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}
