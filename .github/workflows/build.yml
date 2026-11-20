@@ -729,6 +729,8 @@ jobs:
           New-Item -ItemType Directory -Path $env:FORGE_SDK_DIAGNOSTIC_DIR -Force | Out-Null
           python tests/editor_sdk_package_test.py --zip $zip --fixture $fixture --project $project --evidence $evidence
           if ($LASTEXITCODE) { throw 'Editor SDK acceptance against final package failed' }
+          python tests/mcp_editor_package_readiness_test.py
+          if ($LASTEXITCODE) { throw 'MCP private handoff readiness checks failed' }
           python tests/mcp_editor_package_test.py --zip $zip --fixture $fixture --evidence "$evidence/mcp"
           if ($LASTEXITCODE) { throw 'Packaged native MCP C++ game acceptance failed' }
       - name: Verify combined package exports and relocation

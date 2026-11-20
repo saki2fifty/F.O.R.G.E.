@@ -40,6 +40,20 @@ def terminate_tree(process):
         process.wait(timeout=15)
 
 
+def wait_connection(connection, process, seconds=120):
+    def attempt():
+        assert process.poll() is None, 'Editor exited before its private MCP handoff was readable'
+        try:
+            text = connection.read_text(encoding='utf-8')
+        except (FileNotFoundError, PermissionError):
+            # Atomic publication can expose the final name while the Windows
+            # writer still holds its DELETE handle. Readiness requires a read.
+            return False, None
+        return True, json.loads(text)
+
+    return wait_for(attempt, lambda result: result[0], seconds)[1]
+
+
 def package_sdk(root, manifest):
     # The combined-package contract uses the fixed NativeSdk directory. Its
     # manifest hashes files; it does not contain a native_sdk.path descriptor.
@@ -302,10 +316,7 @@ def main():
                     (evidence / 'editor.stderr.log').open('w', encoding='utf-8') as stderr:
                 process = subprocess.Popen([fixture, output, '--mcp-authoring', sdk, connection],
                                            stdout=stdout, stderr=stderr)
-                wait_for(lambda: (connection.exists(), process.poll()),
-                         lambda r: r[0] or r[1] is not None, 120)
-                assert connection.exists(), 'Editor did not create its private MCP handoff'
-                config = json.loads(connection.read_text())
+                config = wait_connection(connection, process)
                 token = config['token']
                 connection.unlink()
                 # A tool call performs discovery and then its editor exchange.

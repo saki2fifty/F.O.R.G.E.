@@ -1129,6 +1129,13 @@ keys. Source timestamps are recorded after a successful rebuild and workflow
 probe; reuse stays within the same environment and engine source. Final-package
 SDK onboarding and native MCP checks run before the longer combined-export
 walkthrough, using the same assembled ZIP. Every gate must pass before upload.
+The native MCP fixture waits for a readable private connection descriptor within
+its existing 120-second startup deadline. A visible filename alone does not establish
+readiness while Windows still holds the atomic publisher's handle. Only this
+read-only file handoff tolerates temporary absence or sharing denial; malformed
+JSON, other I/O errors and editor exit fail. Tool permission checks, single-attempt mutations,
+credential removal and the remaining game/export assertions keep their existing
+contracts. A focused helper check includes an actual Windows sharing-handle case.
 The imported-lightmap export checks the prepared Shader's wrapper capability and
 the exported Material's Shader identity. After source removal and relocation,
 the runtime content verifier admits the Material's embedded Shader snapshot and
