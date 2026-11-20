@@ -57,6 +57,30 @@ void require(bool value, const char* text) {
         throw std::runtime_error(text);
 }
 void check(HRESULT result, const char* text) { require(SUCCEEDED(result), text); }
+struct NativeDebugCapture {
+    ComPtr<ID3D12InfoQueue1> queue;
+    DWORD cookie = 0;
+    static void message(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity,
+                        D3D12_MESSAGE_ID id, LPCSTR description, void*) {
+        if (severity > D3D12_MESSAGE_SEVERITY_ERROR)
+            return;
+        // Called before a debug-layer exception can bypass C++ handlers. Do not
+        // call D3D APIs or allocate here; callbacks may run on a driver thread.
+        const auto file = forge::test::fixture_crash_file_handle;
+        if (!file || file == INVALID_HANDLE_VALUE)
+            return;
+        char buffer[6144];
+        std::snprintf(buffer, sizeof(buffer), "D3D12 category=%u severity=%u id=%u: %.5800s\n",
+                      unsigned(category), unsigned(severity), unsigned(id),
+                      description ? description : "(no description)");
+        DWORD written = 0;
+        WriteFile(file, buffer, static_cast<DWORD>(std::strlen(buffer)), &written, nullptr);
+    }
+    ~NativeDebugCapture() {
+        if (queue && cookie)
+            (void)queue->UnregisterMessageCallback(cookie);
+    }
+};
 using Pixels = std::vector<std::array<unsigned char, 4>>;
 void equivalent_solid(const Pixels& candidate, const Pixels& reference) {
     require(candidate.size() == reference.size() && !reference.empty(), "Missing solid capture");
@@ -247,6 +271,7 @@ void check_shader_assets(IRenderDevice* device, IDeviceContext* context,
 #include "view_image_readback_tests.hpp"
 int main(int argc, char** argv) {
     ComPtr<ID3D12InfoQueue> diagnostics;
+    NativeDebugCapture debug_capture;
     try {
         require(argc == 2 || argc == 3 ||
                     (argc == 4 &&
@@ -300,6 +325,14 @@ int main(int argc, char** argv) {
         check(D3D12CreateDevice(warp.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&native)),
               "WARP D3D12 device failed");
         (void)native.As(&diagnostics);
+        if (SUCCEEDED(native.As(&debug_capture.queue))) {
+            check(debug_capture.queue->RegisterMessageCallback(&NativeDebugCapture::message,
+                                                               D3D12_MESSAGE_CALLBACK_FLAG_NONE,
+                                                               nullptr, &debug_capture.cookie),
+                  "D3D12 diagnostic callback registration failed");
+            std::cout << "D3D12 error callback registered before native renderer attachment\n";
+        } else
+            std::cout << "D3D12 diagnostic callbacks unavailable; queued diagnostics only\n";
         ComPtr<ID3D12CommandQueue> native_queue;
         D3D12_COMMAND_QUEUE_DESC queue_desc{};
         check(native->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&native_queue)),

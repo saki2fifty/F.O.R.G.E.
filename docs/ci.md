@@ -4034,3 +4034,7 @@ the frame, prepare/draw/readback/finish phase and contributor counts. Captures a
 fault record/module-relative offset plus last breadcrumb; they deliberately do
 not claim that a stack captured inside a filter is the original fault stack.
 This test-only extraction adds no shipping crash reporter or acceptance fallback.
+The native viewport also registers an `ID3D12InfoQueue1` callback when supported.
+It appends bounded error/corruption messages to that pre-opened file before a
+debug-layer exception can bypass C++ handlers. The callback makes no D3D calls
+and does not change validation, break settings, assertions or process failure.
