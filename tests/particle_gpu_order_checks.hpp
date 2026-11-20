@@ -1,6 +1,7 @@
 #pragma once
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
+#include "gpu_readback_diagnostics.hpp"
 #include "particle_gpu.hpp"
 #include "particle_gpu_order.hpp"
 #include <algorithm>
@@ -28,8 +29,10 @@ struct Fixture {
     using SourceSlice = ParticleGpuOrder::Source;
     ParticleGpuOrder order;
     RefCntAutoPtr<IBuffer> staging;
+    IRenderDevice* presentation_device_; // Borrowed; presentation outlives this fixture.
     unsigned count = 0, padded = 1;
-    Fixture(DiligentPresentation& presentation) : order(presentation) {
+    Fixture(DiligentPresentation& presentation)
+        : order(presentation), presentation_device_(presentation.device()) {
         check(!order.buffer() && !order.count(), "Lazy sort resource published storage");
         BufferDesc desc;
         desc.Name = "FORGE product order test readback";
@@ -55,7 +58,8 @@ struct Fixture {
                             0, padded * sizeof(Packet), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->WaitForIdle();
         MapHelper<Packet> mapped(context, staging, MAP_READ, MAP_FLAG_DO_NOT_WAIT);
-        check(bool(static_cast<Packet*>(mapped)), "Product sorted rows unavailable");
+        test_gpu::require_readback(bool(static_cast<Packet*>(mapped)), presentation_device_,
+                                   "Product sorted rows unavailable");
         return {static_cast<Packet*>(mapped), static_cast<Packet*>(mapped) + padded};
     }
     void lifecycle(IRenderDevice* device, IDeviceContext* context) {

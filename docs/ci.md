@@ -3984,3 +3984,16 @@ Vulkan/llvmpipe check and personally reviewed. The canonical asset is used by th
 manual; local receipts retain source, build, test and image provenance. This image
 shows Game output without editor chrome. Native Windows execution, physical GPU
 acceptance and full editor visual review remain separate.
+
+
+## GPU readback failure status
+
+Shared native test readback guards capture the backend and, on D3D12,
+`GetDeviceRemovedReason` before throwing. When the installed SDK and native
+interface provide it after device removal, bounded DRED breadcrumb and page-fault
+observations accompany that status. The viewport fixture enables available DRED
+collection before creating its test device. Readback allocation/mapping still fails the
+case; the guard neither retries nor changes synchronization or resource ownership.
+Debug messages collected after exception unwinding can include device destruction,
+so those later messages alone do not establish the original failure. Vulkan
+execution and native Windows execution remain separate evidence.

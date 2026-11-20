@@ -1,5 +1,6 @@
 #pragma once
 #include "engine_render_resource.hpp"
+#include "gpu_readback_diagnostics.hpp"
 #include "mesh_draw.hpp"
 #include "texture_gpu.hpp"
 #include <algorithm>
@@ -69,14 +70,14 @@ inline std::array<float, 4> read_float4_pixel(Diligent::IRenderDevice* device,
     desc.CPUAccessFlags = CPU_ACCESS_READ;
     RefCntAutoPtr<ITexture> staging;
     device->CreateTexture(desc, nullptr, &staging);
-    check(bool(staging), "Float staging allocation failed");
+    test_gpu::require_readback(bool(staging), device, "Float staging allocation failed");
     context->SetRenderTargets(0, nullptr, nullptr, RESOURCE_STATE_TRANSITION_MODE_NONE);
     context->CopyTexture({texture, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, staging,
                           RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
     context->WaitForIdle();
     MappedTextureSubresource mapped;
     context->MapTextureSubresource(staging, 0, 0, MAP_READ, MAP_FLAG_DO_NOT_WAIT, nullptr, mapped);
-    check(mapped.pData != nullptr, "Float readback mapping failed");
+    test_gpu::require_readback(mapped.pData != nullptr, device, "Float readback mapping failed");
     std::array<float, 4> result;
     std::memcpy(result.data(),
                 static_cast<const std::byte*>(mapped.pData) + y * mapped.Stride +
@@ -95,14 +96,14 @@ inline Pixels read_pixels(Diligent::IRenderDevice* device, Diligent::IDeviceCont
     desc.CPUAccessFlags = CPU_ACCESS_READ;
     RefCntAutoPtr<ITexture> staging;
     device->CreateTexture(desc, nullptr, &staging);
-    check(bool(staging), "Sprite readback allocation failed");
+    test_gpu::require_readback(bool(staging), device, "Sprite readback allocation failed");
     context->SetRenderTargets(0, nullptr, nullptr, RESOURCE_STATE_TRANSITION_MODE_NONE);
     context->CopyTexture({texture, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, staging,
                           RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
     context->WaitForIdle();
     MappedTextureSubresource mapped;
     context->MapTextureSubresource(staging, 0, 0, MAP_READ, MAP_FLAG_DO_NOT_WAIT, nullptr, mapped);
-    check(mapped.pData != nullptr, "Sprite readback mapping failed");
+    test_gpu::require_readback(mapped.pData != nullptr, device, "Sprite readback mapping failed");
     Pixels pixels(std::size_t(desc.Width) * desc.Height);
     for (unsigned y = 0; y < desc.Height; ++y)
         std::memcpy(pixels.data() + y * desc.Width,

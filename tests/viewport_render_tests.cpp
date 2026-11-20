@@ -15,6 +15,7 @@
 #include "Graphics/GraphicsEngineD3D12/interface/RenderDeviceD3D12.h"
 #include "ImGuiImplDiligent.hpp"
 #include "authoring.hpp"
+#include "gpu_readback_diagnostics.hpp"
 #include "material_lightmap_gpu_tests.hpp"
 #include "particle_alpha_render_tests.hpp"
 #include "particle_billboard_render_tests.hpp"
@@ -92,16 +93,9 @@ Pixels readback(IRenderDevice* device, IDeviceContext* context, ITextureView* vi
     context->WaitForIdle();
     MappedTextureSubresource data;
     context->MapTextureSubresource(staging, 0, 0, MAP_READ, MAP_FLAG_DO_NOT_WAIT, nullptr, data);
-    if (!data.pData) {
-        RefCntAutoPtr<IRenderDeviceD3D12> native(device, IID_RenderDeviceD3D12);
-        std::ostringstream message;
-        message << "Readback map failed for " << texture->GetDesc().Name;
-        if (native)
-            message << "; GetDeviceRemovedReason=0x" << std::hex
-                    << static_cast<unsigned long>(
-                           native->GetD3D12Device()->GetDeviceRemovedReason());
-        throw std::runtime_error(message.str());
-    }
+    forge::test_gpu::require_readback(
+        data.pData != nullptr, device,
+        (std::string("Readback map failed for ") + texture->GetDesc().Name).c_str());
     Pixels result(desc.Width * desc.Height);
     for (unsigned y = 0; y < desc.Height; ++y)
         std::memcpy(result.data() + y * desc.Width,
@@ -279,6 +273,13 @@ int main(int argc, char** argv) {
             debug->EnableDebugLayer();
         else
             std::cout << "D3D12 debug layer is unavailable; native diagnostics are limited\n";
+#ifdef __ID3D12DeviceRemovedExtendedDataSettings_INTERFACE_DEFINED__
+        ComPtr<ID3D12DeviceRemovedExtendedDataSettings> dred_settings;
+        if (SUCCEEDED(::D3D12GetDebugInterface(IID_PPV_ARGS(&dred_settings)))) {
+            dred_settings->SetAutoBreadcrumbsEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+            dred_settings->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+        }
+#endif
         ComPtr<IDXGIFactory4> dxgi;
         check(CreateDXGIFactory1(IID_PPV_ARGS(&dxgi)), "DXGI factory failed");
         ComPtr<IDXGIAdapter> warp;
