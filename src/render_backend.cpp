@@ -31,7 +31,10 @@ void prepare_renderer_shader(const RenderDeviceInfo& device, ShaderCreateInfo& s
                     shader.ShaderCompiler == SHADER_COMPILER_DXC,
                 "Requested shader compiler is unavailable for D3D12");
         if (shader.ShaderCompiler == SHADER_COMPILER_DEFAULT)
-            shader.ShaderCompiler = SHADER_COMPILER_FXC;
+            // Isolated compiler differential; not an accepted delivery policy.
+            shader.ShaderCompiler = shader.Desc.ShaderType == SHADER_TYPE_COMPUTE
+                                        ? SHADER_COMPILER_DXC
+                                        : SHADER_COMPILER_FXC;
         if (shader.HLSLVersion == ShaderVersion{})
             shader.HLSLVersion = shader.ShaderCompiler == SHADER_COMPILER_DXC ? ShaderVersion{6, 0}
                                                                               : ShaderVersion{5, 1};

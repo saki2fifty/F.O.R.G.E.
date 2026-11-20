@@ -4011,3 +4011,10 @@ For a focused native particle readback investigation, combine `shader_only` with
 readback cases and requires native GPU validation. It remains a partial diagnostic;
 it does not replace the full shader selection, source gate or release acceptance.
 The audit scope artifact records the selected mode.
+
+The isolated particle investigation branch also carries a compiler differential:
+implicit D3D12 compute shaders use DXC/SM6 instead of the established FXC/SM5.1
+selection. Graphics and explicit compiler choices retain their previous policy.
+This is an experiment against the failed native baseline, not an accepted shipping
+compiler policy or a release source. It requires focused native evidence before
+any production recommendation and the normal full compatibility gates afterward.
