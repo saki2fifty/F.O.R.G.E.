@@ -64,39 +64,43 @@ def package_sdk(root, manifest):
     return root / 'NativeSdk'
 
 
-def read_tool(client, descriptor, recoveries, **arguments):
+def read_tool(client, descriptor, recoveries, process, **arguments):
     assert descriptor['annotations']['readOnlyHint'], 'Recovery requires a read-only tool'
     name = descriptor['name']
 
-    def timed_out(response):
+    def interrupted(response):
         error = response.get('error', {})
         return not response['ok'] and error.get('code') == 'connection_unavailable' and \
-            error.get('message', '').startswith('Editor request timed out;')
+            (error.get('message', '').startswith('Editor request timed out;') or
+             error.get('message') == 'Editor disconnected; inspect state before repeating an edit')
 
     def attempt():
+        assert process.poll() is None, 'Native editor exited during a read-only MCP request'
         started = time.monotonic()
         response = client.tool(name, **arguments)
-        if timed_out(response):
+        if interrupted(response):
             recoveries.append(dict(tool=name, error=response['error'],
                                    utc=datetime.now(timezone.utc).isoformat(),
                                    elapsed_seconds=time.monotonic() - started))
         return response
 
-    # A timed-out read has no mutation to replay. Keep the existing readiness
-    # bound and require an actual successful response before proceeding.
-    response = wait_for(attempt, lambda result: not timed_out(result))
+    # A frame can exceed the editor transport's ten-second connection deadline,
+    # including while its bounded discovery response is draining. A fresh read
+    # has no mutation to replay. Preserve the existing readiness deadline and
+    # require a successful response from the same live editor process.
+    response = wait_for(attempt, lambda result: not interrupted(result))
     assert response['ok'], response
     return response
 
 
-def exercise(client, evidence, manifest):
+def exercise(client, evidence, manifest, process):
     recoveries = []
 
     def discover():
-        return read_tool(client, tools['forge_discover'], recoveries)
+        return read_tool(client, tools['forge_discover'], recoveries, process)
 
     def read(tool, **values):
-        response = read_tool(client, tools[tool], recoveries,
+        response = read_tool(client, tools[tool], recoveries, process,
                              target=discover()['result']['target'], **values)
         return response['result']
 
@@ -323,11 +327,13 @@ def main():
                 # Let both existing twelve-second bridge deadlines report their
                 # real outcome instead of racing them with the small client wait.
                 with mcp.Client(config, tools=tools, response_timeout=30) as client:
-                    report = exercise(client, evidence, manifest)
+                    report = exercise(client, evidence, manifest, process)
                 (output / 'mcp-complete').touch()
                 assert process.wait(timeout=30) == 0
         finally:
             if process is not None:
+                report['editor_exit_code_before_cleanup'] = process.poll()
+                report['forced_cleanup_required'] = process.poll() is None
                 terminate_tree(process)
             connection.unlink(missing_ok=True)
             # Requests/results contain no credentials. Never retain the connection JSON.

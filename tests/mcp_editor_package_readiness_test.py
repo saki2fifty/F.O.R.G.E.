@@ -71,6 +71,58 @@ class ReadinessTests(unittest.TestCase):
             package.wait_connection(path, process)
         self.assertEqual(path.read_text.call_count, 1)
 
+    def test_read_reconnects_after_disconnect_without_replaying_edit(self):
+        disconnected = dict(ok=False, error=dict(code='connection_unavailable',
+            message='Editor disconnected; inspect state before repeating an edit'))
+        timed_out = dict(ok=False, error=dict(code='connection_unavailable',
+            message='Editor request timed out; inspect state or retrieve the same sequence receipt'))
+        client, process = mock.Mock(), mock.Mock()
+        process.poll.return_value = None
+        client.tool.side_effect = [disconnected, timed_out, dict(ok=True, result='ready')]
+        recoveries = []
+        descriptor = dict(name='forge_discover', annotations=dict(readOnlyHint=True))
+        with mock.patch.object(package.time, 'sleep'):
+            self.assertEqual(package.read_tool(client, descriptor, recoveries, process)['result'], 'ready')
+        self.assertEqual(client.tool.call_count, 3)
+        self.assertEqual([r['error'] for r in recoveries], [disconnected['error'], timed_out['error']])
+
+    def test_disconnected_read_still_has_a_deadline(self):
+        client, process = mock.Mock(), mock.Mock()
+        process.poll.return_value = None
+        client.tool.return_value = dict(ok=False, error=dict(code='connection_unavailable',
+            message='Editor disconnected; inspect state before repeating an edit'))
+        descriptor = dict(name='forge_discover', annotations=dict(readOnlyHint=True))
+        with mock.patch.object(package.time, 'monotonic', side_effect=[0, 0, 0, 1, 61]), \
+                mock.patch.object(package.time, 'sleep'):
+            with self.assertRaisesRegex(AssertionError, 'timed out'):
+                package.read_tool(client, descriptor, [], process)
+        self.assertEqual(client.tool.call_count, 1)
+
+    def test_read_recovery_rejects_native_exit(self):
+        client, process = mock.Mock(), mock.Mock()
+        process.poll.return_value = 7
+        descriptor = dict(name='forge_discover', annotations=dict(readOnlyHint=True))
+        with self.assertRaisesRegex(AssertionError, 'Native editor exited'):
+            package.read_tool(client, descriptor, [], process)
+        client.tool.assert_not_called()
+
+    def test_mutation_never_uses_read_recovery(self):
+        client = mock.Mock()
+        descriptor = dict(name='forge_entity_create', annotations=dict(readOnlyHint=False))
+        with self.assertRaisesRegex(AssertionError, 'read-only'):
+            package.read_tool(client, descriptor, [], mock.Mock())
+        client.tool.assert_not_called()
+
+    def test_other_read_failures_are_not_retried(self):
+        descriptor = dict(name='forge_discover', annotations=dict(readOnlyHint=True))
+        for code in ('unauthorized', 'stale_target', 'invalid_arguments'):
+            client, process = mock.Mock(), mock.Mock()
+            process.poll.return_value = None
+            client.tool.return_value = dict(ok=False, error=dict(code=code, message='fixture error'))
+            with self.assertRaises(AssertionError):
+                package.read_tool(client, descriptor, [], process)
+            self.assertEqual(client.tool.call_count, 1)
+
     @unittest.skipUnless(os.name == 'nt', 'Native Windows sharing contract')
     def test_native_delete_handle_releases_before_readiness(self):
         kernel = ctypes.WinDLL('kernel32', use_last_error=True)

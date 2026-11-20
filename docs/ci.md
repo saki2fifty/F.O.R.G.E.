@@ -3884,3 +3884,12 @@ independent CPU/GPU activation, shared settings, geometry switching, exact
 revisions, no-op/invalid edits, Undo/Redo, publication/reopen and typed-kit refusal.
 Both MCP transport formats run the shared workflow. These registrations alone do
 not substitute for an attributable passing execution of each affected consumer.
+
+The native MCP package client retries a disconnected or timed-out **read-only**
+request within its existing readiness bound while the same editor process remains
+alive. The live transport closes a connection after ten seconds; frame work or a
+large discovery response can interrupt one exchange without ending the
+editor session. Recovery performs a fresh state read before any later edit. It
+never replays a mutation, extends transport deadlines, ignores native process exit
+or accepts a failed result. Acceptance evidence records whether forced failure
+cleanup was required and the observed native exit code before cleanup.
