@@ -14,7 +14,9 @@ compute dispatch projects those same output rows in place. Existing immutable
 graph programs and their input reflection remain valid; no new RNG draws, CPU
 particle transform array, readback, simulation registry or clock is introduced.
 
-Separate64-byte view constants carry the admitted camera frame and bounded count.
+Separate64-byte view constants originally carry the admitted camera frame and bounded count.
+[ADR069](069-gpu-particle-opacity.md) deliberately extends this private upload for
+lifetime appearance; the immutable47-row program input and7-row output remain unchanged.
 A same-UAV transition orders the two dispatches. Both use the shared native shader
 and pipeline cache and the same bounded vertex/UAV buffer. The realization clears
 its published count before preparation and publishes only after both dispatches

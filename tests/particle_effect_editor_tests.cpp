@@ -514,6 +514,47 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
     require(editor.document()->source().document == before_weighted,
             "Weighted controls could not restore their original source history");
 
+    choose("particles:evaluation", 1);
+    frame();
+    click("particles:opacity");
+    frame();
+    require(
+        editor.document()->source().compiled().version == 16 &&
+            editor.document()->source().document.at("version") == 12 &&
+            editor.document()->source().document.at("gpu_opacity_enabled").get<bool>() &&
+            editor.document()->source().document.at("gpu_weighted_enabled").get<bool>() &&
+            editor.document()->source().document.value("opacity_enabled", false) ==
+                before_weighted.value("opacity_enabled", false),
+        "Native GPU opacity did not retain independent CPU activation and select weighted alpha");
+    number("particles:opacity_start", ".8");
+    number("particles:opacity_end", ".2");
+    click("particles:opacity_curve:enable");
+    click("particles:opacity_curve:add");
+    number("particles:opacity_curve:stop:1:value", ".9");
+    choose("particles:opacity_curve:stop:1:interpolation", 1);
+    require(editor.document()->source().compiled().version == 16 &&
+                editor.document()->source().compiled().opacity_curve.size() == 3 &&
+                editor.document()->source().compiled().opacity_curve[1].value == .9 &&
+                editor.document()->source().compiled().opacity_curve[1].hold,
+            "Native GPU curve controls selected CPU or failed to commit appearance");
+    click("particles:billboards");
+    frame();
+    require(editor.document()->source().compiled().version == 18,
+            "GPU opacity camera alignment lost lifetime appearance");
+    choose("particles:evaluation", 2);
+    frame();
+    require(editor.document()->source().compiled().version == 19,
+            "Native GPU opacity Graph selection lost appearance/alignment");
+    click("particles:opacity");
+    frame();
+    require(editor.document()->source().compiled().version == 15 &&
+                !editor.document()->source().document.at("gpu_opacity_enabled").get<bool>(),
+            "Native GPU opacity disable failed to retain weighted Graph/alignment");
+    for (unsigned i = 0; i < 24 && editor.document()->source().document != before_weighted; ++i)
+        editor.undo();
+    require(editor.document()->source().document == before_weighted,
+            "GPU opacity controls failed to restore exact original source history");
+
     click("particles:undo");
     // Keep the original lifecycle/close checks applicable, including start-size editing.
     for (unsigned i = 0; i < 32 && editor.document()->source().document != before_extended; ++i)

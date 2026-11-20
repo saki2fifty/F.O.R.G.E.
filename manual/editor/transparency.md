@@ -42,7 +42,9 @@ or an incompatible transparent Mesh. This keeps those layers together. Check
 **Problems** for a rendering warning explaining why weighted blending was unavailable.
 
 [Explicit weighted GPU particles](particles.md) share
-weighted blending when the entire view is admitted. They require this Scene setting;
+weighted blending when the entire view is admitted. Their explicit **Use opacity
+over life** choice multiplies lifetime fades with Material and texture alpha. Optional GPU opacity over life
+multiplies each birth's Material alpha. They require this Scene setting;
 an incompatible or disabled view omits those emitters with a diagnostic. They never
 use emitter-level sorting as a replacement for particle transparency.
 

@@ -1,5 +1,20 @@
 # 2026-11-20
 
+## GPU particle opacity over life
+
+Built-in and authored GPU particles support endpoint or 2–16-stop Step/Linear
+lifetime fades through explicit weighted profiles, on Meshes or camera-plane quads.
+Material, texture and vertex alpha multiply each birth's opacity. The existing
+supplemental projection, fixed clock and resource owners handle appearance without
+runtime readback or CPU sampling. Device age and stops use float precision.
+
+Native controls and the existing MCP opacity operation share validation, history,
+publication and retained settings; MCP adds optional `backend: gpu` while keeping
+CPU as the default. Source12/values16–19 require matching typed GPU opacity support;
+older cook meanings, recipe/envelope, identities and gameplay ABI remain. Gallery249
+and250 reuse the soft image, Material and Orbit program. Graph cooking/rendering
+requires native Windows validation; physical review remains separate.
+
 ## Explicit weighted GPU transparency
 
 Particle Effects offer **Weighted alpha (GPU)** for built-in Mesh or camera-plane

@@ -3,6 +3,7 @@
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "mesh_instance_layout.hpp"
 #include "particle_gpu_shaders.hpp"
+#include <cmath>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -147,7 +148,8 @@ void ParticleGpuInstances::prepare_billboards() {
     billboard_values_ = std::move(values);
 }
 void ParticleGpuInstances::evaluate(IDeviceContext* context, const ParticleGpuValues& values,
-                                    const CameraView* billboard_view, bool material_tint_only) {
+                                    const CameraView* billboard_view, bool material_tint_only,
+                                    const ParticleGpuOpacityValues* opacity) {
     count_ = 0;
     if (!context || !supported())
         throw std::runtime_error("GPU particle evaluation requires enabled compute support");
@@ -159,9 +161,22 @@ void ParticleGpuInstances::evaluate(IDeviceContext* context, const ParticleGpuVa
     std::optional<ParticleGpuBillboardValues> alignment;
     if (billboard_view)
         alignment = prepare_particle_gpu_billboard_values(*billboard_view, values.births[0]);
-    else if (material_tint_only) {
+    else if (material_tint_only || opacity) {
         alignment.emplace();
         alignment->counts[0] = values.births[0];
+    }
+    if (opacity) {
+        validate_particle_gpu_opacity_values(*opacity);
+        if (!std::isfinite(values.timing[0]) || values.timing[0] < 0 ||
+            !std::isfinite(values.timing[1]) || values.timing[1] < 0 ||
+            !std::isfinite(values.timing[2]) || values.timing[2] <= 0)
+            throw std::runtime_error(
+                "GPU particle opacity requires finite short ages and lifetime");
+        alignment->counts[2] = opacity->count;
+        alignment->counts[3] = 1;
+        alignment->timing = values.timing;
+        alignment->opacity = {opacity->endpoints[0], opacity->endpoints[1], 0, 0};
+        alignment->opacity_stops = opacity->stops;
     }
     if (!values.births[0])
         return;

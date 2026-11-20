@@ -3741,3 +3741,29 @@ source inspection alone does not prove that execution. The unmodified640x360
 three seconds on llvmpipe and was visually reviewed. It contains rendered Game
 content, without editor chrome or retouched controls. Local capture receipts retain
 source/build/test/image attribution. Windows and physical acceptance remain separate.
+
+
+## GPU particle lifetime opacity acceptance
+
+`particle_weighted_source` covers explicit GPU opacity values16–19, independent
+CPU/GPU activation, retained source IDs/program/alignment, curve edits, old profile
+semantics and inactive CPU precision. `particle_runtime` validates the private
+opacity projection packet; `standalone_manifest` rejects missing/malformed typed
+GPU opacity capability. Native Effect controls and MCP exercise the same owner,
+revisions, grants, no-op/history, publication metadata and reopen.
+
+`particle_gpu_opacity_vulkan` checks160 weighted frames against independently
+evaluated factors, with actual GPU rows, texture/Material alpha, zero/full factors,
+burst/continuous windows,65+birth slices, Step/end boundaries and Mesh/camera
+projection. Float-representable age/stops define the GPU reference; CPU double
+lockstep is not claimed. Original evaluator inputs/RNG and other output lanes
+remain regression boundaries.
+
+Gallery249/250 reuse the existing soft image, Material and Orbit program. Source
+inspectors cover both; the builtin export and production Game checks hide editable
+sources and relocate the selected closure. Native Windows graph publication/Game
+is registered separately in shader acceptance; source inspection is not execution.
+`manual/images/gpu-particle-opacity.png` is an unmodified640x360 Game capture of
+Gallery249 at three seconds on software Vulkan/llvmpipe. Local capture receipts
+retain build/source/test/image provenance. The image has no editor chrome; physical
+hardware, Windows and full editor visual acceptance remain separate.

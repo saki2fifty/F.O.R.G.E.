@@ -84,12 +84,20 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                   {"gpu", "gpu_mesh1"},
                   {"graph", "gpu_graph1"},
                   {"cpu_alpha", "cpu_alpha1"}}},
-                {"opacity", "asset.document.particle_opacity enables CPU values6/cpu_alpha2; "
-                            "opacity_start/end and optional opacity_curve multiply Material alpha. "
-                            "Source6 retains settings when another backend is selected. "
-                            "Opacity stops use local UUIDs, normalized0–1 time/value and "
-                            "Step/Linear interpolation, like size stops. GPU/Graph do not apply "
-                            "opacity. Requires runtime_particle_opacity1 and alpha1."},
+                {"opacity",
+                 "asset.document.particle_opacity enables CPU values6/cpu_alpha2; "
+                 "opacity_start/end and optional opacity_curve multiply Material alpha. "
+                 "Source6 retains settings when another backend is selected. "
+                 "Opacity stops use local UUIDs, normalized0–1 time/value and "
+                 "Step/Linear interpolation, like size stops. Default CPU activation needs "
+                 "runtime_particle_opacity1 and alpha1. Explicit backend=gpu selects weighted "
+                 "device opacity (values16-19); source12 retains independent CPU/GPU "
+                 "activation and shared endpoints/stops. It enables weighted alpha, retaining "
+                 "Graph/camera alignment. Requires a Blend Material, depth test/no writes, "
+                 "enabled complete-view Scene weighted transparency, GPU1/weighted1 and "
+                 "runtime_particle_gpu_opacity1, plus graph1/GPU billboard1 as selected. "
+                 "Device float age/stop precision can differ from CPU at Step transitions; "
+                 "inactive CPU settings retain doubles. Unsupported views omit the emitter."},
                 {"billboards",
                  "asset.document.particle_billboards selects CPU camera-plane "
                  "quads (values7/cpu_billboard1). Source7 retains the original Mesh "
@@ -132,7 +140,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "Blend Material with depth testing/no depth writes, Scene weighted transparency "
                  "and complete-view admission. Incompatible views omit these emitters with a "
                  "diagnostic; there is no sorted GPU fallback. Material alpha/textures apply; "
-                 "lifetime opacity remains CPU-only. Requires runtime_particle_gpu_weighted1 "
+                 "explicit GPU opacity adds lifetime fades. Requires "
+                 "runtime_particle_gpu_weighted1 "
                  "plus GPU1, graph1 and/or GPU billboard1 when selected."},
                 {"limits",
                  {{"emitters", particle_emitter_limit},
@@ -845,21 +854,25 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
             properties["enabled"] = {
                 {"type", "boolean"},
-                {"description", billboards
-                                    ? "Enable camera-plane quads for the explicit backend. CPU "
-                                      "selects sorted-alpha; GPU retains an active authored graph. "
-                                      "False restores that backend's retained Mesh projection."
-                                    : "Enable opacity over life and select CPU sorted-alpha. False "
-                                      "retains opacity settings."}};
+                {"description",
+                 billboards ? "Enable camera-plane quads for the explicit backend. CPU "
+                              "selects sorted-alpha; GPU retains an active authored graph. "
+                              "False restores that backend's retained Mesh projection."
+                            : "Enable opacity over life for the explicit backend. CPU is the "
+                              "default and selects sorted alpha; GPU selects weighted device "
+                              "alpha and retains an active Graph/alignment. False retains "
+                              "shared endpoints/stops and the independent backend choices."}};
             needed.push_back("enabled");
-            if (billboards)
-                properties["backend"] = {
-                    {"type", "string"},
-                    {"enum", {"cpu", "gpu"}},
-                    {"default", "cpu"},
-                    {"description",
-                     "CPU preserves the existing default operation. GPU selects "
-                     "device alignment, preserving an active graph and explicit weighted alpha."}};
+            properties["backend"] = {
+                {"type", "string"},
+                {"enum", {"cpu", "gpu"}},
+                {"default", "cpu"},
+                {"description",
+                 billboards ? "CPU preserves the existing default operation. GPU selects device "
+                              "alignment, preserving an active graph and explicit weighted alpha."
+                            : "CPU preserves the existing operation. GPU enables opacity and "
+                              "weighted alpha; requires enabled complete-view Scene weighted "
+                              "transparency. Float precision applies; no sorted device fallback."}};
         } else if (std::string_view(action) == "particle_gpu_weighted") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
             properties["enabled"] = {

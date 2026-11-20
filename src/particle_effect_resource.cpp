@@ -141,7 +141,8 @@ ResourceTicket request_particle_effect(ResourcePool<ParticleEffectAsset>& pool,
                     "Particle Effect load cancelled or empty");
             const auto bytes = sizeof(ParticleEffectData) +
                                value->size_curve.capacity() * sizeof(ParticleSizeStop) +
-                               value->color_gradient.capacity() * sizeof(ParticleColorStop);
+                               value->color_gradient.capacity() * sizeof(ParticleColorStop) +
+                               value->opacity_curve.capacity() * sizeof(ParticleOpacityStop);
             return ResourceCandidate<ParticleEffectAsset>{
                 std::make_unique<ParticleEffectData>(std::move(*value)), {0, 0, 0, 0, bytes}};
         });

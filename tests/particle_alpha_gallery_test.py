@@ -12,6 +12,8 @@ parser.add_argument('--vulkan', action='store_true')
 parser.add_argument('--opacity', action='store_true')
 parser.add_argument('--trails', action='store_true')
 parser.add_argument('--collision', action='store_true')
+parser.add_argument('--gpu-opacity', action='store_true')
+parser.add_argument('--gpu-graph-opacity', action='store_true')
 parser.add_argument('--weighted', action='store_true')
 parser.add_argument('--weighted-graph', action='store_true')
 parser.add_argument('--billboards', action='store_true')
@@ -25,8 +27,11 @@ fixture, gallery, renderer, scratch = (getattr(arguments, name).resolve()
 scratch.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as temporary:
     billboards = (arguments.billboards or arguments.gpu_billboards or arguments.gpu_graph_billboards
-                  or arguments.weighted or arguments.weighted_graph)
-    action = ('--verify-export-weighted-graph' if arguments.weighted_graph else
+                  or arguments.weighted or arguments.weighted_graph
+                  or arguments.gpu_opacity or arguments.gpu_graph_opacity)
+    action = ('--verify-export-gpu-graph-opacity' if arguments.gpu_graph_opacity else
+              '--verify-export-gpu-opacity' if arguments.gpu_opacity else
+              '--verify-export-weighted-graph' if arguments.weighted_graph else
               '--verify-export-weighted' if arguments.weighted else
               '--verify-export-collision' if arguments.collision else
               '--verify-export-trails' if arguments.trails else
@@ -36,7 +41,7 @@ with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as tempo
               '--verify-export-opacity' if arguments.opacity else '--verify-export')
     worker = [str(arguments.worker.resolve())] if billboards and arguments.worker else []
     assert not billboards or worker, 'Camera-plane texture requires its asset worker'
-    if arguments.gpu_graph_billboards or arguments.weighted_graph:
+    if arguments.gpu_graph_billboards or arguments.weighted_graph or arguments.gpu_graph_opacity:
         assert not arguments.vulkan and arguments.graph_fixture, 'Program cook needs native Windows'
         source = Path(temporary) / 'graph-source'
         shutil.copytree(gallery, source)
@@ -49,7 +54,11 @@ with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as tempo
     assert len(content) == 1, content
     mode = (('--opacity-gallery' if arguments.opacity else '--alpha-gallery') if arguments.vulkan
             else ('particle-opacity-gallery' if arguments.opacity else 'particle-alpha-gallery'))
-    if arguments.weighted_graph:
+    if arguments.gpu_graph_opacity:
+        mode = 'particle-gpu-graph-opacity-gallery'
+    elif arguments.gpu_opacity:
+        mode = '--gpu-opacity-gallery' if arguments.vulkan else 'particle-gpu-opacity-gallery'
+    elif arguments.weighted_graph:
         mode = 'particle-weighted-gpu-graph-gallery'
     elif arguments.weighted:
         mode = '--weighted-gallery' if arguments.vulkan else 'particle-weighted-gpu-gallery'

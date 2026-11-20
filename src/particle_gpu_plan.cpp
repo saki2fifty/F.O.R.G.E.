@@ -33,6 +33,36 @@ template <class Stops> void gpu_times(const Stops& stops) {
     }
 }
 } // namespace
+void validate_particle_gpu_opacity_values(const ParticleGpuOpacityValues& values) {
+    const auto unit = [](float value) { return std::isfinite(value) && value >= 0 && value <= 1; };
+    if (values.count > values.stops.size() || values.count == 1 || !unit(values.endpoints[0]) ||
+        !unit(values.endpoints[1]))
+        throw std::runtime_error("GPU particle opacity exceeds its bounded profile");
+    float previous = -1;
+    for (unsigned i = 0; i < values.count; ++i) {
+        const auto& stop = values.stops[i];
+        if (!unit(stop[0]) || !unit(stop[1]) || stop[0] <= previous ||
+            (stop[2] != 0 && stop[2] != 1) || stop[3] != 0 || (i == 0 && stop[0] != 0) ||
+            (i + 1 == values.count && stop[0] != 1))
+            throw std::runtime_error("GPU particle opacity stops require distinct normalized "
+                                     "times, endpoints and Step/Linear values");
+        previous = stop[0];
+    }
+}
+ParticleGpuOpacityValues prepare_particle_gpu_opacity_values(const ParticleEffectData& data) {
+    validate_particle_effect(data);
+    if (!particle_uses_gpu_opacity(data))
+        throw std::runtime_error("GPU opacity packing requires an explicit GPU opacity profile");
+    ParticleGpuOpacityValues result;
+    result.endpoints = {gpu(data.opacity_start), gpu(data.opacity_end)};
+    result.count = unsigned(data.opacity_curve.size());
+    for (unsigned i = 0; i < result.count; ++i) {
+        const auto& stop = data.opacity_curve[i];
+        result.stops[i] = {gpu(stop.time), gpu(stop.value), stop.hold ? 1.f : 0.f, 0};
+    }
+    validate_particle_gpu_opacity_values(result);
+    return result;
+}
 ParticleGpuBillboardValues prepare_particle_gpu_billboard_values(const CameraView& camera,
                                                                  unsigned count) {
     if (count > 1024)

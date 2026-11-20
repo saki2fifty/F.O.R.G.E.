@@ -504,6 +504,15 @@ to inspect the selected profile, then save and wait for publication before assig
 or exporting it. GPU evaluation requires compute support and the matching runtime
 kit; it has different random patterns from CPU evaluation. See [mesh particle effects](particles.md).
 
+For lifetime fades, call `forge_asset_document_particle_opacity` with `enabled: true`
+and optional `backend: "cpu"` (default) or `"gpu"`. GPU activation keeps an active
+Graph and camera alignment and enables weighted GPU alpha. Patch the shared
+opacity endpoints or curve through the usual source tools, then save and wait for
+publication. A built-in Blend Material and admitted Scene **Weighted transparency**
+are required for GPU fades. Stop times must remain distinct at float precision.
+Disabling retains values and the weighted backend; CPU/GPU activation choices are
+independent. See [GPU opacity over life](particles.md).
+
 ## See navigation in the editor
 
 With asset authoring enabled, an agent can use `forge_navigation_overlay` with

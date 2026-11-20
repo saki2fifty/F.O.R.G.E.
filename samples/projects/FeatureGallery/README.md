@@ -3256,5 +3256,23 @@ depth marker and enables weighted transparency. Open the Effect to change
 `Assets/Particles/Weighted/GraphBlend.particles.json` with the retained Orbit Shader.
 Compile that Shader before publishing the Effect on Windows. These examples use
 approximate weighted color. An incompatible or disabled weighted view omits their
-emitters with a diagnostic; GPU lifetime opacity, collision and ribbons are unavailable.
+emitters with a diagnostic. Optional lifetime opacity uses the fading examples
+below; GPU collision and ribbons are unavailable.
 Save the Effect and Scene and export using the runtime kit packaged with this editor.
+
+## GPU opacity over life
+
+Open `Scenes/249-gpu-particle-opacity.scene.json` and press Play. Two emitters share
+`Assets/Particles/Opacity/DeviceFade.particles.json`, the existing soft alpha image
+and Blend Material. Open the Effect in Content to adjust **Use opacity over life**,
+start/end opacity or its **Use opacity curve** stops. Save / Publish the Effect
+and save the Scene. **Weighted alpha (GPU)** and Scene **Weighted transparency**
+are required. Unsupported views omit the emitters with a diagnostic.
+
+`Scenes/250-gpu-graph-particle-opacity.scene.json` uses
+`Assets/Particles/Opacity/GraphFade.particles.json` and the retained Orbit Shader.
+Compile that Shader before publishing the Effect on Windows. The fade multiplies
+Material/texture alpha; the program still controls position, size and RGB. Both
+examples include a camera, light and opaque depth marker. Export with the matching
+packaged runtime kit. GPU fades use float age/stop precision, including Step
+transitions; their activation is independent of the retained CPU choice.

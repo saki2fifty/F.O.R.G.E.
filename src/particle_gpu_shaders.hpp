@@ -102,8 +102,21 @@ float3 ForgeParticleColor(float u){
 // Project the existing device rows in place after analytic or authored evaluation.
 // The original evaluator's constants and RNG remain unchanged.
 inline constexpr const char* particle_gpu_billboard_compute = R"(
-cbuffer ParticleBillboardValues {uint4 BillboardCounts;float4 CameraRows[3];};
+cbuffer ParticleBillboardValues {
+    uint4 BillboardCounts;float4 CameraRows[3];
+    float4 OpacityTiming,OpacityEndpoints,OpacityStops[16];
+};
 RWStructuredBuffer<float4> ParticleRows;
+float ForgeParticleOpacity(float u){
+    if(BillboardCounts.z==0u)return lerp(OpacityEndpoints.x,OpacityEndpoints.y,u);
+    [loop]for(uint i=1u;i<BillboardCounts.z;i++){
+        if(u<OpacityStops[i].x){
+            float4 a=OpacityStops[i-1u],b=OpacityStops[i];
+            return a.z!=0?a.y:lerp(a.y,b.y,saturate((u-a.x)/(b.x-a.x)));
+        }
+    }
+    return OpacityStops[BillboardCounts.z-1u].y;
+}
 float ForgeParticleColumnLength(float3 value){
     float scale=max(max(abs(value.x),abs(value.y)),abs(value.z));
     return scale>0?scale*length(value/scale):0;
@@ -128,7 +141,13 @@ float ForgeParticleColumnLength(float3 value){
         ParticleRows[row+3u+r]=float4(maximum>0?basis[r]/maximum:float3(0,0,0),0);
     }
     float4 tint=ParticleRows[row+6u];
-    ParticleRows[row+6u]=float4(tint.xyz,2);
+    if(BillboardCounts.w!=0u){
+        float age=max(0.0,OpacityTiming.x-float(id)*OpacityTiming.y);
+        float4 normal=ParticleRows[row+3u];
+        normal.w=saturate(ForgeParticleOpacity(saturate(age/OpacityTiming.z)));
+        ParticleRows[row+3u]=normal;
+        ParticleRows[row+6u]=float4(tint.xyz,3);
+    }else ParticleRows[row+6u]=float4(tint.xyz,2);
 }
 )";
 } // namespace forge

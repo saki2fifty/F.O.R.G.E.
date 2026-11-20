@@ -300,7 +300,7 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
                     const std::filesystem::path& content, const std::filesystem::path& images,
                     bool opacity = false, bool billboards = false, bool gpu = false,
                     bool graph = false, bool trails = false, bool collision = false,
-                    bool weighted = false) {
+                    bool weighted = false, bool gpu_opacity = false) {
     using test_bloom::check;
 #ifdef _WIN32
     const RuntimePackageTarget target{"windows", "d3d12"};
@@ -326,7 +326,8 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     check(effects.wait(ticket, std::chrono::seconds(15)), "Source-free alpha Effect load stalled");
     const auto selected = effects.acquire(ticket);
     check(selected &&
-              selected->version == (weighted     ? (graph ? 15u : 14u)
+              selected->version == (gpu_opacity  ? (graph ? 19u : 18u)
+                                    : weighted   ? (graph ? 15u : 14u)
                                     : collision  ? 11u
                                     : trails     ? 10u
                                     : graph      ? 9u
@@ -388,7 +389,9 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     check(changed > 100, "Source-free alpha Game did not draw its particles");
     std::filesystem::create_directories(images);
     save_view_png(
-        images / (weighted
+        images / (gpu_opacity
+                      ? (graph ? "gpu-graph-particle-opacity.png" : "gpu-particle-opacity.png")
+                  : weighted
                       ? (graph ? "weighted-gpu-graph-particles.png" : "weighted-gpu-particles.png")
                   : collision  ? "particle-plane-collision.png"
                   : trails     ? "analytic-particle-trails.png"

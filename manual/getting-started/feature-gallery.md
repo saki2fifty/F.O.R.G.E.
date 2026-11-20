@@ -1254,3 +1254,10 @@ share a soft image and Blend Material and the Scene enables weighted transparenc
 Windows Shader compilation before Effect publication. Follow
 [Weighted GPU transparency](../editor/particles.md) for
 controls, compatible views and export.
+
+For device fades, open **249-gpu-particle-opacity**. Open its Effect from Content
+to edit **Use opacity over life**, endpoints and the fade curve, then Save / Publish.
+**250-gpu-graph-particle-opacity** combines the fade with the Orbit program and
+requires Windows Shader compilation before Effect publication. Both reuse the
+existing soft image and Blend Material and need Scene **Weighted transparency**.
+Follow [GPU opacity over life](../editor/particles.md) for controls and export.

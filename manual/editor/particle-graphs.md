@@ -55,8 +55,11 @@ use the retained program. Save/publish each backend change before Play or export
 
 With **Evaluation → Graph**, enable **Camera-aligned quads** to use the program's
 position, size and color on quads that follow each camera. Use an opaque or masked
-built-in Material. Disabling alignment restores the original Mesh while keeping
-the program. See [GPU camera-aligned quads and weighted transparency](particles.md)
+built-in Material, or enable **Weighted alpha (GPU)** for a Blend Material and
+complete-view weighted rendering. **Use opacity over life** adds a per-particle
+fade while keeping the program. Its endpoints/curve multiply Material alpha;
+position, size and RGB still come from the graph. Disabling alignment restores
+the original Mesh while keeping the program. See [GPU camera-aligned quads and weighted transparency](particles.md)
 for the editable Gallery example and export steps.
 
 ## Save and export

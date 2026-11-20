@@ -511,11 +511,12 @@ struct AssetDocumentAutomation {
                         const bool weighted = action == "particle_gpu_weighted";
                         const bool toggle =
                             opacity || billboards || trails || collision || weighted;
-                        const auto backend = billboards
+                        const auto backend = opacity || billboards
                                                  ? request.value("backend", std::string("cpu"))
                                                  : std::string{};
-                        if (billboards && backend != "cpu" && backend != "gpu")
-                            throw AuthoringError("invalid_argument", "Choose cpu or gpu alignment");
+                        if ((opacity || billboards) && backend != "cpu" && backend != "gpu")
+                            throw AuthoringError("invalid_argument",
+                                                 "Choose cpu or gpu appearance backend");
                         const auto evaluation =
                             toggle ? std::string{} : request.at("evaluation").get<std::string>();
                         if (!toggle && evaluation != "cpu" && evaluation != "gpu" &&
@@ -552,9 +553,13 @@ struct AssetDocumentAutomation {
                                             request.at("enabled").get<bool>());
                                     else
                                         source.enable_billboards(request.at("enabled").get<bool>());
-                                } else if (opacity)
-                                    source.enable_opacity(request.at("enabled").get<bool>());
-                                else
+                                } else if (opacity) {
+                                    if (backend == "gpu")
+                                        source.enable_gpu_opacity(
+                                            request.at("enabled").get<bool>());
+                                    else
+                                        source.enable_opacity(request.at("enabled").get<bool>());
+                                } else
                                     source.set_evaluation(
                                         evaluation == "cpu_alpha" ? ParticleEvaluation::CpuAlpha
                                         : evaluation == "graph"   ? ParticleEvaluation::Graph

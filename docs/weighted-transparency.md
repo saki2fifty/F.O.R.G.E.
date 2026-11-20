@@ -16,7 +16,7 @@ Mesh scope/order and have a current surface cook when custom. Any visible Sprite
 Tile Map, sorted transparent CPU particle/ordered source, transmission surface, incompatible
 material, unsupported format, budget or preparation failure retains ordinary sorted
 rendering for the whole view. The warning identifies `rendering.weighted_transparency`.
-Explicit weighted GPU particles (values12–15) are the admitted Particle-scope
+Explicit weighted GPU particles (values12–19) are the admitted Particle-scope
 exception. They use the same Material shading/weighted specialization and device
 instance slices. If the setting is disabled or complete-view admission fails, these
 emitters are omitted with entity-scoped diagnostics; they have no sorted device

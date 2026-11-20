@@ -21,8 +21,9 @@ Source9 retains analytic trail settings and selects CPU values10/`cpu_trail1`
 when trails are active. Source10 retains a collision plane/enabled flag and selects
 CPU values11/`cpu_collision1` for Mesh collision. Source11 retains explicit
 `gpu_weighted_enabled` and projects GPU values12–15 for weighted Mesh/Graph and
-camera-aligned combinations. Other backends retain inactive settings
-without applying them.
+camera-aligned combinations. Source12 adds `gpu_opacity_enabled` and projects
+explicit GPU opacity values16–19. Other backends retain inactive settings without
+applying them; CPU/GPU activation is independent with shared endpoints/stop IDs.
 Values include a Mesh reference, optional Material override, emission
 mode, capacity, burst count, rate, lifetime, direction/cone half-angle, speed range,
 constant acceleration, start/end size and linear RGB. Version 2 adds spawn shape,
@@ -41,7 +42,7 @@ editable sources nor a compiler.
 New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope containing
 `format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3, graph4
 or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph camera-plane9/
-analytic-trail CPU10/plane-collision CPU11/explicit weighted GPU12–15;
+analytic-trail CPU10/plane-collision CPU11/explicit weighted GPU12–15/GPU opacity16–19;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -74,7 +75,9 @@ morphs, point/line topology, transmission and custom Shader surfaces reject with
 diagnostics. CPU10 additionally requires double-sided Quad geometry; it permits
 opaque/masked Materials with identity opacity or the same sorted Blend profile.
 CPU11 permits the same Material alpha/opacity profile as CPU7, using the original
-Mesh and its explicit local collision plane. General Scene-collider response, GPU
+Mesh and its explicit local collision plane. GPU12–19 require Blend with depth
+testing/no depth writes and complete-view weighted admission;16–19 apply explicit
+per-birth lifetime opacity. General Scene-collider response, GPU
 collision/trails, historical emitter-motion capture and texture-sheet animation
 are outside these profiles. The bounded stateless graph profile below extends
 position, size and RGB without adding those capabilities.
@@ -83,7 +86,7 @@ position, size and RGB without adding those capabilities.
 
 [ADR062](decisions/062-sorted-alpha-particles.md) introduces explicit values5 and
 source5 without changing earlier value meanings, IDs, recipe3/envelope3 or the
-ParticleEmitter/gameplay ABI. `particle_uses_gpu` identifies GPU3/4/8/9/12–15 explicitly;
+ParticleEmitter/gameplay ABI. `particle_uses_gpu` identifies GPU3/4/8/9/12–19 explicitly;
 CPU5 keeps the CPU random sequence, double clock and lifetime-stop precision.
 Source5 retains optional inactive graph settings across evaluation changes.
 
@@ -149,8 +152,8 @@ No dependency, gameplay ABI, importer or earlier immutable artifact changes.
 [ADR065](decisions/065-gpu-camera-plane-particles.md) adds explicit values8/9.
 The original built-in or authored evaluator retains its 47-row constants, RNG and
 seven-row device output. A second bounded compute dispatch projects those same
-rows in place. Separate 64-byte camera constants and the existing same-UAV barrier
-pattern order the projection. Width/height retain original world-column lengths;
+rows in place. Private camera constants and the existing same-UAV barrier order the projection
+(the upload also holds appearance under ADR069). Width/height retain original world-column lengths;
 camera right/up/minus-forward determine orientation. Device centers and RGB stay
 unchanged. No CPU readback, particle transform array or second simulation is used.
 
@@ -158,8 +161,9 @@ The shared renderer supplies per-view placeholder parity and lifetime bounds,
 including reflected/sheared and zero-Z emitters. Tint flag2 applies Material RGB.
 The published instance count is cleared before preparation and becomes visible
 only after both dispatches succeed; existing target restoration covers failures.
-GPU transparency and per-particle opacity remain unsupported. Cross-emitter/
-ordinary-Mesh transparency cannot be replaced with emitter-only sorting.
+Values8/9 remain opaque/masked without lifetime opacity. Explicit weighted and GPU
+opacity profiles below admit those capabilities. Cross-emitter/ordinary-Mesh
+transparency cannot be replaced with emitter-only sorting.
 
 Source8 retains `gpu_billboard_enabled` independently from CPU `billboard_enabled`,
 opacity stops, the original Mesh and graph selection. Reading source7 never enables
@@ -521,10 +525,10 @@ resource/target/budget failure or disabled setting omits these emitters for that
 view with scoped diagnostics, preserving ordinary sorted fallback for other work.
 There is no whole-emitter sorted substitute or mixed weighted/sorted device alpha.
 Approximate weighted color is not exact layered ordering, refraction or a GPU
-lifetime-opacity/collision/trail implementation.
+collision/trail implementation. GPU lifetime opacity uses the explicit profiles below.
 
 The original47-row evaluator/graph input remains unchanged. Reuse the existing
-supplemental64-byte projection and same-UAV barrier to choose Material tint flag2,
+supplemental projection and same-UAV barrier to choose Material tint flag2,
 with either the camera-plane basis or unchanged Mesh transforms. The seven output
 rows, device instance buffer, per-emitter count publication, view restoration,
 resource budgets and fixed clock retain their existing owners. No readback or
@@ -535,3 +539,32 @@ require effect3/GPU1 and typed `runtime_particle_gpu_weighted:1`, plus graph1 fo
 13/15 and GPU billboard1 for14/15. Earlier kits reject the new values. Gallery247
 and248 reuse the existing soft Texture/Material with separate built-in and authored
 program Effects. Native Graph publication remains a Windows Shader-worker workflow.
+
+## Explicit GPU lifetime opacity
+
+[ADR069](decisions/069-gpu-particle-opacity.md) defines source12 and values16/
+`gpu_weighted_opacity1`,17/`gpu_graph_weighted_opacity1`,18/
+`gpu_weighted_opacity_billboard1`,19/`gpu_graph_weighted_opacity_billboard1`.
+`enable_gpu_opacity` validates and commits one source candidate. Enabling calls the
+existing weighted activation, preserving Graph/alignment; disabling retains the
+weighted profile, endpoints, stops and local IDs. CPU and GPU enable flags are
+independent. Shared opacity endpoints/stops retain double source precision; only
+active GPU curves require distinct representable float times. The existing lifetime
+curve operation preserves an active GPU fade; its ordinary default still selects CPU.
+
+The original47-row analytic/program input and RNG remain unchanged. One existing
+supplemental projection uses a deliberately expanded private352-byte upload with
+short float age/lifetime, endpoints and16stops. It writes the existing flag3/normal-W
+instance alpha after optional camera projection, preserving other geometry/normal/
+RGB lanes. This private struct is not installed, serialized or a gameplay interface.
+One upload/binding/pipeline/UAV barrier, original emitter buffer/count owner and clock
+remain. Invalid input clears the count; runtime performs no readback or CPU sampling.
+Float age at Step/lifetime boundaries may differ from CPU double evaluation.
+
+Materials, scoped omission and complete-view weighted admission follow ADR068.
+Values16–19 require effect3/GPU1/weighted1 plus typed `runtime_particle_gpu_opacity:1`;
+17/19 add graph1,18/19 add GPU billboard1. CPU alpha/opacity capabilities are not
+requirements for GPU-only profiles. Runtime kit manifests admit explicit supported
+values without reinterpreting older cooks. Recipe3/envelope3/importer/asset/stop IDs,
+component and gameplay ABI remain unchanged. Resource accounting includes retained
+opacity-curve capacity. Gallery249/250 reuse the soft Material/Texture/Orbit program.

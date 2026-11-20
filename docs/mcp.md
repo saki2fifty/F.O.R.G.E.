@@ -3542,12 +3542,14 @@ and exact source reopen through the same source owner.
 ## Particle opacity through the source owner
 
 `asset.document.particle_opacity` requires `asset.write`, `editor:"particle_effect"`,
-the exact document session/revision and boolean `enabled`. Enabling it selects
+the exact document session/revision and boolean `enabled`. Optional `backend` is
+`cpu` (default) or `gpu`. CPU enabling selects
 CPU sorted-alpha values6/`cpu_alpha2` for Mesh geometry; active camera alignment
 keeps values7/`cpu_billboard1`. Disabling retains opacity settings and projects
 values5 for Mesh geometry, or identity opacity in values7 for aligned quads. Source6 preserves the
 enabled state and local opacity-stop UUIDs across CPU/GPU/Graph changes. These
-other backends do not apply opacity. Invalid, stale, wrong-document and busy
+other backends retain CPU activation; explicit GPU activation is described below.
+Invalid, stale, wrong-document and busy
 requests reject through the existing source owner. A no-op retains its revision.
 
 `asset.particles.catalog` describes opacity fields, requirements and limits. Use
@@ -3623,7 +3625,7 @@ Disabling GPU alignment restores GPU3/graph4 Mesh projection. Backend changes re
 inactive settings; old source7 CPU flags never activate GPU alignment implicitly.
 GPU quads without explicit weighted alpha require an opaque/masked built-in Material and effect3/GPU1 plus
 `runtime_particle_gpu_billboard:1`; graph quads also require graph1. Explicit
-weighted device Blend is described below; lifetime opacity remains a CPU capability. The tool name and shared history/
+weighted device Blend and explicit GPU lifetime opacity are described below. The tool name and shared history/
 publication owners are unchanged. Both MCP formats exercise the explicit backend,
 source publication/reopen, invalid/stale/no-op guards and Undo/Redo.
 
@@ -3690,6 +3692,23 @@ program active for13/15. The particle catalog describes their limits and kit nee
 Require a built-in Blend Material, depth testing/no depth writes, enabled Scene
 weighted transparency and complete-view admission. Unsupported views omit these
 emitters with scoped diagnostics; they have no sorted GPU fallback. Material alpha
-and texture alpha apply, while lifetime opacity stays CPU-only. Export requires
+and texture alpha apply; GPU lifetime opacity requires its explicit activation. Export requires
 effect3/GPU1/weighted1 plus graph1 and/or GPU billboard1 as selected. This uses the
 existing Scene setting and source/publication owners, with no parallel agent path.
+
+## GPU particle opacity through the shared source operation
+
+`asset.document.particle_opacity` / `forge_asset_document_particle_opacity` accepts
+optional `backend:"gpu"`; omission preserves `backend:"cpu"`. The same asset.write,
+particle document/session/revision, validation, no-op/history and publication owner
+applies. Invalid backend values reject atomically. GPU enabling selects the existing
+weighted GPU transport and retains active Graph/alignment, admitting source12 and
+values16–19. Disabling keeps the weighted backend and shared endpoints/stop IDs.
+CPU/GPU activation choices are independent. Existing validated opacity curve patches
+retain GPU only for an active explicit GPU fade; ordinary CPU callers keep their
+previous behavior. Active GPU stops must remain distinct at float precision; inactive
+CPU settings retain double precision. Discovery includes profiles, requirements,
+errors and limits. Save/status/reopen uses the existing asset pipeline. Require a
+built-in Blend Material and admitted Scene weighted view, with typed GPU opacity1
+in addition to effect3/GPU1/weighted1 and graph/billboard capabilities as selected.
+No agent-only appearance behavior or separate game-authoring state is introduced.

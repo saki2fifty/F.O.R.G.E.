@@ -206,7 +206,7 @@ class ParticleEffectEditor {
             ui::help("Enabling selects GPU or retains an active Graph. Requires a built-in Blend "
                      "Material, depth testing without depth writes, and Scene weighted "
                      "transparency. Color blending is approximate. An incompatible view omits "
-                     "this emitter with a diagnostic. Lifetime opacity remains CPU-only. "
+                     "this emitter with a diagnostic. Use opacity over life to add device fades. "
                      "Camera alignment and inactive CPU settings are retained.");
             auto program = document_->source().graph_program().value_or(ParticleGraphProgram{});
             const auto edit_program = [&](const ParticleGraphProgram& next, bool activate) {
@@ -327,7 +327,8 @@ class ParticleEffectEditor {
             ImGui::EndDisabled();
             ui::help(gpu_billboards
                          ? "Align GPU or Graph particles with each camera using Engine / Quad. "
-                           "Requires an opaque or masked Material. World X/Y scale sets width "
+                           "Use opaque/masked Materials or Blend with Weighted alpha (GPU). World "
+                           "X/Y scale sets width "
                            "and height. Disabling restores the original Mesh selection. CPU "
                            "alignment and opacity settings remain separate and retained."
                          : "Enabling selects CPU (sorted alpha) with Engine / Quad. Each camera "
@@ -434,18 +435,36 @@ class ParticleEffectEditor {
             ImGui::EndDisabled();
             lifetime_channel(ParticleLifetimeChannel::Size);
             lifetime_channel(ParticleLifetimeChannel::Color);
-            bool opacity = document_->source().document.value("opacity_enabled", false);
+            const bool gpu_opacity = particle_uses_gpu(data);
+            bool opacity = document_->source().document.value(
+                gpu_opacity ? "gpu_opacity_enabled" : "opacity_enabled", false);
             if (ImGui::Checkbox("Use opacity over life", &opacity))
                 mutate("Toggle particle opacity", [&](auto& value) {
                     ParticleEffectSource candidate{value};
-                    candidate.enable_opacity(opacity);
+                    if (gpu_opacity)
+                        candidate.enable_gpu_opacity(opacity);
+                    else
+                        candidate.enable_opacity(opacity);
                     value = std::move(candidate.document);
                 });
             FORGE_UI_PROBE("particles:opacity");
-            ui::help("Enabling opacity selects CPU (sorted alpha). Opacity multiplies Material "
-                     "and texture alpha. GPU/Graph retain these settings without applying them. "
-                     "Use a built-in Blend Material with depth testing and no depth writes.");
-            if (document_->source().document.value("opacity_enabled", false)) {
+            ui::help(gpu_opacity
+                         ? "GPU opacity enables weighted alpha and retains an active Graph/camera "
+                           "alignment. "
+                           "Use a built-in Blend Material, depth testing/no depth writes and "
+                           "enabled Scene "
+                           "weighted transparency. Incompatible views omit the emitter. GPU "
+                           "age/stop times "
+                           "use float precision; Step transitions can differ from CPU. CPU/GPU "
+                           "activation "
+                           "is separate; endpoints and stops are shared and retained."
+                         : "Enabling opacity selects CPU (sorted alpha). Opacity multiplies "
+                           "Material and "
+                           "texture alpha. GPU activation is separate; source settings are shared "
+                           "and retained. "
+                           "Use a built-in Blend Material with depth testing and no depth writes.");
+            if (document_->source().document.value(
+                    gpu_opacity ? "gpu_opacity_enabled" : "opacity_enabled", false)) {
                 const auto settings = document_->source().document;
                 ImGui::BeginDisabled(!settings.at("opacity_curve").empty());
                 number("Start opacity (0–1)", "opacity_start",

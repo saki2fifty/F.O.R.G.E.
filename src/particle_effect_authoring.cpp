@@ -205,7 +205,7 @@ void prepare_particle_effect_publication(AssetPublicationCandidate& candidate,
     const auto values = decode_cooked_particle_effect(file.bytes, candidate.ticket.owner);
     require(plan.input.importer_revision == particle_effect_recipe &&
                 plan.input.output_format == particle_effect_cooked_format &&
-                plan.input.output_version == 3 && (values.version >= 2 && values.version <= 15),
+                plan.input.output_version == 3 && (values.version >= 2 && values.version <= 19),
             "Particle publication recipe/value version mismatch");
     auto& identity = candidate.sidecar.identity;
     identity.owner = candidate.ticket.owner;

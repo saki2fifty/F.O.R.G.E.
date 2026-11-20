@@ -379,4 +379,59 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     assert content(owner) == aligned
     assert edit('forge_asset_document_close', owner)['ok']
 
+    assert opacity_tool['inputSchema']['properties']['backend']['enum'] == ['cpu', 'gpu']
+    assert opacity_tool['inputSchema']['properties']['backend']['default'] == 'cpu'
+    assert 'runtime_particle_gpu_opacity1' in catalog['opacity'] and 'values16-19' in catalog['opacity']
+    assert mutate('forge_asset_document_open', editor=owner, path=weighted_path)['ok']
+    before = status(owner)
+    assert edit('forge_asset_document_particle_opacity', owner, backend='gpu', enabled=False)['ok']
+    assert content(owner) == aligned and status(owner)['revision'] == before['revision']
+    assert edit('forge_asset_document_particle_opacity', owner, backend='gpu', enabled=True)['ok']
+    fading_gpu = content(owner)
+    assert fading_gpu == dict(aligned, version=12, profile='gpu_weighted_opacity_billboard1',
+                              gpu_opacity_enabled=True)
+    failed(mutate('forge_asset_document_particle_opacity', editor=owner, backend='gpu',
+                  enabled=False, document_session=before['session'],
+                  document_revision=before['revision']), 'stale_document')
+    failed(mutate('forge_asset_document_particle_opacity', editor=owner, backend='gpu',
+                  enabled=False, document_session=before['session'] + 1000,
+                  document_revision=status(owner)['revision']), 'wrong_document')
+    revision = status(owner)['revision']
+    assert edit('forge_asset_document_particle_opacity', owner, backend='gpu', enabled=True)['ok']
+    assert status(owner)['revision'] == revision
+    for invalid in ('automatic', '', None, 1, True):
+        assert not edit('forge_asset_document_particle_opacity', owner, backend=invalid, enabled=True)['ok']
+        assert content(owner) == fading_gpu and status(owner)['revision'] == revision
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == aligned
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == fading_gpu
+    gpu_stops = [dict(id=str(uuid4()), time=t, value=value, interpolation=mode)
+                 for t, value, mode in ((0, 0, 'linear'), (.5, 1, 'step'), (1, .2, 'linear'))]
+    assert edit('forge_asset_document_patch', owner, patch=[
+        dict(op='replace', path='/opacity_curve', value=gpu_stops)])['ok']
+    fading_gpu = content(owner)
+    revision = status(owner)['revision']
+    assert not edit('forge_asset_document_patch', owner, patch=[
+        dict(op='replace', path='/opacity_curve/1/time', value=1)])['ok']
+    assert content(owner) == fading_gpu and status(owner)['revision'] == revision
+    for evaluation, profile in (('cpu', 'cpu_mesh2'), ('gpu', 'gpu_weighted_opacity_billboard1')):
+        assert edit('forge_asset_document_particle_evaluation', owner, evaluation=evaluation)['ok']
+        assert content(owner) == dict(fading_gpu, profile=profile)
+    assert edit('forge_asset_document_particle_opacity', owner, enabled=True)['ok']
+    assert content(owner) == dict(fading_gpu, profile='cpu_alpha2', opacity_enabled=True)
+    assert edit('forge_asset_document_particle_opacity', owner, enabled=False)['ok']
+    assert edit('forge_asset_document_particle_evaluation', owner, evaluation='gpu')['ok']
+    assert content(owner) == fading_gpu
+    assert edit('forge_asset_document_particle_gpu_weighted', owner, enabled=False)['ok']
+    assert content(owner) == dict(fading_gpu, profile='gpu_billboard1', gpu_weighted_enabled=False)
+    assert edit('forge_asset_document_particle_gpu_weighted', owner, enabled=True)['ok']
+    assert content(owner) == fading_gpu
+    settled = save()
+    metadata = read('forge_asset_read', asset=settled['asset'])['metadata']['forge.particle_effect']
+    assert metadata['version'] == 3 and metadata['value_version'] == 18
+    assert json.loads((root / 'Game' / weighted_path).read_text()) == fading_gpu
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=weighted_path)['ok']
+    assert content(owner) == fading_gpu
+    assert edit('forge_asset_document_close', owner)['ok']
+
     check_particle_graph(read, mutate, edit, status, content, failed, root)

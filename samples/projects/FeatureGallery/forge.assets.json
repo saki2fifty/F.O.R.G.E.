@@ -6658,6 +6658,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "40a462c8-370a-4c7f-8c72-d54a64c055a0",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/249-gpu-particle-opacity.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "4173a9f5-a815-4c57-bccc-e1d50e45ed5a",
       "metadata": {
         "forge.import": {
@@ -7059,6 +7069,16 @@
       "source": "Scenes/246-particle-plane-collision.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "47b3c731-620d-4217-8256-5efe85526cc9",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Opacity/DeviceFade.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],
@@ -7519,6 +7539,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "4d5056db-7699-4c37-8306-2915c071c82f",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/250-gpu-graph-particle-opacity.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -8815,6 +8845,16 @@
       "source": "Scenes/168-morphological-antialiasing.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "5d002a30-bc01-49cb-982b-6106f62cb1ab",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Opacity/GraphFade.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],

@@ -4,7 +4,7 @@ A particle effect is a reusable stream or burst of small meshes. Use it for
 stylized sparks, debris or fountains. Effects can use solid or masked meshes, or
 sorted transparent meshes with CPU evaluation, and camera-aligned quads with CPU,
 GPU or Graph evaluation. Explicit weighted GPU alpha supports approximate
-transparent blending. CPU analytic ribbon trails follow each particle's local
+transparent blending and per-particle fades over life. CPU analytic ribbon trails follow each particle's local
 path. CPU Mesh particles can bounce against an emitter-local plane.
 
 ## Try the Gallery
@@ -158,9 +158,9 @@ packaged Shader worker.
 Disabling GPU alignment restores the original Mesh and keeps the selected GPU or
 Graph evaluation. CPU alignment and opacity settings remain available when you
 switch back to CPU evaluation. GPU quads support opaque and masked Materials, or
-Blend Materials with explicit **Weighted alpha (GPU)**. Per-particle opacity remains
-a CPU capability. Use CPU sorted alpha for lifetime fades. Camera-plane orientation
-and the other particle limits above also apply to GPU quads.
+Blend Materials with explicit **Weighted alpha (GPU)**. Enable **Use opacity over
+life** to fade weighted GPU or Graph particles. Camera-plane orientation and the
+other particle limits above also apply to GPU quads.
 
 ## Weighted GPU transparency
 
@@ -184,8 +184,8 @@ The Gallery scene in the Game renderer at three seconds.
 Weighted blending approximates the combined color of overlapping fragments. It
 does not provide exact physical layer ordering or refraction. Transparent ordinary
 Meshes in an admitted view share this transport. Opaque geometry still blocks
-particles behind its depth surface. Material and texture alpha apply; GPU lifetime
-opacity, collision and ribbons are unavailable.
+particles behind its depth surface. Material and texture alpha apply; optional
+GPU opacity over life multiplies them. GPU collision and ribbons are unavailable.
 
 A visible Sprite, Tile Map, sorted transparent CPU particle, transmission Material,
 incompatible transparent Mesh or unsupported render target prevents complete-view
@@ -197,6 +197,40 @@ emitters. See [Blend overlapping transparent Meshes](transparency.md).
 Turning **Weighted alpha (GPU)** off restores the retained opaque/masked GPU or
 Graph profile. Switching to CPU preserves this setting and the independent CPU
 opacity, alignment, ribbon and plane settings. Undo/Redo restores source choices.
+
+## GPU opacity over life
+
+Open **Scenes/249-gpu-particle-opacity.scene.json** and press **Play**. Each particle
+fades in and then out. The two emitters share
+**Assets/Particles/Opacity/DeviceFade.particles.json** and the existing soft image
+and Blend Material. The Scene includes a camera, light and opaque depth marker.
+**Scenes/250-gpu-graph-particle-opacity.scene.json** combines the same fade with
+the Orbit program; compile **Assets/Particles/Graphs/Orbit.graph.shader.json**
+before publishing **Assets/Particles/Opacity/GraphFade.particles.json** on Windows.
+
+![Blue and amber soft particle quads fading around an opaque depth marker](../images/gpu-particle-opacity.png)
+
+The GPU fading Gallery scene at three seconds in the Game renderer.
+
+1. Stop Play and open the Particle Effect from Content. Choose **Evaluation → GPU**, or **Graph** with a published particle program.
+2. Enable **Use opacity over life**. This also enables **Weighted alpha (GPU)** and keeps the selected Graph and camera alignment.
+3. Use a built-in **Alpha → Blend** Material with **Depth test** enabled and **Depth write** disabled. Save the Material. Optionally enable **Camera-aligned quads** for image particles.
+4. Set **Start opacity (0–1)** and **End opacity (0–1)**, or enable **Use opacity curve** and edit its 2–16 stops. **Linear** interpolates to the next stop; **Step** holds the current value until the next stop.
+5. Choose **Save / Publish**. Enable **Weighted transparency** in the Scene rendering settings, save the Scene and press Play.
+6. Export with the runtime kit packaged with this editor. The player needs compute-capable graphics, without editable sources or a compiler.
+
+Opacity multiplies Material, texture and vertex alpha and leaves RGB tint and
+motion independent. GPU values use float precision. Very close stop times must
+remain distinct at that precision; Step transitions and lifetime boundaries can
+appear at a slightly different instant from CPU evaluation.
+
+Disabling **Use opacity over life** retains its endpoints and curve and keeps
+weighted blending. CPU and GPU activation choices are independent and share the
+same endpoints and stops. The checkbox shows the choice for the selected backend.
+Switching evaluation, Undo/Redo and Save preserve these settings. Turning
+**Weighted alpha (GPU)** off suspends the GPU fade until weighted blending is
+re-enabled. An incompatible view omits these emitters and reports the reason in
+**Problems**, as described above.
 
 ## Analytic ribbon trails
 
@@ -279,7 +313,7 @@ included; no C++ module is needed.
 
 The fading Gallery scene at three seconds in the Game renderer.
 
-1. Stop Play and open the effect in Content. Enable **Use opacity over life**. This selects **CPU (sorted alpha)**.
+1. Stop Play and open the effect in Content. Choose **Evaluation → CPU**, then enable **Use opacity over life**. This selects **CPU (sorted alpha)**.
 2. Use a built-in **Alpha → Blend** Material with **Depth test** enabled and **Depth write** disabled.
 3. Set **Start opacity (0–1)** and **End opacity (0–1)**. A value of 0 is invisible; 1 retains the Material's original alpha. Values blend across each particle's lifetime.
 4. For a shaped fade, enable **Use opacity curve**. Use **Add stop**, edit each stop's **Time (0–1)** and **Opacity (0–1)**, and choose **Linear** or **Step** under **To next stop**. Endpoints remain at birth (0) and death (1); interior stops can be removed. The curve supports 2–16 stops and replaces start/end interpolation.
@@ -290,10 +324,11 @@ alpha 0.4 and particle opacity 0.5 give alpha 0.2 before any texture or vertex a
 RGB tint and RGB lifetime gradients continue to control color independently.
 
 Disabling **Use opacity over life** retains its values and curve for later use.
-Switching to **CPU**, **GPU** or **Graph** also retains them; these modes do not
-apply opacity. Select **CPU (sorted alpha)** to use enabled opacity again. Undo/Redo
-restores the settings and stop identities. An older runtime kit without the opacity
-profile is rejected during export.
+Ordinary **CPU** retains these settings without applying opacity; select
+**CPU (sorted alpha)** to use enabled CPU opacity again. **GPU** and **Graph** have
+a separate activation choice, described in **GPU opacity over life** above.
+Undo/Redo restores the settings and stop identities. An older runtime kit without
+the selected opacity profile is rejected during export.
 
 ## Size and color over life
 
@@ -349,11 +384,12 @@ Each effect supports up to 1,024 particles; a scene supports 64 enabled emitters
 and 8,192 reserved instances. Trails reserve one instance per segment, including
 shrinking tails. Use one static triangle part, one LOD and one material
 slot. Built-in PBR and Unlit surfaces work. **CPU (sorted alpha)** additionally
-accepts Blend Materials with depth testing and no depth writes; other evaluation
-modes require opaque/masked Materials. Skinned/morphing meshes, transmission and
-custom Shader surfaces report errors. Particles do not cast shadows. Per-particle
-opacity is supported by CPU sorted-alpha evaluation; transparent GPU particles
-are not supported.
+accepts Blend Materials with depth testing and no depth writes. GPU and Graph
+accept Blend with explicit **Weighted alpha (GPU)** and complete-view weighted
+admission; their opacity-over-life setting can then apply per-particle fades.
+Other evaluation profiles require opaque/masked Materials. Skinned/morphing meshes,
+transmission and custom Shader surfaces report errors. Particles do not cast shadows.
+GPU collision and ribbons are unavailable.
 
 Changing the seed restarts the effect with a different pattern. C++ can adjust the
 native component; `sdk/sample/particle_probe.cpp` demonstrates seed/speed changes

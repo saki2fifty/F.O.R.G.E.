@@ -130,4 +130,12 @@ def check_particle_graph(read, mutate, edit, status, content, failed, root):
     assert edit('forge_asset_document_particle_gpu_weighted', owner, enabled=False)['ok']
     assert content(owner) == dict(weighted, profile='gpu_graph1', gpu_billboard_enabled=False,
                                   gpu_weighted_enabled=False)
+    assert edit('forge_asset_document_particle_gpu_weighted', owner, enabled=True)['ok']
+    assert edit('forge_asset_document_particle_opacity', owner, backend='gpu', enabled=True)['ok']
+    graph_fade = content(owner)
+    assert graph_fade['version'] == 12 and graph_fade['profile'] == 'gpu_graph_weighted_opacity1'
+    assert graph_fade['program'] == program and graph_fade['gpu_opacity_enabled']
+    assert edit('forge_asset_document_particle_billboards', owner, backend='gpu', enabled=True)['ok']
+    assert content(owner) == dict(graph_fade, gpu_billboard_enabled=True,
+                                  profile='gpu_graph_weighted_opacity_billboard1')
     assert edit('forge_asset_document_close', owner, discard=True)['ok']

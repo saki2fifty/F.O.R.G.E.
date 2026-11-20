@@ -21,14 +21,25 @@ bool gpu_profile(std::string_view profile) {
     return profile == "gpu_mesh1" || profile == "gpu_graph1" || profile == "gpu_billboard1" ||
            profile == "gpu_graph_billboard1" || profile == "gpu_weighted1" ||
            profile == "gpu_graph_weighted1" || profile == "gpu_weighted_billboard1" ||
-           profile == "gpu_graph_weighted_billboard1";
+           profile == "gpu_graph_weighted_billboard1" || profile == "gpu_weighted_opacity1" ||
+           profile == "gpu_graph_weighted_opacity1" ||
+           profile == "gpu_weighted_opacity_billboard1" ||
+           profile == "gpu_graph_weighted_opacity_billboard1";
 }
 bool graph_profile(std::string_view profile) {
     return profile == "gpu_graph1" || profile == "gpu_graph_billboard1" ||
-           profile == "gpu_graph_weighted1" || profile == "gpu_graph_weighted_billboard1";
+           profile == "gpu_graph_weighted1" || profile == "gpu_graph_weighted_billboard1" ||
+           profile == "gpu_graph_weighted_opacity1" ||
+           profile == "gpu_graph_weighted_opacity_billboard1";
 }
 const char* gpu_evaluation_profile(const nlohmann::json& document, bool graph) {
     if (document.value("gpu_weighted_enabled", false)) {
+        if (document.value("gpu_opacity_enabled", false)) {
+            if (document.value("gpu_billboard_enabled", false))
+                return graph ? "gpu_graph_weighted_opacity_billboard1"
+                             : "gpu_weighted_opacity_billboard1";
+            return graph ? "gpu_graph_weighted_opacity1" : "gpu_weighted_opacity1";
+        }
         if (document.value("gpu_billboard_enabled", false))
             return graph ? "gpu_graph_weighted_billboard1" : "gpu_weighted_billboard1";
         return graph ? "gpu_graph_weighted1" : "gpu_weighted1";
@@ -105,11 +116,11 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             stop.erase("id");
         }
     }
-    if (version > 11)
+    if (version > 12)
         throw std::runtime_error("Unknown Particle Effect source version");
     if (version < 4)
         return decode_particle_effect(values);
-    // Source4–11 retain settings while another evaluation backend is active.
+    // Source4–12 retain settings while another evaluation backend is active.
     // Only the active backend contributes runtime values and dependency edges.
     const auto profile = values.at("profile").get<std::string>();
     if (profile != "cpu_mesh2" && profile != "gpu_mesh1" && profile != "gpu_graph1" &&
@@ -120,8 +131,19 @@ ParticleEffectData ParticleEffectSource::compiled() const {
         !(version >= 10 && profile == "cpu_collision1") &&
         !(version >= 11 &&
           (profile == "gpu_weighted1" || profile == "gpu_graph_weighted1" ||
-           profile == "gpu_weighted_billboard1" || profile == "gpu_graph_weighted_billboard1")))
+           profile == "gpu_weighted_billboard1" || profile == "gpu_graph_weighted_billboard1")) &&
+        !(version >= 12 &&
+          (profile == "gpu_weighted_opacity1" || profile == "gpu_graph_weighted_opacity1" ||
+           profile == "gpu_weighted_opacity_billboard1" ||
+           profile == "gpu_graph_weighted_opacity_billboard1")))
         throw std::runtime_error("Unknown Particle Effect evaluation profile");
+    if (version >= 12) {
+        if (!values.at("gpu_opacity_enabled").is_boolean() ||
+            (gpu_profile(std::string_view(profile)) &&
+             profile != gpu_evaluation_profile(document, graph_profile(std::string_view(profile)))))
+            throw std::runtime_error("GPU particle opacity enabled state/profile mismatch");
+        values.erase("gpu_opacity_enabled");
+    }
     if (version >= 11) {
         if (!values.at("gpu_weighted_enabled").is_boolean() ||
             (gpu_profile(std::string_view(profile)) &&
@@ -176,7 +198,10 @@ ParticleEffectData ParticleEffectSource::compiled() const {
         opacity["profile"] = "cpu_alpha2";
         (void)decode_particle_effect(opacity);
         if (profile != "cpu_alpha2" && profile != "cpu_billboard1" && profile != "cpu_trail1" &&
-            profile != "cpu_collision1")
+            profile != "cpu_collision1" && profile != "gpu_weighted_opacity1" &&
+            profile != "gpu_graph_weighted_opacity1" &&
+            profile != "gpu_weighted_opacity_billboard1" &&
+            profile != "gpu_graph_weighted_opacity_billboard1")
             for (const auto* field : {"opacity_start", "opacity_end", "opacity_curve"})
                 values.erase(field);
         if ((profile == "cpu_billboard1" || profile == "cpu_trail1" ||
@@ -190,24 +215,30 @@ ParticleEffectData ParticleEffectSource::compiled() const {
         (void)decode_particle_graph_program(values.at("program"));
     if (!graph_profile(std::string_view(profile))) {
         values.erase("program");
-        values["version"] = profile == "cpu_mesh2"                 ? 2
-                            : profile == "cpu_alpha1"              ? 5
-                            : profile == "cpu_alpha2"              ? 6
-                            : profile == "cpu_billboard1"          ? 7
-                            : profile == "cpu_trail1"              ? 10
-                            : profile == "cpu_collision1"          ? 11
-                            : profile == "gpu_weighted1"           ? 12
-                            : profile == "gpu_weighted_billboard1" ? 14
-                            : profile == "gpu_billboard1"          ? 8
-                                                                   : 3;
+        values["version"] = profile == "cpu_mesh2"                         ? 2
+                            : profile == "cpu_alpha1"                      ? 5
+                            : profile == "cpu_alpha2"                      ? 6
+                            : profile == "cpu_billboard1"                  ? 7
+                            : profile == "cpu_trail1"                      ? 10
+                            : profile == "cpu_collision1"                  ? 11
+                            : profile == "gpu_weighted_opacity1"           ? 16
+                            : profile == "gpu_weighted_opacity_billboard1" ? 18
+                            : profile == "gpu_weighted1"                   ? 12
+                            : profile == "gpu_weighted_billboard1"         ? 14
+                            : profile == "gpu_billboard1"                  ? 8
+                                                                           : 3;
     } else
-        values["version"] = profile == "gpu_graph_weighted_billboard1" ? 15
-                            : profile == "gpu_graph_weighted1"         ? 13
-                            : profile == "gpu_graph_billboard1"        ? 9
-                                                                       : 4;
+        values["version"] = profile == "gpu_graph_weighted_opacity_billboard1" ? 19
+                            : profile == "gpu_graph_weighted_opacity1"         ? 17
+                            : profile == "gpu_graph_weighted_billboard1"       ? 15
+                            : profile == "gpu_graph_weighted1"                 ? 13
+                            : profile == "gpu_graph_billboard1"                ? 9
+                                                                               : 4;
     if (profile == "cpu_billboard1" || profile == "gpu_billboard1" ||
         profile == "gpu_graph_billboard1" || profile == "cpu_trail1" ||
-        profile == "gpu_weighted_billboard1" || profile == "gpu_graph_weighted_billboard1")
+        profile == "gpu_weighted_billboard1" || profile == "gpu_graph_weighted_billboard1" ||
+        profile == "gpu_weighted_opacity_billboard1" ||
+        profile == "gpu_graph_weighted_opacity_billboard1")
         values["mesh"] = engine_primitive(8);
     return decode_particle_effect(values);
 }
@@ -328,11 +359,29 @@ void ParticleEffectSource::enable_gpu_weighted_alpha(bool enabled) {
     if (candidate.document.at("version").get<unsigned>() < 10)
         candidate.set_collision(false, ParticleCollisionPlane{});
     const auto previous_profile = candidate.document.at("profile").get<std::string>();
-    candidate.document["version"] = 11;
+    candidate.document["version"] = std::max(11u, candidate.document.at("version").get<unsigned>());
     candidate.document["gpu_weighted_enabled"] = enabled;
     if (enabled || gpu_profile(std::string_view(previous_profile)))
         candidate.document["profile"] = gpu_evaluation_profile(
             candidate.document, graph_profile(std::string_view(previous_profile)));
+    candidate.validate();
+    document = std::move(candidate.document);
+}
+void ParticleEffectSource::enable_gpu_opacity(bool enabled) {
+    if (!enabled && !document.contains("gpu_opacity_enabled")) {
+        validate();
+        return;
+    }
+    auto candidate = *this;
+    candidate.promote();
+    const auto previous = candidate.document.at("profile").get<std::string>();
+    if (enabled)
+        candidate.enable_gpu_weighted_alpha(true);
+    candidate.document["version"] = std::max(12u, candidate.document.at("version").get<unsigned>());
+    candidate.document["gpu_opacity_enabled"] = enabled;
+    if (enabled || gpu_profile(std::string_view(previous)))
+        candidate.document["profile"] =
+            gpu_evaluation_profile(candidate.document, graph_profile(std::string_view(previous)));
     candidate.validate();
     document = std::move(candidate.document);
 }
@@ -412,8 +461,13 @@ void ParticleEffectSource::enable_lifetime(ParticleLifetimeChannel channel, bool
     }
     auto candidate = *this;
     candidate.promote();
-    if (channel == ParticleLifetimeChannel::Opacity && enabled)
-        candidate.enable_opacity(true);
+    if (channel == ParticleLifetimeChannel::Opacity && enabled) {
+        if (particle_uses_gpu(candidate.compiled()) &&
+            candidate.document.value("gpu_opacity_enabled", false))
+            candidate.enable_gpu_opacity(true);
+        else
+            candidate.enable_opacity(true);
+    }
     const auto data = candidate.compiled();
     auto& stops = candidate.document[name];
     if (!enabled)
@@ -497,7 +551,7 @@ ParticleEffectData decode_cooked_particle_effect(std::span<const std::byte> byte
             cooked.at("values").contains("extensions"))
             throw std::runtime_error("Particle cooked envelope has unsupported fields");
         const auto data = decode_particle_effect(cooked.at("values"));
-        if (data.version < 2 || data.version > 15)
+        if (data.version < 2 || data.version > 19)
             throw std::runtime_error("Particle cooked envelope has an unsupported value profile");
         return data;
     }

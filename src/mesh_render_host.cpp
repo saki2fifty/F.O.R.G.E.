@@ -1386,17 +1386,19 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                                  [&](const auto& value) { return value.entity == mesh.entity; });
                 if (emitter == scene.particles.end())
                     throw std::runtime_error("GPU particle emitter selection is unavailable");
+                const auto& effect = *particle_sources_.at(mesh.entity).data();
                 const auto values = prepare_particle_gpu_values(
-                    *particle_sources_.at(mesh.entity).data(), emitter->time, emitter->emitter.seed,
-                    emitter->world, camera, emitter->emitter.size_multiplier,
+                    effect, emitter->time, emitter->emitter.seed, emitter->world, camera,
+                    emitter->emitter.size_multiplier,
                     {emitter->emitter.tint_r, emitter->emitter.tint_g, emitter->emitter.tint_b});
+                const auto opacity =
+                    particle_uses_gpu_opacity(effect)
+                        ? std::optional(prepare_particle_gpu_opacity_values(effect))
+                        : std::nullopt;
                 try {
-                    gpu->evaluate(
-                        host_->context_, values,
-                        particle_uses_billboards(*particle_sources_.at(mesh.entity).data())
-                            ? &camera
-                            : nullptr,
-                        object.gpu_weighted);
+                    gpu->evaluate(host_->context_, values,
+                                  particle_uses_billboards(effect) ? &camera : nullptr,
+                                  object.gpu_weighted, opacity ? &*opacity : nullptr);
                 } catch (...) {
                     restore_camera_target();
                     throw;

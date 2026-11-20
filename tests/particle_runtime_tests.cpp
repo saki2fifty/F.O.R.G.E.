@@ -82,6 +82,47 @@ void gpu_packet_admission() {
         {0, .1, false}, {.5, .2, false}, {std::nextafter(.5, 1.), .3, false}, {1, .1, false}};
     reject([&] { (void)prepare_particle_gpu_values(collapsed, .5, 17, world, camera); });
 }
+void gpu_opacity_packet_admission() {
+    ParticleGpuOpacityValues values;
+    validate_particle_gpu_opacity_values(values);
+    values.endpoints = {0, 1};
+    validate_particle_gpu_opacity_values(values);
+    for (float bad : {-1.f, 1.01f, std::numeric_limits<float>::infinity(),
+                      std::numeric_limits<float>::quiet_NaN()}) {
+        auto wrong = values;
+        wrong.endpoints[0] = bad;
+        reject([&] { validate_particle_gpu_opacity_values(wrong); });
+    }
+    for (unsigned count : {1u, 17u}) {
+        auto wrong = values;
+        wrong.count = count;
+        reject([&] { validate_particle_gpu_opacity_values(wrong); });
+    }
+    values.count = 3;
+    values.stops[0] = {0, 1, 1, 0};
+    values.stops[1] = {.5f, .25f, 0, 0};
+    values.stops[2] = {1, 0, 0, 0};
+    validate_particle_gpu_opacity_values(values);
+    for (unsigned stop = 0; stop < 3; ++stop)
+        for (unsigned lane = 0; lane < 4; ++lane) {
+            auto wrong = values;
+            wrong.stops[stop][lane] = std::numeric_limits<float>::quiet_NaN();
+            reject([&] { validate_particle_gpu_opacity_values(wrong); });
+        }
+    for (const auto& bad :
+         {ParticleGpuRow{0, 1, 0, 0}, ParticleGpuRow{1, 1, 0, 0}, ParticleGpuRow{.5f, -.1f, 0, 0},
+          ParticleGpuRow{.5f, 1, .5f, 0}, ParticleGpuRow{.5f, 1, 0, 1}}) {
+        auto wrong = values;
+        wrong.stops[1] = bad;
+        reject([&] { validate_particle_gpu_opacity_values(wrong); });
+    }
+    auto wrong = values;
+    wrong.stops[0][0] = .1f;
+    reject([&] { validate_particle_gpu_opacity_values(wrong); });
+    wrong = values;
+    wrong.stops[2][0] = .9f;
+    reject([&] { validate_particle_gpu_opacity_values(wrong); });
+}
 void gpu_billboard_packet_admission() {
     for (const auto basis : {ViewBasis::ForgePositiveZ, ViewBasis::GltfNegativeZ}) {
         Camera camera;
@@ -452,6 +493,7 @@ int main(int argc, char** argv) {
         require(argc == 2, "Need particle runtime scratch root");
         gpu_packet_admission();
         gpu_billboard_packet_admission();
+        gpu_opacity_packet_admission();
         affine_and_envelope();
         graph_envelope();
         gpu_graph_billboard_envelope();

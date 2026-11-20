@@ -4,6 +4,7 @@
 #include "frame_renderer.hpp"
 #include "hdr_bloom_gpu_tests.hpp"
 #include "mesh_draw_shader.hpp"
+#include "particle_gpu_opacity_render_tests.hpp"
 #include "particle_weighted_render_tests.hpp"
 #include "weighted_transparency_shader.hpp"
 #include "weighted_transparency_target_tests.hpp"
@@ -28,18 +29,23 @@ void equal_pixels(const Pixels& a, const Pixels& b, double tolerance, const char
                     {"actual", a[i]},
                     {"expected", b[i]}}.dump());
 }
-void execute(const std::filesystem::path& root, bool scene_only, bool gpu_particles = false) {
+void execute(const std::filesystem::path& root, bool scene_only, bool gpu_particles = false,
+             bool gpu_opacity = false) {
     std::filesystem::create_directories(root);
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
     EngineVkCreateInfo create;
     create.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;
     create.Features.IndependentBlend = DEVICE_FEATURE_STATE_DISABLED;
-    if (gpu_particles)
+    if (gpu_particles || gpu_opacity)
         create.Features.ComputeShaders = DEVICE_FEATURE_STATE_ENABLED;
     GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
     check(device && context, "Transparency native device unavailable");
     DiligentPresentation presentation(device);
+    if (gpu_opacity) {
+        test_gpu_opacity::exercise(presentation, context);
+        return;
+    }
     if (gpu_particles) {
         test_weighted_particles::exercise(presentation, context);
         test_weighted_particles::scene_exercise(presentation, context, root);
@@ -350,10 +356,12 @@ void execute(const std::filesystem::path& root, bool scene_only, bool gpu_partic
 int main(int argc, char** argv) {
     try {
         check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--scene-only" ||
-                                          std::string_view(argv[2]) == "--gpu-particles")),
+                                          std::string_view(argv[2]) == "--gpu-particles" ||
+                                          std::string_view(argv[2]) == "--gpu-opacity")),
               "Need transparency scratch directory");
         execute(argv[1], argc == 3 && std::string_view(argv[2]) == "--scene-only",
-                argc == 3 && std::string_view(argv[2]) == "--gpu-particles");
+                argc == 3 && std::string_view(argv[2]) == "--gpu-particles",
+                argc == 3 && std::string_view(argv[2]) == "--gpu-opacity");
         return 0;
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
