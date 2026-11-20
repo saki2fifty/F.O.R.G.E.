@@ -4038,3 +4038,8 @@ The native viewport also registers an `ID3D12InfoQueue1` callback when supported
 It appends bounded error/corruption messages to that pre-opened file before a
 debug-layer exception can bypass C++ handlers. The callback makes no D3D calls
 and does not change validation, break settings, assertions or process failure.
+
+The isolated capacity experiment partitions the same 2048 native sampler
+descriptors into512 persistent and1536 dynamic entries. It measures whether the
+independent CPU reference exceeds the default dynamic region. This fixture-only
+partition is not a shipping policy or proof of complete resource admission.
