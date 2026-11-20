@@ -179,6 +179,7 @@ for legacy in protocol_cases():
         assert 'forge_asset_document_particle_billboards' not in names
         assert 'forge_asset_document_particle_trails' not in names
         assert 'forge_asset_document_particle_collision' not in names
+        assert 'forge_asset_document_particle_gpu_weighted' not in names
         assert 'forge_asset_document_preview_read' in names
         assert not {'forge_asset_document_preview_seek', 'forge_asset_document_preview_stop'} & names
         assert {'forge_asset_skeleton_joints', 'forge_asset_animation_retarget_catalog',

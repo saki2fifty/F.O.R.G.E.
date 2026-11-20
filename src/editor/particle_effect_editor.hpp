@@ -195,6 +195,19 @@ class ParticleEffectEditor {
                      "on a compute-capable rendering device. Changing evaluation preserves source "
                      "IDs and curves; the profiles use different random patterns. Publish before "
                      "Play or export. GPU lifetime stop times must remain distinct as floats.");
+            bool weighted = document_->source().document.value("gpu_weighted_enabled", false);
+            if (ImGui::Checkbox("Weighted alpha (GPU)", &weighted))
+                mutate("Set GPU weighted alpha", [&](auto& value) {
+                    ParticleEffectSource candidate{value};
+                    candidate.enable_gpu_weighted_alpha(weighted);
+                    value = std::move(candidate.document);
+                });
+            FORGE_UI_PROBE("particles:gpu-weighted");
+            ui::help("Enabling selects GPU or retains an active Graph. Requires a built-in Blend "
+                     "Material, depth testing without depth writes, and Scene weighted "
+                     "transparency. Color blending is approximate. An incompatible view omits "
+                     "this emitter with a diagnostic. Lifetime opacity remains CPU-only. "
+                     "Camera alignment and inactive CPU settings are retained.");
             auto program = document_->source().graph_program().value_or(ParticleGraphProgram{});
             const auto edit_program = [&](const ParticleGraphProgram& next, bool activate) {
                 mutate("Edit particle graph program", [&](auto& source) {

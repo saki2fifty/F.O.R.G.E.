@@ -292,7 +292,7 @@ nlohmann::json encode_particle_collision_plane(const ParticleCollisionPlane& pla
             {"friction", plane.friction}, {"bounce_limit", plane.bounce_limit}};
 }
 void validate_particle_effect(const ParticleEffectData& data) {
-    if (data.version < 1 || data.version > 11)
+    if (data.version < 1 || data.version > 15)
         throw std::runtime_error("Unknown particle value version");
     if (!data.mesh.id)
         throw std::runtime_error("Particle effect requires a Mesh");
@@ -374,7 +374,11 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
           (version == 8 && profile == "gpu_billboard1") ||
           (version == 9 && profile == "gpu_graph_billboard1") ||
           (version == 10 && profile == "cpu_trail1") ||
-          (version == 11 && profile == "cpu_collision1")))
+          (version == 11 && profile == "cpu_collision1") ||
+          (version == 12 && profile == "gpu_weighted1") ||
+          (version == 13 && profile == "gpu_graph_weighted1") ||
+          (version == 14 && profile == "gpu_weighted_billboard1") ||
+          (version == 15 && profile == "gpu_graph_weighted_billboard1")))
         throw std::runtime_error("Unsupported particle effect format/version/profile");
     static const std::set<std::string> fields{
         "format",     "version",      "profile",     "mesh",       "material",
@@ -386,7 +390,8 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
             !(version >= 2 &&
               (name == "shape" || name == "shape_size" || name == "shape_radius" ||
                name == "drag" || name == "size_curve" || name == "color_gradient")) &&
-            !((version == 4 || version == 9) && name == "program") &&
+            !((version == 4 || version == 9 || version == 13 || version == 15) &&
+              name == "program") &&
             !(version == 10 && name == "trail") && !(version == 11 && name == "collision") &&
             !((version == 6 || version == 7 || version == 10 || version == 11) &&
               (name == "opacity_start" || name == "opacity_end" || name == "opacity_curve")))
@@ -510,7 +515,11 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
                     : data.version == 8  ? "gpu_billboard1"
                     : data.version == 9  ? "gpu_graph_billboard1"
                     : data.version == 10 ? "cpu_trail1"
-                                         : "cpu_collision1"},
+                    : data.version == 11 ? "cpu_collision1"
+                    : data.version == 12 ? "gpu_weighted1"
+                    : data.version == 13 ? "gpu_graph_weighted1"
+                    : data.version == 14 ? "gpu_weighted_billboard1"
+                                         : "gpu_graph_weighted_billboard1"},
         {"mesh", data.mesh},
         {"emission", data.emission == ParticleEmission::Burst ? "burst" : "continuous"},
         {"capacity", data.capacity},

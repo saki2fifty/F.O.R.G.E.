@@ -19,7 +19,9 @@ Source8 retains separate CPU/GPU alignment selections and projects GPU values8/
 `gpu_billboard1` or graph values9/`gpu_graph_billboard1` when GPU alignment is active.
 Source9 retains analytic trail settings and selects CPU values10/`cpu_trail1`
 when trails are active. Source10 retains a collision plane/enabled flag and selects
-CPU values11/`cpu_collision1` for Mesh collision. Other backends retain inactive settings
+CPU values11/`cpu_collision1` for Mesh collision. Source11 retains explicit
+`gpu_weighted_enabled` and projects GPU values12–15 for weighted Mesh/Graph and
+camera-aligned combinations. Other backends retain inactive settings
 without applying them.
 Values include a Mesh reference, optional Material override, emission
 mode, capacity, burst count, rate, lifetime, direction/cone half-angle, speed range,
@@ -39,7 +41,7 @@ editable sources nor a compiler.
 New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope containing
 `format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3, graph4
 or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph camera-plane9/
-analytic-trail CPU10/plane-collision CPU11;
+analytic-trail CPU10/plane-collision CPU11/explicit weighted GPU12–15;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -81,7 +83,7 @@ position, size and RGB without adding those capabilities.
 
 [ADR062](decisions/062-sorted-alpha-particles.md) introduces explicit values5 and
 source5 without changing earlier value meanings, IDs, recipe3/envelope3 or the
-ParticleEmitter/gameplay ABI. `particle_uses_gpu` identifies GPU3/4/8/9 explicitly;
+ParticleEmitter/gameplay ABI. `particle_uses_gpu` identifies GPU3/4/8/9/12–15 explicitly;
 CPU5 keeps the CPU random sequence, double clock and lifetime-stop precision.
 Source5 retains optional inactive graph settings across evaluation changes.
 
@@ -501,3 +503,35 @@ Gallery246 at three seconds in the source-hidden relocated production Game,
 640×360 using software Vulkan/llvmpipe. The original PNG was inspected and copied
 without retouching. `particle_collision_gallery_game_vulkan` owns the capture
 workflow; this records software output, not Windows or physical-device acceptance.
+
+## Explicit weighted GPU alpha
+
+[ADR068](decisions/068-weighted-gpu-particles.md) adds source11 and explicit
+values12/`gpu_weighted1`,13/`gpu_graph_weighted1`,14/`gpu_weighted_billboard1`,
+15/`gpu_graph_weighted_billboard1`. `enable_gpu_weighted_alpha` commits one validated
+source candidate, retaining Mesh/program/CPU choices/extensions/local stop IDs.
+Enabling selects built-in GPU or retains an active Graph/alignment. Disabling an
+absent flag is a no-op. Source toggles never downgrade source11. Inactive CPU
+opacity stays at CPU precision; these device profiles do not apply lifetime opacity.
+
+Require built-in Blend Materials with depth testing and no depth writes. Material,
+texture and vertex alpha share the existing weighted Mesh path. The Scene must
+opt in and its complete view must pass weighted admission. Any incompatible layer,
+resource/target/budget failure or disabled setting omits these emitters for that
+view with scoped diagnostics, preserving ordinary sorted fallback for other work.
+There is no whole-emitter sorted substitute or mixed weighted/sorted device alpha.
+Approximate weighted color is not exact layered ordering, refraction or a GPU
+lifetime-opacity/collision/trail implementation.
+
+The original47-row evaluator/graph input remains unchanged. Reuse the existing
+supplemental64-byte projection and same-UAV barrier to choose Material tint flag2,
+with either the camera-plane basis or unchanged Mesh transforms. The seven output
+rows, device instance buffer, per-emitter count publication, view restoration,
+resource budgets and fixed clock retain their existing owners. No readback or
+second queue/clock/cache is added. GPU3/4/8/9 retain original flags and Material limits.
+
+Recipe3/envelope3/importer/IDs/component/gameplay ABI remain stable. Values12–15
+require effect3/GPU1 and typed `runtime_particle_gpu_weighted:1`, plus graph1 for
+13/15 and GPU billboard1 for14/15. Earlier kits reject the new values. Gallery247
+and248 reuse the existing soft Texture/Material with separate built-in and authored
+program Effects. Native Graph publication remains a Windows Shader-worker workflow.

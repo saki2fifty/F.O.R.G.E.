@@ -4,6 +4,7 @@
 #include "frame_renderer.hpp"
 #include "hdr_bloom_gpu_tests.hpp"
 #include "mesh_draw_shader.hpp"
+#include "particle_weighted_render_tests.hpp"
 #include "weighted_transparency_shader.hpp"
 #include "weighted_transparency_target_tests.hpp"
 #include <chrono>
@@ -27,16 +28,23 @@ void equal_pixels(const Pixels& a, const Pixels& b, double tolerance, const char
                     {"actual", a[i]},
                     {"expected", b[i]}}.dump());
 }
-void execute(const std::filesystem::path& root, bool scene_only) {
+void execute(const std::filesystem::path& root, bool scene_only, bool gpu_particles = false) {
     std::filesystem::create_directories(root);
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
     EngineVkCreateInfo create;
     create.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;
     create.Features.IndependentBlend = DEVICE_FEATURE_STATE_DISABLED;
+    if (gpu_particles)
+        create.Features.ComputeShaders = DEVICE_FEATURE_STATE_ENABLED;
     GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
     check(device && context, "Transparency native device unavailable");
     DiligentPresentation presentation(device);
+    if (gpu_particles) {
+        test_weighted_particles::exercise(presentation, context);
+        test_weighted_particles::scene_exercise(presentation, context, root);
+        return;
+    }
     auto host = std::make_shared<MeshResourceHost>(presentation, context, root, true);
     host->catalog(std::make_shared<const AssetCatalog>(root));
     const AssetRef<MaterialAsset> material{AssetId::generate()};
@@ -45,7 +53,7 @@ void execute(const std::filesystem::path& root, bool scene_only) {
     values.alpha = MaterialAlpha::Blend;
     values.depth_write = false;
     values.double_sided = true;
-    host->preview_material(material, {values, {}, {}});
+    host->preview_material(material, {values, {}, {}, {}});
     const auto quad = asset_detail::engine_mesh_resource(engine_primitive(8));
     const auto slot = quad.materials.front().key;
     RenderScene scene;
@@ -163,7 +171,7 @@ void execute(const std::filesystem::path& root, bool scene_only) {
             values.parameters["metallicFactor"] = {MaterialParameterType::Scalar, {0}};
             values.parameters["roughnessFactor"] = {MaterialParameterType::Scalar, {.7f}};
         }
-        host->preview_material(material, {values, {}, {}});
+        host->preview_material(material, {values, {}, {}, {}});
         Light light;
         light.cast_shadows = false;
         light.intensity = 3;
@@ -206,7 +214,7 @@ void execute(const std::filesystem::path& root, bool scene_only) {
     check(changed_sorted > 0, "Permutation fixture failed to change actual sorted alpha order");
     values.model = "forge.gltf.unlit.v1";
     scene.lights.clear();
-    host->preview_material(material, {values, {}, {}});
+    host->preview_material(material, {values, {}, {}, {}});
     const auto compare_fragments = [&](const std::vector<RenderMesh>& selected,
                                        double tolerance = 5e-6) {
         std::vector<Pixels> fragments;
@@ -233,7 +241,7 @@ void execute(const std::filesystem::path& root, bool scene_only) {
     values.model = "forge.gltf.metallic-roughness.v1";
     values.parameters["emissiveFactor"] = {MaterialParameterType::LinearColor3, {1, .5f, .25f}};
     values.parameters["emissiveStrength"] = {MaterialParameterType::Scalar, {64}};
-    host->preview_material(material, {values, {}, {}});
+    host->preview_material(material, {values, {}, {}, {}});
     // At radiance64, binary32 arithmetic needs an absolute bound above one ULP.
     const auto hdr = compare_fragments(meshes, 8e-5);
     check(std::any_of(hdr.begin(), hdr.end(), [](const auto& p) { return p[0] > 2; }),
@@ -241,7 +249,7 @@ void execute(const std::filesystem::path& root, bool scene_only) {
     values.model = "forge.gltf.unlit.v1";
     values.parameters.erase("emissiveFactor");
     values.parameters.erase("emissiveStrength");
-    host->preview_material(material, {values, {}, {}});
+    host->preview_material(material, {values, {}, {}, {}});
     auto occluder = meshes.front();
     occluder.entity = EntityId::generate();
     occluder.renderer.materials = {{slot, engine_material(EngineMaterial::TwoSided)}};
@@ -261,7 +269,7 @@ void execute(const std::filesystem::path& root, bool scene_only) {
     sprite_values.textures["baseColorTexture"].semantic = TextureSemantic::Color;
     host->preview_material(
         material,
-        {sprite_values, {{"baseColorTexture", engine_texture(EngineTexture::White)}}, {}});
+        {sprite_values, {{"baseColorTexture", engine_texture(EngineTexture::White)}}, {}, {}});
     RenderSprite sprite;
     sprite.entity = EntityId::generate();
     sprite.renderer.material = material;
@@ -273,11 +281,11 @@ void execute(const std::filesystem::path& root, bool scene_only) {
     equal_pixels(render(true, background, true), mixed_sorted, 0,
                  "Visible Sprite did not retain whole-view sorted alpha");
     scene.sprites.clear();
-    host->preview_material(material, {values, {}, {}});
+    host->preview_material(material, {values, {}, {}, {}});
     compare_fragments(meshes);
     scene.meshes = meshes;
     values.depth_write = true;
-    host->preview_material(material, {values, {}, {}});
+    host->preview_material(material, {values, {}, {}, {}});
     const auto depth_sorted = render(false, background);
     equal_pixels(render(true, background, true), depth_sorted, 0,
                  "Incompatible transparent depth writes did not retain sorted geometry");
@@ -288,7 +296,7 @@ void execute(const std::filesystem::path& root, bool scene_only) {
                       }),
           "Weighted transparency fallback lacks a contextual warning");
     values.depth_write = false;
-    host->preview_material(material, {values, {}, {}});
+    host->preview_material(material, {values, {}, {}, {}});
     const auto recovered = render(true, background);
     AffineTransform shifted;
     shifted.m[3] = shifted.m[7] = shifted.m[11] = double(1ull << 40);
@@ -341,9 +349,11 @@ void execute(const std::filesystem::path& root, bool scene_only) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2 || (argc == 3 && std::string_view(argv[2]) == "--scene-only"),
+        check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--scene-only" ||
+                                          std::string_view(argv[2]) == "--gpu-particles")),
               "Need transparency scratch directory");
-        execute(argv[1], argc == 3);
+        execute(argv[1], argc == 3 && std::string_view(argv[2]) == "--scene-only",
+                argc == 3 && std::string_view(argv[2]) == "--gpu-particles");
         return 0;
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

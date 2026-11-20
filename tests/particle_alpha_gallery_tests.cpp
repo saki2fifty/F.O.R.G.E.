@@ -31,6 +31,7 @@ struct Example {
     bool graph = false;
     bool trails = false;
     bool collision = false;
+    bool weighted = false;
 };
 constexpr Example alpha{"Scenes/240-sorted-alpha-particles.scene.json",
                         "Assets/Particles/Alpha/GlassCloud.particles.json", false};
@@ -62,6 +63,24 @@ constexpr Example colliding{"Scenes/246-particle-plane-collision.scene.json",
                             false,
                             false,
                             true};
+constexpr Example weighted_quads{"Scenes/247-weighted-gpu-particles.scene.json",
+                                 "Assets/Particles/Weighted/DeviceBlend.particles.json",
+                                 false,
+                                 true,
+                                 true,
+                                 false,
+                                 false,
+                                 false,
+                                 true};
+constexpr Example weighted_graph_quads{"Scenes/248-weighted-gpu-graph-particles.scene.json",
+                                       "Assets/Particles/Weighted/GraphBlend.particles.json",
+                                       false,
+                                       true,
+                                       true,
+                                       true,
+                                       false,
+                                       false,
+                                       true};
 constexpr const char* trail_material = "Assets/Particles/Trails/Ribbon.material.json";
 constexpr const char* alpha_material = "Assets/Particles/Alpha/Glass.material.json";
 constexpr const char* quad_material = "Assets/Particles/Billboards/SoftCloud.material.json";
@@ -69,13 +88,15 @@ constexpr const char* quad_texture = "Assets/Particles/Billboards/SoftCloud.pain
 constexpr const char* gpu_quad_material = "Assets/Particles/Billboards/DeviceCloud.material.json";
 constexpr const char* graph_effect = "Assets/Particles/Graphs/OrbitFountain.particles.json";
 const char* material_source(const Example& example) {
-    return example.trails       ? trail_material
+    return example.weighted     ? quad_material
+           : example.trails     ? trail_material
            : example.gpu        ? gpu_quad_material
            : example.billboards ? quad_material
                                 : alpha_material;
 }
 unsigned value_version(const Example& example) {
-    return example.collision    ? 11u
+    return example.weighted     ? (example.graph ? 15u : 14u)
+           : example.collision  ? 11u
            : example.trails     ? 10u
            : example.graph      ? 9u
            : example.gpu        ? 8u
@@ -100,8 +121,8 @@ RuntimePackageTarget target() {
 }
 void author(const std::filesystem::path& root, const Example& example) {
     const auto* material_path = material_source(example);
-    const bool reuse_material =
-        example.graph || (example.opacity && !example.billboards && !example.trails);
+    const bool reuse_material = example.weighted || example.graph ||
+                                (example.opacity && !example.billboards && !example.trails);
     for (const auto* path : {example.scene, example.effect})
         check(!std::filesystem::exists(root / path), "Sorted-alpha Gallery source already exists");
     check(reuse_material == std::filesystem::exists(root / material_path),
@@ -112,9 +133,10 @@ void author(const std::filesystem::path& root, const Example& example) {
     if (!reuse_material) {
         auto& overrides = material.document["overrides"];
         overrides["model"] = "forge.gltf.unlit.v1";
-        overrides["alpha"] = unsigned(example.gpu ? MaterialAlpha::Mask : MaterialAlpha::Blend);
+        overrides["alpha"] =
+            unsigned(example.gpu && !example.weighted ? MaterialAlpha::Mask : MaterialAlpha::Blend);
         overrides["depth_test"] = true;
-        overrides["depth_write"] = example.gpu;
+        overrides["depth_write"] = example.gpu && !example.weighted;
         if (example.trails)
             overrides["double_sided"] = true;
         overrides["parameters"]["baseColorFactor"] = {
@@ -217,6 +239,8 @@ void author(const std::filesystem::path& root, const Example& example) {
         effect.enable_gpu_billboards(true);
     else if (example.billboards)
         effect.enable_billboards(true);
+    if (example.weighted)
+        effect.enable_gpu_weighted_alpha(true);
     effect.validate();
     write(root / example.effect, effect.document);
     auto catalog = AssetCatalog::open_project(root);
@@ -278,6 +302,8 @@ void author(const std::filesystem::path& root, const Example& example) {
     auto light = actor("Directional light");
     light.set<Light>({});
     light.set<LocalRotation>({.3826834261f, 0, 0, .9238795042f});
+    if (example.weighted)
+        authoring_command(scene, "scene.rendering.set", {{"weighted_transparency", true}});
     scene.save(root / example.scene);
     catalog = AssetCatalog::open_project(root);
     catalog.add_scene(example.scene);
@@ -289,8 +315,10 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
         asset_detail::read_bytes(root / material_path, material_source_byte_limit));
     const auto resolved = resolve_material_source(material);
     check(resolved.values.model == "forge.gltf.unlit.v1" &&
-              resolved.values.alpha == (example.gpu ? MaterialAlpha::Mask : MaterialAlpha::Blend) &&
-              resolved.values.depth_test && resolved.values.depth_write == example.gpu,
+              resolved.values.alpha ==
+                  (example.gpu && !example.weighted ? MaterialAlpha::Mask : MaterialAlpha::Blend) &&
+              resolved.values.depth_test &&
+              resolved.values.depth_write == (example.gpu && !example.weighted),
           "Particle example lost its reusable admitted Material");
     const auto effect = ParticleEffectSource::parse(
         asset_detail::read_bytes(root / example.effect, particle_effect_byte_limit));
@@ -325,6 +353,10 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
     check(render.diagnostics.empty() && render.particles.size() == 2 && render.meshes.size() == 1 &&
               render.cameras.size() == 1 && render.lights.size() == 1,
           "Sorted-alpha example lost its native Scene consumers");
+    if (example.weighted)
+        check(render.settings.weighted_transparency && effect.document.at("version") == 11 &&
+                  effect.document.at("gpu_weighted_enabled") == true,
+              "Weighted Gallery source lost explicit effect or Scene admission");
     for (const auto& emitter : render.particles)
         check(emitter.emitter.effect.id == effect.asset(), "Example duplicated an effect");
     const auto catalog = AssetCatalog::open_project(root);
@@ -413,8 +445,8 @@ void verify_export(const std::filesystem::path& root, const Example& example,
           "Relocated source-free alpha effect has different values");
     const auto material = asset_detail::load_material_selection(relocated, catalog, {ids[2]});
     check(material.data.values.alpha ==
-                  (example.gpu ? MaterialAlpha::Mask : MaterialAlpha::Blend) &&
-              material.data.values.depth_write == example.gpu,
+                  (example.gpu && !example.weighted ? MaterialAlpha::Mask : MaterialAlpha::Blend) &&
+              material.data.values.depth_write == (example.gpu && !example.weighted),
           "Relocated source-free particle Material has different values");
     EngineContext runtime(WorldRole::Runtime, false, {particle_module(relocated)});
     Scene scene(runtime.world());
@@ -433,6 +465,9 @@ void verify_export(const std::filesystem::path& root, const Example& example,
     const auto render = extract_render_scene(simulation.presentation(1));
     check(render.diagnostics.empty() && render.particles.size() == 2 && scene.document() == saved,
           "Source-free alpha World lost its compact emitters or mutated authored values");
+    if (example.weighted)
+        check(render.settings.weighted_transparency && particle_uses_weighted_alpha(selected.get()),
+              "Relocated weighted Game lost explicit effect or Scene admission");
     for (const auto& emitter : render.particles) {
         if (example.gpu) {
             bool refused = false;
@@ -485,7 +520,16 @@ int main(int argc, char** argv) {
         check(argc >= 3, "Need sorted-alpha Gallery action and project root");
         const auto root = std::filesystem::absolute(argv[2]);
         const std::string_view action = argv[1];
-        if (action == "--author-collision")
+        if (action == "--author-weighted" || action == "--author-weighted-graph")
+            author(root, action == "--author-weighted" ? weighted_quads : weighted_graph_quads);
+        else if (action == "--inspect-weighted" || action == "--inspect-weighted-graph")
+            (void)inspect(root,
+                          action == "--inspect-weighted" ? weighted_quads : weighted_graph_quads);
+        else if (action == "--prepare-weighted" || action == "--prepare-weighted-graph") {
+            check(argc == 4, "Need the texture publication worker");
+            prepare(root, action == "--prepare-weighted" ? weighted_quads : weighted_graph_quads,
+                    true, std::filesystem::absolute(argv[3]));
+        } else if (action == "--author-collision")
             author(root, colliding);
         else if (action == "--inspect-collision")
             (void)inspect(root, colliding);
@@ -526,7 +570,8 @@ int main(int argc, char** argv) {
             if (std::filesystem::exists(root / colliding.effect))
                 prepare(root, colliding, false);
             bool texture_prepared = false;
-            for (const auto& example : {quads, gpu_quads, graph_quads}) {
+            for (const auto& example :
+                 {quads, gpu_quads, graph_quads, weighted_quads, weighted_graph_quads}) {
 #ifndef _WIN32
                 // Source inspection is portable; program publication uses the native cook.
                 if (example.graph)
@@ -542,7 +587,8 @@ int main(int argc, char** argv) {
                 const auto worker =
                     std::filesystem::absolute(argv[3]).parent_path() / "forge_asset_build";
 #endif
-                prepare(root, example, !example.graph, worker, !texture_prepared);
+                prepare(root, example, !example.graph && !example.weighted, worker,
+                        !texture_prepared);
                 texture_prepared = true;
             }
         } else if (action == "--prepare-opacity") {
@@ -553,8 +599,12 @@ int main(int argc, char** argv) {
                    action == "--verify-export-billboards" ||
                    action == "--verify-export-gpu-billboards" ||
                    action == "--verify-export-gpu-graph-billboards" ||
-                   action == "--verify-export-trails" || action == "--verify-export-collision") {
-            const bool gpu = action == "--verify-export-gpu-billboards" ||
+                   action == "--verify-export-trails" || action == "--verify-export-collision" ||
+                   action == "--verify-export-weighted" ||
+                   action == "--verify-export-weighted-graph") {
+            const bool gpu = action == "--verify-export-weighted" ||
+                             action == "--verify-export-weighted-graph" ||
+                             action == "--verify-export-gpu-billboards" ||
                              action == "--verify-export-gpu-graph-billboards";
             const bool billboards = action == "--verify-export-billboards" || gpu;
             check(argc == (billboards ? 5 : 4),
@@ -564,7 +614,9 @@ int main(int argc, char** argv) {
             std::filesystem::create_directories(copy.parent_path());
             std::filesystem::copy(root, copy, std::filesystem::copy_options::recursive);
             verify_export(copy,
-                          action == "--verify-export-collision"              ? colliding
+                          action == "--verify-export-weighted"               ? weighted_quads
+                          : action == "--verify-export-weighted-graph"       ? weighted_graph_quads
+                          : action == "--verify-export-collision"            ? colliding
                           : action == "--verify-export-trails"               ? ribbons
                           : action == "--verify-export-gpu-graph-billboards" ? graph_quads
                           : gpu                                              ? gpu_quads

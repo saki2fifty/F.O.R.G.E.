@@ -18,7 +18,7 @@ class ParticleGpuInstances {
     // Compute unbinds render targets. The camera composition owner restores them
     // before drawing. Success publishes only this submission's instance count.
     void evaluate(Diligent::IDeviceContext*, const ParticleGpuValues&,
-                  const CameraView* billboard_view = nullptr);
+                  const CameraView* billboard_view = nullptr, bool material_tint_only = false);
     Diligent::IBuffer* buffer() const { return output_; }
     unsigned count() const { return count_; }
 

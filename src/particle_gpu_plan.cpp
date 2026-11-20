@@ -40,6 +40,7 @@ ParticleGpuBillboardValues prepare_particle_gpu_billboard_values(const CameraVie
     const auto frame = particle_billboard_world(AffineTransform{}, camera);
     ParticleGpuBillboardValues result;
     result.counts[0] = count;
+    result.counts[1] = 1;
     for (unsigned row = 0; row < 3; ++row)
         for (unsigned column = 0; column < 3; ++column)
             result.camera[row][column] = gpu(frame.m[4 * row + column]);

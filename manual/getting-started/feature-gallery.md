@@ -1246,3 +1246,11 @@ folder. Play to compare two emitters sharing an age-driven orbit, shrinking size
 and teal color blend. The effect retains its ordinary shape, motion and appearance
 controls. See [Create a particle graph](../editor/particle-graphs.md) for bounds,
 editing and source-free export.
+
+
+For transparent device particles, open **247-weighted-gpu-particles**. Its emitters
+share a soft image and Blend Material and the Scene enables weighted transparency.
+**248-weighted-gpu-graph-particles** uses the authored Orbit program, which requires
+Windows Shader compilation before Effect publication. Follow
+[Weighted GPU transparency](../editor/particles.md) for
+controls, compatible views and export.

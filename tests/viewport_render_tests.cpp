@@ -256,7 +256,9 @@ int main(int argc, char** argv) {
                       std::string_view(argv[2]) == "particle-opacity-gallery" ||
                       std::string_view(argv[2]) == "particle-billboard-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-billboard-gallery" ||
-                      std::string_view(argv[2]) == "particle-gpu-graph-billboard-gallery")),
+                      std::string_view(argv[2]) == "particle-gpu-graph-billboard-gallery" ||
+                      std::string_view(argv[2]) == "particle-weighted-gpu-gallery" ||
+                      std::string_view(argv[2]) == "particle-weighted-gpu-graph-gallery")),
                 "Expected image output directory, optional render case and graph content root");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
@@ -312,7 +314,9 @@ int main(int argc, char** argv) {
                      selected == "particle-opacity-gallery" ||
                      selected == "particle-billboard-gallery" ||
                      selected == "particle-gpu-billboard-gallery" ||
-                     selected == "particle-gpu-graph-billboard-gallery") {
+                     selected == "particle-gpu-graph-billboard-gallery" ||
+                     selected == "particle-weighted-gpu-gallery" ||
+                     selected == "particle-weighted-gpu-graph-gallery") {
                 require(argc == 4, "Sorted-alpha render needs relocated cooked content");
                 forge::test_particle_alpha::gallery(
                     isolated, context, argv[3], images,
@@ -320,11 +324,18 @@ int main(int argc, char** argv) {
                         selected == "particle-billboard-gallery",
                     selected == "particle-billboard-gallery" ||
                         selected == "particle-gpu-billboard-gallery" ||
-                        selected == "particle-gpu-graph-billboard-gallery",
+                        selected == "particle-gpu-graph-billboard-gallery" ||
+                        selected == "particle-weighted-gpu-gallery" ||
+                        selected == "particle-weighted-gpu-graph-gallery",
                     selected == "particle-gpu-billboard-gallery" ||
-                        selected == "particle-gpu-graph-billboard-gallery",
-                    selected == "particle-gpu-graph-billboard-gallery",
-                    selected == "particle-trail-gallery", selected == "particle-collision-gallery");
+                        selected == "particle-gpu-graph-billboard-gallery" ||
+                        selected == "particle-weighted-gpu-gallery" ||
+                        selected == "particle-weighted-gpu-graph-gallery",
+                    selected == "particle-gpu-graph-billboard-gallery" ||
+                        selected == "particle-weighted-gpu-graph-gallery",
+                    selected == "particle-trail-gallery", selected == "particle-collision-gallery",
+                    selected == "particle-weighted-gpu-gallery" ||
+                        selected == "particle-weighted-gpu-graph-gallery");
             } else if (selected == "lightmaps")
                 forge::lightmap_test::exercise_gpu(
                     isolated, context,

@@ -3621,13 +3621,13 @@ preserves an active Graph as values9/`gpu_graph_billboard1`. Source8 retains sep
 CPU/GPU alignment settings, the original Mesh, graph program and CPU opacity stops.
 Disabling GPU alignment restores GPU3/graph4 Mesh projection. Backend changes retain
 inactive settings; old source7 CPU flags never activate GPU alignment implicitly.
-GPU quads require an opaque/masked built-in Material and effect3/GPU1 plus
-`runtime_particle_gpu_billboard:1`; graph quads also require graph1. Blend and
-per-particle opacity remain CPU capabilities. The tool name and shared history/
+GPU quads without explicit weighted alpha require an opaque/masked built-in Material and effect3/GPU1 plus
+`runtime_particle_gpu_billboard:1`; graph quads also require graph1. Explicit
+weighted device Blend is described below; lifetime opacity remains a CPU capability. The tool name and shared history/
 publication owners are unchanged. Both MCP formats exercise the explicit backend,
 source publication/reopen, invalid/stale/no-op guards and Undo/Redo.
 
-## Analytic particle trails through the source owner
+## Emitter-local particle plane collision
 
 `asset.document.particle_collision` requires `asset.write`, `editor:"particle_effect"`,
 current document session/revision and boolean `enabled`. Optional `collision` replaces
@@ -3647,6 +3647,8 @@ only with the write grant. Invalid settings, stale scope, history, Save/publicat
 and reopen use the existing source owner. Requires effect3/alpha1/opacity1 and
 `runtime_particle_collision:1`. GPU, Scene-collider, ribbon/camera-plane combinations
 and collision callbacks are outside this profile.
+
+## Analytic particle trails through the source owner
 
 `asset.document.particle_trails` requires `asset.write`, `editor:"particle_effect"`,
 the current document session/revision and boolean `enabled`. Optional
@@ -3670,4 +3672,24 @@ and dying tails; capacity times segments reserves Scene instances. Double-sided
 built-in Materials are required. Nonidentity opacity needs sorted Blend with depth
 testing and no depth writes. Values10 require effect3 and typed trail1/alpha1/opacity1
 runtime support; no GPU, graph or camera-plane capability is required. GPU trails
-and particle collision remain unsupported.
+and collision on ribbons remain unsupported.
+
+## Explicit weighted device particles
+
+`asset.document.particle_gpu_weighted` requires `asset.write`,
+`editor:"particle_effect"`, current document session/revision and boolean `enabled`.
+MCP discovers `forge_asset_document_particle_gpu_weighted` from the live schema;
+read-only clients do not receive the mutation. It calls the same validated source
+operation as **Weighted alpha (GPU)**. No-op, invalid input, stale scope, history,
+Undo/Redo, Save/publication and reopen retain existing document ownership.
+
+Source11 retains `gpu_weighted_enabled` and original Mesh/program/CPU settings/local
+stop identities. Enabling selects GPU or keeps an active Graph and GPU alignment.
+Values12/13 use Mesh geometry and14/15 use camera-plane quads, with the authored
+program active for13/15. The particle catalog describes their limits and kit needs.
+Require a built-in Blend Material, depth testing/no depth writes, enabled Scene
+weighted transparency and complete-view admission. Unsupported views omit these
+emitters with scoped diagnostics; they have no sorted GPU fallback. Material alpha
+and texture alpha apply, while lifetime opacity stays CPU-only. Export requires
+effect3/GPU1/weighted1 plus graph1 and/or GPU billboard1 as selected. This uses the
+existing Scene setting and source/publication owners, with no parallel agent path.

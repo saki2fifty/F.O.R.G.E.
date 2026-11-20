@@ -879,13 +879,15 @@ int main(int argc, char** argv) {
                            std::string_view(argv[2]) == "--collision-gallery" ||
                            std::string_view(argv[2]) == "--opacity-gallery" ||
                            std::string_view(argv[2]) == "--billboard-gallery" ||
-                           std::string_view(argv[2]) == "--gpu-billboard-gallery"))) {
+                           std::string_view(argv[2]) == "--gpu-billboard-gallery" ||
+                           std::string_view(argv[2]) == "--weighted-gallery"))) {
             RefCntAutoPtr<IRenderDevice> device;
             RefCntAutoPtr<IDeviceContext> context;
             EngineVkCreateInfo create;
             create.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;
             if (std::string_view(argv[2]) == "--gpu-billboards" ||
-                std::string_view(argv[2]) == "--gpu-billboard-gallery")
+                std::string_view(argv[2]) == "--gpu-billboard-gallery" ||
+                std::string_view(argv[2]) == "--weighted-gallery")
                 create.Features.ComputeShaders = DEVICE_FEATURE_STATE_ENABLED;
             GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
             check(device && context, "Native sorted-alpha device unavailable");
@@ -896,10 +898,13 @@ int main(int argc, char** argv) {
                     std::string_view(argv[2]) == "--opacity-gallery" ||
                         std::string_view(argv[2]) == "--billboard-gallery",
                     std::string_view(argv[2]) == "--billboard-gallery" ||
-                        std::string_view(argv[2]) == "--gpu-billboard-gallery",
-                    std::string_view(argv[2]) == "--gpu-billboard-gallery", false,
-                    std::string_view(argv[2]) == "--trail-gallery",
-                    std::string_view(argv[2]) == "--collision-gallery");
+                        std::string_view(argv[2]) == "--gpu-billboard-gallery" ||
+                        std::string_view(argv[2]) == "--weighted-gallery",
+                    std::string_view(argv[2]) == "--gpu-billboard-gallery" ||
+                        std::string_view(argv[2]) == "--weighted-gallery",
+                    false, std::string_view(argv[2]) == "--trail-gallery",
+                    std::string_view(argv[2]) == "--collision-gallery",
+                    std::string_view(argv[2]) == "--weighted-gallery");
             else if (std::string_view(argv[2]) == "--billboards" ||
                      std::string_view(argv[2]) == "--gpu-billboards")
                 test_particle_billboard::exercise(presentation, context,

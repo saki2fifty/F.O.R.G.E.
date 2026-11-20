@@ -100,7 +100,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "backend=gpu selects values8/gpu_billboard1 or retains an active "
                  "graph as values9/gpu_graph_billboard1. Source8 retains independent "
                  "CPU/GPU alignment settings and original Mesh/program/opacity. GPU "
-                 "alignment requires opaque/masked Material and "
+                 "alignment requires opaque/masked Material unless explicit weighted alpha is "
+                 "enabled, and "
                  "runtime_particle_gpu_billboard1 plus GPU1; graphs also need graph1."},
                 {"trails",
                  "asset.document.particle_trails selects CPU analytic ribbons "
@@ -123,6 +124,16 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "Initially penetrating births and sustained zero-rebound inward contacts end. "
                  "Requires runtime_particle_collision1, opacity1 and alpha1. No Scene-collider, "
                  "GPU, ribbon or camera-plane collision combination."},
+                {"gpu_weighted",
+                 "asset.document.particle_gpu_weighted selects explicit approximate weighted "
+                 "device alpha (values12/gpu_weighted1,13/gpu_graph_weighted1, "
+                 "14/gpu_weighted_billboard1,15/gpu_graph_weighted_billboard1). Source11 retains "
+                 "Mesh, graph, alignment, CPU settings and stop identities. Requires a built-in "
+                 "Blend Material with depth testing/no depth writes, Scene weighted transparency "
+                 "and complete-view admission. Incompatible views omit these emitters with a "
+                 "diagnostic; there is no sorted GPU fallback. Material alpha/textures apply; "
+                 "lifetime opacity remains CPU-only. Requires runtime_particle_gpu_weighted1 "
+                 "plus GPU1, graph1 and/or GPU billboard1 when selected."},
                 {"limits",
                  {{"emitters", particle_emitter_limit},
                   {"effect_capacity", 1024},
@@ -802,6 +813,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                                "particle_billboards",
                                "particle_trails",
                                "particle_collision",
+                               "particle_gpu_weighted",
                                "particle_program",
                                "paint",
                                "tile_collision",
@@ -845,8 +857,19 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                     {"type", "string"},
                     {"enum", {"cpu", "gpu"}},
                     {"default", "cpu"},
-                    {"description", "CPU preserves the existing default operation. GPU selects "
-                                    "opaque/masked device alignment, preserving an active graph."}};
+                    {"description",
+                     "CPU preserves the existing default operation. GPU selects "
+                     "device alignment, preserving an active graph and explicit weighted alpha."}};
+        } else if (std::string_view(action) == "particle_gpu_weighted") {
+            properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
+            properties["enabled"] = {
+                {"type", "boolean"},
+                {"description",
+                 "Select approximate weighted GPU Blend; retain an active Graph and "
+                 "camera alignment. Requires enabled complete-view Scene weighted "
+                 "transparency; unsupported views omit the emitter. False restores "
+                 "the retained opaque/masked GPU profile. CPU settings are retained."}};
+            needed.push_back("enabled");
         } else if (std::string_view(action) == "particle_trails") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
             properties["enabled"] = {{"type", "boolean"}};

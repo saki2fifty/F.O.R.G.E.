@@ -9276,6 +9276,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "6752766d-24a5-4d2c-8534-f28af1c87df2",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/248-weighted-gpu-graph-particles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "676507d7-c90f-49d4-b9e3-821ddff0a217",
       "metadata": {
         "forge.import": {
@@ -14768,6 +14778,16 @@
       "type": "mesh"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a0085189-96b2-4a68-8c60-ec9d0f88d651",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Weighted/DeviceBlend.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
       "dependencies": [
         "1e8d8ca3-6baa-4c06-9fa6-59296d52db65"
       ],
@@ -15934,6 +15954,16 @@
       "metadata": {},
       "schema_version": 3,
       "source": "Scenes/155-ui-filters.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "ac677c9d-8f1b-4a7a-a824-8570d9f10a29",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/247-weighted-gpu-particles.scene.json",
       "source_dependencies": [],
       "type": "scene"
     },
@@ -20439,6 +20469,16 @@
       "source": "Assets/Sequences/BlendArrival.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e8e897ce-ae34-498b-8a1f-06a4d23859e0",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Weighted/GraphBlend.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],

@@ -1,5 +1,21 @@
 # 2026-11-20
 
+## Explicit weighted GPU transparency
+
+Particle Effects offer **Weighted alpha (GPU)** for built-in Mesh or camera-plane
+particles and retained authored programs. The existing complete-view weighted Mesh
+transport supplies approximate color/coverage; unsupported views omit these device
+emitters with scoped diagnostics rather than emitter-only sorted drawing. Old GPU
+opaque/masked and CPU sorted profiles keep their meanings. Source11 preserves all
+inactive settings and IDs; new values12–15 require a matching weighted-capable kit,
+with no gameplay component ABI or recipe/envelope change.
+
+Native controls and MCP share validation, source history and publication. Gallery247
+and248 reuse the soft image and Blend Material; the manual includes an authentic
+source-hidden builtin Game capture. GPU lifetime opacity, ribbons/collision and
+general ordered transparency remain outside this profile. Native Windows graph
+execution and physical review remain separately queued.
+
 ## CPU particle plane collision
 
 Particle Effects offer **Plane collision (CPU mesh)** with an emitter-local plane,

@@ -501,14 +501,16 @@ struct AssetDocumentAutomation {
                         "Wait for publication or settle the active source gesture/close request");
                 if (action == "particle_evaluation" || action == "particle_opacity" ||
                     action == "particle_billboards" || action == "particle_trails" ||
-                    action == "particle_collision") {
+                    action == "particle_collision" || action == "particle_gpu_weighted") {
                     if constexpr (std::is_same_v<Source, ParticleEffectSource>) {
                         const auto previous = doc.revision();
                         const bool opacity = action == "particle_opacity";
                         const bool billboards = action == "particle_billboards";
                         const bool trails = action == "particle_trails";
                         const bool collision = action == "particle_collision";
-                        const bool toggle = opacity || billboards || trails || collision;
+                        const bool weighted = action == "particle_gpu_weighted";
+                        const bool toggle =
+                            opacity || billboards || trails || collision || weighted;
                         const auto backend = billboards
                                                  ? request.value("backend", std::string("cpu"))
                                                  : std::string{};
@@ -522,13 +524,17 @@ struct AssetDocumentAutomation {
                                                  "Choose cpu, cpu_alpha, gpu or graph evaluation");
                         doc.edit_source(
                             previous,
-                            billboards  ? "Toggle camera-aligned particles"
-                            : collision ? "Set particle plane collision"
-                            : trails    ? "Set particle trails"
-                            : opacity   ? "Toggle particle opacity"
-                                        : "Set particle evaluation",
+                            weighted     ? "Set GPU weighted alpha"
+                            : billboards ? "Toggle camera-aligned particles"
+                            : collision  ? "Set particle plane collision"
+                            : trails     ? "Set particle trails"
+                            : opacity    ? "Toggle particle opacity"
+                                         : "Set particle evaluation",
                             [&](Source& source) {
-                                if (collision) {
+                                if (weighted)
+                                    source.enable_gpu_weighted_alpha(
+                                        request.at("enabled").get<bool>());
+                                else if (collision) {
                                     std::optional<ParticleCollisionPlane> plane;
                                     if (request.contains("collision"))
                                         plane = decode_particle_collision_plane(

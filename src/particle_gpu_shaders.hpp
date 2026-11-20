@@ -111,6 +111,7 @@ float ForgeParticleColumnLength(float3 value){
 [numthreads(64,1,1)]void main(uint3 thread:SV_DispatchThreadID){
     uint id=thread.x;if(id>=BillboardCounts.x)return;
     uint row=id*FORGE_STATIC_INSTANCE_ROWS;
+    if(BillboardCounts.y!=0u){
     float4 a=ParticleRows[row],b=ParticleRows[row+1u],c=ParticleRows[row+2u];
     float width=ForgeParticleColumnLength(float3(a.x,b.x,c.x));
     float height=ForgeParticleColumnLength(float3(a.y,b.y,c.y));
@@ -125,6 +126,7 @@ float ForgeParticleColumnLength(float3 value){
     ParticleRows[row+2u]=float4(basis[2],c.w);
     [unroll]for(uint r=0u;r<3u;r++)
         ParticleRows[row+3u+r]=float4(maximum>0?basis[r]/maximum:float3(0,0,0),0);
+    }
     float4 tint=ParticleRows[row+6u];
     ParticleRows[row+6u]=float4(tint.xyz,2);
 }

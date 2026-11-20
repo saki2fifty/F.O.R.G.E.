@@ -147,7 +147,7 @@ void ParticleGpuInstances::prepare_billboards() {
     billboard_values_ = std::move(values);
 }
 void ParticleGpuInstances::evaluate(IDeviceContext* context, const ParticleGpuValues& values,
-                                    const CameraView* billboard_view) {
+                                    const CameraView* billboard_view, bool material_tint_only) {
     count_ = 0;
     if (!context || !supported())
         throw std::runtime_error("GPU particle evaluation requires enabled compute support");
@@ -156,9 +156,13 @@ void ParticleGpuInstances::evaluate(IDeviceContext* context, const ParticleGpuVa
         throw std::runtime_error("GPU particle input exceeds its bounded compute profile");
     if (graph_program_)
         validate_particle_gpu_graph_envelope(values, graph_limits_);
-    const auto alignment = billboard_view ? std::optional(prepare_particle_gpu_billboard_values(
-                                                *billboard_view, values.births[0]))
-                                          : std::nullopt;
+    std::optional<ParticleGpuBillboardValues> alignment;
+    if (billboard_view)
+        alignment = prepare_particle_gpu_billboard_values(*billboard_view, values.births[0]);
+    else if (material_tint_only) {
+        alignment.emplace();
+        alignment->counts[0] = values.births[0];
+    }
     if (!values.births[0])
         return;
     prepare();

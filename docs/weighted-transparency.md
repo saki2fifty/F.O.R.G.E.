@@ -13,9 +13,15 @@ The existing sorted part queue remains authoritative. Before drawing, the render
 prepares the complete weighted candidate for every Blend Mesh and checks the actual
 HDR/depth targets. Eligible surfaces test depth, do not write depth, use ordinary
 Mesh scope/order and have a current surface cook when custom. Any visible Sprite or
-Tile Map, transparent particle/ordered source, transmission surface, incompatible
+Tile Map, sorted transparent CPU particle/ordered source, transmission surface, incompatible
 material, unsupported format, budget or preparation failure retains ordinary sorted
 rendering for the whole view. The warning identifies `rendering.weighted_transparency`.
+Explicit weighted GPU particles (values12–15) are the admitted Particle-scope
+exception. They use the same Material shading/weighted specialization and device
+instance slices. If the setting is disabled or complete-view admission fails, these
+emitters are omitted with entity-scoped diagnostics; they have no sorted device
+fallback. Ordinary sources retain their prior fallback. See
+[ADR068](decisions/068-weighted-gpu-particles.md).
 No mixed partially weighted ordering is admitted. A view without Blend work uses
 ordinary rendering and releases unused attachments.
 

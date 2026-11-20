@@ -3226,7 +3226,7 @@ Open `Scenes/244-gpu-graph-camera-particles.scene.json` for the authored-program
 variant. Compile `Assets/Particles/Graphs/Orbit.graph.shader.json`, then publish
 `Assets/Particles/Billboards/GraphCloud.particles.json`. Its **Evaluation → Graph**
 retains the assigned program when camera alignment changes. Both GPU examples
-require opaque or masked built-in Materials; use CPU sorted alpha for transparency
+require opaque or masked built-in Materials unless explicit weighted alpha is enabled; use CPU sorted alpha for lifetime fades
 or opacity over life. Shader compilation requires Windows and the packaged worker.
 
 ## Analytic particle trails
@@ -3242,3 +3242,19 @@ Size controls width; speed, acceleration and drag shape the path. Moving an emit
 moves its whole path. This mode does not record historical world-space emitter motion.
 Capacity includes shrinking tails, and capacity times segments reserves Scene instances.
 Save the scene and export with the matching runtime kit; no project C++ module is needed.
+
+
+### Weighted GPU particles
+
+Open `Scenes/247-weighted-gpu-particles.scene.json` and press Play. Two emitters
+share `Assets/Particles/Weighted/DeviceBlend.particles.json`, the existing soft
+alpha image and its Blend Material. The Scene includes a camera, light and opaque
+depth marker and enables weighted transparency. Open the Effect to change
+**Weighted alpha (GPU)** or **Camera-aligned quads**, then Save / Publish.
+
+`Scenes/248-weighted-gpu-graph-particles.scene.json` uses
+`Assets/Particles/Weighted/GraphBlend.particles.json` with the retained Orbit Shader.
+Compile that Shader before publishing the Effect on Windows. These examples use
+approximate weighted color. An incompatible or disabled weighted view omits their
+emitters with a diagnostic; GPU lifetime opacity, collision and ribbons are unavailable.
+Save the Effect and Scene and export using the runtime kit packaged with this editor.

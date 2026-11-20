@@ -32,8 +32,11 @@ void validate_particle_material_profile(const MaterialResourceData& material,
         throw std::runtime_error(
             "Mesh particles require built-in material models without transmission or custom "
             "Shader surfaces");
-    if (!particle_uses_sorted_alpha(effect) && material.values.alpha == MaterialAlpha::Blend)
+    if (!particle_uses_sorted_alpha(effect) && !particle_uses_weighted_alpha(effect) &&
+        material.values.alpha == MaterialAlpha::Blend)
         throw std::runtime_error("Blend particle materials require CPU (sorted alpha) evaluation");
+    if (particle_uses_weighted_alpha(effect) && material.values.alpha != MaterialAlpha::Blend)
+        throw std::runtime_error("GPU weighted alpha requires a Blend Material");
     if (particle_uses_trails(effect) && !material.values.double_sided)
         throw std::runtime_error("Particle trails require a double-sided Material");
     const bool identity_opacity =
@@ -50,7 +53,7 @@ void validate_particle_material_profile(const MaterialResourceData& material,
     if (material.values.alpha == MaterialAlpha::Blend &&
         (!material.values.depth_test || material.values.depth_write))
         throw std::runtime_error(
-            "Sorted-alpha particles require depth testing without depth writes");
+            "Transparent particles require depth testing without depth writes");
 }
 std::vector<ParticleRenderInstance> particle_render_instances(const ParticleEffectData& data,
                                                               double time, std::uint32_t seed,

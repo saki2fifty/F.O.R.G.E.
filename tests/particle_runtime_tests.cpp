@@ -89,8 +89,8 @@ void gpu_billboard_packet_admission() {
         const auto view = camera_view(camera, AffineTransform{}, 64, 64);
         for (const unsigned count : {0u, 65u, 1024u}) {
             const auto values = prepare_particle_gpu_billboard_values(view, count);
-            require(values.counts == std::array<std::uint32_t, 4>{count, 0, 0, 0},
-                    "GPU camera packet changed its bounded count or reserved lanes");
+            require(values.counts == std::array<std::uint32_t, 4>{count, 1, 0, 0},
+                    "GPU camera packet lost its bounded count, camera mode or reserved lanes");
             for (unsigned row = 0; row < 3; ++row)
                 require(values.camera[row] == ParticleGpuRow{float(view.right[row]),
                                                              float(view.up[row]),

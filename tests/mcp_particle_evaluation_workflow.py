@@ -329,4 +329,54 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
     assert content(owner) == collision_source
     assert edit('forge_asset_document_close', owner)['ok']
 
+    weighted_tool = next(t for t in tools if t['name'] == 'forge_asset_document_particle_gpu_weighted')
+    assert weighted_tool['inputSchema']['properties']['editor']['const'] == owner
+    assert weighted_tool['inputSchema']['properties']['enabled']['type'] == 'boolean'
+    assert 'gpu_weighted1' in catalog['gpu_weighted'] and 'runtime_particle_gpu_weighted1' in catalog['gpu_weighted']
+    weighted_path = 'Assets/WeightedDevice.particles.json'
+    assert mutate('forge_asset_document_create', editor=owner, path=weighted_path, patch=[
+        dict(op='replace', path='/material', value=material),
+        dict(op='add', path='/extensions', value=dict(preserve='weighted source'))])['ok']
+    original = content(owner)
+    before = status(owner)
+    assert edit('forge_asset_document_particle_gpu_weighted', owner, enabled=False)['ok']
+    assert content(owner) == original and status(owner)['revision'] == before['revision']
+    assert edit('forge_asset_document_particle_gpu_weighted', owner, enabled=True)['ok']
+    weighted = content(owner)
+    assert weighted['version'] == 11 and weighted['profile'] == 'gpu_weighted1'
+    assert weighted['gpu_weighted_enabled'] and weighted['mesh'] == original['mesh']
+    assert weighted['asset_id'] == original['asset_id'] and weighted['extensions'] == original['extensions']
+    failed(mutate('forge_asset_document_particle_gpu_weighted', editor=owner,
+                  document_session=before['session'], document_revision=before['revision'],
+                  enabled=False), 'stale_document')
+    failed(mutate('forge_asset_document_particle_gpu_weighted', editor=owner,
+                  document_session=before['session'] + 1000,
+                  document_revision=status(owner)['revision'], enabled=False), 'wrong_document')
+    revision = status(owner)['revision']
+    assert edit('forge_asset_document_particle_gpu_weighted', owner, enabled=True)['ok']
+    assert status(owner)['revision'] == revision
+    for invalid in (0, 1, None, 'true', [], {}):
+        assert not edit('forge_asset_document_particle_gpu_weighted', owner, enabled=invalid)['ok']
+        assert content(owner) == weighted and status(owner)['revision'] == revision
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == original
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == weighted
+    for evaluation, profile in (('cpu', 'cpu_mesh2'), ('cpu_alpha', 'cpu_alpha1'), ('gpu', 'gpu_weighted1')):
+        assert edit('forge_asset_document_particle_evaluation', owner, evaluation=evaluation)['ok']
+        assert content(owner) == dict(weighted, profile=profile)
+    assert edit('forge_asset_document_particle_billboards', owner, backend='gpu', enabled=True)['ok']
+    aligned = content(owner)
+    assert aligned == dict(weighted, gpu_billboard_enabled=True, profile='gpu_weighted_billboard1')
+    assert edit('forge_asset_document_particle_gpu_weighted', owner, enabled=False)['ok']
+    assert content(owner) == dict(aligned, profile='gpu_billboard1', gpu_weighted_enabled=False)
+    assert edit('forge_asset_document_particle_gpu_weighted', owner, enabled=True)['ok']
+    assert content(owner) == aligned
+    settled = save()
+    metadata = read('forge_asset_read', asset=settled['asset'])['metadata']['forge.particle_effect']
+    assert metadata['version'] == 3 and metadata['value_version'] == 14
+    assert json.loads((root / 'Game' / weighted_path).read_text()) == aligned
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=weighted_path)['ok']
+    assert content(owner) == aligned
+    assert edit('forge_asset_document_close', owner)['ok']
+
     check_particle_graph(read, mutate, edit, status, content, failed, root)

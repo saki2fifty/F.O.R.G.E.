@@ -479,6 +479,41 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
     require(editor.document()->source().document == alpha_profile,
             "Native collision edits could not restore the original source/history");
 
+    const auto before_weighted = editor.document()->source().document;
+    click("particles:gpu-weighted");
+    frame();
+    const auto weighted_source = editor.document()->source().document;
+    require(editor.document()->source().compiled().version == 12 &&
+                weighted_source.at("version") == 11 &&
+                weighted_source.at("gpu_weighted_enabled").get<bool>() &&
+                weighted_source.at("mesh") == before_weighted.at("mesh") &&
+                weighted_source.at("size_curve") == before_weighted.at("size_curve"),
+            "Native weighted control lost retained settings or explicit GPU selection");
+    click("particles:undo");
+    require(editor.document()->source().document == before_weighted,
+            "Native weighted Undo failed to restore exact source identity");
+    click("particles:redo");
+    require(editor.document()->source().document == weighted_source,
+            "Native weighted Redo changed the source candidate");
+    click("particles:billboards");
+    frame();
+    require(editor.document()->source().compiled().version == 14 &&
+                !test::ui_targets.at("particles:mesh").enabled,
+            "Native weighted GPU camera alignment failed to use the shared source operation");
+    choose("particles:evaluation", 2);
+    frame();
+    require(editor.document()->source().compiled().version == 15,
+            "Native weighted Graph selection lost retained camera alignment");
+    click("particles:gpu-weighted");
+    frame();
+    require(editor.document()->source().compiled().version == 9 &&
+                !editor.document()->source().document.at("gpu_weighted_enabled").get<bool>(),
+            "Disabling native weighted alpha lost the existing GPU Graph projection");
+    for (unsigned i = 0; i < 12 && editor.document()->source().document != before_weighted; ++i)
+        editor.undo();
+    require(editor.document()->source().document == before_weighted,
+            "Weighted controls could not restore their original source history");
+
     click("particles:undo");
     // Keep the original lifecycle/close checks applicable, including start-size editing.
     for (unsigned i = 0; i < 32 && editor.document()->source().document != before_extended; ++i)

@@ -56,7 +56,8 @@ void validate_particle_collision_plane(const ParticleCollisionPlane&);
 ParticleCollisionPlane decode_particle_collision_plane(const nlohmann::json&);
 nlohmann::json encode_particle_collision_plane(const ParticleCollisionPlane&);
 struct ParticleEffectData {
-    std::uint32_t version = 1; // CPU1/2, GPU3/4, alpha5/6, camera7/8/9, trails10, collision11.
+    std::uint32_t version =
+        1; // CPU1/2, GPU3/4, alpha5/6, camera7/8/9, trails10, collision11, weighted GPU12–15.
     AssetRef<MeshAsset> mesh;
     AssetRef<MaterialAsset> material;
     ParticleEmission emission = ParticleEmission::Continuous;
@@ -79,10 +80,14 @@ struct ParticleEffectData {
     bool operator==(const ParticleEffectData&) const = default;
 };
 constexpr bool particle_uses_gpu(const ParticleEffectData& data) {
-    return data.version == 3 || data.version == 4 || data.version == 8 || data.version == 9;
+    return data.version == 3 || data.version == 4 || data.version == 8 || data.version == 9 ||
+           (data.version >= 12 && data.version <= 15);
 }
 constexpr bool particle_uses_graph(const ParticleEffectData& data) {
-    return data.version == 4 || data.version == 9;
+    return data.version == 4 || data.version == 9 || data.version == 13 || data.version == 15;
+}
+constexpr bool particle_uses_weighted_alpha(const ParticleEffectData& data) {
+    return data.version >= 12 && data.version <= 15;
 }
 constexpr bool particle_uses_sorted_alpha(const ParticleEffectData& data) {
     return data.version == 5 || data.version == 6 || data.version == 7 || data.version == 10 ||
@@ -98,7 +103,8 @@ constexpr bool particle_uses_collision(const ParticleEffectData& data) {
 // Reserved draw segments, including tails after a head reaches its lifetime.
 std::size_t particle_instance_capacity(const ParticleEffectData&);
 constexpr bool particle_uses_billboards(const ParticleEffectData& data) {
-    return data.version == 7 || data.version == 8 || data.version == 9;
+    return data.version == 7 || data.version == 8 || data.version == 9 || data.version == 14 ||
+           data.version == 15;
 }
 struct ParticleSample {
     // Emitter-scoped transient ordinal; never an entity UUID or saved handle.

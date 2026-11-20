@@ -1263,6 +1263,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         std::vector<MeshDraw::LightImage> images{};
         ParticleGpuInstances* gpu = nullptr;
         bool material_tint_only = false;
+        bool gpu_weighted = false;
         const MeshRibbonValues* ribbon = nullptr;
     };
     struct Item {
@@ -1363,6 +1364,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 object.pose = nullptr;
             object.scope = draw_scope;
             object.gpu = gpu;
+            object.gpu_weighted =
+                gpu && particle_uses_weighted_alpha(*particle_sources_.at(mesh.entity).data());
             object.ribbon = ribbon ? &ribbon->vertices : nullptr;
             object.material_tint_only =
                 draw_scope == DrawScope::Particle &&
@@ -1392,7 +1395,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         host_->context_, values,
                         particle_uses_billboards(*particle_sources_.at(mesh.entity).data())
                             ? &camera
-                            : nullptr);
+                            : nullptr,
+                        object.gpu_weighted);
                 } catch (...) {
                     restore_camera_target();
                     throw;
@@ -1820,7 +1824,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                     throw std::runtime_error("transmission requires sorted background transport");
                 if (item.key.alpha != MaterialAlpha::Blend)
                     continue;
-                if (object.scope != DrawScope::Mesh || item.key.order != 0)
+                if ((object.scope != DrawScope::Mesh && !object.gpu_weighted) ||
+                    item.key.order != 0)
                     throw std::runtime_error("this transparent layer requires sorted alpha");
                 if (!object.bundle->surface_prepared(object.lod, item.key.part, false, false, false,
                                                      false, object.area_lights, true))
@@ -1838,6 +1843,17 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         }
     } else {
         weighted_->clear();
+    }
+    if (!weighted) {
+        // Device rows have no per-particle sorted transport. Refuse this explicit
+        // profile for the view instead of sorting whole emitters as a substitute.
+        for (const auto& object : objects)
+            if (object.gpu_weighted)
+                report(object.mesh->entity,
+                       "GPU weighted alpha requires enabled and fully admitted Scene weighted "
+                       "transparency; this emitter is omitted from the view",
+                       DrawScope::Particle);
+        std::erase_if(queue, [&](const auto& item) { return objects[item.object].gpu_weighted; });
     }
     // One batching rule serves visibility queries and the ordinary draw loop.
     // Derived visibility never changes queue ordering or compatibility.

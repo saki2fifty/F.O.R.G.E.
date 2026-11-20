@@ -299,7 +299,8 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
 inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
                     const std::filesystem::path& content, const std::filesystem::path& images,
                     bool opacity = false, bool billboards = false, bool gpu = false,
-                    bool graph = false, bool trails = false, bool collision = false) {
+                    bool graph = false, bool trails = false, bool collision = false,
+                    bool weighted = false) {
     using test_bloom::check;
 #ifdef _WIN32
     const RuntimePackageTarget target{"windows", "d3d12"};
@@ -325,7 +326,8 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     check(effects.wait(ticket, std::chrono::seconds(15)), "Source-free alpha Effect load stalled");
     const auto selected = effects.acquire(ticket);
     check(selected &&
-              selected->version == (collision    ? 11u
+              selected->version == (weighted     ? (graph ? 15u : 14u)
+                                    : collision  ? 11u
                                     : trails     ? 10u
                                     : graph      ? 9u
                                     : gpu        ? 8u
@@ -385,15 +387,17 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
         changed += rendered[i] != empty[i];
     check(changed > 100, "Source-free alpha Game did not draw its particles");
     std::filesystem::create_directories(images);
-    save_view_png(images / (collision    ? "particle-plane-collision.png"
-                            : trails     ? "analytic-particle-trails.png"
-                            : graph      ? "gpu-graph-camera-particles.png"
-                            : gpu        ? "gpu-camera-particles.png"
-                            : billboards ? "camera-aligned-particles.png"
-                            : opacity    ? "particle-opacity.png"
-                                         : "sorted-alpha-particles.png"),
-                  640, 360,
-                  {reinterpret_cast<const std::uint8_t*>(rendered.data()), rendered.size() * 4});
+    save_view_png(
+        images / (weighted
+                      ? (graph ? "weighted-gpu-graph-particles.png" : "weighted-gpu-particles.png")
+                  : collision  ? "particle-plane-collision.png"
+                  : trails     ? "analytic-particle-trails.png"
+                  : graph      ? "gpu-graph-camera-particles.png"
+                  : gpu        ? "gpu-camera-particles.png"
+                  : billboards ? "camera-aligned-particles.png"
+                  : opacity    ? "particle-opacity.png"
+                               : "sorted-alpha-particles.png"),
+        640, 360, {reinterpret_cast<const std::uint8_t*>(rendered.data()), rendered.size() * 4});
     context->WaitForIdle();
     std::cout << "PARTICLE_SOURCE_HIDDEN profile=" << selected->version
               << " emitters=2 changed_pixels=" << changed << '\n';

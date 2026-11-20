@@ -37,15 +37,20 @@ Each panel has its own placement and color values while sharing one Material and
 ## Compatibility and troubleshooting
 
 The renderer uses ordinary sorted drawing for the entire affected view when it
-contains a visible Sprite, Tile Map, transparent particle, transmission material,
+contains a visible Sprite, Tile Map, sorted transparent CPU particle, transmission material,
 or an incompatible transparent Mesh. This keeps those layers together. Check
 **Problems** for a rendering warning explaining why weighted blending was unavailable.
+
+[Explicit weighted GPU particles](particles.md) share
+weighted blending when the entire view is admitted. They require this Scene setting;
+an incompatible or disabled view omits those emitters with a diagnostic. They never
+use emitter-level sorting as a replacement for particle transparency.
 
 - Keep **Depth test** on and **Depth write** off for every Blend Mesh in the view. A depth-writing transparent material keeps the view on ordinary sorting.
 - Rebuild a custom Surface Shader or Material Graph and its dependent Materials with the current tools. An older cook remains usable with ordinary drawing.
 - Transmission/refraction needs sorted background transport. Weighted blending does not trace light through glass or supply exact physical layer ordering.
 - Opaque and Mask surfaces retain their depth and cutout behavior. Weighted blending does not add transparent shadow casting.
-- Large render targets may exceed the attachment budget or the device's supported formats. The view retains ordinary sorting and reports the reason.
+- Large render targets may exceed the attachment budget or the device's supported formats. Other sources retain ordinary sorting; explicit weighted GPU emitters are omitted. Problems reports the reason.
 
 ## Save and export
 

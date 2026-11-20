@@ -3,7 +3,8 @@
 A particle effect is a reusable stream or burst of small meshes. Use it for
 stylized sparks, debris or fountains. Effects can use solid or masked meshes, or
 sorted transparent meshes with CPU evaluation, and camera-aligned quads with CPU,
-GPU or Graph evaluation. CPU analytic ribbon trails follow each particle's local
+GPU or Graph evaluation. Explicit weighted GPU alpha supports approximate
+transparent blending. CPU analytic ribbon trails follow each particle's local
 path. CPU Mesh particles can bounce against an emitter-local plane.
 
 ## Try the Gallery
@@ -87,8 +88,9 @@ Transparent particles use individual draws sorted with ordinary transparent
 meshes. Intersecting meshes can show sorting artifacts because triangles inside
 one particle are not sorted individually. Reduce particle counts when using this
 mode. A view containing transparent particles uses sorted rendering even when
-**Weighted transparency** is enabled. GPU and Graph evaluation require opaque or
-masked Materials; a failed publication retains the working selected effect.
+**Weighted transparency** is enabled. GPU and Graph evaluation use opaque or masked
+Materials unless **Weighted alpha (GPU)** is explicitly enabled; see below. A failed
+publication retains the working selected effect.
 
 Export with the runtime kit packaged with this editor. An older kit that lacks
 the sorted-alpha profile is rejected. The player needs no compiler or compute
@@ -155,10 +157,46 @@ packaged Shader worker.
 
 Disabling GPU alignment restores the original Mesh and keeps the selected GPU or
 Graph evaluation. CPU alignment and opacity settings remain available when you
-switch back to CPU evaluation. GPU quads support opaque and masked Materials;
-Blend Materials and per-particle opacity are unavailable. Use CPU sorted alpha
-for transparent or fading particles. Camera-plane orientation and the other
-particle limits above also apply to GPU quads.
+switch back to CPU evaluation. GPU quads support opaque and masked Materials, or
+Blend Materials with explicit **Weighted alpha (GPU)**. Per-particle opacity remains
+a CPU capability. Use CPU sorted alpha for lifetime fades. Camera-plane orientation
+and the other particle limits above also apply to GPU quads.
+
+## Weighted GPU transparency
+
+Open **Scenes/247-weighted-gpu-particles.scene.json** in FeatureGallery and press
+**Play**. Two emitters share a soft alpha image, Material and Effect. The Scene
+includes a camera, light and solid depth marker. This example needs no project
+C++ code. **Scenes/248-weighted-gpu-graph-particles.scene.json** uses an authored
+particle program; compile **Assets/Particles/Graphs/Orbit.graph.shader.json** before
+publishing its Effect on Windows.
+
+![Blue and amber textured GPU particles overlapping around a solid depth marker](../images/weighted-gpu-particles.png)
+
+The Gallery scene in the Game renderer at three seconds.
+
+1. Stop Play and open a Particle Effect from Content. Enable **Weighted alpha (GPU)**. This selects GPU evaluation or keeps an active Graph.
+2. Choose a built-in Material with **Alpha → Blend**, **Depth test** enabled and **Depth write** disabled. Set its base alpha or assign a color texture with an alpha channel. Save the Material.
+3. Optionally enable **Camera-aligned quads** for image particles. Disable it to use the retained Mesh. Size, RGB, shapes, motion and emitter tint use the usual controls.
+4. Choose **Save / Publish**. In the Scene's rendering settings, enable **Weighted transparency**. Save the Scene and press Play.
+5. Export using the runtime kit packaged with this editor. Both the explicit Effect profile and the Scene setting must be saved.
+
+Weighted blending approximates the combined color of overlapping fragments. It
+does not provide exact physical layer ordering or refraction. Transparent ordinary
+Meshes in an admitted view share this transport. Opaque geometry still blocks
+particles behind its depth surface. Material and texture alpha apply; GPU lifetime
+opacity, collision and ribbons are unavailable.
+
+A visible Sprite, Tile Map, sorted transparent CPU particle, transmission Material,
+incompatible transparent Mesh or unsupported render target prevents complete-view
+weighted rendering. These GPU emitters are then omitted from that view and
+**Problems** reports the reason. Other sources use their ordinary sorted fallback.
+Enable the Scene setting and resolve the reported incompatibility to restore the
+emitters. See [Blend overlapping transparent Meshes](transparency.md).
+
+Turning **Weighted alpha (GPU)** off restores the retained opaque/masked GPU or
+Graph profile. Switching to CPU preserves this setting and the independent CPU
+opacity, alignment, ribbon and plane settings. Undo/Redo restores source choices.
 
 ## Analytic ribbon trails
 

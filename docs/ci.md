@@ -3714,3 +3714,30 @@ sources removed. Existing alpha numeric rendering also compares six collision/
 kill ages to independent ordinary-Mesh placement and verifies old-profile recovery.
 The native shader acceptance selector includes the Gallery checks. These registered
 workflows do not themselves establish a native Windows or physical-device result.
+
+
+## Explicit weighted GPU particle checks
+
+`particle_weighted_source` verifies source11 and values12–15, exact retained
+identities/settings, codecs, legacy evaluator inputs, strict Material admission
+and no-op/refusal. `particle_runtime` verifies the bounded supplemental projection
+mode while preserving the47-row evaluator. `standalone_manifest` checks every
+required typed kit capability for all four explicit profiles, including malformed
+and missing values. Native Effect controls and the shared MCP fixture cover source
+history, revisions, grants, publication and reopen.
+
+`particle_gpu_weighted_vulkan` executes actual GPU rows with weighted MRT/resolve,
+independent color/coverage equations, ordinary Mesh mixing, texture alpha, zero/full
+alpha,65-birth slices, source order, complete-view refusal/recovery and another
+camera. Existing weighted Mesh, CPU sorted-alpha and GPU opaque/camera cases remain
+regressions. These software fixtures do not establish physical performance.
+
+Gallery247/248 reuse the existing soft image/Blend Material. Source inspection
+covers both. The builtin case's export and production Game checks relocate the
+selected closure with editable sources hidden. The graph source-hidden Game case
+requires Windows native program cooking and is registered in shader acceptance;
+source inspection alone does not prove that execution. The unmodified640x360
+`manual/images/weighted-gpu-particles.png` captures the builtin relocated Game at
+three seconds on llvmpipe and was visually reviewed. It contains rendered Game
+content, without editor chrome or retouched controls. Local capture receipts retain
+source/build/test/image attribution. Windows and physical acceptance remain separate.
