@@ -4006,6 +4006,15 @@ and identical repeated presentation. Shader audit selection and build targets
 include the new native/source/Gallery checks; registration alone is not execution
 or release acceptance.
 
+The numbered Windows package prepares that Scene through the existing native
+Material Gallery producer. Combined-package acceptance exports the shipped Scene
+with the delivered shared runtime kit, checks its nine-record closure, relocates
+the export and takes the editable project offline. It runs the production
+`forge_game.exe --verify-startup --show-fps`, requires graceful success and frame
+statistics, rejects graphics errors and verifies unchanged installed file hashes.
+Those startup/export checks complement the numeric/image oracles above; the next
+numbered package must actually execute them before delivery acceptance.
+
 `manual/images/compatible-material-particles.png` is an unedited640x360capture of
 that source-hidden Gallery Game at three seconds on local software Vulkan using
 the Mesa lavapipe ICD. The image SHA256 is
@@ -4032,8 +4041,8 @@ Gallery Shader through its normal worker, configures one of the copied four
 Effects with that program through the document owner, and publishes/packages the
 exact ten-record closure. The same World/Game fixture requires one Graph and
 three built-in producers and four Material selections. This consumer is registered
-and locally compile-checked; native execution remains a separately recorded gap
-until its Windows job actually passes.
+and passes the focused native rendering gate. Full editor and numbered delivery
+acceptance remain separate from that focused result.
 
 ## Focused Windows navigation checks
 

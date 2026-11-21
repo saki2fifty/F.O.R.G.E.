@@ -401,19 +401,19 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
         const Diligent::Viewport area{0, 0, 64, 32, 0, 1};
         context->SetViewports(1, &area, 64, 32);
         const auto view = camera_view(base, {}, 64, 32);
-        batches.draw(scene, view, UINT32_MAX);
+        batches.draw(scene, view, UINT32_MAX, color, dsv);
         auto stats = batches.draw_stats();
         require(stats.calls == 2 && stats.instances == 65 && stats.batched_calls == 1 &&
                     batches.diagnostics().empty(),
                 "Repeated geometry was not split into bounded native batches");
         scene.meshes.back().world.m[0] = -1;
         batches.update(scene);
-        batches.draw(scene, view, UINT32_MAX);
+        batches.draw(scene, view, UINT32_MAX, color, dsv);
         stats = batches.draw_stats();
         require(stats.calls == 2 && stats.instances == 65 && stats.batched_calls == 1,
                 "Reflected instance was combined with the wrong winding group");
         scene.meshes.front().legacy_tint = std::array<float, 3>{-1, 0, 0};
-        batches.draw(scene, view, UINT32_MAX);
+        batches.draw(scene, view, UINT32_MAX, color, dsv);
         require(batches.draw_stats().instances == 64 && batches.diagnostics().size() == 1 &&
                     batches.diagnostics()[0].context.entity == scene.meshes.front().entity,
                 "One invalid instance hid valid neighbors or lost its entity diagnostic");
@@ -431,7 +431,7 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
         const auto prepare_started = std::chrono::steady_clock::now();
         batches.update(scene);
         const auto draw_started = std::chrono::steady_clock::now();
-        batches.draw(scene, view, UINT32_MAX);
+        batches.draw(scene, view, UINT32_MAX, color, dsv);
         const auto draw_finished = std::chrono::steady_clock::now();
         stats = batches.draw_stats();
         require(!batches.pending() && batches.diagnostics().empty() &&

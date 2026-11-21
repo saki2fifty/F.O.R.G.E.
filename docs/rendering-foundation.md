@@ -1187,6 +1187,11 @@ the descriptor boundary is additional GPU protection, not asset validation.
 
 ### Consecutive resource bindings
 
+MeshSceneRenderer requires an explicit color attachment with the format selected
+at construction. Null or incompatible attachments are rejected before submission.
+Direct drawing callers pass their actual color and depth targets; binding those
+targets on the native context alone does not provide the renderer's view context.
+
 MeshSceneRenderer keeps fixed-size borrowed binding metadata within each view.
 MeshDraw reuses a committed SRB across consecutive compatible submissions only
 when its owner, context, raster parity, binding generation and actual environment

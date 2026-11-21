@@ -238,6 +238,74 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
                              cwd=gallery_export, env=env, text=True,
                              capture_output=True, timeout=180)
     assert started.returncode == 0, (started.stdout, started.stderr)
+    # Export the prepared four-Material Scene with the delivered shared kit.
+    # The production host's existing frame-statistics check gives the ordinary
+    # simulation time to emit particles; numeric/pixel oracles remain in CTest.
+    palette_scene = 'Scenes/255-compatible-material-particles.scene.json'
+    palette = json.loads((gallery / palette_scene).read_text())
+    palette_effects = {entity['components']['forge.particle_emitter']['effect']
+        for entity in palette['entities'] if 'forge.particle_emitter' in entity['components']}
+    palette_sources = {record['id']: record for record in
+        json.loads((gallery / 'forge.assets.json').read_text())['assets']}
+    palette_materials = {json.loads((gallery / palette_sources[effect]['source']).read_text())['material']
+        for effect in palette_effects}
+    assert len(palette_effects) == len(palette_materials) == 4
+    gallery_settings['startup_scene'] = dict(asset=palette['asset_id'], source=palette_scene)
+    (gallery / 'forge.project.json').write_text(json.dumps(gallery_settings))
+    palette_export = root / 'Material Palette Standalone'
+    palette_options = dict(destination=str(palette_export),
+        runtime_kit=str(root / 'runtime-kits/shared-native-sdk'),
+        inspection_runtime=str(root / 'NativeSdk/bin/forge_runtime.exe'))
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(gallery),
+                            json.dumps(palette_options)], cwd=root, env=env, text=True,
+                            capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    palette_manifest_bytes = (palette_export / 'forge.standalone.json').read_bytes()
+    palette_manifest = json.loads(palette_manifest_bytes)
+    assert palette_manifest['engine']['profile'] == 'shared-native-sdk'
+    assert palette_manifest['settings']['startup_scene']['asset'] == palette['asset_id']
+    palette_catalog = json.loads((palette_export / 'content/forge.assets.json').read_text())['assets']
+    assert sorted(record['type'] for record in palette_catalog) == (
+        ['material'] * 4 + ['particle_effect'] * 4 + ['scene'])
+    assert {record['id'] for record in palette_catalog} == (
+        palette_effects | palette_materials | {palette['asset_id']})
+    assert not list((palette_export / 'content').rglob('*.material.json'))
+    assert not list((palette_export / 'content').rglob('*.particles.json'))
+    relocated_palette = root / 'Relocated Material Palette'
+    palette_export.rename(relocated_palette)
+    offline_palette = gallery.with_name('Palette Sources Offline')
+    gallery.rename(offline_palette)
+    palette_evidence = evidence / 'material-palette'
+    palette_evidence.mkdir(exist_ok=True)
+    try:
+        verified = subprocess.run([str(tools), '--assets', 'verify-package',
+            str(relocated_palette / 'content'),
+            json.dumps(dict(platform='windows', backend='d3d12'))],
+            cwd=root, env=env, text=True, capture_output=True, timeout=180)
+        (palette_evidence / 'verify-package.log').write_text(verified.stdout + '\n' + verified.stderr)
+        assert verified.returncode == 0 and json.loads(verified.stdout)['ok'], (
+            verified.stdout, verified.stderr)
+        started = subprocess.run([str(relocated_palette / 'forge_game.exe'),
+            '--verify-startup', '--show-fps'], cwd=relocated_palette, env=env,
+            text=True, capture_output=True, timeout=180)
+        (palette_evidence / 'production-startup.log').write_text(started.stdout + '\n' + started.stderr)
+        assert started.returncode == 0, (started.returncode, started.stdout, started.stderr)
+        assert 'FORGE standalone startup verified' in started.stdout
+        assert 'FORGE standalone frame statistics verified' in started.stdout
+        assert 'Diligent Engine: ERROR:' not in started.stdout + started.stderr
+        for name, info in palette_manifest['files'].items():
+            assert hashlib.sha256((relocated_palette / name).read_bytes()).hexdigest() == info['sha256'], name
+        assert (relocated_palette / 'forge.standalone.json').read_bytes() == palette_manifest_bytes
+        assert {path.relative_to(relocated_palette).as_posix()
+            for path in relocated_palette.rglob('*') if path.is_file()} == (
+                set(palette_manifest['files']) | {'forge.standalone.json'})
+        (palette_evidence / 'result.json').write_text(json.dumps(dict(
+            source_commit=manifest['source_commit'], scene=palette['asset_id'],
+            profile=palette_manifest['engine']['profile'], assets=9, materials=4,
+            effects=4, relocated=True, sources_offline=True, production_exit=started.returncode,
+            frame_statistics_verified=True, installation_unchanged=True), indent=2))
+    finally:
+        offline_palette.rename(gallery)
     # Matching native Gallery preparation must have cooked the graph and its
     # dependent Material before a user exports the imported-lightmap Scene.
     lightmap_scene = 'Scenes/158-imported-lightmaps.scene.json'
