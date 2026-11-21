@@ -134,6 +134,21 @@ void ParticleRuntime::tick(float dt) {
                                entry.current + double(dt) * entry.config.playback_speed,
                                entity.get<WorldTransform>().affine,
                                [&](const Double3& origin, const Double3& delta, double radius) {
+                                   if (particle_uses_scene_collision_2d(entry.effect.get())) {
+                                       PhysicsSweep2D sweep;
+                                       sweep.origin = {origin[0], origin[1]};
+                                       sweep.dimensions = {radius, 0};
+                                       sweep.displacement = {delta[0], delta[1]};
+                                       const auto hit = physics->shape_cast_2d(sweep, filter);
+                                       if (!hit)
+                                           return std::optional<PhysicsHit>{};
+                                       return std::optional<PhysicsHit>{
+                                           PhysicsHit{hit->entity,
+                                                      {hit->position[0], hit->position[1],
+                                                       origin[2] + delta[2] * hit->fraction},
+                                                      {hit->normal[0], hit->normal[1], 0},
+                                                      hit->fraction}};
+                                   }
                                    PhysicsSweep sweep;
                                    sweep.origin = {origin[0], origin[1], origin[2]};
                                    sweep.dimensions = {radius, 0, 0};

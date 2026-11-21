@@ -28,6 +28,9 @@ Source14 adds independent `gpu_trail_enabled` and explicit GPU ribbon values23�
 sharing the retained trail settings with CPU. Source15 adds `gpu_sorted_enabled`
 and explicit ordered GPU values26–37. Source16 adds retained Scene-collision settings
 and CPU values38/`cpu_scene_collision1` or39/`cpu_scene_collision_billboard1`.
+Source17 retains GPU Material-palette selection with explicit values40–51.
+Source18 retains Boolean `scene_collision_2d` and explicitly selects CPU XY values52/
+`cpu_scene_collision_2d1` or53/`cpu_scene_collision_2d_billboard1`.
 Sorted and weighted GPU transport selections
 are mutually exclusive; inactive shape, opacity, Graph, plane and trail settings
 remain retained across transport changes.
@@ -52,7 +55,8 @@ New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope contai
 `format`, `version`, `asset_id` and `values`. Values are explicit CPU2, GPU3, graph4
 or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph camera-plane9/
 analytic-trail CPU10/plane-collision CPU11/explicit weighted GPU12–15/GPU opacity16–19/
-GPU plane20–22/GPU ribbon23–25/ordered GPU26–37/CPU Scene collision38–39;
+GPU plane20–22/GPU ribbon23–25/ordered GPU26–37/CPU Scene collision38–39/
+GPU Material palettes40–51/CPU XY Scene collision52–53;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -836,7 +840,9 @@ Radius is0.001–1000 world meters, coefficients0–1, rebounds0–16 and mask a
 PhysicsService owns sphere sweeps against realized3D geometry after physics adoption;
 sensors are ignored. Particle radius and response do not inherit visual size or
 mix Scene-body contact materials. There are no two-way impulses, resting solver,
-continuous moving-surface dynamics,2D/GPU Scene queries, ribbon histories or callbacks.
+continuous moving-surface dynamics, GPU Scene queries, ribbon histories or callbacks.
+Explicit source18/values52/53 extend the same owner to native XY geometry as
+described below; they do not change the original3D profiles.
 At birth the adopted fixed-update affine transforms position, velocity and
 acceleration; its linear basis is retained. Existing births do not follow later
 emitter/parent transforms. This does not reconstruct historical sub-tick poses.
@@ -878,3 +884,47 @@ revisions, history and publication; the corresponding MCP tool is
 `render.particles.play_required` information diagnostic, without free-flight
 substitution or a second preview World. Implementation/local/native/physical
 acceptance are recorded separately.
+
+
+### XY Scene query space
+
+[ADR075](decisions/075-xy-scene-particle-collision.md) extends the existing history,
+clock, work admission, capture and rendering paths with explicit values52/53.
+Source18 requires a Boolean `scene_collision_2d`; an inactive selection retains
+settings and identities without requiring an XY runtime capability. Earlier source
+versions and all existing profile meanings remain unchanged. Scene settings remain
+the same five-field object; XY radius must be0.005–500m even when retained inactive.
+The existing source setter and symbol remain available; an additive explicit-space
+overload validates settings and space in one final candidate. A space-only setter
+preserves the active evaluation/activation. Source history retains opaque extensions
+and local stop IDs; cooking excludes the source-only flag.
+
+ParticleRuntime calls PhysicsService::shape_cast_2d with a circle, existing layer
+mask and sensors excluded. No second physics World or query implementation is added.
+Native query endpoints must be finite within±1e6 XY. Visual Z is independent of
+query geometry. Birth force/drag stays three-dimensional; XY curvature bounds only
+XY motion and contact restitution/tangent loss affects XY. Presentation reconstructs
+Z analytically between the existing contact knots, without extra depth-only casts.
+Mixed3D/XY emitters share the existing1024birth/2048trace/8192query World limits and
+256queries-per-birth limit, with all-or-nothing particle candidate admission.
+
+The native initial-overlap/touch sentinel (fraction0, zero normal) ends an XY birth
+at that time. Native casts return a target surface witness and may report a center
+inside the geometric radius due to contact tolerance. The particle response clips
+the incoming chord fraction to that witness supporting plane at the actual radius
+and leaves at least0.005m departure clearance. Original3D contact/bias semantics are
+unchanged. There is no resting solver, moving-surface continuous response, callback,
+body impulse, GPU Scene query or world-history ribbon simulation.
+
+Native **Scene query space** selects **World 3D** or **World XY**. Shared
+`asset.document.particle_scene_collision` and MCP
+`forge_asset_document_particle_scene_collision` accept optional
+`space: world3d|worldxy`. Omission preserves retained intent. Optional complete
+collision settings and explicit space are staged together before final validation,
+so a valid combined change never fails on an intermediate radius. Existing grants,
+document sessions/revisions, Undo/Redo and publication remain authoritative.
+Active52/53 require `runtime_particle_scene_collision_2d:1` in addition to the base
+Scene/effect/alpha/opacity capabilities;53 also needs CPU billboard1. Kit installation includes the new profile capability. The source-editing headers
+are not part of the explicitly installed C++ SDK boundary in
+`cmake/native_sdk.cmake`. Installed headers, bridge/value support and SDK fingerprint
+remain unchanged; no component/POD layout or PhysicsService slot changes.

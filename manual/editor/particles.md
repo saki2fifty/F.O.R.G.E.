@@ -8,7 +8,7 @@ transparent blending and per-particle fades over life. Ordered GPU alpha support
 a compatible group of transparent emitters in one view. CPU and GPU analytic ribbon
 trails follow each particle's local path. Built-in CPU and GPU Mesh particles can
 bounce against an emitter-local plane. CPU Scene collision responds to realized
-3D Scene colliders and keeps existing particles in world space as emitters move.
+3D or XY Scene colliders and keeps existing particles in world space as emitters move.
 
 ## Try the Gallery
 
@@ -455,14 +455,23 @@ no project C++ code is required.
 
 The Scene collision Gallery running in the Game renderer at three seconds.
 
+For 2D colliders, open **Scenes/258-xy-scene-particle-collision.scene.json** and
+press **Play**. Its shared **Assets/Particles/Collision/XYSceneBounces.particles.json**
+selects **World XY**. The camera, light, floor and inclined 2D obstacle are included.
+
+![Teal and amber particles responding to a 2D floor and inclined obstacle in Game](../images/xy-scene-particle-collision.png)
+
+The XY Scene collision Gallery in Game at three seconds. The rendered geometry
+shows the surfaces used by the 2D colliders.
+
 1. Stop Play. Open the Particle Effect from Content and choose a CPU **Evaluation**.
 2. Enable **Scene collision (CPU)**. This selects **CPU (sorted alpha)** and turns off local-plane and ribbon activation while retaining their settings.
-3. Set **Scene radius (m)** from 0.001 to 1,000. It is a world-space sphere radius, independent of the visible mesh size, emitter scale and lifetime size curve.
+3. Choose **Scene query space**: **World 3D** uses 3D colliders and sphere radius 0.001–1,000 m; **World XY** uses 2D colliders and circle radius 0.005–500 m. Set **Scene radius (m)** within that range. Radius is independent of visible size, emitter scale and lifetime size curves. Change an unsupported retained radius before selecting a different space.
 4. Set **Scene restitution** and **Scene friction** from 0 to 1. Restitution controls normal rebound speed; friction removes a fraction of tangent velocity at each impact. These Effect settings control the response; Scene bodies do not receive particle impulses.
 5. Set **Scene permitted bounces** from 0 to 16. After that many rebounds, the next incoming contact ends the particle. Zero ends it at the first contact. Initially penetrating births and sustained inward-force contact without normal rebound also end.
 6. Use **Scene collision layers** to choose the named Physics layers to query. **No layers** allows free flight inside the running World. Sensor shapes are ignored. These collision layers are separate from the emitter's rendering layers.
 7. Keep camera alignment enabled for quads, or turn it off to use the saved Mesh. Lifetime size, color and opacity controls remain available. Fading transparent particles need a Blend Material with depth testing enabled and depth writing disabled.
-8. Choose **Save / Publish**, save the Scene and press **Play**. Add enabled 3D Physics bodies and colliders for any other surfaces the particles should hit. Export through **Export Game** using the runtime kit packaged with this editor.
+8. Choose **Save / Publish**, save the Scene and press **Play**. Add enabled Physics bodies and colliders matching the selected space for any other surfaces the particles should hit. Export through **Export Game** using the runtime kit packaged with this editor.
 
 Each birth uses the emitter's adopted fixed-update position, orientation and
 scale. Its velocity and acceleration transform into world space at birth.
@@ -478,9 +487,16 @@ Particle histories are not saved into the Scene.
 
 Scene collision supports CPU Mesh and camera-plane particles. It does not combine
 with GPU evaluation, ribbons or the local-plane response. Queries use bounded
-straight sphere sweeps to approximate curved paths against the current physics
+straight sphere or circle sweeps to approximate curved paths against the current physics
 snapshot; this is not continuous moving-surface collision. There are no resting
-contacts, 2D Scene queries, collision callbacks or two-way rigid-body response.
+contacts, collision callbacks or two-way rigid-body response.
+
+**World XY** ignores collider and particle Z positions when checking contact.
+Rebound and friction affect X/Y motion; Z keeps its authored acceleration and drag.
+Initially overlapping or touching births end immediately, including births moving
+away from a surface. A rebound leaves at least a 5 mm gap to avoid repeated native
+contact. XY query endpoints must be within ±1,000,000 m. The query-space selection
+and collision settings remain saved when another evaluation mode is active.
 Scene collision reserves at most 1,024 births across enabled emitters, within the
 ordinary 8,192-instance Scene budget. High rates, playback speeds, small radii or
 many contacts can exceed the per-update collision work budget. Reduce these
@@ -581,7 +597,7 @@ Built-in GPU Mesh particles support the emitter-local plane response. Built-in
 GPU ribbons use the separate analytic trail setting. Plane response for authored
 Graph trajectories, ribbons or camera-aligned quads is unavailable.
 CPU Scene collision is separate: it supports Mesh/camera-plane geometry, requires
-the running World's 3D physics module and reserves at most 1,024 births across
+the running World's matching 3D or XY physics geometry and reserves at most 1,024 births across
 enabled emitters. It uses the matching Scene-collision runtime-kit capability.
 
 Changing the seed restarts the effect with a different pattern. C++ can adjust the

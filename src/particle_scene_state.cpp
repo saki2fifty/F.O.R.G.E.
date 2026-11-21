@@ -74,12 +74,15 @@ ParticleSceneHistory advance_particle_scene_history(const ParticleSceneHistory& 
         trace.step = advance_particle_scene_motion(
             value.state, value.acceleration, effect.drag, duration, *effect.scene_collision,
             [&](const Double3& origin, const Double3& delta, double radius) {
-                require(work.queries < particle_scene_query_limit,
-                        "Particle Scene response exceeds 8192 sphere queries per fixed update");
+                require(
+                    work.queries < particle_scene_query_limit,
+                    particle_uses_scene_collision_2d(effect)
+                        ? "Particle Scene response exceeds 8192 circle queries per fixed update"
+                        : "Particle Scene response exceeds 8192 sphere queries per fixed update");
                 ++work.queries;
                 return query(origin, delta, radius);
             },
-            born);
+            born, particle_uses_scene_collision_2d(effect));
         value.state = trace.step.state;
         if (value.state.alive && live_age(effect, window_after, current, ordinal)) {
             require(next.live.size() < effect.capacity,

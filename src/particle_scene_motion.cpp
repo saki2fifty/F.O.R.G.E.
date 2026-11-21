@@ -21,17 +21,25 @@ void valid_motion(const ParticleMotionState& state) {
 ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& original,
                                                 const Double3& acceleration, double drag, double dt,
                                                 const ParticleSceneCollision& settings,
-                                                const ParticleSceneQuery& query,
-                                                bool initial_probe) {
+                                                const ParticleSceneQuery& query, bool initial_probe,
+                                                bool planar_2d) {
     range(dt, 0, 30);
     range(drag, 0, 64);
-    validate_particle_scene_collision(settings);
+    if (planar_2d)
+        validate_particle_scene_collision_2d(settings);
+    else
+        validate_particle_scene_collision(settings);
     if (original.bounces > settings.bounce_limit)
         throw std::runtime_error("Particle Scene rebound count is invalid");
     valid_motion(original.motion);
     for (auto value : acceleration)
         range(value, -1e10, 1e10);
     ParticleSceneStep result{original, {{0, original.motion}}, {}, 0, dt};
+    if (planar_2d) {
+        result.acceleration = acceleration;
+        result.drag = drag;
+        result.planar_2d = true;
+    }
     if (!original.alive) {
         result.death = 0;
         return result;
@@ -42,19 +50,24 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
         pending_probe = false;
         if (++result.queries > particle_scene_birth_query_limit)
             throw std::runtime_error(
-                "Particle Scene motion exceeds 256 sphere queries per birth and fixed update");
+                planar_2d
+                    ? "Particle Scene motion exceeds 256 circle queries per birth and fixed update"
+                    : "Particle Scene motion exceeds 256 sphere queries per birth and fixed "
+                      "update");
         auto& state = result.state;
         double magnitude = 1;
         Double3 second_derivative;
         for (unsigned axis = 0; axis < 3; ++axis) {
-            magnitude = std::max(magnitude, std::abs(state.motion.position[axis]));
+            if (!planar_2d || axis < 2)
+                magnitude = std::max(magnitude, std::abs(state.motion.position[axis]));
             second_derivative[axis] = acceleration[axis] - drag * state.motion.velocity[axis];
         }
         // For constant acceleration and nonnegative drag, the acceleration vector
         // is exp(-drag*t) times its initial value. Its norm cannot increase.
         // A segment's chord error is bounded by norm(second_derivative)*h*h/8.
-        const auto curvature =
-            std::hypot(second_derivative[0], second_derivative[1], second_derivative[2]);
+        const auto curvature = planar_2d ? std::hypot(second_derivative[0], second_derivative[1])
+                                         : std::hypot(second_derivative[0], second_derivative[1],
+                                                      second_derivative[2]);
         const auto tolerance = std::min(.001, settings.radius * .01);
         double interval = dt - elapsed;
         if (curvature > 0)
@@ -77,6 +90,17 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
         }
         range(hit->fraction, 0, 1);
         const auto length = std::hypot(hit->normal[0], hit->normal[1], hit->normal[2]);
+        if (planar_2d && hit->normal[2] != 0)
+            throw std::runtime_error("XY Scene query returned a nonplanar contact normal");
+        if (planar_2d && hit->fraction == 0 && length == 0) {
+            // The existing native circle query explicitly reports initial overlap
+            // (including touch) without a normal. End it; do not invent a normal.
+            for (double value : hit->position)
+                range(value, -1e10, 1e10);
+            state.alive = false;
+            result.death = elapsed;
+            return result;
+        }
         if (!std::isfinite(length) || length <= 0)
             throw std::runtime_error("Particle Scene query returned an invalid contact normal");
         Double3 normal, relative;
@@ -85,17 +109,30 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
             normal[axis] = hit->normal[axis] / length;
             relative[axis] = start.position[axis] - hit->position[axis];
         }
-        const double bias = std::max(settings.radius * 1e-4,
-                                     32 * std::numeric_limits<double>::epsilon() * magnitude);
+        // XY response keeps a 5 mm departure skin: the native cast can classify
+        // a smaller positive gap as initial contact, particularly at its minimum radius.
+        const double bias = std::max({settings.radius * 1e-4,
+                                      32 * std::numeric_limits<double>::epsilon() * magnitude,
+                                      planar_2d ? .005 : 0.});
         if (hit->fraction == 0 && dot(relative, normal) - settings.radius < -2 * bias) {
             state.alive = false;
             result.death = elapsed;
             return result;
         }
-        const auto travel_time = interval * hit->fraction;
+        double fraction = hit->fraction;
+        if (planar_2d && fraction > 0) {
+            // Native contact tolerance can place the reported cast center inside
+            // the circle radius. Clip to the target witness's supporting plane
+            // before response; keep the original chord and its time correspondence.
+            const double gap = dot(relative, normal) - settings.radius;
+            const double approach = dot(displacement, normal);
+            if (gap >= 0 && approach < 0)
+                fraction = std::min(fraction, gap / -approach);
+        }
+        const auto travel_time = interval * fraction;
         state.motion = evaluate_particle_motion(start, acceleration, drag, travel_time);
-        for (unsigned axis = 0; axis < 3; ++axis)
-            state.motion.position[axis] = start.position[axis] + displacement[axis] * hit->fraction;
+        for (unsigned axis = 0; axis < (planar_2d ? 2u : 3u); ++axis)
+            state.motion.position[axis] = start.position[axis] + displacement[axis] * fraction;
         elapsed = travel_time == dt - elapsed ? dt : elapsed + travel_time;
         result.knots.push_back({elapsed, state.motion});
         const auto incoming = dot(state.motion.velocity, normal);
@@ -106,7 +143,7 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
             return result;
         }
         if (incoming < 0) {
-            for (unsigned axis = 0; axis < 3; ++axis)
+            for (unsigned axis = 0; axis < (planar_2d ? 2u : 3u); ++axis)
                 state.motion.velocity[axis] =
                     (state.motion.velocity[axis] - incoming * normal[axis]) *
                         (1 - settings.friction) -
@@ -145,6 +182,14 @@ std::optional<ParticleMotionState> sample_particle_scene_motion(const ParticleSc
             std::lerp(previous.motion.position[axis], next->motion.position[axis], weight);
         value.velocity[axis] =
             std::lerp(previous.motion.velocity[axis], next->motion.velocity[axis], weight);
+    }
+    if (step.planar_2d) {
+        const auto exact = evaluate_particle_motion(previous.motion, step.acceleration, step.drag,
+                                                    time - previous.time);
+        range(exact.position[2], -1e10, 1e10);
+        range(exact.velocity[2], -1e10, 1e10);
+        value.position[2] = exact.position[2];
+        value.velocity[2] = exact.velocity[2];
     }
     return value;
 }

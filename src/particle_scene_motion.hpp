@@ -20,6 +20,10 @@ struct ParticleSceneStep {
     std::optional<double> death;
     unsigned queries = 0;
     double duration = 0;
+    // XY contacts leave depth analytic between knots as well as at endpoints.
+    Double3 acceleration{};
+    double drag = 0;
+    bool planar_2d = false;
 };
 using ParticleSceneQuery =
     std::function<std::optional<PhysicsHit>(const Double3&, const Double3&, double radius)>;
@@ -30,7 +34,7 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState&,
                                                 const Double3& acceleration, double drag, double dt,
                                                 const ParticleSceneCollision&,
                                                 const ParticleSceneQuery&,
-                                                bool initial_probe = false);
+                                                bool initial_probe = false, bool planar_2d = false);
 std::optional<ParticleMotionState> sample_particle_scene_motion(const ParticleSceneStep&,
                                                                 double time);
 } // namespace forge

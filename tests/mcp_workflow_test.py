@@ -2625,12 +2625,21 @@ for legacy in selected_protocols:
             newer = until(lambda: read('forge_export_status'),
                           lambda r: r['gpu_profile_live_snapshot'] != first_live['snapshot'], timeout=10)
             assert newer['busy'] and newer['gpu_profile_live_ready'], newer
-            failed(client.tool('forge_export_gpu_profile', target=discovery()['result']['target'],
-                               operation=streaming['operation'], live=True,
-                               snapshot=first_live['snapshot']), 'stale_snapshot')
-            failed(client.tool('forge_export_gpu_profile', target=discovery()['result']['target'],
-                               operation=streaming['operation'], live=True, offset=512,
-                               snapshot=first_live['snapshot']), 'stale_snapshot')
+            stale_probes = []
+            for offset in (0, 512):
+                response = client.tool('forge_export_gpu_profile',
+                                       target=discovery()['result']['target'],
+                                       operation=streaming['operation'], live=True, offset=offset,
+                                       snapshot=first_live['snapshot'])
+                code = response.get('error', {}).get('code')
+                # The finite production game can retire between status and either
+                # read. Retirement removes the provisional report; the successful
+                # final-report assertions below must still pass in that case.
+                # mcp_gpu_profile_stdio owns deterministic stale-token/offset proof
+                # while its controlled native producer is held alive.
+                assert not response['ok'] and code in ('stale_snapshot', 'not_ready'), response
+                stale_probes.append(dict(offset=offset, error=code))
+            print('Production live GPU stale probes:', json.dumps(stale_probes), flush=True)
             complete_live = until(lambda: read('forge_export_status'), lambda r: not r['busy'], timeout=120)
             assert complete_live['exit_code'] == 0 and complete_live['gpu_profile_ready'], complete_live
             assert not complete_live['gpu_profile_live_ready'] and not complete_live['gpu_profile_live_snapshot']

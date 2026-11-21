@@ -11,6 +11,7 @@ def check_particle_scene(read, mutate, edit, status, content, failed, root, tool
     schema = tool['inputSchema']['properties']
     assert schema['editor']['const'] == owner and schema['enabled']['type'] == 'boolean'
     assert set(schema['collision']['required']) == {'radius', 'restitution', 'friction', 'bounce_limit', 'mask'}
+    assert schema['space']['enum'] == ['world3d', 'worldxy']
     assert not tool['annotations']['readOnlyHint']
     catalog = read('forge_asset_particles_catalog')
     assert 'runtime_particle_scene_collision1' in catalog['scene_collision']
@@ -95,4 +96,35 @@ def check_particle_scene(read, mutate, edit, status, content, failed, root, tool
     assert content(owner) == scene
     failed(mutate(name, editor=owner, enabled=False, document_session=previous_session['session'],
                   document_revision=previous_session['revision']), 'wrong_document')
+    for invalid in (None, 1, 'xy', 'WORLDXY'):
+        assert not edit(name, owner, enabled=True, space=invalid)['ok']
+        assert content(owner) == scene
+    narrow = dict(settings, radius=.001)
+    assert edit(name, owner, enabled=True, collision=narrow)['ok']
+    three_d = content(owner)
+    revision = status(owner)['revision']
+    assert not edit(name, owner, enabled=True, space='worldxy')['ok']
+    assert content(owner) == three_d and status(owner)['revision'] == revision
+    xy_settings = dict(settings, radius=.05)
+    assert edit(name, owner, enabled=True, collision=xy_settings, space='worldxy')['ok']
+    xy = content(owner)
+    assert xy['version'] == 18 and xy['profile'] == 'cpu_scene_collision_2d1'
+    assert xy['scene_collision_2d'] and xy['scene_collision'] == xy_settings
+    assert xy['asset_id'] == scene['asset_id'] and xy['extensions'] == scene['extensions']
+    assert xy['size_curve'] == stops
+    save(52)
+    assert edit('forge_asset_document_particle_billboards', owner, enabled=True)['ok']
+    xy_camera = content(owner)
+    assert xy_camera['profile'] == 'cpu_scene_collision_2d_billboard1'
+    save(53)
+    assert edit(name, owner, enabled=False)['ok']
+    assert content(owner)['scene_collision_2d'] and not content(owner)['scene_collision_enabled']
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == xy_camera
+    assert edit('forge_asset_document_redo', owner)['ok'] and not content(owner)['scene_collision_enabled']
+    assert edit(name, owner, enabled=True)['ok'] and content(owner) == xy_camera
+    assert edit(name, owner, enabled=True, collision=narrow, space='world3d')['ok']
+    assert content(owner)['profile'] == 'cpu_scene_collision_billboard1'
+    assert not content(owner)['scene_collision_2d'] and content(owner)['scene_collision'] == narrow
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == xy_camera
+    save(53)
     assert edit('forge_asset_document_close', owner)['ok']

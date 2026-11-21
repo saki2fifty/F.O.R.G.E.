@@ -150,20 +150,24 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "as finite zero-size rows, without readback. No Scene-collider, arbitrary "
                  "Graph-motion, ribbon or camera-plane collision combination."},
                 {"scene_collision",
-                 "asset.document.particle_scene_collision selects Source16 CPU Scene response: "
-                 "values38/cpu_scene_collision1 or39/cpu_scene_collision_billboard1. Optional "
+                 "asset.document.particle_scene_collision selects CPU Scene response. Optional "
+                 "space=world3d preserves source16/values38/39; worldxy explicitly selects "
+                 "source18/values52/53. Omitted space preserves the retained choice. Optional "
                  "collision={radius,restitution,friction,bounce_limit,mask} replaces settings; "
-                 "omission retains them. Uses the Runtime World's realized 3D colliders after "
-                 "physics adoption; sensors are ignored. Births retain adopted world position, "
-                 "velocity, acceleration and visual basis when the emitter moves. Radius is "
-                 "positive world meters, independent of visual size/scale. Bounded curved-path "
-                 "sphere sweeps approximate the current geometry snapshot. No two-way impulses, "
-                 "resting solver, continuous moving-surface dynamics, GPU/2D queries or ribbon "
-                 "history. Local-plane/ribbon activation is disabled with settings retained. "
-                 "Requires runtime_particle_scene_collision1, effect3/alpha1/opacity1 and CPU "
-                 "billboard1 when selected. Stopped Scene/asset/Timeline previews require Play; "
-                 "there is no analytic fallback. Budgets reject without committing any particle "
-                 "clock/contact state."},
+                 "omission retains them. Settings and space commit atomically. World 3D uses "
+                 "sphere radius0.001–1000m; World XY uses circle radius0.005–500m against the "
+                 "Runtime World's realized 2D colliders independently of visual depth. XY "
+                 "restitution/friction affect XY only; Z stays analytic. Initial XY overlap or "
+                 "touch ends a birth; rebounds retain a minimum5mm departure gap. Sensors are "
+                 "ignored. Births retain adopted world motion and visual basis when the emitter "
+                 "moves. Curved paths use bounded shape sweeps of the current snapshot. No "
+                 "two-way impulses, resting solver, continuous moving-surface dynamics, GPU "
+                 "Scene queries or ribbon history. Local-plane/ribbon activation is disabled "
+                 "with settings retained. Requires runtime_particle_scene_collision1, "
+                 "effect3/alpha1/opacity1 and CPU billboard1 when selected. XY additionally "
+                 "requires runtime_particle_scene_collision_2d1. Stopped previews require Play; "
+                 "there is no analytic fallback. Shared budgets reject without committing any "
+                 "particle clock/contact state."},
                 {"gpu_material_palette",
                  "asset.document.particle_gpu_material_palette enables source17/values40-51. "
                  "Selects GPU sorted alpha and preserves Graph/geometry/opacity settings; "
@@ -1013,6 +1017,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         } else if (std::string_view(action) == "particle_scene_collision") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
             properties["enabled"] = {{"type", "boolean"}};
+            properties["space"] = {
+                {"type", "string"},
+                {"enum", {"world3d", "worldxy"}},
+                {"description", "Optional query space; omission preserves the retained selection. "
+                                "World XY requires circle radius 0.005–500 m; World 3D accepts "
+                                "0.001–1000 m. Settings and space are validated together."}};
             properties["collision"] = automation_object(
                 {{"radius", {{"type", "number"}, {"minimum", .001}, {"maximum", 1000}}},
                  {"restitution", {{"type", "number"}, {"minimum", 0}, {"maximum", 1}}},
@@ -1161,8 +1171,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "refresh document_revision and inspect diagnostics. Fill uses exact byte RGBA; "
                 "pixels reads exact stored bytes." +
                 (std::string_view(action) == "particle_scene_collision"
-                     ? " Select CPU particles that sweep the Runtime World's realized 3D colliders "
-                       "during Play. Optional full collision settings retain world-metric radius, "
+                     ? " Select CPU particles that sweep the Runtime World's realized colliders "
+                       "during Play. Optional space chooses world3d or worldxy; omission retains "
+                       "it. "
+                       "Space and full collision settings commit together, retaining world-metric "
+                       "radius, "
                        "restitution, tangent loss, permitted rebounds and layer mask. Sensors are "
                        "ignored. New births keep their adopted world basis; local-plane/ribbon "
                        "activation is disabled with settings retained. Supports Mesh/camera-plane "

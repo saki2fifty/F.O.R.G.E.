@@ -17,6 +17,7 @@ inline constexpr unsigned particle_gpu_collision_profile_version = 1;
 inline constexpr unsigned particle_gpu_trail_profile_version = 1;
 inline constexpr unsigned particle_gpu_sorted_profile_version = 1;
 inline constexpr unsigned particle_scene_collision_profile_version = 1;
+inline constexpr unsigned particle_scene_collision_2d_profile_version = 1;
 inline constexpr unsigned particle_gpu_material_palette_profile_version = 1;
 // This importer ID is persisted in source settings; backend selection never changes it.
 inline constexpr const char* particle_effect_importer = "forge.particles.cpu-mesh";
@@ -51,6 +52,11 @@ struct ParticleEffectSource {
     void set_collision(bool enabled, std::optional<ParticleCollisionPlane> = {});
     void set_gpu_collision(bool enabled, std::optional<ParticleCollisionPlane> = {});
     void set_scene_collision(bool enabled, std::optional<ParticleSceneCollision> = {});
+    // Apply settings and query space atomically across their different radius domains.
+    void set_scene_collision(bool enabled, std::optional<ParticleSceneCollision>, bool planar_2d);
+    // Select retained World XY (true) or World 3D (false) query space without
+    // activating Scene response or changing the existing settings/identities.
+    void set_scene_collision_space(bool planar_2d);
     void set_graph_program(const ParticleGraphProgram&, bool activate = true);
     std::optional<ParticleGraphProgram> graph_program() const;
     void enable_lifetime(ParticleLifetimeChannel, bool);

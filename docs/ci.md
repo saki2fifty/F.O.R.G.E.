@@ -3994,6 +3994,42 @@ Vulkan/llvmpipe check and personally reviewed. The canonical asset is used by th
 manual; local receipts retain source, build, test and image provenance. This image
 shows Game output without editor chrome. Native Windows execution, physical GPU
 acceptance and full editor visual review remain separate.
+## XY Scene particle response checks
+
+`particle_scene_source` also verifies explicit source18/values52/53, retained
+inactive selection, both atomic radius-domain transitions, malformed source/cooked
+input and unchanged source/local-stop identity. `particle_scene_motion` uses actual
+native circle casts, both extreme world coordinates, the full0.005–500m radius
+range, XY restitution/friction, analytic depth between knots, initial-overlap death,
+curved paths and two surfaces of one compound body; sensors remain excluded.
+`particle_scene_runtime` exercises both query worlds together, cold XY readiness,
+shared capacity/query rejection and recovery, emitter transforms, live appearance,
+freeze, seed replacement, disable/reset and unavailable physics. No separate
+particle physics-world owner is introduced.
+
+`particle_effect_editor` uses actual controls, source history and invalid-radius
+rejection across its existing layouts. `mcp_particle_scene_stdio` covers optional
+space discovery/schema, exact sessions/revisions, no-op/invalid edits, combined
+space/settings changes, Undo/Redo, publication and reopen through the shared owner
+in both protocol formats. `standalone_manifest` verifies the additional active XY
+capability, base requirements and rejection of missing/malformed fields.
+
+`particle_xy_scene_collision_gallery` inspects editable Gallery258; its `_export`
+variant publishes a private copy and runs relocated cooked content with sources
+hidden. The `_game` and `_game_vulkan` variants use the actual Game renderer and
+check visible particles, emitter-independent world pixels/bounds, repeatability
+and the stopped Play notice. Global Gallery preparation includes this scene and
+preserves its existing shared Material/image. The installed SDK header/bridge
+boundary is unchanged; source-editing headers are not installed gameplay headers.
+Native Windows and physical-device acceptance remain separate from local checks.
+
+`manual/images/xy-scene-particle-collision.png` is the exact640x360 Game output of
+Gallery258 at three seconds from the source-hidden relocated software Vulkan test.
+The unmodified capture was viewed before copying to the canonical manual asset.
+Local capture provenance retains producer/test/input/image hashes and native
+observations. It shows Game output without editor chrome; it is not physical GPU
+or native Windows acceptance.
+
 ## Ordered particle Material palette checks
 
 `particle_palette_source` covers all twelve source17/value40–51 combinations,

@@ -274,6 +274,7 @@ int main(int argc, char** argv) {
                       std::string_view(argv[2]) == "particle-material-gallery" ||
                       std::string_view(argv[2]) == "particle-material-graph-gallery" ||
                       std::string_view(argv[2]) == "particle-scene-collision-gallery" ||
+                      std::string_view(argv[2]) == "particle-xy-scene-collision-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-sorted-countercases" ||
                       std::string_view(argv[2]) == "particle-gpu-opacity-gallery" ||
                       std::string_view(argv[2]) == "particle-gpu-graph-opacity-gallery")),
@@ -348,11 +349,12 @@ int main(int argc, char** argv) {
             } else if (selected == "particle-gpu-sorted-countercases") {
                 require(argc == 4, "GPU sorted countercases need relocated published content");
                 forge::particle_sorted_content_test::execute(isolated, context, argv[3]);
-            } else if (selected == "particle-scene-collision-gallery") {
+            } else if (selected == "particle-scene-collision-gallery" ||
+                       selected == "particle-xy-scene-collision-gallery") {
                 require(argc == 4, "Scene particle render needs relocated cooked content");
-                forge::test_particle_alpha::gallery(isolated, context, argv[3], images, true, true,
-                                                    false, false, false, false, false, false, false,
-                                                    true);
+                forge::test_particle_alpha::gallery(
+                    isolated, context, argv[3], images, true, true, false, false, false, false,
+                    false, false, false, true, selected == "particle-xy-scene-collision-gallery");
             } else if (selected == "particle-material-gallery" ||
                        selected == "particle-material-graph-gallery") {
                 require(argc == 4, "Palette Game needs source-hidden published content");

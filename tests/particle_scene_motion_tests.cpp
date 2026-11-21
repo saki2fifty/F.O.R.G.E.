@@ -1,4 +1,5 @@
 #include "particle_scene_motion.hpp"
+#include "physics_2d.hpp"
 #include <cmath>
 #include <forge/authoring.hpp>
 #include <forge/runtime.hpp>
@@ -26,6 +27,155 @@ Json box(const char* id, double x, double y, double height, unsigned layer, bool
                 {"friction", .5},
                 {"restitution", 0}}},
               {"forge.box_collider", {{"x", 20}, {"y", height}, {"z", 20}}}}}};
+}
+void xy_cases(double offset) {
+    EngineContext engine{WorldRole::Runtime, false, {physics_module()}};
+    Scene scene(engine.world());
+    auto physics = std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
+    PhysicsConfig config;
+    config.layers[1] = "Environment";
+    physics->configure(config);
+    scene.restore_snapshot(
+        {{"version", 1},
+         {"entities",
+          Json::array({{{"id", "xy-floor"},
+                        {"name", "XY floor"},
+                        {"components",
+                         {{"forge.position", {{"x", offset}, {"y", offset - .005}, {"z", 0}}},
+                          {"forge.physics_body_2d", {{"motion", 0}, {"layer", 1}}},
+                          {"forge.box_collider_2d", {{"x", 20}, {"y", .01}}}}}}})}});
+    physics->synchronize(0);
+    const auto query = [&](const Double3& position, const Double3& delta,
+                           double radius) -> std::optional<PhysicsHit> {
+        PhysicsSweep2D sweep;
+        sweep.origin = {position[0], position[1]};
+        sweep.dimensions = {radius, 0};
+        sweep.displacement = {delta[0], delta[1]};
+        const auto hit = physics->shape_cast_2d(sweep, {1u << 1, false});
+        if (!hit)
+            return {};
+        return PhysicsHit{
+            hit->entity,
+            {hit->position[0], hit->position[1], position[2] + delta[2] * hit->fraction},
+            {hit->normal[0], hit->normal[1], 0},
+            hit->fraction};
+    };
+    ParticleSceneCollision settings;
+    settings.friction = .75;
+    ParticleSceneState falling{{{offset, offset + 3, 1e8}, {6, -120, 7}}};
+    const Double3 force{0, 0, 4000};
+    const auto bounced =
+        advance_particle_scene_motion(falling, force, 0, .1, settings, query, false, true);
+    const auto depth = evaluate_particle_motion(falling.motion, force, 0, .1);
+    if (!bounced.state.alive || bounced.state.bounces != 1 || bounced.queries > 2 ||
+        bounced.state.motion.velocity[0] != 1.5 || bounced.state.motion.velocity[1] != 60)
+        std::cerr << Json{{"offset", offset},
+                          {"alive", bounced.state.alive},
+                          {"bounces", bounced.state.bounces},
+                          {"queries", bounced.queries},
+                          {"position", bounced.state.motion.position},
+                          {"velocity", bounced.state.motion.velocity}}
+                         .dump()
+                  << '\n';
+    check(bounced.state.alive && bounced.state.bounces == 1 && bounced.queries <= 2 &&
+              bounced.state.motion.position[1] >= offset + settings.radius &&
+              bounced.state.motion.velocity[0] == 1.5 && bounced.state.motion.velocity[1] == 60 &&
+              std::abs(bounced.state.motion.position[2] - depth.position[2]) < 1e-6 &&
+              std::abs(bounced.state.motion.velocity[2] - depth.velocity[2]) < 1e-8,
+          "Native XY response lost its bounce/tangent/depth semantics or subdivided a depth-only "
+          "curve");
+    for (unsigned sample = 0; sample <= 100; ++sample) {
+        const auto seconds = .001 * sample;
+        const auto observed = sample_particle_scene_motion(bounced, seconds);
+        const auto exact = evaluate_particle_motion(falling.motion, force, 0, seconds);
+        check(observed && std::abs(observed->position[2] - exact.position[2]) < 1e-6 &&
+                  std::abs(observed->velocity[2] - exact.velocity[2]) < 1e-8,
+              "XY contact interpolation replaced independent analytic depth with a chord");
+    }
+    ParticleSceneState overlapping{{{offset, offset, 9}, {0, 5, 0}}};
+    const auto ended =
+        advance_particle_scene_motion(overlapping, {}, 0, 0, settings, query, true, true);
+    check(!ended.state.alive && ended.death == 0 && !sample_particle_scene_motion(ended, 0),
+          "Native zero-normal XY overlap was fabricated into a contact normal or retained birth");
+    ParticleSceneState turning{{{offset, offset + .2, 0}, {0, -40, 0}}};
+    settings.bounce_limit = 0;
+    const auto killed =
+        advance_particle_scene_motion(turning, {0, 4000, 0}, 0, .02, settings, query, false, true);
+    check(!killed.state.alive && killed.death && *killed.death > 0 && *killed.death < .01,
+          "Curved XY contact missed its interior excursion");
+    for (double radius : {.005, .05, 1., 500.}) {
+        settings.radius = radius;
+        settings.bounce_limit = 4;
+        ParticleSceneState sized{{{offset, offset + radius + 1, 0}, {0, -120, 0}}};
+        const auto step =
+            advance_particle_scene_motion(sized, {}, 0, .02, settings, query, false, true);
+        if (!step.state.alive || step.state.bounces != 1 ||
+            step.state.motion.position[1] < offset + radius - 1e-5) {
+            const auto contact = query(sized.motion.position, {0, -2.4, 0}, radius);
+            std::cerr << Json{{"radius", radius},
+                              {"offset", offset},
+                              {"alive", step.state.alive},
+                              {"bounces", step.state.bounces},
+                              {"queries", step.queries},
+                              {"position", step.state.motion.position},
+                              {"velocity", step.state.motion.velocity}}
+                             .dump()
+                      << '\n';
+            if (contact)
+                std::cerr << Json{{"fraction", contact->fraction},
+                                  {"point", contact->position},
+                                  {"normal", contact->normal}}
+                                 .dump()
+                          << '\n';
+        }
+        check(step.state.alive && step.state.bounces == 1 &&
+                  step.state.motion.position[1] >= offset + radius - 1e-5,
+              "Admitted native circle size lost the contact at a supported world coordinate");
+    }
+}
+void xy_compound_contacts() {
+    using namespace physics_detail;
+    for (bool sensor : {false, true}) {
+        PhysicsConfig config;
+        config.layers[1] = "Environment";
+        Native2D native{config};
+        Body2DConfiguration body;
+        body.shape = 3;
+        body.body.layer = 1;
+        body.body.sensor = sensor;
+        body.parts = std::make_shared<std::vector<BoxPart2D>>(
+            std::initializer_list<BoxPart2D>{{{0, -.005f}, {20, .01f}}, {{0, 1.005f}, {20, .01f}}});
+        const EntityRef ref{AssetId::generate(), EntityId::generate()};
+        Desired2D desired{{1, {ref, body, {}}}};
+        DesiredJoints2D joints;
+        native.validate(desired, 1.f / 60, {}, {}, joints);
+        std::vector<std::uint64_t> discontinuities;
+        native.synchronize(desired, desired, 1.f / 60, {}, discontinuities, joints);
+        native.finish_targets(1.f / 60);
+        const auto query = [&](const Double3& origin, const Double3& displacement,
+                               double radius) -> std::optional<PhysicsHit> {
+            PhysicsSweep2D sweep;
+            sweep.origin = {origin[0], origin[1]};
+            sweep.displacement = {displacement[0], displacement[1]};
+            sweep.dimensions = {radius, 0};
+            const auto hit = native.shape_cast(sweep, {1u << 1, false});
+            if (!hit)
+                return {};
+            return PhysicsHit{hit->entity,
+                              {hit->position[0], hit->position[1], origin[2]},
+                              {hit->normal[0], hit->normal[1], 0},
+                              hit->fraction};
+        };
+        ParticleSceneCollision settings{.05, 1, 0, 4, 1u << 1};
+        ParticleSceneState original{{{0, .5, 0}, {0, -20, 0}}};
+        const auto result =
+            advance_particle_scene_motion(original, {}, 0, .1, settings, query, false, true);
+        check(result.state.alive &&
+                  (sensor ? result.state.bounces == 0 && result.state.motion.position[1] == -1.5
+                          : result.state.bounces == 2 && result.state.motion.position[1] > .05 &&
+                                result.state.motion.position[1] < .95),
+              "XY particle excluded another surface of one compound body or hit a sensor");
+    }
 }
 void force_cases(PhysicsService& physics, double offset) {
     const auto query = [&](const Double3& position, const Double3& delta, double radius) {
@@ -204,6 +354,7 @@ void settings_codec() {
 } // namespace
 int main() {
     try {
+        xy_compound_contacts();
         settings_codec();
         for (double offset : {0., 1e8, -1e8}) {
             EngineContext engine{WorldRole::Runtime, false, {physics_module()}};
@@ -218,6 +369,8 @@ int main() {
             physics->synchronize(0);
             force_cases(*physics, offset);
         }
+        for (double offset : {0., 900000., -900000.})
+            xy_cases(offset);
         std::cout << "Scene particle native motion and settings passed\n";
         return 0;
     } catch (const std::exception& error) {

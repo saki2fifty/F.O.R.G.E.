@@ -23,6 +23,81 @@ ParticleEffectSource parse(const nlohmann::json& value) {
     const auto bytes = value.dump();
     return ParticleEffectSource::parse(std::as_bytes(std::span(bytes)));
 }
+void xy_profiles() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    source.document["extensions"] = {{"scene_collision_2d", "opaque retained data"}};
+    const auto old = source.document;
+    source.set_scene_collision_space(false);
+    check(source.document == old, "Selecting the existing 3D space upgraded legacy source");
+    source.set_scene_collision_space(true);
+    check(source.document.at("version").get<unsigned>() == 18 && source.compiled().version == 2 &&
+              !source.compiled().scene_collision &&
+              source.document.at("extensions") == old.at("extensions") &&
+              source.document.at("asset_id") == old.at("asset_id"),
+          "Inactive XY selection changed the active backend, opaque data or identity");
+    source.set_scene_collision(true);
+    check(source.compiled().version == 52 && particle_uses_scene_collision_2d(source.compiled()) &&
+              particle_uses_scene_collision(source.compiled()),
+          "XY Mesh profile was not projected explicitly");
+    source.enable_billboards(true);
+    check(source.compiled().version == 53 && particle_uses_billboards(source.compiled()),
+          "XY camera-plane geometry did not compose through the existing profile owner");
+    const auto active = source.document;
+    for (auto backend : {ParticleEvaluation::Cpu, ParticleEvaluation::Gpu}) {
+        source.set_evaluation(backend);
+        check(!source.compiled().scene_collision &&
+                  source.document.at("scene_collision_2d").get<bool>(),
+              "Inactive XY settings leaked into another backend or were discarded");
+        source.set_evaluation(ParticleEvaluation::CpuAlpha);
+        check(source.document == active, "Backend switching lost retained XY settings or IDs");
+    }
+    source.set_scene_collision_space(false);
+    check(source.compiled().version == 39 && !particle_uses_scene_collision_2d(source.compiled()),
+          "Returning to 3D reinterpreted the existing profile");
+    source.set_scene_collision_space(true);
+    check(source.document == active && parse(active).document == active &&
+              decode_cooked_particle_effect(source.cook(), source.asset(), 3) == source.compiled(),
+          "XY source/cooked round trips changed settings, profiles or identities");
+    auto malformed = active;
+    malformed["scene_collision_2d"] = 1;
+    reject([&] { (void)parse(malformed); });
+    malformed = active;
+    malformed["version"] = 17;
+    reject([&] { (void)parse(malformed); });
+    for (double radius : {.001, 500.001}) {
+        auto settings = *source.compiled().scene_collision;
+        settings.radius = radius;
+        reject([&] { source.set_scene_collision(true, settings); });
+        check(source.document == active, "Invalid native circle radius changed admitted source");
+    }
+    source.set_scene_collision_space(false);
+    auto settings = *source.compiled().scene_collision;
+    settings.radius = .001;
+    source.set_scene_collision(true, settings);
+    const auto three_d = source.document;
+    reject([&] { source.set_scene_collision_space(true); });
+    check(source.document == three_d && source.compiled().version == 39,
+          "Unsupported XY radius silently clamped or changed the previous 3D source");
+    settings.radius = .05;
+    source.set_scene_collision(true, settings, true);
+    check(source.compiled().version == 53 && source.compiled().scene_collision == settings,
+          "Combined XY settings validated an intermediate unsupported 3D radius");
+    settings.radius = .001;
+    source.set_scene_collision(true, settings, false);
+    check(source.document == three_d,
+          "Combined 3D settings validated an intermediate unsupported XY radius or lost IDs");
+    reject([&] { source.set_scene_collision(true, settings, true); });
+    check(source.document == three_d, "Rejected combined settings partially changed source");
+    source.set_evaluation(ParticleEvaluation::Gpu);
+    settings.radius = .05;
+    source.set_scene_collision(false, settings, true);
+    const auto inactive = source.document;
+    source.set_scene_collision_space(false);
+    check(source.compiled().version == 3 &&
+              !source.document.at("scene_collision_enabled").get<bool>() &&
+              source.document.at("scene_collision") == inactive.at("scene_collision"),
+          "Space-only selection activated retained CPU collision or changed GPU evaluation");
+}
 void profiles() {
     auto source = ParticleEffectSource::create(AssetId::generate());
     const auto original = source.document;
@@ -117,6 +192,7 @@ void profiles() {
 int main() {
     try {
         profiles();
+        xy_profiles();
         std::cout << "Scene particle source profiles passed\n";
         return 0;
     } catch (const std::exception& error) {

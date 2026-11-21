@@ -242,6 +242,14 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                 "Scene particle collision requires the runtime kit packaged with "
                                 "this editor");
                     }
+                    if (particle_uses_scene_collision_2d(particle)) {
+                        const auto collision = engine.find("runtime_particle_scene_collision_2d");
+                        require(collision != engine.end() && collision->is_number_integer() &&
+                                    collision->get<std::uint64_t>() ==
+                                        particle_scene_collision_2d_profile_version,
+                                "XY Scene particle collision requires the runtime kit packaged "
+                                "with this editor");
+                    }
                     if (values == 11) {
                         const auto collision = engine.find("runtime_particle_collision");
                         require(collision != engine.end() && collision->is_number_integer() &&

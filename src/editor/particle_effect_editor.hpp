@@ -308,11 +308,25 @@ class ParticleEffectEditor {
                 if (ImGui::Checkbox("Scene collision (CPU)", &scene_collision))
                     edit_scene(scene_collision);
                 FORGE_UI_PROBE("particles:scene-collision");
-                ui::help("Use realized 3D Scene colliders during Play. Sensors are ignored. Births "
+                ui::help("Use realized Scene colliders during Play. Sensors are ignored. Births "
                          "retain their world position and visual basis when this emitter moves. "
                          "Enabling selects CPU sorted alpha and deactivates local plane/ribbons, "
                          "retaining their settings. Camera alignment and lifetime appearance are "
                          "supported.");
+                int scene_space =
+                    document_->source().document.value("scene_collision_2d", false) ? 1 : 0;
+                if (ImGui::Combo("Scene query space", &scene_space, "World 3D\0World XY\0"))
+                    mutate("Set particle Scene query space", [&](auto& value) {
+                        ParticleEffectSource candidate{value};
+                        candidate.set_scene_collision_space(scene_space == 1);
+                        value = std::move(candidate.document);
+                    });
+                FORGE_UI_PROBE("particles:scene-space");
+                ui::help("World 3D sweeps spheres with radius 0.001–1000 m. World XY sweeps "
+                         "circles with radius 0.005–500 m against 2D colliders, independently of "
+                         "visual depth. Z motion stays analytic; initial overlap or touching ends "
+                         "a birth. Rebounds use a minimum 5 mm departure gap. This selection is "
+                         "retained while Scene collision is disabled. Play is required.");
                 if (scene_collision && document_->source().document.contains("scene_collision")) {
                     auto settings = decode_particle_scene_collision(
                         document_->source().document.at("scene_collision"));
@@ -333,13 +347,12 @@ class ParticleEffectEditor {
                                                    settings.mask, true);
                     if (submit)
                         edit_scene(true, settings);
-                    ui::help(
-                        "Radius is a positive world-space metric, independent of visual size. "
-                        "The next incoming contact after the permitted bounces ends a birth; "
-                        "zero ends it at first contact. Curved paths use bounded sphere sweeps "
-                        "against the current physics snapshot. There are no impulses on Scene "
-                        "bodies or resting contacts. Reduce emission or playback speed if the "
-                        "fixed-update collision budget is exceeded.");
+                    ui::help("Radius is a positive world-space metric, independent of visual size. "
+                             "The next incoming contact after the permitted bounces ends a birth; "
+                             "zero ends it at first contact. Curved paths use bounded shape sweeps "
+                             "against the current physics snapshot. There are no impulses on Scene "
+                             "bodies or resting contacts. Reduce emission or playback speed if the "
+                             "fixed-update collision budget is exceeded.");
                 }
             }
             const bool gpu_collision = particle_uses_gpu(data);

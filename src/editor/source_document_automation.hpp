@@ -546,8 +546,17 @@ struct AssetDocumentAutomation {
                                     if (request.contains("collision"))
                                         settings = decode_particle_scene_collision(
                                             request.at("collision"));
-                                    source.set_scene_collision(request.at("enabled").get<bool>(),
-                                                               settings);
+                                    if (request.contains("space")) {
+                                        const auto space = request.at("space").get<std::string>();
+                                        if (space != "world3d" && space != "worldxy")
+                                            throw AuthoringError("invalid_argument",
+                                                                 "Choose world3d or worldxy");
+                                        source.set_scene_collision(
+                                            request.at("enabled").get<bool>(), settings,
+                                            space == "worldxy");
+                                    } else
+                                        source.set_scene_collision(
+                                            request.at("enabled").get<bool>(), settings);
                                 } else if (palette)
                                     source.enable_gpu_material_palette(
                                         request.at("enabled").get<bool>());

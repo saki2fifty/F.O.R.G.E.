@@ -34,6 +34,19 @@ ones and the tool does not resample to fill the count. Save the Scene and choose
 it as startup before exporting. Camera, light and published assets are included;
 no project C++ module is required. See [foliage clearance](../../../manual/editor/foliage.md#keep-clear-of-colliders).
 
+## XY Scene particle collision
+
+Open **Scenes/258-xy-scene-particle-collision.scene.json** and press Play. The
+shared **Assets/Particles/Collision/XYSceneBounces.particles.json** selects
+**Scene query space → World XY**. Its tinted camera-plane particles collide with
+2D floor and inclined Box Colliders while retaining independent visual depth.
+Stop, move or rotate an obstacle, save the Scene and restart Play. Open the Effect
+to adjust radius, restitution, friction, bounce count or named collision layers.
+XY radius is 0.005–500 m. Initial overlap/touch ends a birth and rebounds leave
+at least 5 mm clearance. Save / Publish, save the Scene and export with the kit
+packaged with this editor. Camera, light, Material and image are included; no
+project C++ code is required. See [Scene collision](../../../manual/editor/particles.md).
+
 ## Scene particle collision
 
 Open **Scenes/254-scene-particle-collision.scene.json** and press Play. Two tinted

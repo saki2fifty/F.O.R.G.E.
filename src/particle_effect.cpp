@@ -289,6 +289,10 @@ void validate_particle_scene_collision(const ParticleSceneCollision& settings) {
     if (settings.bounce_limit > 16)
         throw std::runtime_error("Particle Scene collision permits at most 16 bounces");
 }
+void validate_particle_scene_collision_2d(const ParticleSceneCollision& settings) {
+    validate_particle_scene_collision(settings);
+    range(settings.radius, .005, 500, "XY Scene collision radius");
+}
 nlohmann::json encode_particle_scene_collision(const ParticleSceneCollision& settings) {
     validate_particle_scene_collision(settings);
     return {{"radius", settings.radius},
@@ -333,8 +337,12 @@ void validate_particle_effect(const ParticleEffectData& data) {
     if (particle_uses_scene_collision(data) != bool(data.scene_collision))
         throw std::runtime_error(
             "Particle Scene settings require an explicit Scene evaluation profile");
-    if (data.scene_collision)
-        validate_particle_scene_collision(*data.scene_collision);
+    if (data.scene_collision) {
+        if (particle_uses_scene_collision_2d(data))
+            validate_particle_scene_collision_2d(*data.scene_collision);
+        else
+            validate_particle_scene_collision(*data.scene_collision);
+    }
     if (data.emission > ParticleEmission::Burst)
         throw std::runtime_error("Unknown particle emission mode");
     range(data.capacity, 1, 1024, "capacity");

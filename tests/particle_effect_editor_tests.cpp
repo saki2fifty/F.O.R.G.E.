@@ -766,6 +766,29 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
     click("particles:undo");
     require(editor.document()->source().compiled().version == 39,
             "Scene collision Undo did not restore the world-space profile");
+    const auto before_xy = editor.document()->source().document;
+    choose("particles:scene-space", 1);
+    frame();
+    require(editor.document()->source().compiled().version == 53 &&
+                editor.document()->source().compiled().scene_collision ==
+                    ParticleSceneCollision{.025, .75, .2, 8, 0} &&
+                !test::ui_targets.at("particles:preview_play").enabled,
+            "Native XY selection lost settings, billboard geometry or Play prerequisite");
+    const auto tuned_xy = editor.document()->source().document;
+    number("particles:scene-radius", ".001");
+    require(editor.document()->source().document == tuned_xy && !editor.diagnostic().empty(),
+            "Native XY radius outside the circle domain partially changed source");
+    click("particles:scene-collision");
+    require(!particle_uses_scene_collision(editor.document()->source().compiled()) &&
+                editor.document()->source().document.at("scene_collision_2d").get<bool>(),
+            "Disabling XY collision lost the retained query selection");
+    click("particles:scene-collision");
+    require(editor.document()->source().document == tuned_xy,
+            "Native XY disable/enable lost source identities or retained settings");
+    for (unsigned i = 0; i < 8 && editor.document()->source().document != before_xy; ++i)
+        editor.undo();
+    require(editor.document()->source().document == before_xy,
+            "Native XY controls did not restore the exact pre-selection source");
     for (unsigned i = 0; i < 48 && editor.document()->source().document != before_scene_collision;
          ++i)
         editor.undo();

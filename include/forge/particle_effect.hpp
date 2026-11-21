@@ -67,6 +67,7 @@ struct ParticleSceneCollision {
     bool operator==(const ParticleSceneCollision&) const = default;
 };
 void validate_particle_scene_collision(const ParticleSceneCollision&);
+void validate_particle_scene_collision_2d(const ParticleSceneCollision&);
 nlohmann::json encode_particle_scene_collision(const ParticleSceneCollision&);
 ParticleSceneCollision decode_particle_scene_collision(const nlohmann::json&);
 struct ParticleEffectData {
@@ -107,7 +108,8 @@ enum ProfileFlag : unsigned {
     Weighted = 128,
     Sorted = 256,
     SceneCollision = 512,
-    MaterialPalette = 1024
+    MaterialPalette = 1024,
+    SceneCollision2D = 2048
 };
 struct ValueProfile {
     unsigned version;
@@ -175,7 +177,11 @@ inline constexpr std::array value_profiles{
     ValueProfile{50, "gpu_palette_sorted_collision_opacity1",
                  Gpu | Sorted | MaterialPalette | Collision | Opacity},
     ValueProfile{51, "gpu_palette_sorted_trail_opacity1",
-                 Gpu | Sorted | MaterialPalette | Trail | Opacity}};
+                 Gpu | Sorted | MaterialPalette | Trail | Opacity},
+    ValueProfile{52, "cpu_scene_collision_2d1",
+                 CpuAlpha | Opacity | SceneCollision | SceneCollision2D},
+    ValueProfile{53, "cpu_scene_collision_2d_billboard1",
+                 CpuAlpha | Opacity | SceneCollision | SceneCollision2D | Billboard}};
 static_assert([] {
     for (unsigned i = 0; i < value_profiles.size(); ++i)
         if (value_profiles[i].version != i + 1)
@@ -232,6 +238,9 @@ constexpr bool particle_uses_collision(const ParticleEffectData& data) {
 }
 constexpr bool particle_uses_scene_collision(const ParticleEffectData& data) {
     return particle_detail::has(data, particle_detail::SceneCollision);
+}
+constexpr bool particle_uses_scene_collision_2d(const ParticleEffectData& data) {
+    return particle_detail::has(data, particle_detail::SceneCollision2D);
 }
 constexpr bool particle_uses_billboards(const ParticleEffectData& data) {
     return particle_detail::has(data, particle_detail::Billboard);

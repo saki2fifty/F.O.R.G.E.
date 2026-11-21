@@ -3280,6 +3280,16 @@
       "type": "scene"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "21538891-5166-4376-b254-3a9095c3c231",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/258-xy-scene-particle-collision.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "3f78a814-5256-415a-b681-479a93c03721"
       ],
@@ -13213,6 +13223,16 @@
       "source": "Scenes/158-imported-lightmaps.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "87d879ed-5d00-4b7a-b933-a113611a4a2c",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Collision/XYSceneBounces.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],

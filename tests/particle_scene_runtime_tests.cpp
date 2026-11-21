@@ -36,25 +36,34 @@ Json emitter(const char* id, AssetId effect) {
              {{"forge.position", {{"x", 0}, {"y", 3}, {"z", 0}}},
               {"forge.particle_emitter", detail::render_value(value)}}}};
 }
-Json collider(const char* id, double y, bool sensor) {
-    return {{"id", id},
-            {"name", id},
-            {"components",
-             {{"forge.position", {{"x", 0}, {"y", y}, {"z", 0}}},
-              {"forge.physics_body",
-               {{"motion", 0},
-                {"density", 1000},
-                {"mass", 0},
-                {"friction", .5},
-                {"restitution", 0},
-                {"gravity_factor", 0},
-                {"sensor", sensor}}},
-              {"forge.box_collider", {{"x", 20}, {"y", .01}, {"z", 20}}}}}};
+Json collider(const char* id, double y, bool sensor, bool planar_2d = false) {
+    Json result{{"id", id},
+                {"name", id},
+                {"components",
+                 {{"forge.position", {{"x", 0}, {"y", y}, {"z", 0}}},
+                  {"forge.physics_body",
+                   {{"motion", 0},
+                    {"density", 1000},
+                    {"mass", 0},
+                    {"friction", .5},
+                    {"restitution", 0},
+                    {"gravity_factor", 0},
+                    {"sensor", sensor}}},
+                  {"forge.box_collider", {{"x", 20}, {"y", .01}, {"z", 20}}}}}};
+    if (planar_2d) {
+        auto& components = result["components"];
+        components.erase("forge.physics_body");
+        components.erase("forge.box_collider");
+        components["forge.physics_body_2d"] = {{"motion", 0}, {"sensor", sensor}};
+        components["forge.box_collider_2d"] = {{"x", 20}, {"y", .01}};
+    }
+    return result;
 }
-Json scene(AssetId effect) {
+Json scene(AssetId effect, bool planar_2d = false) {
     return {{"version", 1},
-            {"entities", Json::array({emitter("emitter", effect), collider("floor", -.005, false),
-                                      collider("sensor", 2, true)})}};
+            {"entities",
+             Json::array({emitter("emitter", effect), collider("floor", -.005, false, planar_2d),
+                          collider("sensor", 2, true, planar_2d)})}};
 }
 struct Fixture {
     EngineContext engine;
@@ -88,8 +97,9 @@ struct Fixture {
         return result.particles.front();
     }
 };
-void world_and_transport(const std::filesystem::path& root, AssetId effect) {
-    const auto source = scene(effect);
+void world_and_transport(const std::filesystem::path& root, AssetId effect,
+                         bool planar_2d = false) {
+    const auto source = scene(effect, planar_2d);
     Fixture live(root, source);
     live.ready();
     check(live.captured().world_samples && live.captured().world_samples->empty(),
@@ -97,7 +107,8 @@ void world_and_transport(const std::filesystem::path& root, AssetId effect) {
     live.simulation.tick(.1f);
     const auto current = live.captured();
     check(current.world_samples && current.world_samples->size() == 4 &&
-              std::abs(current.world_samples->front().sample.position[1] - 4.575) < 1e-4 &&
+              std::abs(current.world_samples->front().sample.position[1] -
+                       (planar_2d ? 4.58 : 4.575)) < 1e-4 &&
               current.world_samples->front().sample.velocity[1] == 60,
           "Runtime particles tunneled through a thin Scene floor or hit an excluded sensor");
     const auto before = live.captured(.2), after = live.captured(.3);
@@ -125,8 +136,9 @@ void world_and_transport(const std::filesystem::path& root, AssetId effect) {
     check(raw.size == .1 && sample.size == .2 && sample.color[0] == raw.color[0] * .25f,
           "World capture applied live appearance before the shared modulation boundary");
     // The renderer consumes the same immutable effect used by this native World.
-    auto source_bytes = ParticleEffectSource::parse(
-        asset_detail::read_bytes(root / "Assets/Scene.particles.json", particle_effect_byte_limit));
+    auto source_bytes = ParticleEffectSource::parse(asset_detail::read_bytes(
+        root / (planar_2d ? "Assets/XY.particles.json" : "Assets/Scene.particles.json"),
+        particle_effect_byte_limit));
     const auto data = source_bytes.compiled();
     const auto draws = particle_world_render_instances(
         data, *tuned.world_samples, tuned.time, tuned.emitter.size_multiplier,
@@ -200,8 +212,9 @@ void projection_ownership(const std::filesystem::path& root, AssetId effect) {
     check(live.captured().world_samples->empty(),
           "A live World inherited foreign source particle playback before its first update");
 }
-void query_budget(const std::filesystem::path& root, AssetId heavy, AssetId analytic) {
-    auto input = scene(heavy);
+void query_budget(const std::filesystem::path& root, AssetId heavy, AssetId analytic,
+                  bool planar_2d = false) {
+    auto input = scene(heavy, planar_2d);
     input["entities"][0]["components"]["forge.position"]["y"] = 100;
     input["entities"].push_back(emitter("analytic", analytic));
     Fixture live(root, input);
@@ -220,10 +233,32 @@ void query_budget(const std::filesystem::path& root, AssetId heavy, AssetId anal
     check(live.particles->sample(heavy_id, 1).size() == 1024 &&
               live.particles->presentation(cpu_id, 1).at("time").get<double>() > .09,
           "A rejected World candidate could not resume under the admitted work budget");
-    auto over = scene(heavy);
+    auto over = scene(heavy, planar_2d);
     over["entities"].push_back(emitter("second", heavy));
     Fixture reserved(root, over);
     reject([&] { reserved.ready(); });
+}
+void mixed_worlds(const std::filesystem::path& root, AssetId spatial, AssetId planar) {
+    auto input = scene(spatial);
+    auto xy_actor = emitter("xy", planar);
+    xy_actor["components"]["forge.position"]["z"] = 50;
+    input["entities"].push_back(xy_actor);
+    input["entities"].push_back(collider("xy-floor", .995, false, true));
+    input["entities"].push_back(collider("xy-sensor", 2, true, true));
+    Fixture live(root, input);
+    live.ready();
+    live.simulation.tick(.1f);
+    const auto a = live.particles->sample(live.actor().id(), 1);
+    const auto b = live.particles->sample(live.authored.entity("xy").id(), 1);
+    check(a.size() == 4 && b.size() == 4 && std::abs(a[0].position[1] - 4.575) < 1e-4 &&
+              std::abs(b[0].position[1] - 6.08) < 1e-4 && b[0].position[2] == 50,
+          "Mixed Scene particle query spaces crossed worlds, included sensors or used depth");
+    Fixture cold(root, scene(planar));
+    cold.ready();
+    cold.simulation.tick(.1f);
+    const auto free = cold.particles->sample(cold.actor().id(), 1);
+    check(free.size() == 4 && std::abs(free[0].position[1] + 9) < 1e-4,
+          "An unrealized XY World borrowed 3D geometry or blocked analytic free flight");
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -234,7 +269,7 @@ int main(int argc, char** argv) {
         auto lease = std::make_shared<ProjectLease>(root);
         AssetImportService imports(lease, particle_effect_import_registry(),
                                    {"linux", "none", "cpu"});
-        auto publish = [&](const char* name, bool heavy, bool analytic) {
+        auto publish = [&](const char* name, bool heavy, bool analytic, bool planar_2d = false) {
             auto document = ParticleEffectDocument::create(lease, name);
             document->edit(document->revision(), "Scene particle fixture", [&](auto& value) {
                 ParticleEffectSource source{value};
@@ -248,6 +283,8 @@ int main(int argc, char** argv) {
                     source.document["acceleration"] = {0, heavy ? -10000 : 0, 0};
                     source.document["size_start"] = source.document["size_end"] = .1;
                     source.set_scene_collision(true, ParticleSceneCollision{.05, .5, 0, 4, 1});
+                    if (planar_2d)
+                        source.set_scene_collision_space(true);
                 }
                 value = std::move(source.document);
             });
@@ -267,9 +304,18 @@ int main(int argc, char** argv) {
         const auto scene_effect = publish("Assets/Scene.particles.json", false, false);
         const auto heavy = publish("Assets/Heavy.particles.json", true, false);
         const auto analytic = publish("Assets/Analytic.particles.json", false, true);
+        const auto xy = publish("Assets/XY.particles.json", false, false, true);
+        const auto heavy_xy = publish("Assets/HeavyXY.particles.json", true, false, true);
         world_and_transport(root, scene_effect);
+        world_and_transport(root, xy, true);
+        mixed_worlds(root, scene_effect, xy);
         projection_ownership(root, scene_effect);
         query_budget(root, heavy, analytic);
+        query_budget(root, heavy_xy, analytic, true);
+        auto mixed_overflow = scene(heavy);
+        mixed_overflow["entities"].push_back(emitter("planar", xy));
+        Fixture reserved(root, mixed_overflow);
+        reject([&] { reserved.ready(); });
         std::cout << "Published Scene particle runtime/transport/lifecycle passed\n";
         return 0;
     } catch (const std::exception& error) {

@@ -1279,3 +1279,15 @@ radius, response, named collision layers, camera alignment and lifetime fades.
 This mode requires Play; isolated preview seeking is disabled. Save / Publish,
 save the Scene and export with the matching runtime kit. See
 [particle effects and Scene collision](../editor/particles.md).
+
+
+For XY Scene geometry response, open **258-xy-scene-particle-collision**. Its two
+tinted emitters share **Assets/Particles/Collision/XYSceneBounces.particles.json**,
+the existing soft cloud Material and image. The floor and inclined obstacle have
+2D Physics bodies and Box Colliders. Open the Effect and inspect **Scene query
+space → World XY**. Stop, move or rotate an obstacle, save the Scene and press
+Play again. Collision ignores visual Z; depth motion remains independent. XY
+radius is 0.005–500 m. Initially touching/overlapping births end, and rebounds
+leave at least 5 mm clearance. Save / Publish and save the Scene before exporting
+with the packaged runtime kit. The camera and light are included; project C++
+code is not required. See [Scene collision](../editor/particles.md).

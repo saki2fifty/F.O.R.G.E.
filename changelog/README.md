@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-11-21](20261121/README.md) — CPU particles against XY Scene geometry, shared native/MCP query-space controls, runtime-kit admission, editable/exportable Gallery258 and illustrated instructions.
+
 - [2026-11-20](20261120/README.md) — CPU analytic particle ribbons, shared native/MCP authoring, editable/exportable Gallery245, illustrated instructions and headless Gallery tooling.
 
 - [2026-11-19](20261119/README.md) — Current-Play movies across Scene changes, bounded audio handoff and repeated-visit receipts, shared native/MCP controls, illustrated recording instructions and validated runtime UI catalog reuse.
