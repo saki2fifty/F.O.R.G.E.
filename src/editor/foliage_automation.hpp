@@ -108,24 +108,31 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
         }));
     if (!clearance)
         return methods;
-    Json complete_scatter;
-    for (const auto& command : authoring_commands())
+    Json complete_scatter, complete_stroke;
+    for (const auto& command : authoring_commands()) {
         if (command.at("id") == "mesh.scatter")
             complete_scatter = command.at("input_schema");
+        if (command.at("id") == "mesh.stroke")
+            complete_stroke = command.at("input_schema");
+    }
     const Json coordinate{{"type", "number"}, {"minimum", -1000}, {"maximum", 1000}};
     methods.push_back(automation_method(
         "foliage.collision.start",
         "Prepare read-only world-sphere-v1 clearance against current authored native 3D colliders. "
-        "Poll foliage.collision.read with the returned operation. Supply ordinary scatter "
-        "arguments "
-        "or the result of foliage.terrain.prepare/foliage.surface.prepare; heights, normals and "
+        "Poll foliage.collision.read with the returned operation. Supply ordinary scatter or "
+        "stroke arguments, or the result of foliage.terrain.prepare/foliage.surface.prepare/"
+        "foliage.stroke.prepare; heights, normals and "
         "original-order masks are "
         "preserved. Radius0.001..100m; world offset defaults(0,0.5,0)m. Layer mask defaults all; "
         "sensors default excluded. The template and optional surface are ignored automatically, "
         "plus at most14 distinct ignored entity IDs. At most512 candidates,16 queries per poll, "
         "30-second deadline. Exact retries reuse the operation; cancel a different pending request "
-        "first. No simulation or Scene/file changes. Ready arguments use forge_mesh_scatter at the "
-        "returned scene_revision. Recheck before applying after published assets/settings change. "
+        "first. Strokes allow1..16 dabs and512total original candidates; filters also compare "
+        "across dabs. Wholly blocked dabs are omitted from returned stroke arguments, with "
+        "original indices in retained_dab_indices; all-blocked strokes fail. No simulation or "
+        "Scene/file changes. Ready authoring_operation selects forge_mesh_scatter or "
+        "forge_mesh_stroke at the returned scene_revision. Task candidate_count includes omitted "
+        "dabs. Recheck before applying after published assets/settings change. "
         "Optional avoid_new_overlaps (default false) also filters overlapping new candidate "
         "spheres in original order, keeping the first clear candidate. The same world radius "
         "and resolved heights apply; touching spheres are allowed. Excluded candidates never "
@@ -134,7 +141,7 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
         "are not tested.",
         "asset.read",
         automation_object(
-            {{"arguments", complete_scatter},
+            {{"arguments", {{"oneOf", Json::array({complete_scatter, complete_stroke})}}},
              {"radius", {{"type", "number"}, {"minimum", .001}, {"maximum", 100}}},
              {"offset", automation_object({{"x", coordinate}, {"y", coordinate}, {"z", coordinate}},
                                           {"x", "y", "z"})},

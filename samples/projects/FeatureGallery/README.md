@@ -1,5 +1,22 @@
 # Feature Gallery
 
+## Foliage brush clearance
+
+Open **Scenes/257-foliage-brush-clearance.scene.json** and press Play → Game.
+**Brush collider clearance** has 64 plants; **Brush plant separation** has 7.
+Each stroke starts from three dabs and 96 candidates. The middle dab is fully
+blocked by the central collider, so both saved strokes contain two dab groups.
+The separated stroke also keeps its 0.4 m world-space spheres apart across dabs.
+The saved plants remain ordinary objects, with no placement work during Play.
+
+Stop Play, choose the Blade template and projection surface in Foliage placement,
+then enable **Paint in Scene view** and **Reject collisions** together. Optionally
+enable **Separate new plants**. Keep the surface selected, drag in Scene view and
+release. Wait for clearance before the stroke appears; **Cancel clearance**
+leaves the Scene unchanged. Each completed stroke has one Undo. Save and select
+this Scene as startup before exporting; no project C++ module is needed.
+See [painting foliage](../../../manual/editor/foliage.md#paint-foliage-in-scene-view).
+
 ## Separate new foliage
 
 Open **Scenes/256-foliage-candidate-clearance.scene.json** and press Play → Game.

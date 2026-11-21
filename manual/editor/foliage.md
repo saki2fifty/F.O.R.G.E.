@@ -1,7 +1,8 @@
 # Place foliage
 
 Use **Tools > Foliage placement...** to place independent copies of one Mesh
-Renderer in a horizontal disk, using a plane or a published heightfield terrain.
+Renderer in a horizontal disk, using a plane, published heightfield terrain or
+static triangle Mesh.
 Each placement becomes an ordinary object in a
 named group, ready for the Hierarchy, Inspector, Scene Save and game export.
 
@@ -127,21 +128,33 @@ foliage population.
 Open **Gallery 201 — Foliage surface brush** and press **Play → Game** to see two
 saved strokes on tilted and mirrored ramps. Stop Play before painting another.
 
+**Gallery 257 — Foliage brush clearance** compares strokes with 64 and 7 saved
+plants. Each starts from three dabs and 96 candidates. The middle dab is blocked
+by the central collider and omitted; the sparse stroke additionally separates
+new clearance spheres across the remaining dabs. Both strokes use 0.4 m spheres.
+
 1. Open a project and choose a template with **Use selected Mesh Renderer**.
 2. Enable **Project onto a surface**, choose its geometry profile, then select the ground object in Hierarchy and choose **Use selected terrain** or **Use selected Mesh**. Keep that surface selected.
-3. Set **Radius (m)** and **Candidate count** for each dab. Configure slope, alignment, scale and yaw as for one patch. Disable **Reject collisions**.
-4. Enable **Paint in Scene view**. Set **Dab distance (m)**, the minimum horizontal distance between sampled dab centers. Values from 0.01 to 2000 m are allowed. The single-disk center and Check layout / Place foliage controls become disabled. Enabling Reject collisions switches back to single-disk placement.
-5. Drag the left mouse button over the chosen visible surface in Scene view. Green circles mark sampled centers. Release to create the whole stroke, or press Escape to cancel it. One Scene Undo removes the whole stroke.
+3. Set **Radius (m)** and **Candidate count** for each dab. Configure slope, alignment, scale and yaw as for one patch. Optionally enable **Reject collisions** and set the clearance controls below. **Separate new plants** checks the same spheres across the whole stroke, including between dabs.
+4. Enable **Paint in Scene view**. Set **Dab distance (m)**, the minimum horizontal distance between sampled dab centers. Values from 0.01 to 2000 m are allowed. The single-disk center and Check layout / Place foliage controls become disabled.
+5. Drag the left mouse button over the chosen visible surface in Scene view. Green circles mark sampled centers. Release to submit the whole stroke, or press Escape before release to cancel it. With clearance enabled, wait for preparation; **Cancel clearance** stops it before placement. One Scene Undo removes the whole completed stroke.
 6. Save the Scene. Keep the surface selected to paint another stroke. Expand the new stroke group in Hierarchy to edit its dab groups and individual plants.
 
 ![Foliage placement with pointer-driven brush mode, disabled single-disk centers and four green sampled-center markers in Scene view](../images/foliage-brush-native.png)
 
 The Scene overlay marks brush mode and sampled centers while you hold LMB.
 
+![Paint in Scene view, Reject collisions and Separate new plants enabled together, with four sampled centers on a ramp](../images/foliage-brush-clearance.png)
+
+Enable both clearance options to check the released stroke against authored
+colliders and separate its new plants. A layer mask of 0, shown here, checks only
+the new plants against each other.
+
 Each stroke allows at most 16 dabs and 512 total candidates. Exceeding either
 limit cancels the whole stroke. Reduce Candidate count, shorten the stroke or
 increase Dab distance. Fast motion does not fill unsampled gaps. Minimum spacing
-applies within each dab; plants in different dabs can overlap. Markers show
+applies within each dab. With **Separate new plants** enabled, clearance spheres
+also keep retained candidates apart across dabs. Markers show
 centers, not the final plant shapes or a world-radius outline.
 
 Move close enough to use visible LOD0 triangles. Foreground objects block sampling
@@ -149,9 +162,14 @@ through them. The entire disk at each dab needs surface coverage; a dab near an
 edge can reject the whole stroke. Projection chooses the highest upward surface
 at each candidate XZ origin, even if a Mesh has overlapping surfaces. Brush mode
 uses the same static geometry and terrain transform limits described above.
-Collision clearance is available with the single-patch controls when Paint in
-Scene view is disabled. Close the panel or change view, selection, Scene, project,
-settings or editing mode to cancel an unfinished stroke. Later surface edits do
+Clearance skips a dab when all its candidates become blocked; remaining dabs
+keep their layout, heights and order. A wholly blocked stroke reports an error
+and creates no objects. Each original dab still needs full surface coverage and
+at least one slope-accepted candidate before clearance. Before release, close
+the panel or change view, selection, Scene, project, settings or editing mode to
+cancel an unfinished gesture. During clearance, use **Cancel clearance**;
+closing the panel, changing Scene/project or locking Scene editing also cancels
+pending placement. Later surface edits do
 not move existing plants.
 
 ![Two saved foliage brush strokes on tilted and mirrored ramps in the Game view](../images/foliage-brush-game.png)
@@ -194,8 +212,9 @@ candidate is kept only when its sphere does not overlap an earlier retained
 sphere. Touching spheres are allowed. Previously excluded candidates do not
 block later ones. Height differences count in all three world axes. The filter
 keeps original candidate order and can retain fewer plants than the requested
-count; it never resamples. It applies to this single patch, with **Paint in Scene
-view** turned off.
+count; it never resamples. In brush mode it compares the entire stroke's retained
+candidates across dab boundaries. Objects from earlier strokes need actual
+colliders to affect a later stroke's collider clearance.
 
 Clearance tests existing 3D colliders, including published Collision assets, and
 optionally the spheres of new plants. It does not test complete plant Mesh

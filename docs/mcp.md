@@ -120,7 +120,9 @@ is required. Saved Fog intent requires a matching runtime kit even when disabled
 
 `forge_foliage_collision_start` binds `foliage.collision.start` as a read-only
 `asset.read` workflow. Pass ordinary scatter `arguments` or the arguments returned
-by terrain preparation. Optional settings: radius 0.001..100(default 0.25), offset
+by terrain/surface preparation, or full existing `mesh.stroke` arguments from
+`forge_foliage_stroke_prepare`. The argument schema preserves the exact scatter
+and stroke alternatives. Optional settings: radius 0.001..100(default 0.25), offset
 as `{x,y,z}` in world meters(each+/-1000, default 0,0.5,0), uint32 mask(default all),
 include_sensors(default false), avoid_new_overlaps(default false), surface(entityID) and ignored(up to14 distinct
 entityIDs). The template and surface are excluded automatically. It tests existing
@@ -131,6 +133,14 @@ reject spheres overlapping an earlier retained sphere. The same world radius,
 offsets and resolved heights apply; touching spheres are allowed. Excluded
 candidates never block later ones. This filter remains active with mask0 and
 reports `new_overlap_count`, without resampling or adding native colliders.
+Stroke inputs admit 1–16 dabs and 512 total original candidates. Both collider
+clearance and new-plant separation operate across the original ordered pool.
+Ready `authoring_operation` identifies `mesh.scatter` or `mesh.stroke`; use its
+corresponding ordinary mutation tool. Fully blocked dabs are omitted from returned
+stroke arguments and `retained_dab_indices` maps surviving dabs to original
+zero-based indices. `original_dab_count` and task `candidate_count` include omitted
+dabs. The final command counts only candidates in its returned dabs. All original
+fields are validated first; all-blocked strokes fail without Scene changes.
 
 Start returns an operation UUID. Poll `forge_foliage_collision_read` with that
 exact `operation`; states are preparing/querying/ready/failed/cancelled. Ready
@@ -2851,7 +2861,11 @@ Preparation reads one published selection, changes no Scene or files and returns
 arguments using `forge_mesh_stroke` with the returned revision and normal mutation
 sequence, then save. The whole stroke is one Undo. Every origin needs coverage;
 each dab must retain at least one candidate. Spacing applies within each dab
-only. There is no collision clearance or live surface link in this workflow.
+only. For optional collider/new-plant clearance, send the prepared stroke
+arguments to `forge_foliage_collision_start` with the same surface and desired
+sphere settings, then poll its operation. Apply the returned surviving-dab
+arguments with `forge_mesh_stroke` at its returned revision. No live surface link
+is created.
 Recheck after published surface changes. Both tools use the same preparation,
 validation and Scene history owners as the editor.
 

@@ -13,8 +13,10 @@ struct FoliageCollisionSettings {
     std::vector<EntityId> ignored;
     bool avoid_new_overlaps = false;
 };
+// Canonical copied choices for request/gesture fingerprints and result inspection.
+Json foliage_collision_settings(const FoliageCollisionSettings&);
 // One transient owner-thread consumer of existing runtime physics/resources.
-// It prepares copied scatter arguments; Scene publication remains mesh.scatter.
+// It prepares copied scatter/stroke arguments; ordinary Scene commands publish them.
 class FoliageCollisionPreparation {
   public:
     FoliageCollisionPreparation();

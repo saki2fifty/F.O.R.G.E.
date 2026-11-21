@@ -1,5 +1,6 @@
 """Shared atomic surface-stroke workflow through the production MCP boundary."""
 import copy
+import time
 from mcp_test_client import failed
 
 
@@ -60,3 +61,46 @@ def check_foliage_stroke(read, mutate, client, discover, declared, surface, argu
                            surface=surface, surface_profile=bad_profile, arguments=invalid),
                'surface_coverage' if change == 'outside' else 'invalid_arguments')
         assert discover()['revision'] == state['revision'] and read('forge_scene_read') == before
+
+    collision = next(t for t in declared if t['name'] == 'forge_foliage_collision_start')
+    shapes = collision['inputSchema']['properties']['arguments']['oneOf']
+    assert len(shapes) == 2 and any('dabs' in shape['required'] for shape in shapes)
+    original_arguments = copy.deepcopy(plan['arguments'])
+    started = read('forge_foliage_collision_start', arguments=original_arguments, surface=surface,
+                   radius=100, mask=0, avoid_new_overlaps=True)
+    deadline = time.monotonic() + 15
+    while True:
+        checked = read('forge_foliage_collision_read', operation=started['operation'])
+        if checked['state'] not in ('preparing', 'querying'):
+            break
+        assert time.monotonic() < deadline, checked
+        time.sleep(.01)
+    assert checked['state'] == 'ready', checked
+    cleared = checked['result']
+    assert cleared['authoring_operation'] == 'mesh.stroke'
+    assert cleared['original_dab_count'] == 2 and cleared['retained_dab_indices'] == [0]
+    assert cleared['candidate_count'] == 24 and cleared['retained_count'] == 1
+    assert cleared['new_overlap_count'] == 23 and cleared['physics_tick'] == 0
+    assert len(cleared['arguments']['dabs']) == 1
+    returned = cleared['arguments']['dabs'][0]
+    assert returned['placement_mask'] == [True] + [False] * 11
+    assert returned['world_heights'] == original_arguments['dabs'][0]['world_heights']
+    assert returned['world_normals'] == original_arguments['dabs'][0]['world_normals']
+    assert read('forge_scene_read') == before
+    invalid = copy.deepcopy(original_arguments)
+    invalid['dabs'][1]['world_heights'][0] = 'invalid omitted dab'
+    failed(client.tool('forge_foliage_collision_start', target=discover()['result']['target'],
+                       arguments=invalid, avoid_new_overlaps=True), 'invalid_arguments')
+    assert read('forge_scene_read') == before
+    state = discover()
+    request = dict(target=state['result']['target'], expected_revision=cleared['scene_revision'],
+                   sequence=state['next_sequence'], arguments=cleared['arguments'])
+    placed = client.tool('forge_mesh_stroke', **request)
+    assert placed['ok'] and client.tool('forge_mesh_stroke', **request) == placed
+    output = placed['result']['results'][0]
+    assert len(output['groups']) == output['placed_count'] == 1
+    assert output['candidate_count'] == 12  # The command receives only the surviving dab.
+    after = read('forge_scene_read')
+    assert mutate('forge_history_undo')['result']['changed'] and read('forge_scene_read') == before
+    assert mutate('forge_history_redo')['result']['changed'] and read('forge_scene_read') == after
+    assert mutate('forge_history_undo')['result']['changed'] and read('forge_scene_read') == before

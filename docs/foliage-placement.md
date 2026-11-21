@@ -197,8 +197,19 @@ The layer mask controls existing colliders; mask 0 still permits this candidate
 filter. `new_overlap_count` reports candidates rejected only by this second filter
 in both task status and ready result; it is 0 with the option off. The copied
 setting participates in the existing retry fingerprint and ready-result settings.
+The same task additionally admits existing `mesh.stroke` arguments. Original dab
+layouts flatten into one bounded origin/mask sequence, retaining only derived
+per-dab counts for serialization. The sphere filter compares across dab boundaries.
+All original arguments pass the ordinary complete command preview before filtering.
+Fully blocked dabs are omitted from returned stroke arguments; `retained_dab_indices`
+maps the surviving dabs to original zero-based indices and `original_dab_count`
+retains the original count. Task `candidate_count` includes omitted dabs; the final
+Scene command counts only candidates in its returned surviving dabs. Surviving
+heights/normals/masks/layouts remain unchanged. Dab group names and the stroke root
+pivot follow the ordinary returned-command semantics, rather than retaining omitted
+ordinals. `authoring_operation` identifies `mesh.scatter` or `mesh.stroke` for apply.
 No resampling is performed. An empty result fails before publication. The final copied
-arguments preflight through the existing detached mesh.scatter owner.
+arguments preflight through the existing detached scatter/stroke command owner.
 
 Exact pending/ready retries reuse an operation only for the same project, source
 revision/snapshot, arguments, settings and asset selections. A different pending
@@ -211,7 +222,7 @@ retained_count, source/catalog digests, settings and physics_tick 0. Results are
 point-in-time data, not locks; restarting preparation checks current selections.
 
 Native Check/Place and automation/MCP start/read/cancel share this owner. Ordinary
-mesh.scatter is still the only publication/history owner. The native panel queues
+mesh.scatter/mesh.stroke remain the only publication/history owners. The native panel queues
 placement and revalidates readiness before applying at the captured Scene revision;
 closing its pending workflow or locking Scene authoring cancels it. Read-only MCP
 preparation can inspect authored source during Play; it neither queries nor tunes
@@ -303,9 +314,14 @@ published projection selection before applying. Projection uses the highest
 upward LOD0 surface at each generated XZ origin, including when the selected Mesh
 has stacked surfaces; it does not project onto an arbitrary clicked face.
 
-Brush mode needs an open project and surface projection, with collision clearance
-disabled. Collider clearance remains available for the existing single-patch
-workflow. Placed stroke objects save/export without a brush runtime component,
+Brush mode needs an open project and surface projection. Optional collider/new-plant
+clearance queues the same captured task on release, before any Scene publication.
+The gesture fingerprint uses the task owner's canonical settings serialization.
+Further gestures are unavailable while the task is pending; ready completion
+dispatches its ordinary stroke command once and preserves the selected surface for
+repeat painting. Cancel, source/project changes, authoring locks and panel closure
+retain the existing task lifecycle. The no-clearance path still applies directly.
+Placed stroke objects save/export without a brush runtime component,
 source link or alternate population owner. Automation exposes read-only
 `foliage.stroke.prepare`; MCP derives `forge_foliage_stroke_prepare` and the
 ordinary `forge_mesh_stroke` command from their existing registries.

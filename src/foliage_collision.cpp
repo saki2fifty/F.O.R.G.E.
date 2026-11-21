@@ -11,6 +11,15 @@
 #include <set>
 
 namespace forge {
+Json foliage_collision_settings(const FoliageCollisionSettings& value) {
+    return {{"radius", value.radius},
+            {"offset", {{"x", value.offset[0]}, {"y", value.offset[1]}, {"z", value.offset[2]}}},
+            {"mask", value.mask},
+            {"include_sensors", value.include_sensors},
+            {"avoid_new_overlaps", value.avoid_new_overlaps},
+            {"surface", value.surface ? Json(value.surface) : Json()},
+            {"ignored", value.ignored}};
+}
 namespace {
 void require(bool condition, const char* code, const char* message) {
     if (!condition)
@@ -19,15 +28,6 @@ void require(bool condition, const char* code, const char* message) {
 std::string digest(const Json& value) {
     const auto text = value.dump();
     return asset_detail::content_digest(std::as_bytes(std::span(text)));
-}
-Json settings_json(const FoliageCollisionSettings& value) {
-    return {{"radius", value.radius},
-            {"offset", {{"x", value.offset[0]}, {"y", value.offset[1]}, {"z", value.offset[2]}}},
-            {"mask", value.mask},
-            {"include_sensors", value.include_sensors},
-            {"avoid_new_overlaps", value.avoid_new_overlaps},
-            {"surface", value.surface ? Json(value.surface) : Json()},
-            {"ignored", value.ignored}};
 }
 void validate(const FoliageCollisionSettings& value) {
     require(std::isfinite(value.radius) && value.radius >= .001 && value.radius <= 100,
@@ -54,7 +54,8 @@ struct FoliageCollisionPreparation::Impl {
         Json arguments, snapshot, authored_types, project_settings, catalog_document;
         std::shared_ptr<const AssetCatalog> catalog;
         FoliageCollisionSettings config;
-        std::string fingerprint, operation, snapshot_digest;
+        std::string fingerprint, operation, snapshot_digest, command;
+        std::vector<std::size_t> dab_counts;
         std::vector<LocalTranslation> origins;
         std::vector<bool> mask;
         std::vector<EntityRef> exclusions;
@@ -110,10 +111,9 @@ Json FoliageCollisionPreparation::start(std::shared_ptr<const ProjectLease> leas
     lease->check();
     validate(config);
     const auto revision = scene.revision();
-    const auto settings = detail::mesh_scatter_settings(arguments);
-    const auto placements = detail::mesh_scatter_layout(settings);
-    (void)preview_authoring(
-        scene, Json::array({{{"operation", "mesh.scatter"}, {"arguments", arguments}}}));
+    const std::string command = arguments.contains("dabs") ? "mesh.stroke" : "mesh.scatter";
+    (void)preview_authoring(scene,
+                            Json::array({{{"operation", command}, {"arguments", arguments}}}));
     const auto snapshot = scene.snapshot();
     const auto authored_types = scene.authored_types();
     auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(lease->root()));
@@ -123,7 +123,7 @@ Json FoliageCollisionPreparation::start(std::shared_ptr<const ProjectLease> leas
                                          {"snapshot", snapshot},
                                          {"authored_types", authored_types},
                                          {"arguments", arguments},
-                                         {"settings", settings_json(config)},
+                                         {"settings", foliage_collision_settings(config)},
                                          {"catalog", catalog->document()},
                                          {"project_settings", project_settings}});
     if (impl_->work && impl_->work->fingerprint == fingerprint &&
@@ -137,6 +137,7 @@ Json FoliageCollisionPreparation::start(std::shared_ptr<const ProjectLease> leas
     next->scene = scene.asset_id();
     next->revision = revision;
     next->arguments = std::move(arguments);
+    next->command = command;
     next->snapshot = snapshot;
     next->authored_types = authored_types;
     next->snapshot_digest = digest(snapshot);
@@ -153,29 +154,46 @@ Json FoliageCollisionPreparation::start(std::shared_ptr<const ProjectLease> leas
         ignored.insert(next->config.surface);
     for (const auto id : ignored)
         next->exclusions.push_back({next->scene, id});
-    next->mask.assign(placements.size(), true);
-    for (std::size_t i = 0; i < placements.size(); ++i) {
-        if (next->arguments.contains("placement_mask"))
-            next->mask[i] = next->arguments.at("placement_mask")[i].get<bool>();
-        const double height = next->arguments.contains("world_heights")
-                                  ? next->arguments.at("world_heights")[i].get<double>()
-                                  : settings.center[1];
-        LocalTranslation origin{
-            settings.center[0] + placements[i].offset[0] + next->config.offset[0],
-            height + next->config.offset[1],
-            settings.center[2] + placements[i].offset[1] + next->config.offset[2]};
-        for (const auto coordinate : {origin.x, origin.y, origin.z})
-            require(std::isfinite(coordinate) && std::abs(coordinate) <= 1e9, "invalid_arguments",
-                    "Clearance candidate origins must fit physics +/-1 billion meters");
-        next->origins.push_back(origin);
-    }
+    const auto append_dab = [&](const Json& dab) {
+        const auto settings = detail::mesh_scatter_settings(dab);
+        const auto placements = detail::mesh_scatter_layout(settings);
+        require(next->origins.size() + placements.size() <= detail::mesh_scatter_limit,
+                "limit_exceeded", "Foliage clearance allows at most 512 total candidates");
+        next->dab_counts.push_back(placements.size());
+        for (std::size_t i = 0; i < placements.size(); ++i) {
+            next->mask.push_back(!dab.contains("placement_mask") ||
+                                 dab.at("placement_mask")[i].get<bool>());
+            const double height = dab.contains("world_heights")
+                                      ? dab.at("world_heights")[i].get<double>()
+                                      : settings.center[1];
+            LocalTranslation origin{
+                settings.center[0] + placements[i].offset[0] + next->config.offset[0],
+                height + next->config.offset[1],
+                settings.center[2] + placements[i].offset[1] + next->config.offset[2]};
+            for (const auto coordinate : {origin.x, origin.y, origin.z})
+                require(std::isfinite(coordinate) && std::abs(coordinate) <= 1e9,
+                        "invalid_arguments",
+                        "Clearance candidate origins must fit physics +/-1 billion meters");
+            next->origins.push_back(origin);
+        }
+    };
+    if (command == "mesh.stroke") {
+        for (const auto& value : next->arguments.at("dabs")) {
+            auto dab = value;
+            dab["entity"] = next->arguments.at("entity");
+            dab["name"] = next->arguments.at("name");
+            append_dab(dab);
+        }
+    } else
+        append_dab(next->arguments);
     require(scene.revision() == revision, "stale_revision",
             "Scene changed while starting foliage clearance");
     impl_->status = {{"state", "preparing"},
                      {"operation", next->operation},
                      {"scene", next->scene},
                      {"scene_revision", revision},
-                     {"candidate_count", placements.size()},
+                     {"authoring_operation", command},
+                     {"candidate_count", next->origins.size()},
                      {"checked_count", 0},
                      {"retained_count", 0},
                      {"new_overlap_count", 0},
@@ -266,10 +284,31 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
         require(work.retained != 0, "clearance_excluded",
                 "No foliage candidates pass collision clearance; no objects were created");
         auto resolved = work.arguments;
-        resolved["placement_mask"] = work.mask;
+        Json retained_dabs = Json::array();
+        if (work.command == "mesh.stroke") {
+            resolved["dabs"] = Json::array();
+            std::size_t offset = 0;
+            for (std::size_t dab = 0; dab < work.dab_counts.size(); ++dab) {
+                Json selected = Json::array();
+                bool retained = false;
+                for (std::size_t i = offset; i < offset + work.dab_counts[dab]; ++i) {
+                    selected.push_back(bool(work.mask[i]));
+                    retained = retained || work.mask[i];
+                }
+                offset += work.dab_counts[dab];
+                if (!retained)
+                    continue;
+                auto arguments = work.arguments.at("dabs")[dab];
+                arguments["placement_mask"] = std::move(selected);
+                resolved["dabs"].push_back(std::move(arguments));
+                retained_dabs.push_back(dab);
+            }
+        } else
+            resolved["placement_mask"] = work.mask;
         (void)preview_authoring(
-            scene, Json::array({{{"operation", "mesh.scatter"}, {"arguments", resolved}}}));
+            scene, Json::array({{{"operation", work.command}, {"arguments", resolved}}}));
         impl_->status["result"] = {{"arguments", std::move(resolved)},
+                                   {"authoring_operation", work.command},
                                    {"physics_tick", work.world->physics()->status().at("tick")},
                                    {"scene_revision", work.revision},
                                    {"candidate_count", work.origins.size()},
@@ -277,7 +316,11 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
                                    {"new_overlap_count", work.new_overlaps},
                                    {"source_digest", work.snapshot_digest},
                                    {"catalog_digest", digest(work.catalog_document)},
-                                   {"settings", settings_json(work.config)}};
+                                   {"settings", foliage_collision_settings(work.config)}};
+        if (work.command == "mesh.stroke") {
+            impl_->status["result"]["original_dab_count"] = work.dab_counts.size();
+            impl_->status["result"]["retained_dab_indices"] = std::move(retained_dabs);
+        }
         impl_->status["state"] = "ready";
         impl_->status["message"] = "Foliage clearance ready";
         work.world.reset();

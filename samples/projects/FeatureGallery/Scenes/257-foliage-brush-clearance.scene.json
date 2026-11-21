@@ -1,0 +1,5744 @@
+{
+  "asset_id": "0e3a5b05-5ca3-4173-8226-8d7ca092dd07",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -16.0,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "32685545-b5d2-4e86-a1ad-00e8198accd0",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.12999999523162842,
+          "g": 0.5799999833106995,
+          "r": 0.2199999988079071
+        }
+      },
+      "id": "ca75d4c9-af38-4e2c-92a7-7c4df3ef38e6",
+      "name": "Layered terrain - open source in Content",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9612487554550171,
+          "x": 0.2756825089454651,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 16.0,
+          "z": -24.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d0b659bb-e76e-45d1-80b0-2207ff1e54ab",
+      "name": "Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.8659851551055908,
+          "x": 0.45080333948135376,
+          "y": -0.19198428094387054,
+          "z": 0.0999406948685646
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 12.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e1ca85c7-580e-46c8-aa37-afa94314459c",
+      "name": "Directional light",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -7.005270889494568,
+          "y": 0.4223737683464075,
+          "z": -4.002614586525596
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ac35a1a5-7865-4c53-998c-72b901e4f9a8",
+      "name": "Blade template - select for terrain placement",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 8.0,
+          "z": 12.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.physics_body": {
+          "allow_sleeping": true,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        }
+      },
+      "id": "bbb1af36-84d4-4453-8c50-2283681939bc",
+      "name": "Clearance obstacle - ignore to compare",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.0,
+          "z": -3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "52f2270e-1d32-4247-ab36-29d81dcaa40f",
+      "name": "Brush collider clearance",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "name": "Brush collider clearance dab 1",
+      "parent": "52f2270e-1d32-4247-ab36-29d81dcaa40f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9599901437759399,
+          "x": -0.2471742182970047,
+          "y": 0.11012587696313858,
+          "z": -0.07208419591188431
+        },
+        "forge.local_scale": {
+          "x": 0.7139932513237,
+          "y": 0.7139932513237,
+          "z": 0.7139932513237
+        },
+        "forge.local_translation": {
+          "x": -0.41159656131640077,
+          "y": 1.2040832007818993,
+          "z": 0.05869716913439334
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "b792109d-35f7-4c73-a871-dc56496985cb",
+      "name": "Brush collider clearance dab 1 1",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9649970531463623,
+          "x": -0.2599234879016876,
+          "y": 0.03019009716808796,
+          "z": -0.017578646540641785
+        },
+        "forge.local_scale": {
+          "x": 0.9340479373931885,
+          "y": 0.9340479373931885,
+          "z": 0.9340479373931885
+        },
+        "forge.local_translation": {
+          "x": -0.8414877100847662,
+          "y": 1.3578368180279619,
+          "z": 0.2942935057450086
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "8b9123a8-e91d-4c90-9f93-97c36ab1c44e",
+      "name": "Brush collider clearance dab 1 2",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9529256224632263,
+          "x": -0.19983913004398346,
+          "y": 0.16777180135250092,
+          "z": -0.15443362295627594
+        },
+        "forge.local_scale": {
+          "x": 0.6928797364234924,
+          "y": 0.6928797364234924,
+          "z": 0.6928797364234924
+        },
+        "forge.local_translation": {
+          "x": 0.5415394376032054,
+          "y": 1.300453620206158,
+          "z": 0.5572988266590982
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "aef9bf6b-7ba5-40d5-9dc7-a43e495eac28",
+      "name": "Brush collider clearance dab 1 3",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9454290866851807,
+          "x": -0.24586784839630127,
+          "y": -0.21314996480941772,
+          "z": -0.016731586307287216
+        },
+        "forge.local_scale": {
+          "x": 1.0422385931015015,
+          "y": 1.0422385931015015,
+          "z": 1.0422385931015015
+        },
+        "forge.local_translation": {
+          "x": 0.0147628759033978,
+          "y": 1.1292502358890206,
+          "z": 0.0009354543406516314
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "3d5008f8-9beb-45dd-9408-afc172ed9ad8",
+      "name": "Brush collider clearance dab 1 4",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.4638940691947937,
+          "x": -0.012735672295093536,
+          "y": 0.8547576665878296,
+          "z": -0.23244230449199677
+        },
+        "forge.local_scale": {
+          "x": 0.9275909066200256,
+          "y": 0.9275909066200256,
+          "z": 0.9275909066200256
+        },
+        "forge.local_translation": {
+          "x": 0.26057915976271034,
+          "y": 1.266461788234186,
+          "z": 0.35082637653686105
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "90813ca5-3970-4ab1-838d-b43e4d52dfe4",
+      "name": "Brush collider clearance dab 1 5",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7327216863632202,
+          "x": -0.22065234184265137,
+          "y": -0.634903073310852,
+          "z": 0.10644064098596573
+        },
+        "forge.local_scale": {
+          "x": 0.845743715763092,
+          "y": 0.845743715763092,
+          "z": 0.845743715763092
+        },
+        "forge.local_translation": {
+          "x": -0.15521290367469193,
+          "y": 1.3960016356114815,
+          "z": 0.4664332345593721
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "b94dd437-8ee1-4be6-b89c-cf82ed1dd8da",
+      "name": "Brush collider clearance dab 1 6",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.2551475465297699,
+          "x": 0.02068745344877243,
+          "y": 0.9452326893806458,
+          "z": -0.2025015503168106
+        },
+        "forge.local_scale": {
+          "x": 0.9111583232879639,
+          "y": 0.9111583232879639,
+          "z": 0.9111583232879639
+        },
+        "forge.local_translation": {
+          "x": 0.3520979988388717,
+          "y": 1.0546291807069919,
+          "z": -0.05356037593446672
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "df59132e-4967-46e1-b34b-0467822df8bc",
+      "name": "Brush collider clearance dab 1 7",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8839152455329895,
+          "x": -0.1995410919189453,
+          "y": 0.4101264178752899,
+          "z": -0.10331299155950546
+        },
+        "forge.local_scale": {
+          "x": 1.057519793510437,
+          "y": 1.057519793510437,
+          "z": 1.057519793510437
+        },
+        "forge.local_translation": {
+          "x": -0.6305024969391525,
+          "y": 1.0149011003198152,
+          "z": -0.34379529166035355
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "9912b884-fda4-4821-beab-038d9b840d00",
+      "name": "Brush collider clearance dab 1 8",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.2852240800857544,
+          "x": -0.08593365550041199,
+          "y": -0.922376275062561,
+          "z": 0.24593624472618103
+        },
+        "forge.local_scale": {
+          "x": 0.7261215448379517,
+          "y": 0.7261215448379517,
+          "z": 0.7261215448379517
+        },
+        "forge.local_translation": {
+          "x": -0.8419160538353027,
+          "y": 1.2479798545197256,
+          "z": 0.1054121440742165
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "b29666cb-d826-4095-9471-4d7d5f8f9dfd",
+      "name": "Brush collider clearance dab 1 9",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9129827618598938,
+          "x": -0.2728974521160126,
+          "y": -0.30310794711112976,
+          "z": -0.010723114013671875
+        },
+        "forge.local_scale": {
+          "x": 1.0176291465759277,
+          "y": 1.0176291465759277,
+          "z": 1.0176291465759277
+        },
+        "forge.local_translation": {
+          "x": 0.10400830814614892,
+          "y": 1.573612248448541,
+          "z": 0.8540393196512014
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "2617a037-a037-4ab6-9432-03d3fcc20fdb",
+      "name": "Brush collider clearance dab 1 10",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9430261254310608,
+          "x": -0.19059911370277405,
+          "y": 0.25266319513320923,
+          "z": -0.10264037549495697
+        },
+        "forge.local_scale": {
+          "x": 0.670024573802948,
+          "y": 0.670024573802948,
+          "z": 0.670024573802948
+        },
+        "forge.local_translation": {
+          "x": 0.0316292691975832,
+          "y": 1.0978103042553204,
+          "z": -0.06576654170639813
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "c55e4fcf-eaaa-4190-93d9-29c3cc5fd192",
+      "name": "Brush collider clearance dab 1 11",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.2381124347448349,
+          "x": -0.11679740250110626,
+          "y": -0.9496670961380005,
+          "z": 0.16671296954154968
+        },
+        "forge.local_scale": {
+          "x": 0.8953097462654114,
+          "y": 0.8953097462654114,
+          "z": 0.8953097462654114
+        },
+        "forge.local_translation": {
+          "x": 0.2510301746428013,
+          "y": 1.021589870956291,
+          "z": -0.17363034007139505
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "5c48979f-b6c7-482e-8f5d-4b121f9fc427",
+      "name": "Brush collider clearance dab 1 12",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7843939661979675,
+          "x": -0.19355428218841553,
+          "y": 0.5502234697341919,
+          "z": -0.21099042892456055
+        },
+        "forge.local_scale": {
+          "x": 1.070566177368164,
+          "y": 1.070566177368164,
+          "z": 1.070566177368164
+        },
+        "forge.local_translation": {
+          "x": -0.45132105918601156,
+          "y": 1.5442967068271256,
+          "z": 0.6388807552400977
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "59033efa-f8fd-441e-bf74-b826d4ce539a",
+      "name": "Brush collider clearance dab 1 13",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.27469825744628906,
+          "x": -0.08837317675352097,
+          "y": -0.9271227121353149,
+          "z": 0.23911191523075104
+        },
+        "forge.local_scale": {
+          "x": 0.7039518356323242,
+          "y": 0.7039518356323242,
+          "z": 0.7039518356323242
+        },
+        "forge.local_translation": {
+          "x": -0.828474238794297,
+          "y": 1.3854271192883447,
+          "z": 0.34259327393956485
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "38e65ba3-21c8-4f68-8716-c46ad491559a",
+      "name": "Brush collider clearance dab 1 14",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8251703381538391,
+          "x": -0.1676264852285385,
+          "y": 0.5089959502220154,
+          "z": -0.17865729331970215
+        },
+        "forge.local_scale": {
+          "x": 0.9552146792411804,
+          "y": 0.9552146792411804,
+          "z": 0.9552146792411804
+        },
+        "forge.local_translation": {
+          "x": -0.15500645488500595,
+          "y": 1.3121717391098353,
+          "z": 0.30560488658957186
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "017a6ea6-c094-4a73-9e83-e9dfe53a1ddb",
+      "name": "Brush collider clearance dab 1 15",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8537147045135498,
+          "x": -0.23246648907661438,
+          "y": -0.4540780782699585,
+          "z": 0.10461197048425674
+        },
+        "forge.local_scale": {
+          "x": 0.8408543467521667,
+          "y": 0.8408543467521667,
+          "z": 0.8408543467521667
+        },
+        "forge.local_translation": {
+          "x": -0.5768002158030868,
+          "y": 1.4343310596624421,
+          "z": 0.44571271813474594
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "03f97a70-a2d3-4ec5-8a2f-46c356c9da97",
+      "name": "Brush collider clearance dab 1 16",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9158472418785095,
+          "x": -0.152121901512146,
+          "y": 0.3461053967475891,
+          "z": -0.13525447249412537
+        },
+        "forge.local_scale": {
+          "x": 0.7938265800476074,
+          "y": 0.7938265800476074,
+          "z": 0.7938265800476074
+        },
+        "forge.local_translation": {
+          "x": 0.17210499085485936,
+          "y": 1.0575753509069061,
+          "z": -0.11517496411688626
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "a3fd3ca9-d964-4091-8899-c520069f7dd1",
+      "name": "Brush collider clearance dab 1 17",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5429409742355347,
+          "x": -0.15856121480464935,
+          "y": -0.8113889098167419,
+          "z": 0.14738184213638306
+        },
+        "forge.local_scale": {
+          "x": 0.7620308995246887,
+          "y": 0.7620308995246887,
+          "z": 0.7620308995246887
+        },
+        "forge.local_translation": {
+          "x": 0.20873363446444274,
+          "y": 0.9170341398315517,
+          "z": -0.4221707223448902
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "47b5d11c-ab6a-498e-9a8e-4d7a485f2213",
+      "name": "Brush collider clearance dab 1 18",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6376032829284668,
+          "x": -0.07177360355854034,
+          "y": 0.7356504797935486,
+          "z": -0.21709202229976654
+        },
+        "forge.local_scale": {
+          "x": 0.8999649882316589,
+          "y": 0.8999649882316589,
+          "z": 0.8999649882316589
+        },
+        "forge.local_translation": {
+          "x": 0.6512797705829144,
+          "y": 1.1552841531488136,
+          "z": 0.2850518766324967
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "876c6d5c-873a-4ead-8493-336ad2e04b1f",
+      "name": "Brush collider clearance dab 1 19",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9132821559906006,
+          "x": -0.20124462246894836,
+          "y": 0.3254207968711853,
+          "z": -0.13970565795898438
+        },
+        "forge.local_scale": {
+          "x": 0.8398736715316772,
+          "y": 0.8398736715316772,
+          "z": 0.8398736715316772
+        },
+        "forge.local_translation": {
+          "x": -0.1978241113945842,
+          "y": 1.2871072998005517,
+          "z": 0.2459032808896154
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "aa1d398c-c91e-4acb-a199-04387b422a42",
+      "name": "Brush collider clearance dab 1 20",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9594654440879822,
+          "x": -0.24799604713916779,
+          "y": 0.06955591589212418,
+          "z": -0.11439390480518341
+        },
+        "forge.local_scale": {
+          "x": 0.6567447781562805,
+          "y": 0.6567447781562805,
+          "z": 0.6567447781562805
+        },
+        "forge.local_translation": {
+          "x": 0.052450821921229365,
+          "y": 1.5127095750639514,
+          "z": 0.7292807854246348
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "942f057d-f290-468c-a248-c286d31fe36e",
+      "name": "Brush collider clearance dab 1 21",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.1329634040594101,
+          "x": -0.044172413647174835,
+          "y": -0.9722460508346558,
+          "z": 0.18736913800239563
+        },
+        "forge.local_scale": {
+          "x": 0.8162162899971008,
+          "y": 0.8162162899971008,
+          "z": 0.8162162899971008
+        },
+        "forge.local_translation": {
+          "x": -0.4769982794299722,
+          "y": 0.9205547211287974,
+          "z": -0.536145823309198
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "d091b8cd-d69b-4428-af4b-80e5e0cf9152",
+      "name": "Brush collider clearance dab 1 22",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8563358187675476,
+          "x": -0.16783486306667328,
+          "y": -0.4870211184024811,
+          "z": 0.036481380462646484
+        },
+        "forge.local_scale": {
+          "x": 1.019454836845398,
+          "y": 1.019454836845398,
+          "z": 1.019454836845398
+        },
+        "forge.local_translation": {
+          "x": 0.3084050863981247,
+          "y": 0.7685079698968775,
+          "z": -0.7986408103723079
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "cf089f61-eb80-418e-8f37-2d4f78826f82",
+      "name": "Brush collider clearance dab 1 23",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.07658853381872177,
+          "x": 0.0772804394364357,
+          "y": 0.9790967702865601,
+          "z": -0.17184709012508392
+        },
+        "forge.local_scale": {
+          "x": 0.9840704798698425,
+          "y": 0.9840704798698425,
+          "z": 0.9840704798698425
+        },
+        "forge.local_translation": {
+          "x": 0.838891870714724,
+          "y": 0.8893446311800232,
+          "z": -0.2839762228075415
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "fc7a2313-5795-47b1-a37d-20758256e74e",
+      "name": "Brush collider clearance dab 1 24",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5135645270347595,
+          "x": -0.09314827620983124,
+          "y": 0.8277068138122559,
+          "z": -0.20609788596630096
+        },
+        "forge.local_scale": {
+          "x": 0.8251283764839172,
+          "y": 0.8251283764839172,
+          "z": 0.8251283764839172
+        },
+        "forge.local_translation": {
+          "x": -0.2738883655518293,
+          "y": 0.9670322380206513,
+          "z": -0.4067478076089174
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "e8646648-059a-4ab9-917f-626681f20641",
+      "name": "Brush collider clearance dab 1 25",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9653136730194092,
+          "x": -0.25295135378837585,
+          "y": 0.05643768981099129,
+          "z": -0.03162199631333351
+        },
+        "forge.local_scale": {
+          "x": 0.8253211379051208,
+          "y": 0.8253211379051208,
+          "z": 0.8253211379051208
+        },
+        "forge.local_translation": {
+          "x": -0.6916892291978002,
+          "y": 1.4188213948300943,
+          "z": 0.4106918828096241
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "f90f04c1-00ed-4c9e-83a6-117638fa14b5",
+      "name": "Brush collider clearance dab 1 26",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.40215495228767395,
+          "x": -0.21451805531978607,
+          "y": -0.8780105113983154,
+          "z": 0.14611974358558655
+        },
+        "forge.local_scale": {
+          "x": 1.0904401540756226,
+          "y": 1.0904401540756226,
+          "z": 1.0904401540756226
+        },
+        "forge.local_translation": {
+          "x": 0.3901081779040396,
+          "y": 1.3850817182499986,
+          "z": 0.6397480726707727
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "fb3175e9-e6ff-47f7-bffa-83657a573b6a",
+      "name": "Brush collider clearance dab 1 27",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.49957433342933655,
+          "x": -0.11702843755483627,
+          "y": 0.827913761138916,
+          "z": -0.2264700084924698
+        },
+        "forge.local_scale": {
+          "x": 0.8412443995475769,
+          "y": 0.8412443995475769,
+          "z": 0.8412443995475769
+        },
+        "forge.local_translation": {
+          "x": -0.6357857110910118,
+          "y": 1.4186989894220543,
+          "z": 0.41416858476586643
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "c7ca12a9-0392-4d5b-a171-8bdba9444eb6",
+      "name": "Brush collider clearance dab 1 28",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9383719563484192,
+          "x": -0.21623560786247253,
+          "y": -0.2694346308708191,
+          "z": 0.010258396156132221
+        },
+        "forge.local_scale": {
+          "x": 0.8724051117897034,
+          "y": 0.8724051117897034,
+          "z": 0.8724051117897034
+        },
+        "forge.local_translation": {
+          "x": 0.0200582429766655,
+          "y": 0.9799427797019422,
+          "z": -0.3281869147438556
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "3d62ddcc-475e-421b-b8ed-1fe92aac8068",
+      "name": "Brush collider clearance dab 1 29",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8405709266662598,
+          "x": -0.20841282606124878,
+          "y": -0.49222710728645325,
+          "z": 0.08784665167331696
+        },
+        "forge.local_scale": {
+          "x": 0.8080025911331177,
+          "y": 0.8080025911331177,
+          "z": 0.8080025911331177
+        },
+        "forge.local_translation": {
+          "x": -0.47171971555799247,
+          "y": 1.1607950559532547,
+          "z": -0.034616816276684406
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "9fcce316-1897-4c0d-96c7-170e7c57bce3",
+      "name": "Brush collider clearance dab 1 30",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5011497139930725,
+          "x": -0.12706822156906128,
+          "y": 0.8252149820327759,
+          "z": -0.2274266928434372
+        },
+        "forge.local_scale": {
+          "x": 1.0401140451431274,
+          "y": 1.0401140451431274,
+          "z": 1.0401140451431274
+        },
+        "forge.local_translation": {
+          "x": -0.6654084172099829,
+          "y": 1.2290478538129666,
+          "z": 0.07926590438000858
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "d878df88-bb53-4bc5-b855-4bf9790bf64a",
+      "name": "Brush collider clearance dab 1 31",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.4332074224948883,
+          "x": -0.04835313931107521,
+          "y": 0.867360532283783,
+          "z": -0.2401646077632904
+        },
+        "forge.local_scale": {
+          "x": 1.0084905624389648,
+          "y": 1.0084905624389648,
+          "z": 1.0084905624389648
+        },
+        "forge.local_translation": {
+          "x": -0.0976332949474454,
+          "y": 1.3348396448945876,
+          "z": 0.36464995457790794
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "de664762-f842-4b3f-b001-864d4cf78275",
+      "name": "Brush collider clearance dab 1 32",
+      "parent": "f29d0e79-254a-4eb1-9d53-a0f7e9dbb077",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "name": "Brush collider clearance dab 2",
+      "parent": "52f2270e-1d32-4247-ab36-29d81dcaa40f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9932363629341125,
+          "x": -0.020993616431951523,
+          "y": 0.11393973976373672,
+          "z": 0.0076497397385537624
+        },
+        "forge.local_scale": {
+          "x": 0.7139932513237,
+          "y": 0.7139932513237,
+          "z": 0.7139932513237
+        },
+        "forge.local_translation": {
+          "x": -0.41159656131640077,
+          "y": 0.5741159444612093,
+          "z": 0.05869716913439334
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "95088b44-3348-4f3f-967c-6f6c92ca64e3",
+      "name": "Brush collider clearance dab 2 1",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9992614388465881,
+          "x": -0.020287692546844482,
+          "y": 0.03126206248998642,
+          "z": 0.00936268549412489
+        },
+        "forge.local_scale": {
+          "x": 0.9340479373931885,
+          "y": 0.9340479373931885,
+          "z": 0.9340479373931885
+        },
+        "forge.local_translation": {
+          "x": -0.8414877100847662,
+          "y": 0.5749419741625024,
+          "z": 0.2942935057450086
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "43a3c0e7-f9d1-4de1-a0d2-faedf3620b87",
+      "name": "Brush collider clearance dab 2 2",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9846068620681763,
+          "x": -0.02141491323709488,
+          "y": 0.17334961891174316,
+          "z": 0.006375884637236595
+        },
+        "forge.local_scale": {
+          "x": 0.6928797364234924,
+          "y": 0.6928797364234924,
+          "z": 0.6928797364234924
+        },
+        "forge.local_translation": {
+          "x": 0.5415394376032054,
+          "y": 0.613122753145464,
+          "z": 0.5572988266590982
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "bd3a0384-e574-42b6-8cf9-7ebb0b78b42c",
+      "name": "Brush collider clearance dab 2 3",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.975271463394165,
+          "x": -0.017298046499490738,
+          "y": -0.21987801790237427,
+          "z": 0.014143208041787148
+        },
+        "forge.local_scale": {
+          "x": 1.0422385931015015,
+          "y": 1.0422385931015015,
+          "z": 1.0422385931015015
+        },
+        "forge.local_translation": {
+          "x": 0.0147628759033978,
+          "y": 0.580332658796644,
+          "z": 0.0009354543406516314
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "b259ad6c-3afb-4e8f-93aa-7bb9464c1150",
+      "name": "Brush collider clearance dab 2 4",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.47687965631484985,
+          "x": -0.018315298482775688,
+          "y": 0.8786845207214355,
+          "z": -0.01279854029417038
+        },
+        "forge.local_scale": {
+          "x": 0.9275909066200256,
+          "y": 0.9275909066200256,
+          "z": 0.9275909066200256
+        },
+        "forge.local_translation": {
+          "x": 0.26057915976271034,
+          "y": 0.5992446450360739,
+          "z": 0.35082637653686105
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "84ddea9e-0f55-4120-b4ea-e3cd69717044",
+      "name": "Brush collider clearance dab 2 5",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7555628418922424,
+          "x": -0.008560027927160263,
+          "y": -0.6546949744224548,
+          "z": 0.02063927985727787
+        },
+        "forge.local_scale": {
+          "x": 0.845743715763092,
+          "y": 0.845743715763092,
+          "z": 0.845743715763092
+        },
+        "forge.local_translation": {
+          "x": -0.15521290367469193,
+          "y": 0.5955530768873704,
+          "z": 0.4664332345593721
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "dd9afbc7-9522-4091-86ef-74e59f7ca44c",
+      "name": "Brush collider clearance dab 2 6",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.26053863763809204,
+          "x": -0.014855383895337582,
+          "y": 0.9652048349380493,
+          "z": -0.01669035479426384
+        },
+        "forge.local_scale": {
+          "x": 0.9111583232879639,
+          "y": 0.9111583232879639,
+          "z": 0.9111583232879639
+        },
+        "forge.local_translation": {
+          "x": 0.3520979988388717,
+          "y": 0.5848995235775281,
+          "z": -0.05356037593446672
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "1569dde1-5479-4d09-bef0-b007b8b8aca4",
+      "name": "Brush collider clearance dab 2 7",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9068855047225952,
+          "x": -0.022334370762109756,
+          "y": 0.4207843542098999,
+          "z": 0.0006528403609991074
+        },
+        "forge.local_scale": {
+          "x": 1.057519793510437,
+          "y": 1.057519793510437,
+          "z": 1.057519793510437
+        },
+        "forge.local_translation": {
+          "x": -0.6305024969391525,
+          "y": 0.5536381468461327,
+          "z": -0.34379529166035355
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "1c37f6bc-d248-4b8b-aa95-2946b07722f5",
+      "name": "Brush collider clearance dab 2 8",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.2953515946865082,
+          "x": 0.0036424179561436176,
+          "y": -0.9551272988319397,
+          "z": 0.02204502560198307
+        },
+        "forge.local_scale": {
+          "x": 0.7261215448379517,
+          "y": 0.7261215448379517,
+          "z": 0.7261215448379517
+        },
+        "forge.local_translation": {
+          "x": -0.8419160538353027,
+          "y": 0.5673781600340824,
+          "z": 0.1054121440742165
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "1c9ae608-1888-46d3-b42f-3ce71487ee3e",
+      "name": "Brush collider clearance dab 2 9",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.948826014995575,
+          "x": -0.015818525105714798,
+          "y": -0.3150078356266022,
+          "z": 0.01578051783144474
+        },
+        "forge.local_scale": {
+          "x": 1.0176291465759277,
+          "y": 1.0176291465759277,
+          "z": 1.0176291465759277
+        },
+        "forge.local_translation": {
+          "x": 0.10400830814614892,
+          "y": 0.6162417473014997,
+          "z": 0.8540393196512014
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "cc302a0d-00f9-4cd3-8a64-12e43a4ef38e",
+      "name": "Brush collider clearance dab 2 10",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9656897783279419,
+          "x": -0.021890191361308098,
+          "y": 0.25873541831970215,
+          "z": 0.004479947034269571
+        },
+        "forge.local_scale": {
+          "x": 0.670024573802948,
+          "y": 0.670024573802948,
+          "z": 0.670024573802948
+        },
+        "forge.local_translation": {
+          "x": 0.0316292691975832,
+          "y": 0.5780019089319093,
+          "z": -0.06576654170639813
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "37bce74a-cec6-4104-8fb6-3d208c747984",
+      "name": "Brush collider clearance dab 2 11",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.24314360320568085,
+          "x": 0.004832037724554539,
+          "y": -0.969732940196991,
+          "z": 0.02181517332792282
+        },
+        "forge.local_scale": {
+          "x": 0.8953097462654114,
+          "y": 0.8953097462654114,
+          "z": 0.8953097462654114
+        },
+        "forge.local_translation": {
+          "x": 0.2510301746428013,
+          "y": 0.5780753750361509,
+          "z": -0.17363034007139505
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "ade0fc1e-9256-48c3-a84c-ae40668a5259",
+      "name": "Brush collider clearance dab 2 12",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8184643983840942,
+          "x": -0.022099532186985016,
+          "y": 0.5741226077079773,
+          "z": -0.0032961443066596985
+        },
+        "forge.local_scale": {
+          "x": 1.070566177368164,
+          "y": 1.070566177368164,
+          "z": 1.070566177368164
+        },
+        "forge.local_translation": {
+          "x": -0.45132105918601156,
+          "y": 0.5965287989323406,
+          "z": 0.6388807552400977
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "18e880c7-ab42-49a4-b364-190d46b1605f",
+      "name": "Brush collider clearance dab 2 13",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.2840128540992737,
+          "x": 0.003903389908373356,
+          "y": -0.9585601091384888,
+          "z": 0.02200031653046608
+        },
+        "forge.local_scale": {
+          "x": 0.7039518356323242,
+          "y": 0.7039518356323242,
+          "z": 0.7039518356323242
+        },
+        "forge.local_translation": {
+          "x": -0.828474238794297,
+          "y": 0.5771342322253921,
+          "z": 0.34259327393956485
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "2f7c518e-2647-4bda-89c4-554b14ed6813",
+      "name": "Brush collider clearance dab 2 14",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8508934378623962,
+          "x": -0.022255437448620796,
+          "y": 0.5248629450798035,
+          "z": -0.0019873101264238358
+        },
+        "forge.local_scale": {
+          "x": 0.9552146792411804,
+          "y": 0.9552146792411804,
+          "z": 0.9552146792411804
+        },
+        "forge.local_translation": {
+          "x": -0.15500645488500595,
+          "y": 0.5891240589279265,
+          "z": 0.30560488658957186
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "ef564b77-2b7c-44f4-9ffe-119f9da86f08",
+      "name": "Brush collider clearance dab 2 15",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8826628923416138,
+          "x": -0.012952021323144436,
+          "y": -0.4694751799106598,
+          "z": 0.018207017332315445
+        },
+        "forge.local_scale": {
+          "x": 0.8408543467521667,
+          "y": 0.8408543467521667,
+          "z": 0.8408543467521667
+        },
+        "forge.local_translation": {
+          "x": -0.5768002158030868,
+          "y": 0.5862924817190278,
+          "z": 0.44571271813474594
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "ad7cd08b-b731-4924-b95d-90c51438d655",
+      "name": "Brush collider clearance dab 2 16",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9351984858512878,
+          "x": -0.022227026522159576,
+          "y": 0.35341838002204895,
+          "z": 0.002282474422827363
+        },
+        "forge.local_scale": {
+          "x": 0.7938265800476074,
+          "y": 0.7938265800476074,
+          "z": 0.7938265800476074
+        },
+        "forge.local_translation": {
+          "x": 0.17210499085485936,
+          "y": 0.5788350856740552,
+          "z": -0.11517496411688626
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "fb45ab3d-6cf9-4ff8-ad8c-bfc18284414e",
+      "name": "Brush collider clearance dab 2 17",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5559893846511841,
+          "x": -0.002809491939842701,
+          "y": -0.8308889865875244,
+          "z": 0.022166576236486435
+        },
+        "forge.local_scale": {
+          "x": 0.7620308995246887,
+          "y": 0.7620308995246887,
+          "z": 0.7620308995246887
+        },
+        "forge.local_translation": {
+          "x": 0.20873363446444274,
+          "y": 0.5672878392294496,
+          "z": -0.4221707223448902
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "6a1c05fd-ce87-4ebb-8844-856bf7756d32",
+      "name": "Brush collider clearance dab 2 18",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6547901630401611,
+          "x": -0.020640358328819275,
+          "y": 0.7554803490638733,
+          "z": -0.008557426743209362
+        },
+        "forge.local_scale": {
+          "x": 0.8999649882316589,
+          "y": 0.8999649882316589,
+          "z": 0.8999649882316589
+        },
+        "forge.local_translation": {
+          "x": 0.6512797705829144,
+          "y": 0.6044276825064013,
+          "z": 0.2850518766324967
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "be657db6-587b-4d40-862e-e5c9efdde0c7",
+      "name": "Brush collider clearance dab 2 19",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9417519569396973,
+          "x": -0.02217966318130493,
+          "y": 0.33556514978408813,
+          "z": 0.0027048983611166477
+        },
+        "forge.local_scale": {
+          "x": 0.8398736715316772,
+          "y": 0.8398736715316772,
+          "z": 0.8398736715316772
+        },
+        "forge.local_translation": {
+          "x": -0.1978241113945842,
+          "y": 0.5858796324426058,
+          "z": 0.2459032808896154
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "b88aa69b-144e-44ba-b3e7-0b4bb536a109",
+      "name": "Brush collider clearance dab 2 20",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9971336126327515,
+          "x": -0.020655198022723198,
+          "y": 0.07228664308786392,
+          "z": 0.008521337062120438
+        },
+        "forge.local_scale": {
+          "x": 0.6567447781562805,
+          "y": 0.6567447781562805,
+          "z": 0.6567447781562805
+        },
+        "forge.local_translation": {
+          "x": 0.052450821921229365,
+          "y": 0.6102202619504801,
+          "z": 0.7292807854246348
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "7024f24a-c397-49d0-a551-1ee4a2f605d0",
+      "name": "Brush collider clearance dab 2 21",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.13546393811702728,
+          "x": 0.007192474789917469,
+          "y": -0.9905303120613098,
+          "z": 0.021154722198843956
+        },
+        "forge.local_scale": {
+          "x": 0.8162162899971008,
+          "y": 0.8162162899971008,
+          "z": 0.8162162899971008
+        },
+        "forge.local_translation": {
+          "x": -0.4769982794299722,
+          "y": 0.5490142127731932,
+          "z": -0.536145823309198
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "8df9c447-1c6a-4604-94d6-d0c2ea5c56cb",
+      "name": "Brush collider clearance dab 2 22",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8690360188484192,
+          "x": -0.012432055547833443,
+          "y": -0.4942440390586853,
+          "z": 0.018565945327281952
+        },
+        "forge.local_scale": {
+          "x": 1.019454836845398,
+          "y": 1.019454836845398,
+          "z": 1.019454836845398
+        },
+        "forge.local_translation": {
+          "x": 0.3084050863981247,
+          "y": 0.5542224772071386,
+          "z": -0.7986408103723079
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "1ed5e817-b8a9-4701-9548-5235e7d1a764",
+      "name": "Brush collider clearance dab 2 23",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.07796595990657806,
+          "x": -0.011520671658217907,
+          "y": 0.9967055916786194,
+          "z": -0.019144922494888306
+        },
+        "forge.local_scale": {
+          "x": 0.9840704798698425,
+          "y": 0.9840704798698425,
+          "z": 0.9840704798698425
+        },
+        "forge.local_translation": {
+          "x": 0.838891870714724,
+          "y": 0.5854187731913882,
+          "z": -0.2839762228075415
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "9d13e3d6-aaeb-4127-be97-0772a15e0837",
+      "name": "Brush collider clearance dab 2 24",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5270944237709045,
+          "x": -0.01902749203145504,
+          "y": 0.8495129346847534,
+          "z": -0.011713449843227863
+        },
+        "forge.local_scale": {
+          "x": 0.8251283764839172,
+          "y": 0.8251283764839172,
+          "z": 0.8251283764839172
+        },
+        "forge.local_translation": {
+          "x": -0.2738883655518293,
+          "y": 0.5582523244355095,
+          "z": -0.4067478076089174
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "c069a5fa-f61e-4db1-8f8c-2d18d8fbde12",
+      "name": "Brush collider clearance dab 2 25",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9980460405349731,
+          "x": -0.020534154027700424,
+          "y": 0.05835140869021416,
+          "z": 0.008809021674096584
+        },
+        "forge.local_scale": {
+          "x": 0.8253211379051208,
+          "y": 0.8253211379051208,
+          "z": 0.8253211379051208
+        },
+        "forge.local_translation": {
+          "x": -0.6916892291978002,
+          "y": 0.5825938715654015,
+          "z": 0.4106918828096241
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "344cd96e-fcb2-48f0-a89c-beb6afebc1d1",
+      "name": "Brush collider clearance dab 2 26",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.4163226783275604,
+          "x": 0.0007625884027220309,
+          "y": -0.9089423418045044,
+          "z": 0.02233089506626129
+        },
+        "forge.local_scale": {
+          "x": 1.0904401540756226,
+          "y": 1.0904401540756226,
+          "z": 1.0904401540756226
+        },
+        "forge.local_translation": {
+          "x": 0.3901081779040396,
+          "y": 0.6133920975350807,
+          "z": 0.6397480726707727
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "81955ac0-0e94-47ed-b35e-13e377f6ffee",
+      "name": "Brush collider clearance dab 2 27",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5165141820907593,
+          "x": -0.018880702555179596,
+          "y": 0.8559870719909668,
+          "z": -0.011948618106544018
+        },
+        "forge.local_scale": {
+          "x": 0.8412443995475769,
+          "y": 0.8412443995475769,
+          "z": 0.8412443995475769
+        },
+        "forge.local_translation": {
+          "x": -0.6357857110910118,
+          "y": 0.5838510088068862,
+          "z": 0.41416858476586643
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "3339b12e-e5dc-4c24-9fc6-69a2851d3cbb",
+      "name": "Brush collider clearance dab 2 28",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9609237313270569,
+          "x": -0.016451139003038406,
+          "y": -0.2759099304676056,
+          "z": 0.015119866468012333
+        },
+        "forge.local_scale": {
+          "x": 0.8724051117897034,
+          "y": 0.8724051117897034,
+          "z": 0.8724051117897034
+        },
+        "forge.local_translation": {
+          "x": 0.0200582429766655,
+          "y": 0.5672736837172352,
+          "z": -0.3281869147438556
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "dbb5ca42-8943-4ef9-8801-6aa17e661896",
+      "name": "Brush collider clearance dab 2 29",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8627159595489502,
+          "x": -0.012196265161037445,
+          "y": -0.5051949620246887,
+          "z": 0.0187216866761446
+        },
+        "forge.local_scale": {
+          "x": 0.8080025911331177,
+          "y": 0.8080025911331177,
+          "z": 0.8080025911331177
+        },
+        "forge.local_translation": {
+          "x": -0.47171971555799247,
+          "y": 0.5691809266663386,
+          "z": -0.034616816276684406
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "95f83431-aeef-4113-a1bb-c4ff61f31a9b",
+      "name": "Brush collider clearance dab 2 30",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5189442038536072,
+          "x": -0.01891457475721836,
+          "y": 0.8545160293579102,
+          "z": -0.011894923634827137
+        },
+        "forge.local_scale": {
+          "x": 1.0401140451431274,
+          "y": 1.0401140451431274,
+          "z": 1.0401140451431274
+        },
+        "forge.local_translation": {
+          "x": -0.6654084172099829,
+          "y": 0.5698624608096042,
+          "z": 0.07926590438000858
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "43c9bb29-541f-443e-a49a-42dc0af6fa53",
+      "name": "Brush collider clearance dab 2 31",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.44671183824539185,
+          "x": -0.017869358882308006,
+          "y": 0.8943988084793091,
+          "z": -0.0134141705930233
+        },
+        "forge.local_scale": {
+          "x": 1.0084905624389648,
+          "y": 1.0084905624389648,
+          "z": 1.0084905624389648
+        },
+        "forge.local_translation": {
+          "x": -0.0976332949474454,
+          "y": 0.5926333353776486,
+          "z": 0.36464995457790794
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "ed723d37-fb6b-45a2-b7b9-649267d6b0d4",
+      "name": "Brush collider clearance dab 2 32",
+      "parent": "cfbc61f0-8bda-40a6-8238-f6541c255a99",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e12de71f-7685-4503-9265-c60d54e44458",
+      "name": "Brush plant separation",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9d815b9d-a41e-4061-a220-0d17199262a0",
+      "name": "Brush plant separation dab 1",
+      "parent": "e12de71f-7685-4503-9265-c60d54e44458",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9740808606147766,
+          "x": 0.19527095556259155,
+          "y": 0.111742302775383,
+          "z": -0.02344002015888691
+        },
+        "forge.local_scale": {
+          "x": 0.7139932513237,
+          "y": 0.7139932513237,
+          "z": 0.7139932513237
+        },
+        "forge.local_translation": {
+          "x": -0.41159656131640077,
+          "y": 1.3870267067896842,
+          "z": 0.05869716913439334
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "dfab2f39-cd84-4f8f-a81d-b50ef5605fd1",
+      "name": "Brush plant separation dab 1 1",
+      "parent": "9d815b9d-a41e-4061-a220-0d17199262a0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9746911525726318,
+          "x": 0.13692070543766022,
+          "y": 0.17160384356975555,
+          "z": -0.04221346229314804
+        },
+        "forge.local_scale": {
+          "x": 0.6928797364234924,
+          "y": 0.6928797364234924,
+          "z": 0.6928797364234924
+        },
+        "forge.local_translation": {
+          "x": 0.5415394376032054,
+          "y": 1.1097637252656773,
+          "z": 0.5572988266590982
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "1fe92f85-a1d7-4ea1-af95-52f421cf09da",
+      "name": "Brush plant separation dab 1 3",
+      "parent": "9d815b9d-a41e-4061-a220-0d17199262a0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8484117388725281,
+          "x": 0.11782065033912659,
+          "y": -0.48251447081565857,
+          "z": -0.18301793932914734
+        },
+        "forge.local_scale": {
+          "x": 1.019454836845398,
+          "y": 1.019454836845398,
+          "z": 1.019454836845398
+        },
+        "forge.local_translation": {
+          "x": 0.3084050863981247,
+          "y": 1.6487406077831812,
+          "z": -0.7986408103723079
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "68e8c1bf-b70d-47c7-b236-1fa683f0d744",
+      "name": "Brush plant separation dab 1 23",
+      "parent": "9d815b9d-a41e-4061-a220-0d17199262a0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.0768008604645729,
+          "x": 0.1024794727563858,
+          "y": 0.9818111062049866,
+          "z": 0.14016607403755188
+        },
+        "forge.local_scale": {
+          "x": 0.9840704798698425,
+          "y": 0.9840704798698425,
+          "z": 0.9840704798698425
+        },
+        "forge.local_translation": {
+          "x": 0.838891870714724,
+          "y": 1.316522863714209,
+          "z": -0.2839762228075415
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "a0c956d4-3b0f-41e4-b348-fa72a0c9a1e9",
+      "name": "Brush plant separation dab 1 24",
+      "parent": "9d815b9d-a41e-4061-a220-0d17199262a0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1fe7b5fd-0d98-45a0-9d90-73f34eec1366",
+      "name": "Brush plant separation dab 2",
+      "parent": "e12de71f-7685-4503-9265-c60d54e44458",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9932363629341125,
+          "x": -0.020993616431951523,
+          "y": 0.11393973976373672,
+          "z": 0.0076497397385537624
+        },
+        "forge.local_scale": {
+          "x": 0.7139932513237,
+          "y": 0.7139932513237,
+          "z": 0.7139932513237
+        },
+        "forge.local_translation": {
+          "x": -0.41159656131640077,
+          "y": 0.8141159539979524,
+          "z": 0.05869716913439334
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "8fd25537-f97e-426a-bbc3-8abdedcd9721",
+      "name": "Brush plant separation dab 2 1",
+      "parent": "1fe7b5fd-0d98-45a0-9d90-73f34eec1366",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9846068620681763,
+          "x": -0.02141491323709488,
+          "y": 0.17334961891174316,
+          "z": 0.006375884637236595
+        },
+        "forge.local_scale": {
+          "x": 0.6928797364234924,
+          "y": 0.6928797364234924,
+          "z": 0.6928797364234924
+        },
+        "forge.local_translation": {
+          "x": 0.5415394376032054,
+          "y": 0.8531227626822072,
+          "z": 0.5572988266590982
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "a2a05a94-7469-42ec-a90b-6cb72617c3b2",
+      "name": "Brush plant separation dab 2 3",
+      "parent": "1fe7b5fd-0d98-45a0-9d90-73f34eec1366",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8690360188484192,
+          "x": -0.012432055547833443,
+          "y": -0.4942440390586853,
+          "z": 0.018565945327281952
+        },
+        "forge.local_scale": {
+          "x": 1.019454836845398,
+          "y": 1.019454836845398,
+          "z": 1.019454836845398
+        },
+        "forge.local_translation": {
+          "x": 0.3084050863981247,
+          "y": 0.7942224867438817,
+          "z": -0.7986408103723079
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "2b68d025-7e5d-458c-af38-54daf9bdac9f",
+      "name": "Brush plant separation dab 2 23",
+      "parent": "1fe7b5fd-0d98-45a0-9d90-73f34eec1366",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

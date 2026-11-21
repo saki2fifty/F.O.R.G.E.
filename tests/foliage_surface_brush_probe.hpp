@@ -26,7 +26,8 @@ inline void check(bool value, const std::string& why) {
         throw std::runtime_error(why);
 }
 inline AssetId native(DiligentPresentation& presentation, Diligent::IDeviceContext* graphics,
-                      const std::filesystem::path& root, const std::filesystem::path& output) {
+                      const std::filesystem::path& root, const std::filesystem::path& output,
+                      bool clearance = false) {
     // Keep the shipped Gallery immutable on repeat runs. The first authoring
     // proof can supply the Gallery; later runs use a separate private Scene.
     const auto authored_path = std::filesystem::exists(root / scene_path)
@@ -175,6 +176,12 @@ inline AssetId native(DiligentPresentation& presentation, Diligent::IDeviceConte
     input.click("foliage:align_slope");
     input.click("foliage:brush");
     input.type("foliage:dab_distance", "1.2");
+    if (clearance) {
+        input.click("foliage:collision");
+        input.click("foliage:separate_new");
+        input.type("foliage:clearance_radius", ".55");
+        input.type("foliage:clearance_mask", "0");
+    }
     check(panel.brush_enabled(), "Actual brush control failed to arm");
     unsigned stroke_count = 0;
     for (const auto& surface : {left, right}) {
@@ -184,6 +191,8 @@ inline AssetId native(DiligentPresentation& presentation, Diligent::IDeviceConte
                                                    : "Mirrored surface brush stroke");
         input.click("foliage:terrain");
         input.type("foliage:dab_distance", "1.2");
+        if (clearance)
+            input.type("foliage:clearance_mask", "0");
         settle();
         const auto before = scene.document();
         auto move = [&](float x) {
@@ -199,19 +208,62 @@ inline AssetId native(DiligentPresentation& presentation, Diligent::IDeviceConte
         if (!stroke_count) {
             test::ViewImageReference reference;
             reference.queue(presentation.device(), graphics, srv);
-            save_view_png(output / "foliage-brush-native.png", desc.Width, desc.Height,
-                          reference.read(graphics));
-            test::verify_saved_view(presentation.device(), graphics, srv,
-                                    output / "foliage-brush-native.png");
+            const auto image = output / (clearance ? "foliage-brush-clearance-native.png"
+                                                   : "foliage-brush-native.png");
+            save_view_png(image, desc.Width, desc.Height, reference.read(graphics));
+            test::verify_saved_view(presentation.device(), graphics, srv, image);
         }
         io.AddMouseButtonEvent(0, false);
         frame();
+        unsigned retained = 48, retained_dabs = 4;
+        if (clearance) {
+            check(scene.document() == before && panel.collision_task().busy() &&
+                      !panel.brush_enabled(),
+                  "Cleared brush release published before its asynchronous task finished");
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+            while (panel.collision_task().busy()) {
+                check(std::chrono::steady_clock::now() < deadline,
+                      "Native brush clearance stalled");
+                frame();
+            }
+            const auto state = panel.collision_task().state();
+            check(state.at("state") == "ready", state.dump());
+            const auto& result = state.at("result");
+            retained = result.at("retained_count").get<unsigned>();
+            retained_dabs = unsigned(result.at("retained_dab_indices").size());
+            check(result.at("authoring_operation") == "mesh.stroke" &&
+                      result.at("candidate_count") == 48 && result.at("original_dab_count") == 4 &&
+                      result.at("new_overlap_count") > 0 && retained > 0 && retained < 48 &&
+                      ui_context.selection.entity() == surface && panel.brush_enabled(),
+                  "Actual cleared brush lost its mask, counts or surface selection");
+        }
         const auto after = scene.document();
-        check(after.at("entities").size() == before.at("entities").size() + 53,
-              "Native stroke did not create 48 objects/four dabs/root: " + panel.diagnostic());
+        check(after.at("entities").size() ==
+                  before.at("entities").size() + retained + retained_dabs + 1,
+              "Native stroke did not create its retained objects/dabs/root: " + panel.diagnostic());
         check(scene.undo() && scene.document() == before && scene.redo() &&
                   scene.document() == after,
               "Native projected stroke did not use one Undo/Redo");
+        if (clearance && !stroke_count) {
+            // A second gesture on the same selected surface must remain usable.
+            move(500);
+            io.AddMouseButtonEvent(0, true);
+            frame();
+            io.AddMouseButtonEvent(0, false);
+            frame();
+            check(panel.collision_task().busy() && scene.document() == after,
+                  "A repeat cleared stroke lost its selected surface or early-mutated Scene");
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+            while (panel.collision_task().busy()) {
+                check(std::chrono::steady_clock::now() < deadline,
+                      "Repeat native brush clearance stalled");
+                frame();
+            }
+            check(scene.document().at("entities").size() > after.at("entities").size() &&
+                      ui_context.selection.entity() == surface && scene.undo() &&
+                      scene.document() == after,
+                  "Repeat cleared stroke failed its ordinary Undo or selection policy");
+        }
         ++stroke_count;
     }
     project.save();
@@ -259,5 +311,70 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                         "software Vulkan; no Windows or physical GPU acceptance"}};
     std::ofstream(scratch / "receipt.json") << receipt.dump(2) << '\n';
     std::cout << receipt.dump() << '\n';
+
+    const auto cleared_source = scratch / "ClearanceSource";
+    const auto cleared_output = scratch / "clearance";
+    std::filesystem::create_directories(cleared_output);
+    std::filesystem::copy(gallery, cleared_source, std::filesystem::copy_options::recursive);
+    const auto cleared_id = native(presentation, graphics, cleared_source, cleared_output, true);
+    // Sparse static foliage has fewer palette colors than the dense baseline,
+    // especially in portrait. Compare actual generated-plant pixels with a
+    // no-plants control; the dense baseline retains its color-diversity check.
+    const auto clear_before = test_gallery_capture::render(
+        presentation, graphics, cleared_source, cleared_id, cleared_output / "authored", 1, false);
+    const auto no_plants = test_gallery_capture::render(
+        presentation, graphics, cleared_source, cleared_id, cleared_output / "no-plants", 1, false,
+        {30, 60, 90}, false, {}, [](RuntimeWorld& world, unsigned tick) {
+            if (tick != 1)
+                return;
+            auto document = world.scene.document();
+            unsigned hidden = 0;
+            for (auto& row : document["entities"]) {
+                const auto name = row.at("name").get<std::string>();
+                if ((name.starts_with("Tilted surface brush stroke ") ||
+                     name.starts_with("Mirrored surface brush stroke ")) &&
+                    row.at("components").contains("forge.mesh_renderer")) {
+                    row["components"]["forge.mesh_renderer"]["visible"] = false;
+                    ++hidden;
+                }
+            }
+            check(hidden != 0, "Cleared brush counterfactual found no generated plants");
+            world.scene.edit(document);
+        });
+    check(clear_before.size() == 4 && no_plants.size() == 4,
+          "Cleared brush lacks its complete view/control sample set");
+    Json visible_pixels = Json::array();
+    for (std::size_t image = 0; image < clear_before.size(); ++image) {
+        check(clear_before[image].size() == no_plants[image].size(),
+              "Cleared brush counterfactual view dimensions differ");
+        unsigned green = 0;
+        for (std::size_t pixel = 0; pixel < clear_before[image].size(); ++pixel) {
+            const auto& color = clear_before[image][pixel];
+            green += color != no_plants[image][pixel] && color[1] > color[0] && color[1] > color[2];
+        }
+        check(green >= 16, "Cleared brush generated plants are absent from a sampled Game view");
+        visible_pixels.push_back(green);
+    }
+    const std::array cleared_roots{cleared_id};
+    package_runtime_content(cleared_source, cleared_output / "Export", cleared_roots,
+                            {"windows", "d3d12"});
+    std::filesystem::rename(cleared_output / "Export", cleared_output / "Relocated");
+    std::filesystem::rename(cleared_source, scratch / "ClearanceSourcesOffline");
+    const auto clear_after =
+        test_gallery_capture::render(presentation, graphics, cleared_output / "Relocated",
+                                     cleared_id, cleared_output / "relocated", 1, false);
+    check(clear_before.size() == 4 && clear_before == clear_after,
+          "Cleared brush export pixels changed after source hiding");
+    const Json clear_receipt{{"scene", cleared_id},
+                             {"native_cleared_strokes", 2},
+                             {"repeat_stroke_undo", true},
+                             {"visible_generated_plant_pixels", std::move(visible_pixels)},
+                             {"exact_image_pairs", clear_before.size()},
+                             {"scope", "Production native controls/retained Vulkan picking, "
+                                       "asynchronous clearance, preserved surface selection and "
+                                       "source-hidden relocated software rendering. No Windows, "
+                                       "physical GPU or native GPU sanitizer acceptance."}};
+    std::ofstream(cleared_output / "receipt.json") << clear_receipt.dump(2) << '\n';
+    std::cout << clear_receipt.dump() << '\n';
 }
 } // namespace forge::test_foliage_brush

@@ -196,6 +196,139 @@ void separate_candidates(const std::filesystem::path& base) {
               "Candidate separation lost its count or failed to exercise both outcomes");
     }
 }
+void stroke_candidates(const std::filesystem::path& base) {
+    const auto root = std::filesystem::absolute(base / AssetId::generate().str());
+    std::filesystem::create_directories(root);
+    auto lease = std::make_shared<ProjectLease>(root);
+    AssetCatalog(root).save(AssetCatalog::project_index(root));
+    ProjectSettings(root).save(ProjectSettings::defaults("Stroke clearance"));
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto source = authoring_command(scene, "entity.create", {{"recipe", "primitive.0"}})
+                            .at("selected")
+                            .get<std::string>();
+    detail::MeshScatterSettings scatter;
+    scatter.count = 2;
+    scatter.radius = .01;
+    scatter.spacing = 0;
+    auto dab = detail::mesh_scatter_arguments(source, scatter, "Stroke");
+    dab.erase("entity");
+    dab.erase("name");
+    Json arguments{{"entity", source}, {"name", "Cleared stroke"}, {"dabs", Json::array()}};
+    for (unsigned i = 0; i < 3; ++i) {
+        auto value = dab;
+        value["world_heights"] = {double(i), double(i)};
+        value["world_normals"] = {{{"x", 0}, {"y", 1}, {"z", 0}}, {{"x", 0}, {"y", 1}, {"z", 0}}};
+        arguments["dabs"].push_back(std::move(value));
+    }
+    const auto before = scene.document();
+    const auto revision = scene.revision();
+    FoliageCollisionSettings settings;
+    settings.mask = 0;
+    settings.radius = .6;
+    FoliageCollisionPreparation task;
+    task.start(lease, scene, arguments, settings);
+    const auto unfiltered = settled(task, scene, root).at("result");
+    check(unfiltered.at("authoring_operation") == "mesh.stroke" &&
+              unfiltered.at("original_dab_count") == 3 &&
+              unfiltered.at("retained_dab_indices") == Json::array({0, 1, 2}) &&
+              unfiltered.at("candidate_count") == 6 && unfiltered.at("retained_count") == 6,
+          "Default stroke clearance lost dabs or changed the generated pool");
+    settings.avoid_new_overlaps = true;
+    const auto started = task.start(lease, scene, arguments, settings);
+    check(task.start(lease, scene, arguments, settings).at("operation") == started.at("operation"),
+          "Exact pending stroke retry created another task");
+    const auto cleared = settled(task, scene, root).at("result");
+    const auto& resolved = cleared.at("arguments");
+    check(cleared.at("candidate_count") == 6 && cleared.at("retained_count") == 2 &&
+              cleared.at("new_overlap_count") == 4 &&
+              cleared.at("retained_dab_indices") == Json::array({0, 2}) &&
+              resolved.at("dabs").size() == 2,
+          "Cross-dab separation did not omit the fully blocked middle dab");
+    for (unsigned i = 0; i < 2; ++i) {
+        const auto& returned = resolved.at("dabs")[i];
+        check(returned.at("placement_mask") == Json::array({true, false}) &&
+                  returned.at("world_heights") == arguments.at("dabs")[i * 2].at("world_heights") &&
+                  returned.at("world_normals") == arguments.at("dabs")[i * 2].at("world_normals"),
+              "Retained stroke dab lost its original height/normal/mask correspondence");
+    }
+    check(scene.document() == before && scene.revision() == revision,
+          "Stroke preparation modified Scene/history");
+    const auto placed =
+        authoring_command(scene, cleared.at("authoring_operation").get<std::string>(), resolved);
+    const auto after = scene.document();
+    check(placed.at("groups").size() == 2 && placed.at("placed_count") == 2 && scene.undo() &&
+              scene.document() == before && scene.redo() && scene.document() == after &&
+              scene.undo() && scene.document() == before,
+          "Cleared stroke did not compose one ordinary atomic Scene transaction");
+
+    auto malformed = arguments;
+    malformed["dabs"][1]["world_normals"][1]["y"] = 0;
+    bool rejected = false;
+    try {
+        task.start(lease, scene, malformed, settings);
+    } catch (const AuthoringError&) {
+        rejected = true;
+    }
+    check(rejected && scene.document() == before,
+          "A would-be-omitted dab bypassed normal validation");
+
+    scatter.count = 32;
+    scatter.radius = 1;
+    dab = detail::mesh_scatter_arguments(source, scatter, "Maximum stroke");
+    dab.erase("entity");
+    dab.erase("name");
+    arguments["dabs"] = Json::array();
+    for (unsigned i = 0; i < 16; ++i) {
+        auto value = dab;
+        value["center"]["x"] = i * 10;
+        arguments["dabs"].push_back(std::move(value));
+    }
+    task.start(lease, scene, arguments, settings);
+    const auto maximum = settled(task, scene, root).at("result");
+    check(maximum.at("original_dab_count") == 16 && maximum.at("candidate_count") == 512 &&
+              maximum.at("retained_dab_indices").size() == 16 &&
+              maximum.at("retained_count") >= 16 && scene.document() == before,
+          "Maximum stroke lost its original bounded pool or surviving dabs");
+
+    const auto obstacle = authoring_command(scene, "entity.create", {{"recipe", "primitive.0"}})
+                              .at("selected")
+                              .get<std::string>();
+    for (const auto* type : {"forge.physics_body", "forge.box_collider"})
+        authoring_command(scene, "component.add", {{"entity", obstacle}, {"component", type}});
+    authoring_command(scene, "property.set",
+                      {{"entity", obstacle},
+                       {"component", "forge.physics_body"},
+                       {"field", "motion"},
+                       {"value", 0}});
+    authoring_command(scene, "transform.position",
+                      {{"entity", obstacle}, {"value", {{"x", 0}, {"y", .5}, {"z", 0}}}});
+    const auto blocked_before = scene.document();
+    scatter.count = 2;
+    scatter.radius = .01;
+    scatter.center = {0, 0, 0};
+    dab = detail::mesh_scatter_arguments(source, scatter, "Blocked dabs");
+    dab.erase("entity");
+    dab.erase("name");
+    arguments["dabs"] = {dab, dab, dab};
+    arguments["dabs"][1]["center"]["x"] = 5;
+    settings.mask = UINT32_MAX;
+    settings.radius = .25;
+    task.start(lease, scene, arguments, settings);
+    const auto middle = settled(task, scene, root).at("result");
+    check(middle.at("retained_dab_indices") == Json::array({1}) &&
+              middle.at("candidate_count") == 6 && middle.at("retained_count") == 1 &&
+              middle.at("new_overlap_count") == 1 &&
+              middle.at("arguments").at("dabs")[0].at("center").at("x") == 5 &&
+              scene.document() == blocked_before,
+          "Existing colliders did not omit the first/last dabs before new-plant separation");
+    arguments["dabs"][1]["center"]["x"] = 0;
+    task.start(lease, scene, arguments, settings);
+    const auto blocked = settled(task, scene, root);
+    check(blocked.at("state") == "failed" && !blocked.contains("result") &&
+              scene.document() == blocked_before,
+          "An entirely blocked stroke published an empty group or partial result");
+}
 void exercise(const std::filesystem::path& base) {
     const auto root = std::filesystem::absolute(base / AssetId::generate().str());
     std::filesystem::create_directories(root);
@@ -464,6 +597,7 @@ int main(int argc, char** argv) {
             return 0;
         candidate_workload(std::filesystem::u8path(argv[1]), true);
         separate_candidates(std::filesystem::u8path(argv[1]));
+        stroke_candidates(std::filesystem::u8path(argv[1]));
         exercise(std::filesystem::u8path(argv[1]));
         resource_and_state(std::filesystem::u8path(argv[1]));
         std::cout << "Native clearance geometry, copied masks, retries/history/cancel passed\n";

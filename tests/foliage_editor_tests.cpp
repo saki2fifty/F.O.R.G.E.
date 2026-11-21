@@ -43,6 +43,13 @@ void exercise(float scale, bool compact, const std::filesystem::path& scratch) {
     ui::FoliagePlacement panel;
     panel.open = true;
     bool locked = false;
+    bool brush_scene = false;
+    EntityId brush_surface;
+    AssetId brush_mesh;
+    std::string brush_revision;
+    Double3 brush_center{};
+    ImVec2 brush_origin{}, brush_size{300 * scale, 70 * scale};
+    EditorCamera brush_camera;
     test::observe_ui = true;
     auto frame = [&] {
         test::ui_targets.clear();
@@ -51,6 +58,30 @@ void exercise(float scale, bool compact, const std::filesystem::path& scratch) {
         ImGui::SetWindowSize("Foliage placement", {(compact ? 400.f : 650.f) * scale, 720 * scale},
                              ImGuiCond_Always);
         panel.draw(scene, owner.selection, locked, &project);
+        if (brush_scene) {
+            ImGui::SetNextWindowPos({10 * scale, 735 * scale}, ImGuiCond_Always);
+            ImGui::SetNextWindowSize({350 * scale, 155 * scale}, ImGuiCond_Always);
+            ImGui::Begin("Brush controller Scene", nullptr,
+                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+            brush_origin = ImGui::GetCursorScreenPos();
+            ImGui::InvisibleButton("Surface", brush_size, ImGuiButtonFlags_MouseButtonLeft);
+            panel.surface_input(
+                scene, owner.selection, &project, brush_camera, brush_origin, brush_size,
+                ImGui::IsWindowFocused(), !locked, ImGui::IsItemHovered(), ImGui::IsItemActivated(),
+                ImGui::IsItemActive(), [&](double x, double) -> std::optional<MeshSurfaceHit> {
+                    // The GPU fixture proves retained picking. This controller
+                    // fixture supplies points inside the real published terrain.
+                    return MeshSurfaceHit{brush_surface,
+                                          brush_mesh,
+                                          brush_revision,
+                                          "",
+                                          0,
+                                          0,
+                                          {brush_center[0] + (x / brush_size.x - .5) * 2,
+                                           brush_center[1], brush_center[2]}};
+                });
+            ImGui::End();
+        }
         ImGui::Render();
     };
     test::ImGuiInputDriver input(frame);
@@ -335,6 +366,89 @@ void exercise(float scale, bool compact, const std::filesystem::path& scratch) {
               !test::ui_targets.at("foliage:source").enabled,
           "Play/task lock did not disable foliage editing");
     locked = false;
+    authoring_command(
+        scene, "transform.local",
+        {{"entity", surface}, {"rotation", {{"x", 0}, {"y", 0}, {"z", 0}, {"w", 1}}}});
+    owner.selection.select_entity(source);
+    input.click("foliage:source");
+    input.click("foliage:projected");
+    input.click("foliage:surface_kind");
+    io.AddKeyEvent(ImGuiKey_Home, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Home, false);
+    io.AddKeyEvent(ImGuiKey_Enter, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Enter, false);
+    frame();
+    owner.selection.select_entity(surface);
+    input.click("foliage:terrain");
+    input.type("foliage:height_offset", "0");
+    input.type("foliage:radius", ".1");
+    input.type("foliage:spacing", "0");
+    input.type("foliage:count", "2");
+    input.type("foliage:clearance_mask", "0");
+    input.type("foliage:clearance_radius", ".4");
+    input.click("foliage:separate_new");
+    input.click("foliage:brush");
+    input.type("foliage:dab_distance", ".2");
+    check(panel.brush_enabled(), "Native collision controls disabled the selected brush mode");
+    brush_surface = EntityId::parse(surface);
+    brush_mesh = terrain_id;
+    brush_center = {ground_origin[0] + 4, ground_origin[1], ground_origin[2] + 4};
+    detail::MeshScatterSettings brush_settings;
+    brush_settings.center = brush_center;
+    brush_settings.count = 2;
+    brush_settings.radius = .1;
+    brush_settings.spacing = 0;
+    brush_revision =
+        prepare_terrain_foliage(
+            *project.writer_guard(), scene,
+            detail::mesh_scatter_arguments(source, brush_settings, "Controller"), surface)
+            .at("terrain_revision")
+            .get<std::string>();
+    brush_scene = true;
+    frame();
+    const auto stroke_before = scene.document();
+    auto gesture = [&] {
+        io.AddMousePosEvent(brush_origin.x + 60 * scale, brush_origin.y + 30 * scale);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMousePosEvent(brush_origin.x + 140 * scale, brush_origin.y + 30 * scale);
+        frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
+    };
+    gesture();
+    check(panel.collision_task().busy() && !panel.brush_enabled() &&
+              scene.document() == stroke_before,
+          "Native brush release failed to queue clearance without immediate publication");
+    settle();
+    const auto stroke = scene.document();
+    // The settle helper draws one final frame; the ordinary Scene mutation may
+    // already have retired the now-stale ready task. Verify saved intent/selection.
+    check(stroke.at("entities").size() > stroke_before.at("entities").size() &&
+              owner.selection.entity() == surface && panel.brush_enabled() &&
+              owner.problems.size() == 0 && scene.undo() && scene.document() == stroke_before &&
+              scene.redo() && scene.document() == stroke,
+          "Native cleared brush completion lost surface selection or one-step history");
+    gesture();
+    check(panel.collision_task().busy() && scene.document() == stroke,
+          "Repeat native brush could not queue on the same selected surface");
+    settle();
+    check(scene.document().at("entities").size() > stroke.at("entities").size() &&
+              owner.selection.entity() == surface && scene.undo() && scene.document() == stroke,
+          "Repeat native cleared brush failed its Undo or selection contract");
+    input.type("foliage:count", "256");
+    gesture();
+    check(panel.collision_task().busy() && scene.document() == stroke,
+          "Large native stroke failed to remain pending for cancellation");
+    input.click("foliage:cancel");
+    frame();
+    check(panel.collision_task().state().at("state") == "cancelled" && scene.document() == stroke &&
+              owner.problems.size() == 0,
+          "Native cleared-stroke cancellation published Scene objects");
+    brush_scene = false;
     Scene other(engine.world());
     frame();
     // A different Scene identity must never keep a template from the old project.

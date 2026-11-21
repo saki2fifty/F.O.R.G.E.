@@ -3190,6 +3190,29 @@ control present; Game images from earlier workflows remain unchanged.
 Native PNG SHA256: `3817e4af20c0a4f6bede7e0057bd8b39d543d1505370a68b75c5726ee98535bf`.
 Game PNG SHA256: `d5117309d8f0b2a2e507bcd568ae77131d58b5c7f2b32ad796adfb6425253b2a`.
 
+### Brush clearance controls
+
+[Brush clearance](../../../manual/images/foliage-brush-clearance.png) is an
+unretouched 1400×1000 production native panel and retained Scene capture from
+`tests/foliage_surface_brush_probe.hpp`. Actual pointer and keyboard input enables
+**Paint in Scene view**, **Reject collisions** and **Separate new plants** together,
+then samples four centers on a tilted ramp. The 0.55 m sphere, world offset and
+zero collider layer mask are visible. Zero bypasses authored collider layers;
+new-plant sphere separation remains enabled. Green circles mark dab centers.
+Native PNG bytes are copied exactly, without retouching controls or pixels.
+
+The same software-rendered workflow completes two asynchronous cleared strokes,
+preserves surface selection for repeat painting, verifies one Undo/Redo per
+stroke and four exact source-hidden relocated image pairs. Generated-plant-hidden
+counterfactuals independently confirm visible saved plants in all four views.
+Capture provenance, executable/input hashes and native receipt are retained in
+`AgentFiles/build/phase435-foliage-brush-clearance/capture-provenance.json`.
+The capture uses local brush-clearance source based on `02831fe81bcc4d81f69a4a696c27990360163703`,
+Mesa lavapipe and pinned Diligent/DXC/ImGui. No Windows, physical input/DPI,
+physical GPU performance or GPU sanitizer acceptance is claimed.
+
+PNG SHA256: `f6f415e910e20a3bd9b747401c5cda5588fb48b3f6b82000242853b967083e1f`.
+
 ## Concave flat Mesh creation
 
 [Concave creation controls](../../../manual/images/concave-mesh-create.png) is an

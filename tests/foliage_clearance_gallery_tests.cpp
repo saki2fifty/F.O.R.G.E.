@@ -15,6 +15,7 @@ using namespace forge;
 namespace {
 constexpr auto path = "Scenes/156-foliage-clearance.scene.json";
 constexpr auto separated_path = "Scenes/256-foliage-candidate-clearance.scene.json";
+constexpr auto stroke_path = "Scenes/257-foliage-brush-clearance.scene.json";
 constexpr double separated_radius = .4;
 void check(bool value, const char* message) {
     if (!value)
@@ -25,8 +26,8 @@ Json read(const std::filesystem::path& file) {
     std::ifstream(file) >> result;
     return result;
 }
-void author(const std::filesystem::path& root, bool separate = false) {
-    const auto destination = separate ? separated_path : path;
+void author(const std::filesystem::path& root, bool separate = false, bool stroke = false) {
+    const auto destination = stroke ? stroke_path : separate ? separated_path : path;
     check(!std::filesystem::exists(root / destination), "Clearance Gallery already exists");
     auto lease = std::make_shared<ProjectLease>(root);
     EngineContext engine;
@@ -78,12 +79,30 @@ void author(const std::filesystem::path& root, bool separate = false) {
             settings.radius = 2.75;
             settings.spacing = .1;
         }
-        const auto* name = !separate ? "Cleared meadow"
-                           : patch   ? "Separated meadow"
-                                     : "Unseparated meadow";
-        const auto prepared = prepare_terrain_foliage(
-            *lease, scene, detail::mesh_scatter_arguments(prototype, settings, name), surface, 0,
-            {}, true);
+        const auto* name = stroke ? (patch ? "Brush plant separation" : "Brush collider clearance")
+                           : !separate ? "Cleared meadow"
+                           : patch     ? "Separated meadow"
+                                       : "Unseparated meadow";
+        Json prepared;
+        if (stroke) {
+            settings.radius = .9;
+            settings.spacing = .05;
+            settings.count = 32;
+            settings.center[2] = patch ? 3 : -3;
+            Json arguments{{"entity", prototype}, {"name", name}, {"dabs", Json::array()}};
+            for (const double x : {-3., 0., 3.}) {
+                settings.center[0] = x;
+                auto dab = detail::mesh_scatter_arguments(prototype, settings, name);
+                dab.erase("entity");
+                dab.erase("name");
+                arguments["dabs"].push_back(std::move(dab));
+            }
+            prepared =
+                prepare_foliage_stroke(*lease, scene, arguments, surface, false, 0, {}, true);
+        } else
+            prepared = prepare_terrain_foliage(
+                *lease, scene, detail::mesh_scatter_arguments(prototype, settings, name), surface,
+                0, {}, true);
         FoliageCollisionPreparation task;
         FoliageCollisionSettings config;
         config.surface = EntityId::parse(surface);
@@ -100,13 +119,16 @@ void author(const std::filesystem::path& root, bool separate = false) {
         const auto ready = task.read(scene, root);
         check(ready.at("state") == "ready", ready.dump().c_str());
         const auto count = ready.at("result").at("retained_count").get<unsigned>();
-        check(count > 0 && count < settings.count,
+        check(count > 0 && count < settings.count * (stroke ? 3 : 1),
               "Gallery clearance did not reject a proper subset");
+        if (stroke)
+            check(ready.at("result").at("retained_dab_indices") == Json::array({0, 2}),
+                  "Brush Gallery did not omit its fully blocked middle dab");
         if (config.avoid_new_overlaps)
             check(ready.at("result").at("new_overlap_count") > 0,
                   "Separated Gallery did not exercise new-plant overlap filtering");
         apply_authoring(scene,
-                        Json::array({{{"operation", "mesh.scatter"},
+                        Json::array({{{"operation", ready.at("result").at("authoring_operation")},
                                       {"arguments", ready.at("result").at("arguments")}}}),
                         ready.at("result").at("scene_revision"));
         std::cout << "Authored " << name << ": " << count << "/96 retained\n";
@@ -118,7 +140,8 @@ void author(const std::filesystem::path& root, bool separate = false) {
     const std::array roots{scene.asset_id()};
     prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
 }
-void exercise(const std::filesystem::path& root, AssetId id, bool separate = false) {
+void exercise(const std::filesystem::path& root, AssetId id, bool separate = false,
+              bool stroke = false) {
     RuntimeWorld world({}, {}, std::nullopt, root, false);
     world.scene.restore_snapshot(load_game_scene(root, {id}));
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
@@ -134,9 +157,14 @@ void exercise(const std::filesystem::path& root, AssetId id, bool separate = fal
         const auto name = row.at("name").get<std::string>();
         if (name.starts_with("Clearance obstacle"))
             ++obstacles;
-        const bool separated_plant = separate && name.starts_with("Separated meadow ");
-        const bool unseparated_plant = separate && name.starts_with("Unseparated meadow ");
+        const bool separated_plant =
+            separate && name.starts_with(stroke ? "Brush plant separation " : "Separated meadow ");
+        const bool unseparated_plant =
+            separate &&
+            name.starts_with(stroke ? "Brush collider clearance " : "Unseparated meadow ");
         if (!separated_plant && !unseparated_plant && !name.starts_with("Cleared meadow "))
+            continue;
+        if (!row.at("components").contains("forge.mesh_renderer"))
             continue;
         const auto& m = row.at("world_affine");
         PhysicsOverlap query;
@@ -177,6 +205,10 @@ int main(int argc, char** argv) {
             author(argv[2], true);
             return 0;
         }
+        if (argc == 3 && std::string_view(argv[1]) == "--author-stroke") {
+            author(argv[2], true, true);
+            return 0;
+        }
         check(argc == 3, "Need Gallery and scratch paths");
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "Gallery";
@@ -184,14 +216,17 @@ int main(int argc, char** argv) {
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         const auto id = read(root / path).at("asset_id").get<AssetId>();
         const auto separated_id = read(root / separated_path).at("asset_id").get<AssetId>();
+        const auto stroke_id = read(root / stroke_path).at("asset_id").get<AssetId>();
         exercise(root, id);
         exercise(root, separated_id, true);
-        const std::array roots{id, separated_id};
+        exercise(root, stroke_id, true, true);
+        const std::array roots{id, separated_id, stroke_id};
         package_runtime_content(root, scratch / "Content", roots, {"windows", "d3d12"});
         std::filesystem::rename(scratch / "Content", scratch / "Relocated");
         std::filesystem::rename(root, scratch / "SourcesOffline");
         exercise(scratch / "Relocated", id);
         exercise(scratch / "Relocated", separated_id, true);
+        exercise(scratch / "Relocated", stroke_id, true, true);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

@@ -14,6 +14,12 @@ one Undo entry. Gallery 256 compares dense and separated patches. This source
 extension is outside package 256. See [the contract](foliage-placement.md) and
 [the guide](../manual/editor/foliage.md#keep-clear-of-colliders).
 
+Source also composes clearance with the existing surface brush and mesh.stroke
+workflow. One task filters all original dab candidates, returns surviving dab
+indices and publishes one ordinary stroke after preparation. Native pointer and
+semantic MCP workflows share that owner. Gallery 257 demonstrates collider and
+cross-dab sphere separation; this extension is also outside package 256.
+
 The capability notes below retain their original implementation/evidence scope.
 Their older pending-platform statements are historical; they do not override the
 immutable delivery gate above or establish physical hardware acceptance.

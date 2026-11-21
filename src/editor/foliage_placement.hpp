@@ -14,7 +14,9 @@ class FoliagePlacement {
   public:
     bool open = false;
     const std::string& diagnostic() const { return error_; }
-    bool brush_enabled() const { return open && brush_mode_ && projected_ && !collision_enabled_; }
+    bool brush_enabled() const {
+        return open && brush_mode_ && projected_ && !collision_task_.busy();
+    }
     void surface_input(Scene& scene, const EditorSelection& selection, SceneDocument* project,
                        const EditorCamera& camera, ImVec2 origin, ImVec2 size, bool focused,
                        bool editable, bool hovered, bool activated, bool active,
@@ -39,6 +41,9 @@ class FoliagePlacement {
                               {"minimum_slope", slopes_.minimum},
                               {"maximum_slope", slopes_.maximum},
                               {"align", align_to_slope_},
+                              {"clearance", collision_enabled_
+                                                ? foliage_collision_settings(collision_settings_)
+                                                : Json()},
                               {"project", project ? path_utf8(project->project()) : ""},
                               {"project_generation", project ? project->generation() : 0}};
             const auto result = brush_.input(
@@ -58,6 +63,11 @@ class FoliagePlacement {
                 prepared.at(surface_kind_ ? "surface_revision" : "terrain_revision") !=
                     hit.revision)
                 throw std::runtime_error("Published surface changed; start a new stroke");
+            if (collision_enabled_) {
+                queue_clearance(scene, *project, prepared.at("arguments"), true);
+                brush_.cancel();
+                return;
+            }
             apply_authoring(scene,
                             Json::array({{{"operation", "mesh.stroke"},
                                           {"arguments", prepared.at("arguments")}}}),
@@ -114,15 +124,18 @@ class FoliagePlacement {
                 counts += " (" + std::to_string(result.at("new_overlap_count").get<unsigned>()) +
                           " overlapping new plants skipped)";
             if (pending_place_) {
+                const auto command = result.at("authoring_operation").get<std::string>();
+                const bool stroke = command == "mesh.stroke";
                 const auto applied =
                     apply_authoring(scene,
-                                    Json::array({{{"operation", "mesh.scatter"},
+                                    Json::array({{{"operation", command},
                                                   {"arguments", result.at("arguments")}}}),
                                     result.at("scene_revision").get<std::uint64_t>())
                         .at("results")
                         .at(0);
-                selection.select_entity(applied.at("selected"));
-                status_ = "Foliage placed: " + counts +
+                if (!stroke)
+                    selection.select_entity(applied.at("selected"));
+                status_ = std::string(stroke ? "Stroke placed: " : "Foliage placed: ") + counts +
                           ". Scene Undo removes the entire group. Save the Scene.";
             } else
                 status_ = "Layout fits: " + counts + ". No Scene objects have been changed.";
@@ -320,8 +333,6 @@ class FoliagePlacement {
             ImGui::BeginDisabled(!projected_ || !project);
             if (ImGui::Checkbox("Paint in Scene view", &brush_mode_)) {
                 brush_.cancel();
-                if (brush_mode_)
-                    collision_enabled_ = false;
             }
             FORGE_UI_PROBE("foliage:brush");
             ImGui::EndDisabled();
@@ -335,14 +346,14 @@ class FoliagePlacement {
                     "centers, not Mesh bounds. Up to 16 dabs and 512 total candidates; exceeding "
                     "either limit cancels the entire stroke. Spacing is per dab only. Every "
                     "candidate needs coverage. Visible LOD0 triangles are required; origins "
-                    "project to the highest upward surface. Collision clearance uses the "
-                    "single-disk controls below, with Paint in Scene view disabled.");
+                    "project to the highest upward surface. Reject collisions below checks "
+                    "the released stroke before placement; Separate new plants also compares "
+                    "across its dabs. Fully blocked dabs are skipped. No objects are created "
+                    "if every dab is blocked.");
             }
             ImGui::BeginDisabled(!project);
             if (ImGui::Checkbox("Reject collisions", &collision_enabled_)) {
                 brush_.cancel();
-                if (collision_enabled_)
-                    brush_mode_ = false;
             }
             FORGE_UI_PROBE("foliage:collision");
             ImGui::EndDisabled();
@@ -417,15 +428,7 @@ class FoliagePlacement {
                         retained = prepared.at("retained_count");
                     }
                     if (collision_enabled_) {
-                        auto config = collision_settings_;
-                        config.surface = projected_ ? EntityId::parse(surface_) : EntityId{};
-                        const auto state = collision_task_.start(project->writer_guard(), scene,
-                                                                 arguments, config);
-                        pending_operation_ = state.at("operation");
-                        pending_place_ = place;
-                        status_ = "Preparing collision clearance; Cancel clearance leaves the "
-                                  "Scene unchanged.";
-                        error_.clear();
+                        queue_clearance(scene, *project, std::move(arguments), place);
                         return;
                     }
                     const auto count_text = std::to_string(retained) + " of " +
@@ -494,6 +497,16 @@ class FoliagePlacement {
     }
 
   private:
+    void queue_clearance(Scene& scene, SceneDocument& project, Json arguments, bool place) {
+        auto config = collision_settings_;
+        config.surface = projected_ ? EntityId::parse(surface_) : EntityId{};
+        const auto state =
+            collision_task_.start(project.writer_guard(), scene, std::move(arguments), config);
+        pending_operation_ = state.at("operation");
+        pending_place_ = place;
+        status_ = "Preparing collision clearance; Cancel clearance leaves the Scene unchanged.";
+        error_.clear();
+    }
     static const Json* find_mesh(const Json& view, const std::string& id) {
         for (const auto& row : view.at("entities"))
             if (row.at("id") == id && !row.value("prefab", false) &&
