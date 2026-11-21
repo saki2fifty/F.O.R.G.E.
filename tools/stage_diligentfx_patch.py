@@ -1,4 +1,4 @@
-"""Stage the approved exact-pin shader exception; never edit upstream sources."""
+"""Stage reviewed exact-pin Diligent repairs; never edit upstream sources."""
 import argparse
 import hashlib
 import json
@@ -16,8 +16,12 @@ def stage(engine, destination, manifest):
     if destination == engine or engine in destination.parents:
         raise RuntimeError('Patch output must be outside the upstream checkout')
     record = json.loads(manifest.read_text())
-    fx = engine / 'DiligentFX'
-    for checkout, expected in ((engine, record['engine_commit']), (fx, record['fx_commit'])):
+    name = record.get('module', 'DiligentFX')
+    revision = {'DiligentFX': 'fx_commit', 'DiligentCore': 'core_commit'}.get(name)
+    if revision is None:
+        raise RuntimeError('Unreviewed upstream module')
+    source = engine / name
+    for checkout, expected in ((engine, record['engine_commit']), (source, record[revision])):
         actual = subprocess.check_output(['git', '-C', str(checkout), 'rev-parse', 'HEAD'], text=True).strip()
         if actual != expected:
             raise RuntimeError(f'Unreviewed upstream revision: {checkout}: {actual}')
@@ -26,10 +30,16 @@ def stage(engine, destination, manifest):
     if sha(patch_bytes) != record['patch_sha256']:
         raise RuntimeError('Reviewed patch hash mismatch')
     inputs = {}
-    for name, expected in record['files'].items():
-        data = (fx / name).read_bytes().replace(b'\r\n', b'\n')
+    support = record.get('support_files', {})
+    if set(support) & set(record['files']):
+        raise RuntimeError('Patched and unchanged support files overlap')
+    for name, expected in (record['files'] | support).items():
+        relative = Path(name)
+        if relative.is_absolute() or '..' in relative.parts:
+            raise RuntimeError('Patch input must be module-relative')
+        data = (source / name).read_bytes().replace(b'\r\n', b'\n')
         if sha(data) != expected:
-            raise RuntimeError(f'Upstream shader hash mismatch: {name}')
+            raise RuntimeError(f'Upstream {"shader" if revision == "fx_commit" else "source"} hash mismatch: {name}')
         inputs[name] = data
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='forge-fx-patch-', dir=destination.parent) as scratch:
@@ -45,12 +55,18 @@ def stage(engine, destination, manifest):
         # Put patch identity into the embedded shader bytes (Diligent hashes
         # included source by content), even for a metadata-only patch revision.
         identity = sha(manifest.read_bytes().replace(b'\r\n', b'\n') + patch_bytes)
-        notice = f'// FORGE maintained shader exception; patch identity SHA256 {identity}\n'.encode()
+        kind = 'shader exception' if revision == 'fx_commit' else 'D3D12 descriptor repair'
+        notice = f'// FORGE maintained {kind}; patch identity SHA256 {identity}\n'.encode()
         outputs = {}
         for name in inputs:
-            data = notice + (scratch / name).read_bytes()
-            if data == notice + inputs[name]:
+            data = (scratch / name).read_bytes()
+            if name in support:
+                if data != inputs[name]:
+                    raise RuntimeError(f'Patch modified unchanged support input: {name}')
+            elif data == inputs[name]:
                 raise RuntimeError(f'Patch did not modify expected input: {name}')
+            else:
+                data = notice + data
             outputs[name] = data
         for name, data in outputs.items():
             target = destination / name

@@ -62,6 +62,38 @@ inline void check_renderer_backend_policy() {
     device.Type = RENDER_DEVICE_TYPE_WEBGPU;
     reject([&] { forge::prepare_renderer_shader(device, selected); });
 
+    device.Type = RENDER_DEVICE_TYPE_D3D12;
+    auto compute = base;
+    compute.Desc.ShaderType = SHADER_TYPE_COMPUTE;
+    selected = compute;
+    forge::prepare_renderer_shader(device, selected);
+    check(selected.ShaderCompiler == SHADER_COMPILER_FXC &&
+          selected.HLSLVersion == ShaderVersion{5, 0});
+    for (const auto compiler : {SHADER_COMPILER_FXC, SHADER_COMPILER_DXC}) {
+        selected = compute;
+        selected.ShaderCompiler = compiler;
+        forge::prepare_renderer_shader(device, selected);
+        check(selected.ShaderCompiler == compiler &&
+              selected.HLSLVersion ==
+                  (compiler == SHADER_COMPILER_FXC ? ShaderVersion{5, 1} : ShaderVersion{6, 0}));
+    }
+    selected = compute;
+    selected.HLSLVersion = {5, 1};
+    selected.ShaderOptimizationLevel = SHADER_OPTIMIZATION_LEVEL_2;
+    forge::prepare_renderer_shader(device, selected);
+    check(selected.HLSLVersion == ShaderVersion{5, 1} &&
+          selected.ShaderOptimizationLevel == SHADER_OPTIMIZATION_LEVEL_2);
+    selected = compute;
+    selected.ByteCode = "opaque bytecode";
+    forge::prepare_renderer_shader(device, selected);
+    check(selected.ShaderCompiler == SHADER_COMPILER_DEFAULT &&
+          selected.HLSLVersion == ShaderVersion{});
+    selected = compute;
+    selected.SourceLanguage = SHADER_SOURCE_LANGUAGE_GLSL;
+    forge::prepare_renderer_shader(device, selected);
+    check(selected.ShaderCompiler == SHADER_COMPILER_DEFAULT &&
+          selected.HLSLVersion == ShaderVersion{});
+
     SamplerProperties properties;
     properties.MaxAnisotropy = 8;
     properties.LODBiasSupported = properties.BorderSamplingModeSupported = true;

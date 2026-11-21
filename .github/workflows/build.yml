@@ -122,7 +122,7 @@ jobs:
     # Windows Debug used52 minutes to build and68 minutes for310of398 tests.
     # Keep the full selection and child deadlines, including installed consumers.
     # The Windows SDK base gate measured98 minutes before the added MCP owners/workflows.
-    timeout-minutes: ${{ matrix.os == 'windows-2022' && matrix.profile == 'core' && 240 || (matrix.profile == 'native-sdk') && 180 || 120 }}
+    timeout-minutes: ${{ matrix.os == 'windows-2022' && matrix.profile == 'core' && 240 || 180 }}
     env:
       PYTHONDONTWRITEBYTECODE: "1"
       CC: ${{ matrix.os == 'ubuntu-22.04' && 'gcc-12' || 'cl' }}

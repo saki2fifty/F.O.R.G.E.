@@ -232,6 +232,32 @@ or suppressed by this patch. DXC shadow includes retain the same two upstream
 PCF comment-format warnings. The deliberately unpatched differential-reference
 shader retains its original X4000; production patched functions do not.
 Package publication remains subject to the separate complete delivery gate.
+## D3D12 dynamic descriptor allocation
+
+Verified2026-11-21 at Core `744f079f61cdbda15d371383682418fc927e4a61`:
+CommitRootTables copies every dynamic table on each resource commit. Individual
+suballocation destruction resets its wrapper; whole heap chunks retire at frame
+completion. Repeated interleaved Material bindings therefore consume the finite
+sampler heap even when descriptor content is identical. In a native130-draw
+two-Material reference, allocation exhaustion reached CopyDescriptorsSimple with
+a null destination (D3D12 diagnostic646). Development-only checks do not protect
+the release build. Contiguous Mesh binding reuse alone cannot cover that workload.
+
+The [checked Core repair](../cmake/patches/README.md#d3d12-descriptor-snapshots)
+reuses safe immutable descriptor content inside the existing command context,
+clears borrowed metadata before allocator retirement and rejects failed dynamic
+and SRB allocations before native copies. It preserves public interfaces, pins,
+heap sizes, root-buffer updates, transitions, fences and resource ownership.
+The upstream checkout stays unchanged. Staging/revision/source refusal checks,
+exact extracted metadata methods under ASan/UBSan and the independent768-dispatch
+software Vulkan fixture pass. The extended structured-buffer-array fixture selects
+the existing DXC SPIR-V compiler on Vulkan: the pinned glslang lowering crashes on
+that HLSL array expression. This is a fixture compiler selection, not a Vulkan
+default/compiler dependency change or acceptance of that glslang path. Native
+D3D12 retains the production default FXC profile. Native compilation, exhaustion/recovery,
+complete Material matrix and matching installed kit/player acceptance remain
+pending; no native completion or replacement package is claimed.
+
 ## Body loads — pinned Jolt5.6.0
 
 At `e77f175595e64cb44218cc9d9d56fc365ad0e36a`, BodyInterface's AddForce,

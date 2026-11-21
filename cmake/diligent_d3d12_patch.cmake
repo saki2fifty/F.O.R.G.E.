@@ -1,0 +1,53 @@
+include_guard(GLOBAL)
+# Stage all private headers together: quoted sibling includes must see the same
+# CommandContext layout in every native translation unit, including unmodified ones.
+set(forge_d3d12_manifest "${PROJECT_SOURCE_DIR}/cmake/patches/diligentcore-744f079f-descriptor-tables.json")
+set(forge_d3d12_patch "${PROJECT_SOURCE_DIR}/cmake/patches/diligentcore-744f079f-descriptor-tables.patch")
+set(forge_d3d12_staged "${CMAKE_CURRENT_BINARY_DIR}/forge-patched-core")
+file(READ "${forge_d3d12_manifest}" forge_d3d12_metadata)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+ "${forge_d3d12_manifest}" "${forge_d3d12_patch}" "${PROJECT_SOURCE_DIR}/tools/stage_diligentfx_patch.py")
+foreach(group IN ITEMS files support_files)
+ string(JSON count LENGTH "${forge_d3d12_metadata}" "${group}")
+ math(EXPR last "${count} - 1")
+ foreach(index RANGE 0 ${last})
+  string(JSON name MEMBER "${forge_d3d12_metadata}" "${group}" ${index})
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${diligent_SOURCE_DIR}/DiligentCore/${name}")
+ endforeach()
+endforeach()
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/stage_diligentfx_patch.py"
+ "${diligent_SOURCE_DIR}" "${forge_d3d12_staged}" --manifest "${forge_d3d12_manifest}"
+ RESULT_VARIABLE forge_d3d12_result OUTPUT_QUIET)
+if(NOT forge_d3d12_result EQUAL 0)
+ message(FATAL_ERROR "DiligentCore reviewed descriptor repair failed; source/pin requires review")
+endif()
+if(TARGET Diligent-GraphicsEngineD3D12-static)
+ get_target_property(forge_d3d12_sources Diligent-GraphicsEngineD3D12-static SOURCES)
+ get_target_property(forge_d3d12_source_dir Diligent-GraphicsEngineD3D12-static SOURCE_DIR)
+ foreach(name IN ITEMS CommandContext DeviceContextD3D12Impl PipelineResourceSignatureD3D12Impl ShaderResourceCacheD3D12)
+  set(found FALSE)
+  set(replaced)
+  foreach(source IN LISTS forge_d3d12_sources)
+   get_filename_component(absolute "${source}" ABSOLUTE BASE_DIR "${forge_d3d12_source_dir}")
+   if(absolute STREQUAL "${diligent_SOURCE_DIR}/DiligentCore/Graphics/GraphicsEngineD3D12/src/${name}.cpp")
+    list(APPEND replaced "${forge_d3d12_staged}/Graphics/GraphicsEngineD3D12/src/${name}.cpp")
+    set(found TRUE)
+   else()
+    # Preserve relative source interpretation when setting a property outside
+    # the directory that created the dependency target.
+    list(APPEND replaced "${absolute}")
+   endif()
+  endforeach()
+  if(NOT found)
+   message(FATAL_ERROR "Reviewed D3D12 source is missing from the pinned target: ${name}")
+  endif()
+  set(forge_d3d12_sources "${replaced}")
+ endforeach()
+ set_property(TARGET Diligent-GraphicsEngineD3D12-static PROPERTY SOURCES "${forge_d3d12_sources}")
+ target_include_directories(Diligent-GraphicsEngineD3D12-static BEFORE PRIVATE
+  "${forge_d3d12_staged}/Graphics/GraphicsEngineD3D12/include")
+ if(TARGET Diligent-Archiver-static)
+  target_include_directories(Diligent-Archiver-static BEFORE PRIVATE
+   "${forge_d3d12_staged}/Graphics/GraphicsEngineD3D12/include")
+ endif()
+endif()

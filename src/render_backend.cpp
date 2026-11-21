@@ -1,7 +1,5 @@
 #include "render_backend.hpp"
-#include <cstdlib>
 #include <stdexcept>
-#include <string_view>
 namespace forge {
 using namespace Diligent;
 std::chrono::seconds frame_completion_budget(const GraphicsAdapterInfo& adapter) {
@@ -28,41 +26,17 @@ void prepare_renderer_shader(const RenderDeviceInfo& device, ShaderCreateInfo& s
     if (shader.ByteCode || shader.SourceLanguage != SHADER_SOURCE_LANGUAGE_HLSL)
         return;
     if (device.Type == RENDER_DEVICE_TYPE_D3D12) {
+        const bool implicit_compute = shader.ShaderCompiler == SHADER_COMPILER_DEFAULT &&
+                                      shader.Desc.ShaderType == SHADER_TYPE_COMPUTE;
         require(shader.ShaderCompiler == SHADER_COMPILER_DEFAULT ||
                     shader.ShaderCompiler == SHADER_COMPILER_FXC ||
                     shader.ShaderCompiler == SHADER_COMPILER_DXC,
                 "Requested shader compiler is unavailable for D3D12");
-        if (shader.ShaderCompiler == SHADER_COMPILER_DEFAULT) {
+        if (shader.ShaderCompiler == SHADER_COMPILER_DEFAULT)
             shader.ShaderCompiler = SHADER_COMPILER_FXC;
-            // Isolated source-only differential. Explicit compiler/version and
-            // optimization requests retain their ordinary behavior.
-            if (shader.Desc.ShaderType == SHADER_TYPE_COMPUTE &&
-                shader.HLSLVersion == ShaderVersion{} &&
-                shader.ShaderOptimizationLevel == SHADER_OPTIMIZATION_LEVEL_DEFAULT) {
-                if (const char* selected = std::getenv("FORGE_NATIVE_FXC_PROBE")) {
-                    const std::string_view mode{selected};
-                    if (mode == "dxc")
-                        shader.ShaderCompiler = SHADER_COMPILER_DXC;
-                    else if (mode == "fxc-50")
-                        shader.HLSLVersion = {5, 0};
-                    else if (mode == "fxc-50-disabled") {
-                        shader.HLSLVersion = {5, 0};
-                        shader.ShaderOptimizationLevel = SHADER_OPTIMIZATION_LEVEL_DISABLED;
-                    } else if (mode == "fxc-disabled")
-                        shader.ShaderOptimizationLevel = SHADER_OPTIMIZATION_LEVEL_DISABLED;
-                    else if (mode == "fxc-0")
-                        shader.ShaderOptimizationLevel = SHADER_OPTIMIZATION_LEVEL_0;
-                    else if (mode == "fxc-2")
-                        shader.ShaderOptimizationLevel = SHADER_OPTIMIZATION_LEVEL_2;
-                    else if (mode == "fxc-3")
-                        shader.ShaderOptimizationLevel = SHADER_OPTIMIZATION_LEVEL_3;
-                    else
-                        require(mode == "fxc-default", "Unknown isolated compiler probe mode");
-                }
-            }
-        }
         if (shader.HLSLVersion == ShaderVersion{})
             shader.HLSLVersion = shader.ShaderCompiler == SHADER_COMPILER_DXC ? ShaderVersion{6, 0}
+                                 : implicit_compute                           ? ShaderVersion{5, 0}
                                                                               : ShaderVersion{5, 1};
     } else {
         require(shader.ShaderCompiler != SHADER_COMPILER_FXC,
