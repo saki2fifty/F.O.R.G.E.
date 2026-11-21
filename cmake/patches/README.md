@@ -12,10 +12,12 @@ Original ownership, copyright and Apache2 notices remain intact.
 and diff hashes. The existing staging tool also handles this Core manifest;
 its historical filename and default FX invocation remain compatible.
 Four native translation units and one private header change. The other45 private
-headers are checked and staged byte-for-byte so quoted sibling includes see one
+headers are checked and staged unchanged after LF normalization so sibling includes see one
 CommandContext layout. The D3D12 static implementation and native Archiver use
 that private include overlay; the shared backend links the same implementation.
 Public headers, SDK ABI, authored formats, dependency pins and heap sizes do not change.
+Native sources stage beneath the owning target's binary directory, keeping
+generated Windows object paths short without changing upstream files.
 
 The existing CommandContext borrows immutable descriptor snapshots from its
 existing dynamic allocator. Ordered keys contain each resource's unique ID,

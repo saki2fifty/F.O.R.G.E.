@@ -4,6 +4,12 @@ include_guard(GLOBAL)
 set(forge_d3d12_manifest "${PROJECT_SOURCE_DIR}/cmake/patches/diligentcore-744f079f-descriptor-tables.json")
 set(forge_d3d12_patch "${PROJECT_SOURCE_DIR}/cmake/patches/diligentcore-744f079f-descriptor-tables.patch")
 set(forge_d3d12_staged "${CMAKE_CURRENT_BINARY_DIR}/forge-patched-core")
+if(TARGET Diligent-GraphicsEngineD3D12-static)
+ # Keep staged sources under their owning target's binary directory. Otherwise
+ # the Windows generator repeats the entire external path in object filenames.
+ get_target_property(forge_d3d12_binary_dir Diligent-GraphicsEngineD3D12-static BINARY_DIR)
+ set(forge_d3d12_staged "${forge_d3d12_binary_dir}/f")
+endif()
 file(READ "${forge_d3d12_manifest}" forge_d3d12_metadata)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
  "${forge_d3d12_manifest}" "${forge_d3d12_patch}" "${PROJECT_SOURCE_DIR}/tools/stage_diligentfx_patch.py")

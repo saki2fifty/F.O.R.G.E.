@@ -47,17 +47,26 @@ get_target_property(archiver Diligent-Archiver-static INCLUDE_DIRECTORIES)
 file(WRITE "${CMAKE_BINARY_DIR}/selected.txt" "${sources}\\n${headers}\\n${archiver}\\n")
 ''')
             build = directory/'build'
-            result = subprocess.run(['cmake', '-S', str(project), '-B', str(build)],
+            result = subprocess.run(['cmake', '-S', str(project), '-B', str(build),
+                                     '-G', 'Ninja', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON'],
                                     text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
             sources, headers, archiver = (build/'selected.txt').read_text().splitlines()
             for name in ('CommandContext', 'DeviceContextD3D12Impl',
                          'PipelineResourceSignatureD3D12Impl', 'ShaderResourceCacheD3D12'):
-                self.assertIn(f'forge-patched-core/Graphics/GraphicsEngineD3D12/src/{name}.cpp', sources)
+                self.assertIn(f'/f/Graphics/GraphicsEngineD3D12/src/{name}.cpp', sources)
                 self.assertNotIn(f'DiligentCore/Graphics/GraphicsEngineD3D12/src/{name}.cpp', sources)
             self.assertIn(str(engine/'DiligentCore/Graphics/GraphicsEngineD3D12/src/RootSignature.cpp').replace('\\', '/'), sources)
             self.assertEqual(headers, archiver)
-            self.assertTrue(headers.endswith('forge-patched-core/Graphics/GraphicsEngineD3D12/include'))
+            self.assertTrue(headers.endswith('/f/Graphics/GraphicsEngineD3D12/include'))
+            commands = json.loads((build/'compile_commands.json').read_text())
+            staged = [entry for entry in commands if '/f/Graphics/' in entry['file']]
+            self.assertEqual(len(staged), 4)
+            for entry in staged:
+                # CMake must use the path relative to the owning binary dir,
+                # avoiding repeated drive/temporary-directory components.
+                self.assertIn('.dir/f/Graphics/GraphicsEngineD3D12/src/',
+                              entry['output'].replace('\\', '/'))
 
     def test_core_pin_and_private_header_overlay(self):
         core_manifest = root/'cmake/patches/diligentcore-744f079f-descriptor-tables.json'
