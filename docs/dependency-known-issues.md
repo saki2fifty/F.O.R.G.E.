@@ -250,13 +250,16 @@ and SRB allocations before native copies. It preserves public interfaces, pins,
 heap sizes, root-buffer updates, transitions, fences and resource ownership.
 The upstream checkout stays unchanged. Staging/revision/source refusal checks,
 exact extracted metadata methods under ASan/UBSan and the independent768-dispatch
-software Vulkan fixture pass. The extended structured-buffer-array fixture selects
-the existing DXC SPIR-V compiler on Vulkan: the pinned glslang lowering crashes on
-that HLSL array expression. This is a fixture compiler selection, not a Vulkan
-default/compiler dependency change or acceptance of that glslang path. Native
-D3D12 retains the production default FXC profile. Native compilation, exhaustion/recovery,
-complete Material matrix and matching installed kit/player acceptance remain
-pending; no native completion or replacement package is claimed.
+software Vulkan fixture pass. Native compilation and all48 lower Material cases
+now execute without the former allocation crash; plane/tag/binding/published-Scene
+controls pass. The lower image matrix still fails14 metallic-roughness cases at
+its original absolute tolerance; no numeric acceptance or tolerance change is claimed.
+The stress fixture initially bound transient dynamic buffers to an array variable,
+which the pinned native backend explicitly does not support. It now uses separate
+root views with changing offsets on both backends, retaining their default compiler
+selection. The earlier Vulkan array expression also crashed pinned glslang lowering;
+that path is not validated or enabled. Finite-budget stress/recovery, the complete
+native numeric gate and matching installed kit/player acceptance remain pending.
 
 ## Body loads — pinned Jolt5.6.0
 
