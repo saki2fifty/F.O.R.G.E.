@@ -258,15 +258,20 @@ control establish permitted precision/refactoring differences between the two
 generated programs. The fixture now uses the documented
 [HDR-aware RGB budget](particle-effects.md#device-image-validation), preserving
 strict alpha/other-model checks, finite inputs and incorrect-index controls.
-Production shader math and optimization policy are unchanged; the revised numeric
-gate still requires native execution before acceptance.
+Production shader math and optimization policy are unchanged. The revised numeric
+gate covering all 48 cases passes on native D3D12 WARP with the production compiler and heap
+defaults, alongside the plane, ordering, binding, published-Scene and two
+source-hidden Material Game controls.
+
 The stress fixture initially bound transient dynamic buffers to an array variable,
 which the pinned native backend explicitly does not support. It now uses separate
 root views with changing offsets on both backends, retaining their default compiler
 selection. The earlier Vulkan array expression also crashed pinned glslang lowering;
 that path is not validated or enabled. Native finite-budget stress/recovery and
-both source-hidden Material Games pass with supported root views. The complete
-revised numeric gate and matching installed kit/player acceptance remain pending.
+both source-hidden Material Games pass with supported root views. These
+[eight focused native checks](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/44875121873)
+do not replace full source/editor or matching installed
+kit/player acceptance, which remain separate delivery gates.
 
 ## Body loads — pinned Jolt5.6.0
 

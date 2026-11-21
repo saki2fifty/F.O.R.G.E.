@@ -661,8 +661,8 @@ limit cancelled it. The full test selection and individual guards remain intact.
 Combined rendering/capture diagnostics retain240 minutes; other focused source
 audits retain150 minutes. Compiler host metadata is retained with the numbered
 viewport diagnostics so native compile measurements can be attributed to their
-runner hardware and image. Windows Debug/core allows 240 minutes and both native
-SDK jobs allow 180 minutes; Linux Debug/core retains 120 minutes. The same Debug run used
+runner hardware and image. Windows Debug/core allows 240 minutes; Linux Debug/core
+and both native SDK jobs allow 180 minutes. The same Debug run used
 about 52 minutes for setup/build and 68 minutes for 310 of 398 tests before its former 120-minute
 job limit expired. A later Windows Debug run completed 437 of 448 tests before its
 180-minute job deadline. These overall budgets cover compilation, complete testing,
@@ -1549,7 +1549,7 @@ errors and unclassified waits fail the fixture. Raw diagnostics remain visible;
 see [backend limits](render-backends.md#hosted-warp-frame-wait-diagnostics) and
 [source-attributed performance evidence](editor-performance.md).
 
-The numbered editor job allows 240 minutes for a cold native build plus its complete
+The numbered editor job allows 360 minutes for a cold native build plus its complete
 regression suite. After a successful compilation, reusable compilation outputs may
 be cached even if a later test fails. Such a cache is not accepted delivery evidence:
 subsequent runs still configure, rebuild changed inputs, and run all required tests
