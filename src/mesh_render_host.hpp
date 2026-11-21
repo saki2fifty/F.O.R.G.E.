@@ -148,8 +148,9 @@ class MeshSceneRenderer {
         bool applied = false;
     };
     void shadows(const RenderScene&, const CameraView&, std::uint32_t layers);
+    // The color attachment must match the format selected at construction.
     void draw(const RenderScene&, const CameraView&, std::uint32_t layers,
-              Diligent::ITexture* color = nullptr, Diligent::ITextureView* depth = nullptr,
+              Diligent::ITexture* color, Diligent::ITextureView* depth = nullptr,
               TemporalPass* temporal = nullptr, PostMeshPass* post_mesh = nullptr);
     std::uint64_t resource_epoch() const { return host_->epoch_; }
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }

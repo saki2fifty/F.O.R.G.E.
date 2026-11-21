@@ -20,7 +20,9 @@ manifest = root/'cmake/patches/diligentfx-aaa41d47-shader-warnings.json'
 class PatchTests(unittest.TestCase):
     def test_native_target_source_and_header_selection(self):
         with tempfile.TemporaryDirectory() as directory:
-            directory = Path(directory)
+            # Match the stager's canonical spelling when Windows TEMP uses an
+            # 8.3 alias; CMake compares source and binary paths textually.
+            directory = Path(directory).resolve()
             project = directory/'project'
             project.mkdir()
             # Configure the real integration against a composition-only native
