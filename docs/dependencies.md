@@ -472,6 +472,18 @@ and [validation and remaining warnings](dependency-known-issues.md#pinned-dilige
 Clean builds verify exact revisions, source hashes and patch identity before
 staging modified shader inputs. Upgrades must explicitly review or remove it.
 
+### Maintained D3D12 descriptor repair
+
+The same Engine/Core pins also select a checked build-tree repair for private
+dynamic descriptor tables and allocation failure handling. Equal immutable
+descriptor content can share the existing command context's frame allocation;
+mutable-in-place descriptors retain fresh copies. Private headers are staged
+together for layout consistency, including the native Archiver consumer. Public
+interfaces and SDK ABI are unchanged; matching backend binaries must be rebuilt.
+Heap sizes and allocator/fence ownership remain upstream. Original Apache2
+ownership/notices remain intact. See the [patch contract](../cmake/patches/README.md#d3d12-descriptor-snapshots)
+and [source finding and validation limits](dependency-known-issues.md#d3d12-dynamic-descriptor-allocation).
+
 ## Editor-only C++ text widget — verified 2026-09-28
 
 ImGuiColorTextEdit official upstream has no tagged stable release. Selected immutable

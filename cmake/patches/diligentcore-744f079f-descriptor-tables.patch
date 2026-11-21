@@ -1,0 +1,310 @@
+--- a/Graphics/GraphicsEngineD3D12/include/CommandContext.hpp
++++ b/Graphics/GraphicsEngineD3D12/include/CommandContext.hpp
+@@ -28,6 +28,9 @@
+
+ #pragma once
+
++#include <array>
++#include <map>
++#include <tuple>
+ #include <vector>
+
+ #include "DeviceContext.h"
+@@ -189,6 +192,22 @@
+         return m_DynamicGPUDescriptorAllocators[Type].Allocate(Count);
+     }
+
++    // Borrowed descriptor snapshots remain owned by the existing dynamic allocator.
++    // Empty keys deliberately disable reuse for descriptors that can change in place.
++    using DynamicDescriptorKey = std::vector<std::tuple<Uint64, Int32, Uint32, Uint64, Uint64, Uint64>>;
++    struct DynamicDescriptorTable
++    {
++        ID3D12DescriptorHeap*       pHeap = nullptr;
++        D3D12_GPU_DESCRIPTOR_HANDLE GPU{};
++        Uint32                      DescriptorSize = 0;
++    };
++    DynamicDescriptorTable CopyDynamicGPUVisibleDescriptors(ID3D12Device*               pd3d12Device,
++                                                            D3D12_DESCRIPTOR_HEAP_TYPE  Type,
++                                                            Uint32                      Count,
++                                                            D3D12_CPU_DESCRIPTOR_HANDLE Source,
++                                                            DynamicDescriptorKey        Key);
++    void                   InvalidateDynamicDescriptorTables();
++
+     void ResourceBarrier(const D3D12_RESOURCE_BARRIER& Barrier)
+     {
+         m_PendingResourceBarriers.emplace_back(Barrier);
+@@ -205,6 +224,8 @@
+
+     void SetDynamicGPUDescriptorAllocators(DynamicSuballocationsManager* Allocators)
+     {
++        if (m_DynamicGPUDescriptorAllocators != Allocators)
++            InvalidateDynamicDescriptorTables();
+         m_DynamicGPUDescriptorAllocators = Allocators;
+     }
+
+@@ -264,6 +285,10 @@
+     ShaderDescriptorHeaps m_BoundDescriptorHeaps;
+
+     DynamicSuballocationsManager* m_DynamicGPUDescriptorAllocators = nullptr;
++
++    using DynamicDescriptorCacheNode = std::pair<const DynamicDescriptorKey, DynamicDescriptorTable>;
++    using DynamicDescriptorCache     = std::map<DynamicDescriptorKey, DynamicDescriptorTable, std::less<DynamicDescriptorKey>, STDAllocatorRawMem<DynamicDescriptorCacheNode>>;
++    std::array<DynamicDescriptorCache, 2> m_DynamicDescriptorTables;
+
+     String m_ID;
+
+--- a/Graphics/GraphicsEngineD3D12/src/CommandContext.cpp
++++ b/Graphics/GraphicsEngineD3D12/src/CommandContext.cpp
+@@ -55,7 +55,10 @@
+ {
+
+ CommandContext::CommandContext(CommandListManager& CmdListManager) :
+-    m_PendingResourceBarriers(STD_ALLOCATOR_RAW_MEM(D3D12_RESOURCE_BARRIER, GetRawAllocator(), "Allocator for vector<D3D12_RESOURCE_BARRIER>"))
++    m_PendingResourceBarriers(STD_ALLOCATOR_RAW_MEM(D3D12_RESOURCE_BARRIER, GetRawAllocator(), "Allocator for vector<D3D12_RESOURCE_BARRIER>")),
++    m_DynamicDescriptorTables{
++        DynamicDescriptorCache{std::less<DynamicDescriptorKey>{}, STD_ALLOCATOR_RAW_MEM(DynamicDescriptorCacheNode, GetRawAllocator(), "Allocator for dynamic descriptor snapshots")},
++        DynamicDescriptorCache{std::less<DynamicDescriptorKey>{}, STD_ALLOCATOR_RAW_MEM(DynamicDescriptorCacheNode, GetRawAllocator(), "Allocator for dynamic descriptor snapshots")}}
+ {
+     m_PendingResourceBarriers.reserve(32);
+     CmdListManager.CreateNewCommandList(&m_pCommandList, &m_pCurrentAllocator, m_MaxInterfaceVer);
+@@ -68,6 +71,7 @@
+
+ void CommandContext::Reset(CommandListManager& CmdListManager)
+ {
++    InvalidateDynamicDescriptorTables();
+     // We only call Reset() on previously freed contexts. The command list persists, but we need to
+     // request a new allocator
+     VERIFY_EXPR(m_pCommandList != nullptr);
+@@ -93,6 +97,46 @@
+ #if 0
+     BindDescriptorHeaps();
+ #endif
++}
++
++void CommandContext::InvalidateDynamicDescriptorTables()
++{
++    for (auto& Cache : m_DynamicDescriptorTables)
++        Cache.clear();
++}
++
++CommandContext::DynamicDescriptorTable CommandContext::CopyDynamicGPUVisibleDescriptors(
++    ID3D12Device*               pd3d12Device,
++    D3D12_DESCRIPTOR_HEAP_TYPE  Type,
++    Uint32                      Count,
++    D3D12_CPU_DESCRIPTOR_HANDLE Source,
++    DynamicDescriptorKey        Key)
++{
++    if (pd3d12Device == nullptr || m_DynamicGPUDescriptorAllocators == nullptr ||
++        (Type != D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV && Type != D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) ||
++        Count == 0 || Source.ptr == 0 || (!Key.empty() && Key.size() != Count))
++        LOG_ERROR_AND_THROW("Invalid dynamic descriptor snapshot request");
++    auto& Cache = m_DynamicDescriptorTables[Type];
++    if (!Key.empty())
++    {
++        const auto Found = Cache.find(Key);
++        if (Found != Cache.end())
++            return Found->second;
++    }
++    auto Allocation = AllocateDynamicGPUVisibleDescriptor(Type, Count);
++    if (Allocation.IsNull())
++        LOG_ERROR_AND_THROW("Dynamic GPU-visible descriptor budget exhausted for ", Count,
++                            Type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ? " samplers" : " CBV/SRV/UAV resources");
++    pd3d12Device->CopyDescriptorsSimple(Count, Allocation.GetCpuHandle(), Source, Type);
++    DynamicDescriptorTable Table;
++    Table.pHeap          = Allocation.GetDescriptorHeap();
++    Table.GPU            = Allocation.GetGpuHandle();
++    Table.DescriptorSize = Allocation.GetDescriptorSize();
++    if (!Key.empty())
++        Cache.emplace(std::move(Key), Table);
++    // Free() only resets this suballocation wrapper. Its chunk stays live until
++    // the owning allocator retires the frame using the original queue fences.
++    return Table;
+ }
+
+ ID3D12GraphicsCommandList* CommandContext::Close(CComPtr<ID3D12CommandAllocator>& pAllocator)
+--- a/Graphics/GraphicsEngineD3D12/src/DeviceContextD3D12Impl.cpp
++++ b/Graphics/GraphicsEngineD3D12/src/DeviceContextD3D12Impl.cpp
+@@ -1153,6 +1153,9 @@
+     // Released pages are returned to the global dynamic memory manager hosted by render device.
+     m_DynamicHeap.ReleaseAllocatedPages(QueueMask);
+
++    if (m_CurrCmdCtx)
++        m_CurrCmdCtx->InvalidateDynamicDescriptorTables();
++
+     // Dynamic GPU descriptor allocations are returned to the global GPU descriptor heap
+     // hosted by the render device.
+     for (size_t i = 0; i < _countof(m_DynamicGPUDescriptorAllocator); ++i)
+--- a/Graphics/GraphicsEngineD3D12/src/PipelineResourceSignatureD3D12Impl.cpp
++++ b/Graphics/GraphicsEngineD3D12/src/PipelineResourceSignatureD3D12Impl.cpp
+@@ -622,13 +622,7 @@
+     CommandContext&                 CmdCtx        = CommitAttribs.CmdCtx;
+     ID3D12Device* const             pd3d12Device  = CommitAttribs.pd3d12Device;
+
+-    // Having an array of actual DescriptorHeapAllocation objects introduces unnecessary overhead when
+-    // there are no dynamic variables as constructors and destructors are always called. To avoid this
+-    // overhead we will construct DescriptorHeapAllocation in-place only when they are really needed.
+-    std::array<DescriptorHeapAllocation*, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER + 1> pDynamicDescriptorAllocations{};
+-
+-    // Reserve space for DescriptorHeapAllocation objects (do NOT zero-out!)
+-    alignas(DescriptorHeapAllocation) uint8_t DynamicDescriptorAllocationsRawMem[sizeof(DescriptorHeapAllocation) * (D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER + 1)];
++    std::array<CommandContext::DynamicDescriptorTable, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER + 1> DynamicTables{};
+
+     for (Uint32 heap_type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; heap_type < D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER + 1; ++heap_type)
+     {
+@@ -637,41 +631,78 @@
+         Uint32 NumDynamicDescriptors = m_RootParams.GetParameterGroupSize(d3d12HeapType, ROOT_PARAMETER_GROUP_DYNAMIC);
+         if (NumDynamicDescriptors > 0)
+         {
+-            DescriptorHeapAllocation*& pAllocation = pDynamicDescriptorAllocations[d3d12HeapType];
+-
+-            // Create new DescriptorHeapAllocation in-place
+-            pAllocation = new (&DynamicDescriptorAllocationsRawMem[sizeof(DescriptorHeapAllocation) * heap_type])
+-                DescriptorHeapAllocation{CmdCtx.AllocateDynamicGPUVisibleDescriptor(d3d12HeapType, NumDynamicDescriptors)};
+-
+-            DEV_CHECK_ERR(!pAllocation->IsNull(),
+-                          "Failed to allocate ", NumDynamicDescriptors, " dynamic GPU-visible ",
+-                          (d3d12HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ? "CBV/SRV/UAV" : "Sampler"),
+-                          " descriptor(s). Consider increasing GPUDescriptorHeapDynamicSize[", heap_type,
+-                          "] in EngineD3D12CreateInfo or optimizing dynamic resource utilization by using static "
+-                          "or mutable shader resource variables instead.");
+-
+-            // Copy all dynamic descriptors from the CPU-only cache allocation
+-            const DescriptorHeapAllocation& SrcDynamicAllocation = ResourceCache.GetDescriptorAllocation(d3d12HeapType, ROOT_PARAMETER_GROUP_DYNAMIC);
+-            VERIFY_EXPR(SrcDynamicAllocation.GetNumHandles() == NumDynamicDescriptors);
+-            pd3d12Device->CopyDescriptorsSimple(NumDynamicDescriptors, pAllocation->GetCpuHandle(), SrcDynamicAllocation.GetCpuHandle(), d3d12HeapType);
+-        }
+-    }
+-
+-    DescriptorHeapAllocation* const pSrvCbvUavDynamicAllocation = pDynamicDescriptorAllocations[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
+-    DescriptorHeapAllocation* const pSamplerDynamicAllocation   = pDynamicDescriptorAllocations[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER];
++            CommandContext::DynamicDescriptorKey Key(NumDynamicDescriptors);
++            Uint32                               Filled    = 0;
++            bool                                 Cacheable = true;
++            for (Uint32 rt = 0; rt < m_RootParams.GetNumRootTables(); ++rt)
++            {
++                const RootParameter& Root = m_RootParams.GetRootTable(rt);
++                if (Root.Group != ROOT_PARAMETER_GROUP_DYNAMIC)
++                    continue;
++                const auto RootHeap = Root.d3d12RootParam.DescriptorTable.pDescriptorRanges[0].RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER ?
++                    D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER :
++                    D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
++                if (RootHeap != d3d12HeapType)
++                    continue;
++                const auto&  Table  = ResourceCache.GetRootTable(Root.RootIndex);
++                const Uint32 Offset = Root.TableOffsetInGroupAllocation;
++                if (Offset > NumDynamicDescriptors || Table.GetSize() > NumDynamicDescriptors - Offset)
++                    LOG_ERROR_AND_THROW("Invalid dynamic descriptor table range");
++                for (Uint32 i = 0; i < Table.GetSize(); ++i)
++                {
++                    const auto& Res = Table.GetResource(i);
++                    ++Filled;
++                    if (Res.IsNull() || Res.CPUDescriptorHandle.ptr == 0)
++                    {
++                        Cacheable = false;
++                        continue;
++                    }
++                    switch (Res.Type)
++                    {
++                        case SHADER_RESOURCE_TYPE_SAMPLER:
++                        case SHADER_RESOURCE_TYPE_TEXTURE_SRV:
++                        case SHADER_RESOURCE_TYPE_TEXTURE_UAV:
++                            break;
++                        case SHADER_RESOURCE_TYPE_BUFFER_SRV:
++                        case SHADER_RESOURCE_TYPE_BUFFER_UAV:
++                            if (Res.pObject.ConstPtr<BufferViewD3D12Impl>()->GetBuffer()->GetDesc().Usage == USAGE_DYNAMIC)
++                                Cacheable = false;
++                            break;
++                        default:
++                            // CBV ranges, acceleration structures and unknown descriptors
++                            // may be updated in place. Preserve their ordinary copy path.
++                            Cacheable = false;
++                            break;
++                    }
++                    Key[Offset + i] = std::make_tuple(Uint64{Res.CPUDescriptorHandle.ptr}, Res.pObject->GetUniqueID(),
++                                                      Uint32{Res.Type}, Res.BufferBaseOffset, Res.BufferRangeSize,
++                                                      Res.BufferDynamicOffset);
++                }
++            }
++            if (!Cacheable || Filled != NumDynamicDescriptors)
++                Key.clear();
++            const auto& Source = ResourceCache.GetDescriptorAllocation(d3d12HeapType, ROOT_PARAMETER_GROUP_DYNAMIC);
++            VERIFY_EXPR(Source.GetNumHandles() == NumDynamicDescriptors);
++            DynamicTables[d3d12HeapType] = CmdCtx.CopyDynamicGPUVisibleDescriptors(
++                pd3d12Device, d3d12HeapType, NumDynamicDescriptors, Source.GetCpuHandle(), std::move(Key));
++        }
++    }
++
++    const auto& SrvCbvUavDynamic = DynamicTables[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
++    const auto& SamplerDynamic   = DynamicTables[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER];
+
+     CommandContext::ShaderDescriptorHeaps Heaps{
+         ResourceCache.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, ROOT_PARAMETER_GROUP_STATIC_MUTABLE),
+         ResourceCache.GetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, ROOT_PARAMETER_GROUP_STATIC_MUTABLE),
+     };
+-    if (Heaps.pSrvCbvUavHeap == nullptr && pSrvCbvUavDynamicAllocation != nullptr)
+-        Heaps.pSrvCbvUavHeap = pSrvCbvUavDynamicAllocation->GetDescriptorHeap();
+-    if (Heaps.pSamplerHeap == nullptr && pSamplerDynamicAllocation != nullptr)
+-        Heaps.pSamplerHeap = pSamplerDynamicAllocation->GetDescriptorHeap();
+-
+-    VERIFY(pSrvCbvUavDynamicAllocation == nullptr || pSrvCbvUavDynamicAllocation->GetDescriptorHeap() == Heaps.pSrvCbvUavHeap,
++    if (Heaps.pSrvCbvUavHeap == nullptr && SrvCbvUavDynamic.pHeap != nullptr)
++        Heaps.pSrvCbvUavHeap = SrvCbvUavDynamic.pHeap;
++    if (Heaps.pSamplerHeap == nullptr && SamplerDynamic.pHeap != nullptr)
++        Heaps.pSamplerHeap = SamplerDynamic.pHeap;
++
++    VERIFY(SrvCbvUavDynamic.pHeap == nullptr || SrvCbvUavDynamic.pHeap == Heaps.pSrvCbvUavHeap,
+            "Inconsistent CBV/SRV/UAV descriptor heaps");
+-    VERIFY(pSamplerDynamicAllocation == nullptr || pSamplerDynamicAllocation->GetDescriptorHeap() == Heaps.pSamplerHeap,
++    VERIFY(SamplerDynamic.pHeap == nullptr || SamplerDynamic.pHeap == Heaps.pSamplerHeap,
+            "Inconsistent Sampler descriptor heaps");
+
+     if (Heaps)
+@@ -696,8 +727,9 @@
+         D3D12_GPU_DESCRIPTOR_HANDLE RootTableGPUDescriptorHandle{};
+         if (RootTable.Group == ROOT_PARAMETER_GROUP_DYNAMIC)
+         {
+-            DescriptorHeapAllocation& DynamicAllocation{*pDynamicDescriptorAllocations[d3d12HeapType]};
+-            RootTableGPUDescriptorHandle = DynamicAllocation.GetGpuHandle(TableOffsetInGroupAllocation);
++            const auto& Dynamic          = DynamicTables[d3d12HeapType];
++            RootTableGPUDescriptorHandle = Dynamic.GPU;
++            RootTableGPUDescriptorHandle.ptr += Uint64{TableOffsetInGroupAllocation} * Dynamic.DescriptorSize;
+         }
+         else
+         {
+@@ -716,13 +748,6 @@
+     if (Uint64 NonDynamicBuffersMask = ResourceCache.GetNonDynamicRootBuffersMask())
+     {
+         CommitRootViews(CommitAttribs, NonDynamicBuffersMask);
+-    }
+-
+-    // Manually destroy DescriptorHeapAllocation objects we created.
+-    for (DescriptorHeapAllocation* pAllocation : pDynamicDescriptorAllocations)
+-    {
+-        if (pAllocation != nullptr)
+-            pAllocation->~DescriptorHeapAllocation();
+     }
+ }
+
+--- a/Graphics/GraphicsEngineD3D12/src/ShaderResourceCacheD3D12.cpp
++++ b/Graphics/GraphicsEngineD3D12/src/ShaderResourceCacheD3D12.cpp
+@@ -362,13 +362,13 @@
+                     UNEXPECTED("Unexpected root parameter group type");
+                 }
+
+-                DEV_CHECK_ERR(!Allocation.IsNull(),
+-                              "Failed to allocate ", TotalTableResources, ' ',
+-                              (GroupType == ROOT_PARAMETER_GROUP_STATIC_MUTABLE ? "GPU-visible" : "CPU-only"), ' ',
+-                              (d3d12HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ? "CBV/SRV/UAV" : "Sampler"),
+-                              " descriptor(s). Consider increasing ",
+-                              (GroupType == ROOT_PARAMETER_GROUP_STATIC_MUTABLE ? "GPUDescriptorHeapSize" : "CPUDescriptorHeapSize"),
+-                              '[', int{d3d12HeapType}, "] in EngineD3D12CreateInfo.");
++                if (Allocation.IsNull())
++                    LOG_ERROR_AND_THROW("Failed to allocate ", TotalTableResources, ' ',
++                                        (GroupType == ROOT_PARAMETER_GROUP_STATIC_MUTABLE ? "GPU-visible" : "CPU-only"), ' ',
++                                        (d3d12HeapType == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ? "CBV/SRV/UAV" : "Sampler"),
++                                        " descriptor(s). Consider increasing ",
++                                        (GroupType == ROOT_PARAMETER_GROUP_STATIC_MUTABLE ? "GPUDescriptorHeapSize" : "CPUDescriptorHeapSize"),
++                                        '[', int{d3d12HeapType}, "] in EngineD3D12CreateInfo.");
+             }
+             else
+             {

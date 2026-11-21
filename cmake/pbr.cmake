@@ -1,9 +1,10 @@
 # Exact pinned native PBR utilities, without FX's EnTT scene graph or ImGui link.
-# Native C++ remains unmodified. Two reviewed shader corrections are staged separately.
+# Reviewed shader and private D3D12 repairs are staged without changing upstream.
 set(forge_fx_root "${diligent_SOURCE_DIR}/DiligentFX")
 file(GLOB_RECURSE forge_fx_shaders CONFIGURE_DEPENDS LIST_DIRECTORIES false
  "${forge_fx_root}/Shaders/*.*")
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+include(cmake/diligent_d3d12_patch.cmake)
 set(forge_fx_patch_manifest "${PROJECT_SOURCE_DIR}/cmake/patches/diligentfx-aaa41d47-shader-warnings.json")
 set(forge_fx_patch "${PROJECT_SOURCE_DIR}/cmake/patches/diligentfx-aaa41d47-shader-warnings.patch")
 set(forge_fx_patched "${CMAKE_CURRENT_BINARY_DIR}/forge-patched-fx")

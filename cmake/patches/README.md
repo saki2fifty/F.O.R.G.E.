@@ -1,9 +1,44 @@
-# Maintained DiligentFX shader exception
+# Maintained Diligent repairs
 
 Exact Engine `a279e5fa8593cbc758ec46ea1eba0b435cbc2f06` + Core
 `744f079f61cdbda15d371383682418fc927e4a61` + FX
 `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`, with this explicit FORGE patch set.
-This is not a different dependency version. Native C++ remains unmodified.
+These are reviewed build-tree repairs of the same pinned dependency version.
+Original ownership, copyright and Apache2 notices remain intact.
+
+## D3D12 descriptor snapshots
+
+`diligentcore-744f079f-descriptor-tables.json` records the exact normalized source
+and diff hashes. The existing staging tool also handles this Core manifest;
+its historical filename and default FX invocation remain compatible.
+Four native translation units and one private header change. The other45 private
+headers are checked and staged byte-for-byte so quoted sibling includes see one
+CommandContext layout. The D3D12 static implementation and native Archiver use
+that private include overlay; the shared backend links the same implementation.
+Public headers, SDK ABI, authored formats, dependency pins and heap sizes do not change.
+
+The existing CommandContext borrows immutable descriptor snapshots from its
+existing dynamic allocator. Ordered keys contain each resource's unique ID,
+CPU descriptor, type, buffer range and offsets. Safe texture/sampler and
+non-dynamic buffer-view tables may reuse equal content across SRBs and pipelines.
+Unbound holes, CBV ranges, dynamic buffer views, acceleration structures and
+unknown types retain fresh copies. Resource transitions and root-buffer updates
+always retain their original path. No resource ownership or fence is transferred.
+
+Individual dynamic suballocation wrappers do not release heap storage; their
+allocator retires whole chunks behind queue fences. Cached raw handles clear on
+context reset, allocator replacement and before FinishFrame retires the allocator.
+Allocation failure throws before a native descriptor copy, including the SRB's
+static/mutable allocation path. A larger descriptor heap is not selected.
+
+The independent descriptor fixture checks alternating pipelines/SRBs, eight
+sampler lanes, changing textures/uniforms and dynamic buffer arrays,384 dispatches
+per frame, flushes and
+frame retirement. Windows additionally checks finite-budget exhaustion and
+subsequent recovery. Linux staging/metadata/Vulkan checks do not establish native
+D3D12 acceptance. See [current findings](../../docs/dependency-known-issues.md#d3d12-dynamic-descriptor-allocation).
+
+## DiligentFX shaders
 
 The adjacent JSON records normalized-LF input SHA256 values and patch SHA256
 `b2558b2620ad38bcf5270d8588d2b88b1e61242c132fcb3fd06be96b07b48151`.

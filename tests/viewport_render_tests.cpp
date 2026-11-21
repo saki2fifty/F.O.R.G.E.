@@ -15,6 +15,7 @@
 #include "Graphics/GraphicsEngineD3D12/interface/RenderDeviceD3D12.h"
 #include "ImGuiImplDiligent.hpp"
 #include "authoring.hpp"
+#include "dynamic_descriptor_checks.hpp"
 #include "material_lightmap_gpu_tests.hpp"
 #include "particle_alpha_render_tests.hpp"
 #include "particle_billboard_render_tests.hpp"
@@ -330,6 +331,8 @@ int main(int argc, char** argv) {
                 forge::particle_order_test::execute(isolated, context);
             else if (selected == "mesh-bindings")
                 forge::test_particle_palette::exercise(isolated, context, true);
+            else if (selected == "dynamic-descriptors")
+                forge::test_dynamic_descriptors::exercise(isolated, context);
             else if (selected == "particle-gpu-material-numeric")
                 forge::test_particle_palette::exercise(isolated, context);
             else if (selected == "particle-gpu-material-scene")
