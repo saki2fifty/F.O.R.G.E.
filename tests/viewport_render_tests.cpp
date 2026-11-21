@@ -349,12 +349,6 @@ int main(int argc, char** argv) {
         require(bool(queue), "Diligent queue attachment failed");
         ICommandQueueD3D12* queues[] = {queue};
         EngineD3D12CreateInfo engine;
-        // Isolated capacity experiment: keep the hardware's 2048-sampler limit
-        // while measuring the reference draw's demand. This is not a shipping
-        // renderer policy or a replacement for bounded resource admission.
-        engine.GPUDescriptorHeapSize[1] = 512;
-        engine.GPUDescriptorHeapDynamicSize[1] = 1536;
-        std::cout << "Diagnostic sampler partition: static=512 dynamic=1536 total=2048\n";
         engine.Features.ComputeShaders = DEVICE_FEATURE_STATE_ENABLED;
         engine.Features.DurationQueries = DEVICE_FEATURE_STATE_OPTIONAL;
         engine.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;

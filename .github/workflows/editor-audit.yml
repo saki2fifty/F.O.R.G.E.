@@ -139,7 +139,7 @@ jobs:
           if ('${{ inputs.particle_gpu_validation }}' -eq 'true') {
             'FORGE_GPU_VALIDATION=1' | Out-File -FilePath $env:GITHUB_ENV -Append
           }
-          'FORGE_SHADER_ACCEPTANCE_REGEX=^editor_render_particle-gpu-(plane-numeric|order-numeric|sorted-scene)$' | Out-File -FilePath $env:GITHUB_ENV -Append
+          'FORGE_SHADER_ACCEPTANCE_TARGETS=forge_viewport_tests forge_particle_material_gallery_tests forge_particle_graph_gallery_tests forge_shader_build_worker' | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Validate core regression diagnostic scope
         if: inputs.core_regressions_only
         shell: pwsh
@@ -362,11 +362,16 @@ jobs:
           ctest --test-dir ../AgentFiles/b -R $selection --output-on-failure
           if ($LASTEXITCODE) { throw 'Full editor acceptance failed' }
       - name: Execute shader and material GPU acceptance
-        if: inputs.shader_only
+        if: ${{ inputs.shader_only && !inputs.particle_readback_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "$env:FORGE_SHADER_ACCEPTANCE_REGEX" --output-on-failure --no-tests=error
+      - name: Compare native particle compiler modes with runtime heap defaults
+        if: inputs.particle_readback_only
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: ./tests/native_particle_compiler_probe.ps1 -BuildDirectory ../AgentFiles/b
       - name: Verify native lightmap Gallery preparation and source-free export
-        if: inputs.shader_only
+        if: ${{ inputs.shader_only && !inputs.particle_readback_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tests/material_lightmap_gallery_test.py ../AgentFiles/b/forge_material_lightmap_gallery_tests.exe samples/projects/FeatureGallery ../AgentFiles/b/forge_nav_build.exe ../AgentFiles/b/forge_tools.exe ../AgentFiles/b/grid-test-images/lightmap-gallery-export
       - name: Repeat additive pose diagnostics
