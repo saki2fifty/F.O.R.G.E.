@@ -3,6 +3,7 @@
 #include "mesh_draw.hpp"
 #include "mesh_draw_bundle.hpp"
 #include "particle_gpu_order.hpp"
+#include <cstdlib>
 #include <memory>
 #include <numeric>
 namespace forge::test_particle_palette {
@@ -282,11 +283,23 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
                       camera_view(Camera{}, {}, extent, extent));
         return;
     }
+    const char* graphics_mode = std::getenv("FORGE_NATIVE_MATERIAL_GRAPHICS");
+    const bool graphics_trace = graphics_mode && *graphics_mode;
+    check(!graphics_trace || std::string_view(graphics_mode) == "disabled",
+          "Unknown native Material graphics control");
+    const auto graphics_optimization =
+        graphics_trace ? SHADER_OPTIMIZATION_LEVEL_DISABLED : SHADER_OPTIMIZATION_LEVEL_DEFAULT;
+    if (graphics_trace)
+        std::cout << "GRAPHICS_ONLY_OPTIMIZATION disabled; compute policy unchanged\n";
     unsigned frames = 0, cases = 0, mismatched_cases = 0;
     for (const char* model : {"forge.gltf.unlit.v1", "forge.gltf.metallic-roughness.v1",
                               "forge.gltf.specular-glossiness.v1"})
         for (unsigned member_count : {2u, 4u})
             for (bool different_sampler : {false, true}) {
+                if (graphics_trace &&
+                    (std::string_view(model) != "forge.gltf.metallic-roughness.v1" ||
+                     member_count != 2 || different_sampler))
+                    continue;
                 std::vector<MaterialData> values;
                 std::vector<MeshDraw::Textures> images;
                 std::vector<RefCntAutoPtr<ITexture>> assets;
@@ -330,15 +343,18 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
                     members.push_back({&values[i], &images[i]});
                     singles.push_back(std::make_unique<MeshDraw>(
                         presentation, context, gpu.lods[0].parts[0], values[i], images[i],
-                        TEX_FORMAT_RGBA32_FLOAT, TEX_FORMAT_D32_FLOAT));
+                        TEX_FORMAT_RGBA32_FLOAT, TEX_FORMAT_D32_FLOAT, true,
+                        SHADER_COMPILER_DEFAULT, graphics_optimization));
                 }
                 MeshDraw palette(presentation, context, gpu.lods[0].parts[0], values[0], images[0],
                                  TEX_FORMAT_RGBA32_FLOAT, TEX_FORMAT_D32_FLOAT, true,
-                                 SHADER_COMPILER_DEFAULT, SHADER_OPTIMIZATION_LEVEL_DEFAULT,
-                                 nullptr, MeshDrawProfile::Mesh, false, false, members);
+                                 SHADER_COMPILER_DEFAULT, graphics_optimization, nullptr,
+                                 MeshDrawProfile::Mesh, false, false, members);
                 ParticleGpuOrder order(presentation);
                 for (unsigned births : {3u, 65u})
                     for (bool reverse : {false, true}) {
+                        if (graphics_trace && (births != 3 || reverse))
+                            continue;
                         Camera camera;
                         camera.projection = 1;
                         camera.orthographic_height = 2;
@@ -531,6 +547,7 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
               << "; real MeshDraw, three builtin models, two/four Materials, lighting, "
                  "UV/textures/samplers, reverse views, 64-instance slices\n";
     check(!mismatched_cases, "Material image matrix contains original-threshold failures");
-    bundle_preparation(presentation, context, mesh, gpu.lods[0].parts[0], color, depth);
+    if (!graphics_trace)
+        bundle_preparation(presentation, context, mesh, gpu.lods[0].parts[0], color, depth);
 }
 } // namespace forge::test_particle_palette

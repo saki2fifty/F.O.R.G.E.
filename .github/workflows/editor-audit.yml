@@ -139,7 +139,7 @@ jobs:
           if ('${{ inputs.particle_gpu_validation }}' -eq 'true') {
             'FORGE_GPU_VALIDATION=1' | Out-File -FilePath $env:GITHUB_ENV -Append
           }
-          'FORGE_SHADER_ACCEPTANCE_TARGETS=forge_viewport_tests' | Out-File -FilePath $env:GITHUB_ENV -Append
+          'FORGE_SHADER_ACCEPTANCE_TARGETS=forge_viewport_tests forge_particle_material_gallery_tests forge_particle_graph_gallery_tests' | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Validate core regression diagnostic scope
         if: inputs.core_regressions_only
         shell: pwsh
