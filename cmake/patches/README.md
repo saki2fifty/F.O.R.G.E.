@@ -34,7 +34,7 @@ Allocation failure throws before a native descriptor copy, including the SRB's
 static/mutable allocation path. A larger descriptor heap is not selected.
 
 The independent descriptor fixture checks alternating pipelines/SRBs, eight
-sampler lanes, changing textures/uniforms and dynamic buffer arrays,384 dispatches
+sampler lanes, changing textures/uniforms and dynamic buffer root views,384 dispatches
 per frame, flushes and
 frame retirement. Windows additionally checks finite-budget exhaustion and
 subsequent recovery. Linux staging/metadata/Vulkan checks do not establish native

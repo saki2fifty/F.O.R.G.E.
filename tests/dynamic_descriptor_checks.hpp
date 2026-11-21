@@ -3,6 +3,7 @@
 #include "presentation_diligent.hpp"
 #include <array>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -60,7 +61,7 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
     desc.CPUAccessFlags = CPU_ACCESS_WRITE;
     RefCntAutoPtr<IBuffer> controls;
     device->CreateBuffer(desc, nullptr, &controls);
-    desc.Name = "FORGE descriptor snapshot changing array views";
+    desc.Name = "FORGE descriptor snapshot changing root views";
     desc.BindFlags = BIND_SHADER_RESOURCE;
     desc.Mode = BUFFER_MODE_STRUCTURED;
     desc.ElementByteStride = sizeof(Pixel);
@@ -95,22 +96,18 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
         // indexing extensions. Every lane contributes a distinct binary weight.
         std::string source = "cbuffer Controls{uint Row;float Gain;uint2 Padding;}"
                              "Texture2D<float4> Image;SamplerState States[8];"
-                             "StructuredBuffer<float4> Changing[2];"
+                             "StructuredBuffer<float4> Changing0,Changing1;"
                              "RWStructuredBuffer<float4> Output;"
                              "[numthreads(1,1,1)]void main(){float4 value=0;";
         for (unsigned lane = 0; lane < 8; ++lane)
             source += "value+=Image.SampleLevel(States[" + std::to_string(lane) +
                       "],float2(-.25,.5),0)*" + std::to_string(1u << lane) + ";";
         source += "Output[Row]=value*(Gain/256)+" + std::string(i ? ".25" : ".125") +
-                  "+Changing[0][0]+Changing[1][0];}";
+                  "+Changing0[0]+Changing1[0];}";
         ShaderCreateInfo shader;
         shader.Desc.Name = "FORGE descriptor snapshot compute";
         shader.Desc.ShaderType = SHADER_TYPE_COMPUTE;
         shader.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
-        // This array fixture uses the existing DXC SPIR-V compiler on Vulkan.
-        // Native D3D12 must exercise the production default compiler/profile.
-        if (device->GetDeviceInfo().Type == RENDER_DEVICE_TYPE_VULKAN)
-            shader.ShaderCompiler = SHADER_COMPILER_DXC;
         shader.Source = source.c_str();
         shader.EntryPoint = "main";
         RefCntAutoPtr<IShader> compiled;
@@ -128,9 +125,13 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
         bindings[i]
             ->GetVariableByName(SHADER_TYPE_COMPUTE, "Output")
             ->Set(output->GetDefaultView(BUFFER_VIEW_UNORDERED_ACCESS));
-        bindings[i]
-            ->GetVariableByName(SHADER_TYPE_COMPUTE, "Changing")
-            ->SetArray(changing_views.data(), 0, Uint32(changing_views.size()));
+        // The pinned native backend requires these transient dynamic buffers
+        // to use non-array root views, with their offsets updated each dispatch.
+        for (unsigned lane = 0; lane < changing_views.size(); ++lane)
+            bindings[i]
+                ->GetVariableByName(SHADER_TYPE_COMPUTE,
+                                    ("Changing" + std::to_string(lane)).c_str())
+                ->Set(changing_views[lane]);
     }
     const auto dispatch = [&](unsigned row, unsigned pipeline, unsigned image, float gain,
                               const std::array<IDeviceObject*, 8>& states) {
@@ -141,7 +142,7 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
         }
         for (unsigned i = 0; i < changing.size(); ++i) {
             MapHelper<Pixel> mapped(context, changing[i], MAP_WRITE, MAP_FLAG_DISCARD);
-            check(bool(static_cast<Pixel*>(mapped)), "Dynamic array view map failed");
+            check(bool(static_cast<Pixel*>(mapped)), "Dynamic root view map failed");
             mapped->fill(float((row + i) % 8) / 16);
         }
         auto* binding = bindings[pipeline].RawPtr();
@@ -160,8 +161,15 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
         MapHelper<Pixel> mapped(context, staging, MAP_READ, MAP_FLAG_DO_NOT_WAIT);
         check(bool(static_cast<Pixel*>(mapped)), "Descriptor snapshot readback failed");
         for (unsigned i = 0; i < expected.size(); ++i)
-            check(mapped[i] == expected[i],
-                  "Descriptor reuse changed texture, sampler or root buffer");
+            if (mapped[i] != expected[i]) {
+                std::ostringstream detail;
+                detail.precision(9);
+                detail << "Descriptor reuse changed texture, sampler or root buffer at row " << i;
+                for (unsigned c = 0; c < expected[i].size(); ++c)
+                    detail << "; channel " << c << " actual=" << mapped[i][c]
+                           << " expected=" << expected[i][c];
+                throw std::runtime_error(detail.str());
+            }
     };
     const auto frame = [&](bool flush) {
         std::vector<Pixel> expected;
