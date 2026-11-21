@@ -322,6 +322,7 @@ jobs:
           key: ${{ steps.cache-key.outputs.key }}-${{ github.sha }}
           restore-keys: |
             ${{ steps.cache-key.outputs.key }}-
+            ${{ steps.cache-key.outputs.legacy_key || steps.cache-key.outputs.key }}-
       - name: Discard an incomplete cache restore
         if: ${{ !inputs.clean_build && (steps.editor-cache.outcome == 'failure' || steps.editor-cache.outputs.cache-matched-key == '') }}
         shell: pwsh
@@ -587,6 +588,8 @@ jobs:
           restore-keys: |
             ${{ steps.retry-cache-key.outputs.key }}-${{ steps.compiled.outputs.sha }}-fixture-
             ${{ steps.retry-cache-key.outputs.key }}-${{ steps.compiled.outputs.sha }}
+            ${{ steps.retry-cache-key.outputs.legacy_key || steps.retry-cache-key.outputs.key }}-${{ steps.compiled.outputs.sha }}-fixture-
+            ${{ steps.retry-cache-key.outputs.legacy_key || steps.retry-cache-key.outputs.key }}-${{ steps.compiled.outputs.sha }}
           fail-on-cache-miss: true
       - name: Build current nonshipping acceptance fixture
         if: inputs.package_source_run != '' && steps.compiled.outputs.fixture_rebuild == 'true'
