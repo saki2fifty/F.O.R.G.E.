@@ -85,6 +85,13 @@ def editor(mode='edit'):
             finish_host(process, root)
 
 
+def source_publication_diagnostics(root):
+    try:
+        return json.loads((root / 'source-publication-diagnostics.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError) as error:
+        return {'diagnostics_unavailable': str(error)}
+
+
 def check_audio_settings(read, mutate, root):
     # Typed importer settings use the shared draft, schema and native worker.
     with wave.open(str(root / 'Game/Assets/Settings.wav'), 'wb') as wav:
@@ -905,11 +912,13 @@ for legacy in protocol_cases():
                                     for record in records if record['id'] == old['asset'])
                     end = time.monotonic() + 12
                     while published_digest() != digest:
-                        assert time.monotonic() < end, (owner, 'External source publication did not complete')
+                        assert time.monotonic() < end, (owner, 'External source publication did not complete',
+                                                       status(owner), source_publication_diagnostics(root))
                         time.sleep(.1)
                     end = time.monotonic() + 2
                     while status(owner)['session'] == old['session']:
-                        assert time.monotonic() < end, (owner, 'Published source did not refresh its open editor')
+                        assert time.monotonic() < end, (owner, 'Published source did not refresh its open editor',
+                                                       status(owner), source_publication_diagnostics(root))
                         time.sleep(.1)
                     assert content(owner)[key] == external[key]
                     assert not status(owner)['dirty']

@@ -4047,3 +4047,10 @@ the link and arc cases each exercise both authored and source-hidden relocated
 content. No assertion or production timeout is removed. Direct fixture invocation
 without a scope still runs the original combined workload. This focused gate
 does not replace the full source matrix or establish delivery acceptance.
+
+The source MCP fixture records at most eight timestamped source-publication
+observations beside its temporary Game project. The trace includes scan
+completion, importer stages and diagnostics. Publication assertions retain their
+normal deadlines and include this trace only on failure; diagnostic writes stay
+outside the watched project. This adds evidence for native publication failures
+without replacing the real source watcher or simulating a successful import.
