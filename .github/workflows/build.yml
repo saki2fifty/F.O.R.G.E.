@@ -1,6 +1,8 @@
 name: Build and test
 on:
   push:
+    branches-ignore:
+      - forge/particle-native-readback
   pull_request:
   workflow_dispatch:
     inputs:
