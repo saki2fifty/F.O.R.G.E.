@@ -1,9 +1,22 @@
 # Current package and local source
 
-The accepted local Windows package is **261024-000213**, source
-`8200738a7055decfafae14b0705c1406cb8ef20f`. Its existing MCP delivery is described
-in the [README](../README.md#current-implementation). No new numbered Windows
-package accompanies the local source changes described here.
+The accepted local Windows package is **261121-000256**, source
+`3def3b40a13cb12067d785afc063b5c5ad46b44b`. Its
+[complete Windows gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/44907506527)
+passes all nine jobs, including 717 editor cases, native SDK/MCP workflows and
+relocated production-game startup. CI uses D3D12 WARP; physical review is separate.
+Use the shipped build.json to identify an installed editor and matching kit.
+
+Current source adds optional separation between new foliage candidates through
+the existing clearance task, native panel and shared automation/MCP. It filters
+world-space spheres in original order and publishes ordinary Scene objects through
+one Undo entry. Gallery 256 compares dense and separated patches. This source
+extension is outside package 256. See [the contract](foliage-placement.md) and
+[the guide](../manual/editor/foliage.md#keep-clear-of-colliders).
+
+The capability notes below retain their original implementation/evidence scope.
+Their older pending-platform statements are historical; they do not override the
+immutable delivery gate above or establish physical hardware acceptance.
 
 Local source also adds 2D Texture sampling to project UI Materials through surface
 definition5/wrapper18. Existing numeric definition4/wrapper17 values stay readable.

@@ -107,9 +107,12 @@ class FoliagePlacement {
             if (state.at("state") != "ready")
                 throw std::runtime_error(state.value("message", "Clearance did not finish"));
             const auto& result = state.at("result");
-            const auto counts =
-                std::to_string(result.at("retained_count").get<unsigned>()) + " of " +
-                std::to_string(result.at("candidate_count").get<unsigned>()) + " candidates";
+            auto counts = std::to_string(result.at("retained_count").get<unsigned>()) + " of " +
+                          std::to_string(result.at("candidate_count").get<unsigned>()) +
+                          " candidates";
+            if (result.at("settings").value("avoid_new_overlaps", false))
+                counts += " (" + std::to_string(result.at("new_overlap_count").get<unsigned>()) +
+                          " overlapping new plants skipped)";
             if (pending_place_) {
                 const auto applied =
                     apply_authoring(scene,
@@ -347,7 +350,13 @@ class FoliagePlacement {
                 ImGui::TextWrapped(
                     "Check a world-space sphere against authored 3D colliders. "
                     "The template and projection surface are ignored. No simulation runs. "
-                    "This does not test full mesh bounds or collisions between new objects.");
+                    "Separate new plants also checks this sphere between retained candidates. "
+                    "Full Mesh bounds are not tested.");
+                ImGui::Checkbox("Separate new plants", &collision_settings_.avoid_new_overlaps);
+                FORGE_UI_PROBE("foliage:separate_new");
+                help("Keep the first clear candidate, then skip new candidates with overlapping "
+                     "clearance spheres. Uses the same world-space radius and heights; touching "
+                     "spheres are allowed. No resampling or fixed retained-count promise.");
                 field("Clearance radius (m)", "clearance_radius", collision_settings_.radius,
                       "Sphere radius, 0.001 to 100 m. This does not scale with the template.");
                 field("Clearance offset X (m)", "clearance_x", collision_settings_.offset[0],

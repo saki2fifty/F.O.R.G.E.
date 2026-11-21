@@ -5041,6 +5041,16 @@
       "type": "material"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "305f4b82-eb23-45ab-aa23-7ba04b7732f8",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/256-foliage-candidate-clearance.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "b78ea324-266f-490e-94e1-8159d010302a"
       ],

@@ -126,8 +126,12 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
         "30-second deadline. Exact retries reuse the operation; cancel a different pending request "
         "first. No simulation or Scene/file changes. Ready arguments use forge_mesh_scatter at the "
         "returned scene_revision. Recheck before applying after published assets/settings change. "
-        "This sphere tests existing colliders, not full mesh bounds or candidate-to-candidate "
-        "overlap.",
+        "Optional avoid_new_overlaps (default false) also filters overlapping new candidate "
+        "spheres in original order, keeping the first clear candidate. The same world radius "
+        "and resolved heights apply; touching spheres are allowed. Excluded candidates never "
+        "block later ones, no resampling occurs, and a zero collider layer mask still permits "
+        "this candidate filter. new_overlap_count reports its exclusions. Full Mesh bounds "
+        "are not tested.",
         "asset.read",
         automation_object(
             {{"arguments", complete_scatter},
@@ -136,6 +140,7 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
                                           {"x", "y", "z"})},
              {"mask", automation_integer(0, UINT32_MAX)},
              {"include_sensors", {{"type", "boolean"}}},
+             {"avoid_new_overlaps", {{"type", "boolean"}}},
              {"surface", automation_uuid()},
              {"ignored", automation_array(automation_uuid(), 14)}},
             {"arguments"}),
@@ -147,6 +152,7 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
                                    request.at("offset").at("z")};
             settings.mask = request.value("mask", settings.mask);
             settings.include_sensors = request.value("include_sensors", false);
+            settings.avoid_new_overlaps = request.value("avoid_new_overlaps", false);
             if (request.contains("surface"))
                 settings.surface = request.at("surface").get<EntityId>();
             if (request.contains("ignored"))

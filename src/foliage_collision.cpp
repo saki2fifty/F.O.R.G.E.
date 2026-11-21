@@ -25,6 +25,7 @@ Json settings_json(const FoliageCollisionSettings& value) {
             {"offset", {{"x", value.offset[0]}, {"y", value.offset[1]}, {"z", value.offset[2]}}},
             {"mask", value.mask},
             {"include_sensors", value.include_sensors},
+            {"avoid_new_overlaps", value.avoid_new_overlaps},
             {"surface", value.surface ? Json(value.surface) : Json()},
             {"ignored", value.ignored}};
 }
@@ -57,7 +58,7 @@ struct FoliageCollisionPreparation::Impl {
         std::vector<LocalTranslation> origins;
         std::vector<bool> mask;
         std::vector<EntityRef> exclusions;
-        unsigned cursor = 0, queried = 0, retained = 0;
+        unsigned cursor = 0, queried = 0, retained = 0, new_overlaps = 0;
         std::chrono::steady_clock::time_point deadline;
         std::unique_ptr<RuntimeWorld> world;
     };
@@ -177,6 +178,7 @@ Json FoliageCollisionPreparation::start(std::shared_ptr<const ProjectLease> leas
                      {"candidate_count", placements.size()},
                      {"checked_count", 0},
                      {"retained_count", 0},
+                     {"new_overlap_count", 0},
                      {"profile", "world-sphere-v1"},
                      {"message", "Preparing collision assets"}};
     impl_->work = std::move(next);
@@ -236,12 +238,28 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
                 continue;
             query.origin = work.origins[index];
             work.mask[index] = !work.world->physics()->overlap_any(query, filter);
+            if (work.mask[index] && work.config.avoid_new_overlaps) {
+                // Earlier true mask entries are the already admitted candidates.
+                // Reuse that ordered subset; excluded candidates never block one.
+                for (unsigned previous = 0; previous < index; ++previous) {
+                    if (!work.mask[previous])
+                        continue;
+                    const auto& origin = work.origins[previous];
+                    if (std::hypot(query.origin.x - origin.x, query.origin.y - origin.y,
+                                   query.origin.z - origin.z) < 2 * work.config.radius) {
+                        work.mask[index] = false;
+                        ++work.new_overlaps;
+                        break;
+                    }
+                }
+            }
             work.retained += work.mask[index];
             ++work.queried;
             ++batch;
         }
         impl_->status["checked_count"] = work.queried;
         impl_->status["retained_count"] = work.retained;
+        impl_->status["new_overlap_count"] = work.new_overlaps;
         if (work.cursor != work.origins.size())
             return;
         impl_->current_assets();
@@ -256,6 +274,7 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
                                    {"scene_revision", work.revision},
                                    {"candidate_count", work.origins.size()},
                                    {"retained_count", work.retained},
+                                   {"new_overlap_count", work.new_overlaps},
                                    {"source_digest", work.snapshot_digest},
                                    {"catalog_digest", digest(work.catalog_document)},
                                    {"settings", settings_json(work.config)}};

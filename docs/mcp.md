@@ -122,15 +122,20 @@ is required. Saved Fog intent requires a matching runtime kit even when disabled
 `asset.read` workflow. Pass ordinary scatter `arguments` or the arguments returned
 by terrain preparation. Optional settings: radius 0.001..100(default 0.25), offset
 as `{x,y,z}` in world meters(each+/-1000, default 0,0.5,0), uint32 mask(default all),
-include_sensors(default false), surface(entityID) and ignored(up to14 distinct
+include_sensors(default false), avoid_new_overlaps(default false), surface(entityID) and ignored(up to14 distinct
 entityIDs). The template and surface are excluded automatically. It tests existing
 authored 3D colliders without running project code or simulation, using one private
 native/resource owner. It does not query live Play poses or full plant Mesh bounds.
+With avoid_new_overlaps enabled, retain clear candidates in original order and
+reject spheres overlapping an earlier retained sphere. The same world radius,
+offsets and resolved heights apply; touching spheres are allowed. Excluded
+candidates never block later ones. This filter remains active with mask0 and
+reports `new_overlap_count`, without resampling or adding native colliders.
 
 Start returns an operation UUID. Poll `forge_foliage_collision_read` with that
 exact `operation`; states are preparing/querying/ready/failed/cancelled. Ready
 `result` includes copied arguments with an original-order placement_mask,
-scene_revision, candidate_count/retained_count, digests, settings and physics_tick 0.
+scene_revision, candidate_count/retained_count/new_overlap_count, digests, settings and physics_tick 0.
 At most512 candidates,16 native queries/poll and a 30-second deadline apply.
 Terrain masks/heights/normals remain aligned; excluded candidates are not
 resampled. Empty retention fails. Scene/project changes cancel the operation;

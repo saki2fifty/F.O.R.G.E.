@@ -162,6 +162,11 @@ Each plant is an ordinary saved Mesh Renderer object in the exported game.
 
 Open **Gallery 156 — Foliage clearance** for a meadow placed around a large box
 collider. Its saved plants are ordinary objects; no placement task runs during Play.
+**Gallery 256 — Foliage candidate clearance** compares a dense patch of 83 plants
+with a separated patch of 17 plants, each starting from 96 candidates. Both use 0.4 m
+clearance spheres and the central collider; the separated group also checks
+the new plants against each other. Open the Scene and press **Play → Game** to
+see the saved ordinary objects.
 
 1. Open a project, choose your template and set the layout. Surface projection, slope filters and slope alignment can stay enabled.
 2. Enable **Reject collisions**. Objects to avoid need enabled 3D Physics Bodies and colliders; a visible Mesh alone does not block placement. Save and publish any Collision asset edits first.
@@ -169,10 +174,11 @@ collider. Its saved plants are ordinary objects; no placement task runs during P
 4. Set **Clearance offset X (m)**, **Y (m)** and **Z (m)** relative to each candidate origin. Each offset is -1000 to 1000 meters. The default (0, 0.5, 0) checks above the plant's base. Offsets follow world axes, including with slope alignment.
 5. Set **Collision layer mask** to the unsigned combination of the layer bits you want to avoid. The default 4294967295 selects every layer; 0 selects none. Enable **Include sensors** when sensor volumes should also exclude candidates.
 6. The template and selected projection surface are ignored automatically. To ignore another collider, select its object in Hierarchy and click **Ignore selected object**. Up to 14 additional objects are allowed. Children are separate objects. **Clear ignored objects** removes these additional exclusions.
-7. Choose **Check layout**. Preparation loads the current published collision data and reports the number of candidates retained. It changes no Scene objects. **Cancel clearance** stops pending preparation.
-8. Choose **Place foliage**. The tool prepares current clearance, then creates the retained subset in one Scene Undo step. Save the Scene.
+7. Enable **Separate new plants** to keep the clearance spheres of retained candidates from overlapping each other. The option starts off. It uses the same world-space radius, offsets and resolved heights, independently of the collider layer mask. Set that mask to 0 when you only want separation between new plants.
+8. Choose **Check layout**. Preparation loads the current published collision data and reports the number of candidates retained, including how many were skipped for overlapping another new plant. It changes no Scene objects. **Cancel clearance** stops pending preparation.
+9. Choose **Place foliage**. The tool prepares current clearance, then creates the retained subset in one Scene Undo step. Save the Scene.
 
-![Foliage controls with terrain projection, collision sphere settings and a checked candidate subset](../images/foliage-clearance-controls.png)
+![Foliage controls with Separate new plants enabled, terrain projection, world-space sphere settings and a checked candidate subset](../images/foliage-clearance-controls.png)
 
 The clearance sphere tests the authored colliders without advancing simulation.
 It composes with the slope mask and keeps original candidate order, yaw, scale,
@@ -183,9 +189,17 @@ edits cancels a pending placement. Assets or project settings that change during
 preparation require another check. Preparation has a 30-second deadline; missing
 or invalid collision assets are errors.
 
-Clearance tests existing 3D colliders, including published Collision assets. It
-does not test complete plant Mesh bounds, collisions between new plants, 2D
-colliders or future object motion. Adjust radius, offset, spacing and seed for
+With **Separate new plants**, the first clear candidate is kept. Each later
+candidate is kept only when its sphere does not overlap an earlier retained
+sphere. Touching spheres are allowed. Previously excluded candidates do not
+block later ones. Height differences count in all three world axes. The filter
+keeps original candidate order and can retain fewer plants than the requested
+count; it never resamples. It applies to this single patch, with **Paint in Scene
+view** turned off.
+
+Clearance tests existing 3D colliders, including published Collision assets, and
+optionally the spheres of new plants. It does not test complete plant Mesh
+bounds, 2D colliders or future object motion. Adjust radius, offset, spacing and seed for
 your geometry. Every query origin must lie within +/-1 billion meters on each axis.
 Tool choices and exclusions are session-only. Later collider changes do not move
 already placed objects.
@@ -266,7 +280,9 @@ to 10,000 entities and the normal command data budget.
 
 Spacing compares new origins in the current group. Mesh bounds can overlap, and
 existing objects require **Reject collisions** and enabled 3D colliders to affect
-clearance. Heightfield mode requires upright terrain with positive Y scale;
+clearance. **Separate new plants** uses clearance spheres between retained new
+candidates; increase the sphere radius to leave more room, or reduce it to keep
+more plants. Heightfield mode requires upright terrain with positive Y scale;
 static Mesh mode supports the bounded published triangle profile above. Brush
 strokes use the limits described above; live surface links and world streaming
 are unavailable. Adjust objects with the normal

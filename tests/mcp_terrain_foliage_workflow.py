@@ -174,3 +174,42 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     cancel = read('forge_foliage_collision_start', arguments=selected['arguments'], surface=surface)
     assert read('forge_foliage_collision_cancel', operation=cancel['operation'])['state'] == 'cancelled'
     assert read('forge_scene_read') == cleared_scene
+
+    tools = client.request('tools/list')['result']['tools']
+    collision_tool = next(tool for tool in tools if tool['name'] == 'forge_foliage_collision_start')
+    assert collision_tool['inputSchema']['properties']['avoid_new_overlaps']['type'] == 'boolean'
+    for invalid in (1, 'true', None):
+        failed(client.tool('forge_foliage_collision_start', target=discover()['result']['target'],
+                          arguments=selected['arguments'], avoid_new_overlaps=invalid),
+               'invalid_arguments')
+        assert read('forge_scene_read') == cleared_scene
+    trial = read('forge_foliage_collision_start', arguments=selected['arguments'], surface=surface,
+                 radius=100, mask=0, avoid_new_overlaps=True)
+    deadline = time.monotonic() + 15
+    while True:
+        trial = read('forge_foliage_collision_read', operation=trial['operation'])
+        if trial['state'] not in ('preparing', 'querying'):
+            break
+        assert time.monotonic() < deadline, trial
+        time.sleep(.01)
+    assert trial['state'] == 'ready', trial
+    separated = trial['result']
+    admitted = selected['arguments'].get('placement_mask', [True] * 12)
+    first = next(i for i, keep in enumerate(admitted) if keep)
+    assert separated['arguments']['placement_mask'] == [i == first for i in range(12)]
+    assert separated['retained_count'] == 1 and separated['new_overlap_count'] == sum(admitted) - 1
+    assert separated['settings']['avoid_new_overlaps'] is True
+    assert separated['physics_tick'] == 0
+    assert separated['arguments']['world_heights'] == selected['arguments']['world_heights']
+    assert separated['arguments']['world_normals'] == selected['arguments']['world_normals']
+    assert read('forge_scene_read') == cleared_scene
+    state = discover()
+    request = dict(target=state['result']['target'], expected_revision=separated['scene_revision'],
+                   sequence=state['next_sequence'], arguments=separated['arguments'])
+    placed = client.tool('forge_mesh_scatter', **request)
+    assert placed['ok'] and client.tool('forge_mesh_scatter', **request) == placed
+    assert placed['result']['results'][0]['placed_count'] == 1
+    separate_scene = read('forge_scene_read')
+    assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == cleared_scene
+    assert mutate('forge_history_redo')['ok'] and read('forge_scene_read') == separate_scene
+    assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == cleared_scene

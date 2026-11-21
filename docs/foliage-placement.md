@@ -184,8 +184,20 @@ unchanged. Dense valid overlap is an occupied candidate, not an all-hit-list err
 One task admits at most 512 candidates and performs at most 16 native queries per
 poll, with a 30-second wall deadline. Previously excluded candidates are skipped;
 query hits clear original-order mask entries. Heights, normals, seeded layout,
-yaw, scale and spacing retain correspondence. No resampling or pairwise new-plant
-collision is implied. An empty result fails before publication. The final copied
+yaw, scale and spacing retain correspondence. Optional `avoid_new_overlaps`
+defaults false. With it enabled, a candidate that passes the native collider
+query is compared against earlier retained candidate spheres using the same
+validated world-space origins and radius. Overlapping interiors reject the later
+candidate; tangency is permitted. Previously excluded or rejected candidates do
+not block later ones. The existing original-order mask is the sole retained-set
+owner; no second geometry registry or native collider population is created.
+At most 130,816 candidate-pair comparisons are possible for 512 candidates. Each
+poll still examines at most 16 queried candidates under the existing deadline.
+The layer mask controls existing colliders; mask 0 still permits this candidate
+filter. `new_overlap_count` reports candidates rejected only by this second filter
+in both task status and ready result; it is 0 with the option off. The copied
+setting participates in the existing retry fingerprint and ready-result settings.
+No resampling is performed. An empty result fails before publication. The final copied
 arguments preflight through the existing detached mesh.scatter owner.
 
 Exact pending/ready retries reuse an operation only for the same project, source

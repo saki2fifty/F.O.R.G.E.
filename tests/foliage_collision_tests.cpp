@@ -4,15 +4,62 @@
 #include "foliage_collision.hpp"
 #include "mesh_scatter_authoring.hpp"
 #include <chrono>
+#include <cmath>
 #include <forge/assets.hpp>
 #include <forge/project.hpp>
 #include <iostream>
+#include <limits>
+#include <string_view>
 #include <thread>
 using namespace forge;
 namespace {
 void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
+}
+void candidate_workload(const std::filesystem::path& base, bool separate = false) {
+    const auto root = std::filesystem::absolute(base / AssetId::generate().str());
+    std::filesystem::create_directories(root);
+    auto lease = std::make_shared<ProjectLease>(root);
+    AssetCatalog(root).save(AssetCatalog::project_index(root));
+    ProjectSettings(root).save(ProjectSettings::defaults("Candidate clearance"));
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto source = authoring_command(scene, "entity.create", {{"recipe", "primitive.0"}})
+                            .at("selected")
+                            .get<std::string>();
+    detail::MeshScatterSettings scatter;
+    scatter.radius = 1000;
+    scatter.spacing = 0;
+    scatter.count = 512;
+    scatter.seed = 314159;
+    const auto arguments = detail::mesh_scatter_arguments(source, scatter, "Maximum candidates");
+    const auto before = scene.document();
+    const auto revision = scene.revision();
+    FoliageCollisionSettings settings;
+    settings.radius = .001;
+    settings.mask = 0;
+    settings.avoid_new_overlaps = separate;
+    FoliageCollisionPreparation task;
+    const auto started = std::chrono::steady_clock::now();
+    task.start(lease, scene, arguments, settings);
+    unsigned polls = 0;
+    while (task.busy()) {
+        check(++polls <= 40, "Maximum clearance lost its bounded polling");
+        task.poll(scene, root);
+    }
+    const auto elapsed =
+        std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - started)
+            .count();
+    const auto state = task.state();
+    check(state.at("state") == "ready" && state.at("checked_count") == 512 &&
+              state.at("result").at("retained_count") == 512 &&
+              state.at("result").at("physics_tick") == 0,
+          "Maximum default clearance lost candidates or advanced simulation");
+    check(scene.document() == before && scene.revision() == revision,
+          "Maximum read-only clearance changed Scene intent");
+    std::cout << (separate ? "Separate" : "Default")
+              << " 512-candidate clearance microseconds: " << elapsed << '\n';
 }
 Json settled(FoliageCollisionPreparation& task, const Scene& scene,
              const std::filesystem::path& root) {
@@ -23,6 +70,131 @@ Json settled(FoliageCollisionPreparation& task, const Scene& scene,
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     return task.state();
+}
+void separate_candidates(const std::filesystem::path& base) {
+    const auto root = std::filesystem::absolute(base / AssetId::generate().str());
+    std::filesystem::create_directories(root);
+    auto lease = std::make_shared<ProjectLease>(root);
+    AssetCatalog(root).save(AssetCatalog::project_index(root));
+    ProjectSettings(root).save(ProjectSettings::defaults("Separate plants"));
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto source = authoring_command(scene, "entity.create", {{"recipe", "primitive.0"}})
+                            .at("selected")
+                            .get<std::string>();
+    const auto before = scene.document();
+    FoliageCollisionSettings settings;
+    settings.mask = 0;
+    settings.radius = .6;
+    settings.offset = {300, -400, 500};
+    detail::MeshScatterSettings scatter;
+    scatter.count = 3;
+    scatter.radius = .01;
+    scatter.spacing = 0;
+    auto arguments = detail::mesh_scatter_arguments(source, scatter, "Vertical plants");
+    arguments["world_heights"] = {0., 1., 2.};
+    FoliageCollisionPreparation task;
+    const auto original = task.start(lease, scene, arguments, settings);
+    auto changed = settings;
+    changed.avoid_new_overlaps = true;
+    bool refused = false;
+    try {
+        task.start(lease, scene, arguments, changed);
+    } catch (const AuthoringError& error) {
+        refused = error.code == "foliage_collision_busy";
+    }
+    check(refused && task.state().at("operation") == original.at("operation"),
+          "A changed candidate filter replaced pending work");
+    const auto unchanged = settled(task, scene, root).at("result");
+    check(unchanged.at("retained_count") == 3 && unchanged.at("new_overlap_count") == 0,
+          "Default clearance started filtering new plants");
+    const auto started = task.start(lease, scene, arguments, changed);
+    check(started.at("operation") != original.at("operation"),
+          "The changed candidate filter reused an old ready result");
+    const auto separated = settled(task, scene, root).at("result");
+    check(separated.at("arguments").at("placement_mask") == Json::array({true, false, true}) &&
+              separated.at("new_overlap_count") == 1 && separated.at("retained_count") == 2 &&
+              separated.at("settings").at("avoid_new_overlaps") == true &&
+              separated.at("arguments").at("world_heights") == arguments.at("world_heights"),
+          "Candidate filtering lost 3D heights or let a rejected plant block later plants");
+    check(task.start(lease, scene, arguments, changed).at("operation") == started.at("operation"),
+          "An exact separated ready retry changed its operation");
+    check(scene.document() == before, "Candidate preparation changed source intent");
+    const auto applied = authoring_command(scene, "mesh.scatter", separated.at("arguments"));
+    const auto after = scene.document();
+    check(applied.at("created").size() == 2 && scene.undo() && scene.document() == before &&
+              scene.redo() && scene.document() == after && scene.undo(),
+          "Separated plants did not preserve one ordinary Scene Undo/Redo entry");
+
+    scatter.count = 8;
+    arguments = detail::mesh_scatter_arguments(source, scatter, "Masked plants");
+    arguments["placement_mask"] = {false, true, true, true, true, true, true, true};
+    changed.radius = 100;
+    task.start(lease, scene, arguments, changed);
+    const auto masked = settled(task, scene, root).at("result");
+    check(masked.at("arguments").at("placement_mask") ==
+                  Json::array({false, true, false, false, false, false, false, false}) &&
+              masked.at("new_overlap_count") == 6,
+          "An excluded first candidate blocked later plants or filtering resampled the pool");
+
+    scatter.count = 2;
+    scatter.radius = 2;
+    const auto pair = detail::mesh_scatter_layout(scatter);
+    const auto diameter = std::hypot(pair[0].offset[0] - pair[1].offset[0], 0.,
+                                     pair[0].offset[1] - pair[1].offset[1]);
+    arguments = detail::mesh_scatter_arguments(source, scatter, "Tangent plants");
+    changed.offset = {0, 0, 0};
+    for (const auto radius :
+         {std::nextafter(diameter / 2, 0.), diameter / 2,
+          std::nextafter(diameter / 2, std::numeric_limits<double>::infinity())}) {
+        changed.radius = radius;
+        task.start(lease, scene, arguments, changed);
+        const auto result = settled(task, scene, root).at("result");
+        const auto expected = radius > diameter / 2 ? 1 : 2;
+        check(result.at("retained_count") == expected &&
+                  result.at("new_overlap_count") == 2 - expected,
+              "Touching spheres or one-ULP separation used the wrong boundary");
+    }
+
+    scatter.count = 64;
+    scatter.radius = 3;
+    changed.radius = .6;
+    for (const auto seed : {7u, 31u, 59u, 101u}) {
+        scatter.seed = seed;
+        const auto points = detail::mesh_scatter_layout(scatter);
+        arguments = detail::mesh_scatter_arguments(source, scatter, "Ordered candidate oracle");
+        std::vector<double> heights(scatter.count);
+        std::vector<bool> admitted(scatter.count);
+        for (unsigned i = 0; i < scatter.count; ++i) {
+            heights[i] = double(i % 4);
+            admitted[i] = i % 3 != 0;
+        }
+        arguments["world_heights"] = heights;
+        arguments["placement_mask"] = admitted;
+        task.start(lease, scene, arguments, changed);
+        const auto result = settled(task, scene, root).at("result");
+        const auto selected = result.at("arguments").at("placement_mask").get<std::vector<bool>>();
+        unsigned retained = 0, rejected = 0;
+        for (unsigned i = 0; i < scatter.count; ++i) {
+            bool blocked = false;
+            for (unsigned j = 0; j < i && admitted[i]; ++j) {
+                if (!selected[j])
+                    continue;
+                const auto x = static_cast<long double>(points[i].offset[0]) - points[j].offset[0];
+                const auto y = static_cast<long double>(heights[i]) - heights[j];
+                const auto z = static_cast<long double>(points[i].offset[1]) - points[j].offset[1];
+                const auto threshold = static_cast<long double>(changed.radius) * 2;
+                blocked |= x * x + y * y + z * z < threshold * threshold;
+            }
+            check(selected[i] == (admitted[i] && !blocked),
+                  "Candidate subset disagrees with independent ordered squared-distance oracle");
+            retained += selected[i];
+            rejected += admitted[i] && blocked;
+        }
+        check(retained > 1 && rejected > 0 && result.at("retained_count") == retained &&
+                  result.at("new_overlap_count") == rejected,
+              "Candidate separation lost its count or failed to exercise both outcomes");
+    }
 }
 void exercise(const std::filesystem::path& base) {
     const auto root = std::filesystem::absolute(base / AssetId::generate().str());
@@ -141,6 +313,30 @@ void exercise(const std::filesystem::path& base) {
         check(composed.at("arguments").at("placement_mask")[i] ==
                   (mask[i] && std::abs(layout[i].offset[0]) > .75),
               "Clearance resampled or restored an excluded candidate");
+    FoliageCollisionSettings separated_settings;
+    separated_settings.avoid_new_overlaps = true;
+    task.start(lease, scene, subset, separated_settings);
+    const auto combined = settled(task, scene, root).at("result");
+    const auto selected = combined.at("arguments").at("placement_mask").get<std::vector<bool>>();
+    unsigned separated_count = 0, overlapping_count = 0;
+    for (unsigned i = 0; i < mask.size(); ++i) {
+        const bool clear = mask[i] && std::abs(layout[i].offset[0]) > .75;
+        bool overlapping = false;
+        for (unsigned j = 0; j < i && clear; ++j) {
+            if (!selected[j])
+                continue;
+            const auto x = static_cast<long double>(layout[i].offset[0]) - layout[j].offset[0];
+            const auto z = static_cast<long double>(layout[i].offset[1]) - layout[j].offset[1];
+            overlapping |= x * x + z * z < .25L;
+        }
+        check(selected[i] == (clear && !overlapping),
+              "Existing native collider and new-candidate filters disagreed with geometry");
+        separated_count += selected[i];
+        overlapping_count += clear && overlapping;
+    }
+    check(combined.at("retained_count") == separated_count &&
+              combined.at("new_overlap_count") == overlapping_count && scene.document() == after,
+          "Composed clearance lost candidate counts or changed the source Scene");
     authoring_command(scene, "property.set",
                       {{"entity", obstacle},
                        {"component", "forge.physics_body"},
@@ -259,7 +455,15 @@ void resource_and_state(const std::filesystem::path& base) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2, "Need private test root");
+        check(argc == 2 || ((argc == 3 || argc == 4) &&
+                            std::string_view(argv[2]) == "--candidate-workload" &&
+                            (argc == 3 || std::string_view(argv[3]) == "--separate")),
+              "Need private test root and optional candidate workload");
+        candidate_workload(std::filesystem::u8path(argv[1]), argc == 4);
+        if (argc >= 3)
+            return 0;
+        candidate_workload(std::filesystem::u8path(argv[1]), true);
+        separate_candidates(std::filesystem::u8path(argv[1]));
         exercise(std::filesystem::u8path(argv[1]));
         resource_and_state(std::filesystem::u8path(argv[1]));
         std::cout << "Native clearance geometry, copied masks, retries/history/cancel passed\n";

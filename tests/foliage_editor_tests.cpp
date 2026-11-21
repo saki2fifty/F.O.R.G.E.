@@ -249,6 +249,39 @@ void exercise(float scale, bool compact, const std::filesystem::path& scratch) {
     check(scene.document() == clearance_before &&
               panel.collision_task().state().at("result").at("retained_count") == 32,
           "Actual clearance layer mask did not use the shared native task");
+    input.type("foliage:clearance_radius", "1");
+    input.click("foliage:separate_new");
+    input.click("foliage:check");
+    settle();
+    const auto separated = panel.collision_task().state().at("result");
+    check(scene.document() == clearance_before && separated.at("retained_count") > 0 &&
+              separated.at("retained_count") < 32 && separated.at("new_overlap_count") > 0 &&
+              separated.at("settings").at("avoid_new_overlaps") == true,
+          "Actual separate-new-plants control did not filter the shared candidate task");
+    input.click("foliage:place");
+    settle();
+    const auto separate_group = owner.selection.entity();
+    std::vector<Double3> separate_origins;
+    const auto separate_effective = scene.effective_document();
+    for (const auto& row : separate_effective.at("entities"))
+        if (row.value("parent", "") == separate_group) {
+            const auto& affine = row.at("world_affine");
+            const Double3 origin{affine[3].get<double>(), affine[7].get<double>(),
+                                 affine[11].get<double>()};
+            for (const auto& earlier : separate_origins)
+                check(std::hypot(origin[0] - earlier[0], origin[1] - earlier[1],
+                                 origin[2] - earlier[2]) >= 2,
+                      "Actual placement control created overlapping new clearance spheres");
+            separate_origins.push_back(origin);
+        }
+    const auto separate_scene = scene.document();
+    check(separate_origins.size() == separated.at("retained_count") && scene.undo() &&
+              scene.document() == clearance_before && scene.redo() &&
+              scene.document() == separate_scene && scene.undo() &&
+              scene.document() == clearance_before,
+          "Separated native placement lost its single Scene Undo/Redo transaction");
+    input.click("foliage:separate_new");
+    input.type("foliage:clearance_radius", ".25");
     input.type("foliage:clearance_mask", "4294967295");
     owner.selection.select_entity(obstacle);
     input.click("foliage:ignore");
@@ -319,7 +352,7 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
         throw std::runtime_error(SDL_GetError());
     {
         const float height =
-            clearance ? 1930 : (gallery.empty() ? 1100 : (mesh_surface ? 1480 : 1420));
+            clearance ? 1990 : (gallery.empty() ? 1100 : (mesh_surface ? 1480 : 1420));
         test::ImGuiSoftwareCapture capture(720, unsigned(height));
         ui::style(1);
         EngineContext engine;
@@ -396,8 +429,10 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
             input.type("foliage:spacing", "0.55");
             input.type("foliage:scale_min", "0.65");
             input.type("foliage:scale_max", "1.15");
-            if (clearance)
+            if (clearance) {
                 input.click("foliage:collision");
+                input.click("foliage:separate_new");
+            }
             input.click("foliage:check");
             const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
             while (panel.collision_task().busy()) {
@@ -422,9 +457,10 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
                 check(panel.collision_task().state().at("state") == "ready",
                       "Clearance capture preparation failed");
                 for (const char* key :
-                     {"foliage:collision", "foliage:clearance_radius", "foliage:clearance_x",
-                      "foliage:clearance_y", "foliage:clearance_z", "foliage:clearance_mask",
-                      "foliage:sensors", "foliage:ignore", "foliage:ignore_clear"}) {
+                     {"foliage:collision", "foliage:separate_new", "foliage:clearance_radius",
+                      "foliage:clearance_x", "foliage:clearance_y", "foliage:clearance_z",
+                      "foliage:clearance_mask", "foliage:sensors", "foliage:ignore",
+                      "foliage:ignore_clear"}) {
                     const auto& box = test::ui_targets.at(key);
                     check(box.enabled && box.minimum.y >= box.clip_minimum.y &&
                               box.maximum.y <= box.clip_maximum.y,

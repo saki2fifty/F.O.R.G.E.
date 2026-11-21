@@ -1,5 +1,22 @@
 # Feature Gallery
 
+## Separate new foliage
+
+Open **Scenes/256-foliage-candidate-clearance.scene.json** and press Play → Game.
+Compare **Unseparated meadow** (83 plants) and **Separated meadow** (17 plants).
+Both start from 96 candidates, use the same seed and test the same 0.4 m world-space
+clearance sphere against the central collider. The separated patch additionally
+keeps new clearance spheres from overlapping, using each candidate's projected
+height. The saved plants are ordinary objects; no placement task runs in Play.
+
+Stop Play, select the Blade template and open Foliage placement. Enable **Reject
+collisions** and **Separate new plants**, then **Check layout** before placing.
+Keep **Paint in Scene view** off. The radius controls the space between sphere
+centers; touching spheres are allowed, excluded candidates never block later
+ones and the tool does not resample to fill the count. Save the Scene and choose
+it as startup before exporting. Camera, light and published assets are included;
+no project C++ module is required. See [foliage clearance](../../../manual/editor/foliage.md#keep-clear-of-colliders).
+
 ## Scene particle collision
 
 Open **Scenes/254-scene-particle-collision.scene.json** and press Play. Two tinted

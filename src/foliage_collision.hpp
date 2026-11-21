@@ -11,6 +11,7 @@ struct FoliageCollisionSettings {
     bool include_sensors = false;
     EntityId surface;
     std::vector<EntityId> ignored;
+    bool avoid_new_overlaps = false;
 };
 // One transient owner-thread consumer of existing runtime physics/resources.
 // It prepares copied scatter arguments; Scene publication remains mesh.scatter.

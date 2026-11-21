@@ -2545,16 +2545,19 @@ this silent-preview profile.
 ## Foliage clearance controls
 
 [Clearance controls](../../../manual/images/foliage-clearance-controls.png) is an
-unretouched720×1930 production panel through forge_foliage_editor_tests
+unretouched720×1990 production panel through forge_foliage_editor_tests
 --capture-clearance, using Gallery156 in an isolated project. It shows heightfield
-projection, slope alignment, world-sphere settings, layers, sensor/exclusion
-controls and88of128retained candidates. Source is local44aae97 plus the shared
-surface-brush controls; provenance is batch299 control-captures.json.
+projection, slope alignment, **Separate new plants** enabled, world-sphere
+settings, layers, sensor/exclusion controls and88of128retained candidates. Its
+0.55m minimum spacing already separates the0.25m spheres, so the new filter
+reports0additional exclusions. Source is the foliage candidate-clearance work
+based on3def3b4; exact source/producer hashes and successful capture/build receipts
+are retained in AgentFiles/build/phase434-foliage-candidate-clearance/capture-provenance.json.
 Actual wide/compact input fixtures at1/1.5/2scale retain normal Scene history.
 These software component captures do not establish full Main/Windows/MSVC/D3D12,
 hardware input/DPI, physical GPU or external client/player acceptance.
 
-PNG SHA256: `04452ab8e0d4a56223ccebb0595edaf0dbcf324d985083c69405e59fc204944d`.
+PNG SHA256: `f6e89e739a41416292765b2216eebb7c7a410303a2e24e402f19892d6fa184ea`.
 
 ## Imported lightmap graph
 
