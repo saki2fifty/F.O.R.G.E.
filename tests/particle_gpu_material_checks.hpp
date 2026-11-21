@@ -285,12 +285,16 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
     }
     const char* graphics_mode = std::getenv("FORGE_NATIVE_MATERIAL_GRAPHICS");
     const bool graphics_trace = graphics_mode && *graphics_mode;
-    check(!graphics_trace || std::string_view(graphics_mode) == "disabled",
+    check(!graphics_trace || std::string_view(graphics_mode) == "disabled" ||
+              std::string_view(graphics_mode) == "default",
           "Unknown native Material graphics control");
     const auto graphics_optimization =
-        graphics_trace ? SHADER_OPTIMIZATION_LEVEL_DISABLED : SHADER_OPTIMIZATION_LEVEL_DEFAULT;
+        graphics_trace && std::string_view(graphics_mode) == "disabled"
+            ? SHADER_OPTIMIZATION_LEVEL_DISABLED
+            : SHADER_OPTIMIZATION_LEVEL_DEFAULT;
     if (graphics_trace)
-        std::cout << "GRAPHICS_ONLY_OPTIMIZATION disabled; compute policy unchanged\n";
+        std::cout << "GRAPHICS_ONLY_OPTIMIZATION " << graphics_mode
+                  << "; compute policy unchanged\n";
     unsigned frames = 0, cases = 0, mismatched_cases = 0;
     for (const char* model : {"forge.gltf.unlit.v1", "forge.gltf.metallic-roughness.v1",
                               "forge.gltf.specular-glossiness.v1"})

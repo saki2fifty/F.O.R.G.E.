@@ -2,8 +2,12 @@
 #include "Graphics/Archiver/interface/ArchiverFactoryLoader.h"
 #include "render_backend.hpp"
 #include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <limits>
 #include <stdexcept>
+#include <string_view>
 #include <thread>
 namespace forge {
 using namespace Diligent;
@@ -259,6 +263,33 @@ void DiligentPresentation::shader(const ShaderCreateInfo& info, IShader** result
     const bool hit = cache_->CreateShader(selected, result);
     if (!result || !*result)
         throw std::runtime_error("Diligent presentation shader creation failed");
+    // Isolated fixture capture: preserve exact generated source and compiled
+    // bytes without changing the shader request or production cache identity.
+    if (const char* directory = std::getenv("FORGE_NATIVE_SHADER_CAPTURE");
+        directory && *directory && selected.Source && selected.Desc.Name &&
+        std::string_view(selected.Desc.Name) == "FORGE prepared mesh draw" &&
+        (selected.Desc.ShaderType == SHADER_TYPE_VERTEX ||
+         selected.Desc.ShaderType == SHADER_TYPE_PIXEL)) {
+        const void* bytes = nullptr;
+        Uint64 size = 0;
+        (*result)->GetBytecode(&bytes, size);
+        if (!bytes || !size)
+            throw std::runtime_error("Native diagnostic shader bytecode unavailable");
+        const std::string stage =
+            selected.Desc.ShaderType == SHADER_TYPE_VERTEX ? "vertex" : "pixel";
+        const bool palette =
+            std::string_view(selected.Source).find("MaterialIndex") != std::string_view::npos;
+        const auto name = stage + (palette ? "-palette-" : "-reference-") +
+                          std::to_string((*result)->GetUniqueID());
+        const auto root = std::filesystem::path(directory);
+        std::filesystem::create_directories(root);
+        std::ofstream code(root / (name + ".dxbc"), std::ios::binary);
+        code.write(static_cast<const char*>(bytes), std::streamsize(size));
+        std::ofstream source(root / (name + ".hlsl"), std::ios::binary);
+        source << selected.Source;
+        if (!code.flush() || !source.flush())
+            throw std::runtime_error("Native diagnostic shader capture failed");
+    }
     hits_ += hit;
     misses_ += !hit;
     epoch_creations_ += !hit;
