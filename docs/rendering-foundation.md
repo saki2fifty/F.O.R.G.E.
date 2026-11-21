@@ -1178,6 +1178,28 @@ selects bounded descriptor-table SRVs instead of size-less root SRVs. They do
 not require dynamic offsets. CPU admission still checks every stream range;
 the descriptor boundary is additional GPU protection, not asset validation.
 
+### Consecutive resource bindings
+
+MeshSceneRenderer keeps fixed-size borrowed binding metadata within each view.
+MeshDraw reuses a committed SRB across consecutive compatible submissions only
+when its owner, context, raster parity, binding generation and actual environment
+and shadow views match. Direct binding setters advance the generation. Renderer
+resolves, transparency setup, background capture and failed submissions invalidate
+the sequence. Native resource leases remain validated and marked on every draw.
+
+Per-object uniform uploads, primitive submissions and sorted order retain their
+ordinary owners. Material overrides, custom surfaces, projected resources, local
+probes/fog, skin/morph/wind data, GPU/indirect inputs and MRT/weighted passes use
+complete commits. The scope retains no native ownership or persistent cache.
+
+The shared device fixture compares 48 fully committed reference draws with reuse
+and requires identical useful images. It covers changed uniforms, explicit
+binding, an environment-view swap inside the same wrapper, raster parity and draw
+owner changes. The simple case measures 48 commits versus one commit plus 47
+reuses; the independent lit particle reference retains 147 native draws with one
+commit plus 146 reuses. These are software device submission counts, with separate
+native platform acceptance; they make no physical GPU timing claim.
+
 ### Built-in mesh surface coordinates
 
 The immutable engine primitive recipe v2 adds TEXCOORD_0 and TANGENT to the same

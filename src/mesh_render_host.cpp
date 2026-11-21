@@ -2248,10 +2248,12 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         temporal->begin();
         temporal->applied = true;
     }
+    MeshDraw::BindingScope binding_scope;
     bool temporal_resolved = !temporal;
     bool post_resolved = !post_mesh;
     const auto resolve_temporal = [&] {
         if (!temporal_resolved) {
+            binding_scope.invalidate();
             temporal->successful = geometry_ready &&
                                    diagnostics_.size() == draw_diagnostics_start &&
                                    omitted_ == draw_omitted_start;
@@ -2259,6 +2261,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             temporal_resolved = true;
         }
         if (!post_resolved) {
+            binding_scope.invalidate();
             try {
                 if (geometry_ready && diagnostics_.size() == draw_diagnostics_start &&
                     omitted_ == draw_omitted_start) {
@@ -2439,10 +2442,12 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             resolve_temporal();
         const auto& draw_view = accumulated ? temporal->current : camera;
         if (weighted && !weighted_started && item.key.alpha == MaterialAlpha::Blend) {
+            binding_scope.invalidate();
             weighted_->begin(host_->context_, depth);
             weighted_started = true;
         }
         if (needs_background && !captured && item.key.alpha == MaterialAlpha::Blend) {
+            binding_scope.invalidate();
             captured = true;
             try {
                 if (!color || !depth)
@@ -2525,13 +2530,14 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                     weighted && item.key.alpha == MaterialAlpha::Blend, &batch_bounds, images,
                     local_irradiance(object, item.key.part), local_fog(object),
                     masked ? &visibility : nullptr, object.gpu ? &gpu_values : nullptr,
-                    object.ordered_draw);
+                    object.ordered_draw, &binding_scope);
                 draw_stats_.indirect_calls += masked;
                 ++draw_stats_.calls;
                 draw_stats_.instances += submitted;
                 draw_stats_.batched_calls += submitted > 1;
             }
         } catch (const std::exception& e) {
+            binding_scope.invalidate();
             if (cursor == batch_start + 1) {
                 report(object.mesh->entity, e.what(), object.scope);
                 continue;
@@ -2561,15 +2567,19 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         accumulated && temporal->reflection_output,
                         accumulated && temporal->normal_only_output, decals,
                         weighted && failed_item.key.alpha == MaterialAlpha::Blend, &single.bounds,
-                        images, local_irradiance(single, failed_item.key.part), local_fog(single));
+                        images, local_irradiance(single, failed_item.key.part), local_fog(single),
+                        nullptr, nullptr, nullptr, &binding_scope);
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {
+                    binding_scope.invalidate();
                     report(single.mesh->entity, error.what(), single.scope);
                 }
             }
         }
     }
+    draw_stats_.binding_commits = binding_scope.commits;
+    draw_stats_.binding_reuses = binding_scope.reuses;
     resolve_temporal();
     if (weighted_started) {
         try {

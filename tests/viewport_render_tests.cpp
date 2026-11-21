@@ -328,6 +328,8 @@ int main(int argc, char** argv) {
                                                          selected == "particle-gpu-billboards");
             else if (selected == "particle-gpu-order-numeric")
                 forge::particle_order_test::execute(isolated, context);
+            else if (selected == "mesh-bindings")
+                forge::test_particle_palette::exercise(isolated, context, true);
             else if (selected == "particle-gpu-material-numeric")
                 forge::test_particle_palette::exercise(isolated, context);
             else if (selected == "particle-gpu-material-scene")

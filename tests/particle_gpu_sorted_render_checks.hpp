@@ -340,6 +340,14 @@ inline void execute(DiligentPresentation& presentation, Diligent::IDeviceContext
             const auto cpu = draw();
             check(renderer.draw_stats().instances == 147 && renderer.draw_stats().calls == 147,
                   "Lit CPU reference did not draw independently sorted particles");
+            const auto resources = renderer.draw_stats();
+            check(resources.binding_commits >= 1 && resources.binding_commits <= 6 &&
+                      resources.binding_commits + resources.binding_reuses == 147,
+                  "Independent CPU draws exhausted transient descriptors instead of reusing "
+                  "unchanged resources");
+            std::cout << "Independent lit CPU draws:147 resource commits="
+                      << resources.binding_commits << " reuses=" << resources.binding_reuses
+                      << '\n';
             unsigned visible = 0;
             for (unsigned pixel = 0; pixel < gpu.size(); ++pixel) {
                 visible += std::abs(cpu[pixel][0] - background[0]) > .001f;
