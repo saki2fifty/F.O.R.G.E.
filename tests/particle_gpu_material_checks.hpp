@@ -12,7 +12,7 @@ using Row = std::array<float, 4>;
 using Packet = std::array<Row, 7>;
 inline constexpr unsigned extent = 64;
 inline RefCntAutoPtr<IBuffer> buffer(IRenderDevice* device, const void* data, Uint64 bytes,
-                                     BIND_FLAGS bindings, unsigned stride = 0) {
+                                     Diligent::BIND_FLAGS bindings, unsigned stride = 0) {
     BufferDesc desc;
     desc.Name = "FORGE Mesh palette fixture";
     desc.Size = bytes;
@@ -51,6 +51,102 @@ ResourceLease<T> resource(ResourcePool<T>& pool, typename ResourceTraits<T>::Dat
                      });
     check(pool.wait(ticket, std::chrono::seconds(5)), "Palette CPU resource did not load");
     return pool.acquire(ticket);
+}
+inline void binding_scope(DiligentPresentation& presentation, IDeviceContext* context,
+                          const GpuMeshPart& mesh, ITexture* color, ITexture* depth,
+                          const CameraView& view) {
+    auto* device = presentation.device();
+    const auto cube = [&](Row value) {
+        TextureDesc desc;
+        desc.Name = "FORGE binding scope environment";
+        desc.Type = RESOURCE_DIM_TEX_CUBE;
+        desc.Width = desc.Height = desc.MipLevels = 1;
+        desc.ArraySize = 6;
+        desc.Format = TEX_FORMAT_RGBA32_FLOAT;
+        desc.Usage = USAGE_IMMUTABLE;
+        desc.BindFlags = BIND_SHADER_RESOURCE;
+        std::array<TextureSubResData, 6> faces{};
+        for (auto& face : faces) {
+            face.pData = value.data();
+            face.Stride = sizeof(value);
+        }
+        Diligent::TextureData initial{faces.data(), Uint32(faces.size())};
+        RefCntAutoPtr<ITexture> texture;
+        device->CreateTexture(desc, &initial, &texture);
+        check(bool(texture), "Binding scope environment unavailable");
+        return texture;
+    };
+    const auto first = cube({.7f, .15f, .3f, 1}), second = cube({.1f, .4f, .8f, 1});
+    MaterialData material;
+    material.model = "forge.gltf.metallic-roughness.v1";
+    material.alpha = MaterialAlpha::Blend;
+    material.depth_write = false;
+    material.double_sided = true;
+    material.parameters["baseColorFactor"] = {MaterialParameterType::LinearColor4,
+                                              {.8f, .7f, .5f, .35f}};
+    material.parameters["metallicFactor"] = {MaterialParameterType::Scalar, {0}};
+    material.parameters["roughnessFactor"] = {MaterialParameterType::Scalar, {.8f}};
+    MeshDraw left(presentation, context, mesh, material, {}, TEX_FORMAT_RGBA32_FLOAT,
+                  TEX_FORMAT_D32_FLOAT);
+    material.parameters["baseColorFactor"].value = {.2f, .8f, .6f, .6f};
+    MeshDraw right(presentation, context, mesh, material, {}, TEX_FORMAT_RGBA32_FLOAT,
+                   TEX_FORMAT_D32_FLOAT);
+    GpuEnvironment maps;
+    const EnvironmentLighting lighting{&maps};
+    const Row background{.02f, .04f, .08f, 1};
+    constexpr unsigned draws = 48;
+    for (unsigned mode = 0; mode < 5; ++mode) {
+        const auto render = [&](bool reuse) {
+            maps.diffuse = maps.specular = maps.sheen = first;
+            auto* rtv = color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+            auto* dsv = depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
+            context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            context->ClearRenderTarget(rtv, background.data(),
+                                       RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
+                                       RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            Viewport viewport{0, 0, float(extent), float(extent), 0, 1};
+            context->SetViewports(1, &viewport, extent, extent);
+            MeshDraw::BindingScope scope;
+            for (unsigned i = 0; i < draws; ++i) {
+                if (!reuse)
+                    scope.invalidate();
+                if (i == draws / 2 && mode == 1)
+                    left.bind_environment(&maps);
+                if (i == draws / 2 && mode == 2)
+                    maps.diffuse = maps.specular = maps.sheen = second;
+                AffineTransform world;
+                world.m[0] = mode == 3 && i % 2 ? -1 : 1;
+                world.m[3] = (double(i % 8) - 3.5) * .18;
+                world.m[7] = (double(i / 8) - 2.5) * .18;
+                world.m[11] = 3 + .002 * i;
+                const std::array tint{.4f + .1f * float(i % 3), .5f + .1f * float(i % 2), .9f};
+                auto& selected = mode == 4 && i % 2 ? right : left;
+                selected.draw(context, world, view, {}, &lighting, &tint, nullptr, {}, nullptr, {},
+                              nullptr, {}, {}, {}, nullptr, nullptr, nullptr, {}, nullptr, {}, {},
+                              nullptr, {}, nullptr, nullptr, &scope);
+            }
+            const unsigned expected = !reuse || mode >= 3 ? draws : mode ? 2 : 1;
+            check(scope.commits == expected && scope.commits + scope.reuses == draws,
+                  "Binding scope lost a required commit or failed to reuse identical resources");
+            auto pixels = test_bloom::read(device, context, color);
+            context->FinishFrame();
+            device->ReleaseStaleResources();
+            return pixels;
+        };
+        const auto baseline = render(false), reused = render(true);
+        unsigned covered = 0;
+        for (unsigned i = 0; i < baseline.size(); ++i) {
+            covered += baseline[i] != background;
+            for (unsigned c = 0; c < 4; ++c)
+                check(std::isfinite(reused[i][c]) &&
+                          std::abs(reused[i][c] - baseline[i][c]) < 3e-5f,
+                      "Binding reuse changed an independently committed reference image");
+        }
+        check(covered > 100, "Binding scope comparison has insufficient visible coverage");
+    }
+    std::cout << "MESH_BINDING_SCOPE cases=5 frames=10 draws=48; measured full-commit baseline, "
+                 "uniform changes, external binding, environment-view swap, parity and owner\n";
 }
 inline void bundle_preparation(DiligentPresentation& presentation, IDeviceContext* context,
                                const MeshData& source, const GpuMeshPart& reference_mesh,
@@ -154,7 +250,8 @@ inline void bundle_preparation(DiligentPresentation& presentation, IDeviceContex
 }
 // Compare actual common MeshDraw lighting/geometry with independently ordered
 // per-Material CPU instance submissions, including an incorrect-index control.
-inline void exercise(DiligentPresentation& presentation, IDeviceContext* context) {
+inline void exercise(DiligentPresentation& presentation, IDeviceContext* context,
+                     bool bindings_only = false) {
     auto* device = presentation.device();
     MeshPart part;
     part.vertices = 4;
@@ -180,6 +277,11 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
     target.BindFlags = BIND_DEPTH_STENCIL;
     device->CreateTexture(target, nullptr, &depth);
     check(color && depth, "Mesh palette targets unavailable");
+    if (bindings_only) {
+        binding_scope(presentation, context, gpu.lods[0].parts[0], color, depth,
+                      camera_view(Camera{}, {}, extent, extent));
+        return;
+    }
     unsigned frames = 0, cases = 0;
     for (const char* model : {"forge.gltf.unlit.v1", "forge.gltf.metallic-roughness.v1",
                               "forge.gltf.specular-glossiness.v1"})

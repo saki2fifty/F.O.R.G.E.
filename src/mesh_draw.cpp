@@ -791,6 +791,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         bind_decal_storage(empty_decal_storage_);
 }
 void MeshDraw::bind_sprite_mip(ITextureView* view) {
+    ++binding_generation_;
     require(sprite_mips_ && view, "Sprite mip draw requires a complete filtered frame");
     const auto& desc = view->GetTexture()->GetDesc();
     require(desc.Type == RESOURCE_DIM_TEX_2D && desc.Format == TEX_FORMAT_RGBA16_FLOAT,
@@ -806,6 +807,7 @@ void MeshDraw::bind_sprite_mip(ITextureView* view) {
     }
 }
 void MeshDraw::bind_environment(const GpuEnvironment* maps) {
+    ++binding_generation_;
     if (!environment_)
         return;
     if (maps)
@@ -822,12 +824,18 @@ void MeshDraw::bind_environment(const GpuEnvironment* maps) {
             if (auto* variable = binding->GetVariableByName(SHADER_TYPE_PIXEL, name))
                 variable->Set(value);
 }
-void MeshDraw::bind_shadows(const ShadowLighting* shadows) {
-    if (!shadows_)
-        return;
+std::array<IDeviceObject*, shadow_light_limit>
+MeshDraw::shadow_views(const ShadowLighting* shadows) const {
     std::array<IDeviceObject*, shadow_light_limit> maps;
     for (unsigned i = 0; i < shadow_light_limit; ++i)
         maps[i] = shadows && shadows->maps[i] ? shadows->maps[i].RawPtr() : empty_shadow_.RawPtr();
+    return maps;
+}
+void MeshDraw::bind_shadows(const ShadowLighting* shadows) {
+    ++binding_generation_;
+    if (!shadows_)
+        return;
+    const auto maps = shadow_views(shadows);
     for (auto& binding : bindings_) {
         auto* variable = binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeShadows");
         require(variable, "shadow resource array unavailable");
@@ -835,6 +843,7 @@ void MeshDraw::bind_shadows(const ShadowLighting* shadows) {
     }
 }
 void MeshDraw::bind_transmission(const TransmissionLighting* lighting) {
+    ++binding_generation_;
     if (!transmission_)
         return;
     auto* view = lighting ? lighting->background : black_background_.RawPtr();
@@ -1046,7 +1055,18 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     std::span<const LightImage> images,
                     std::span<const EnvironmentProbe> local_irradiance, const MeshWindSample* wind,
                     std::span<const FogVolumeSample> local_fog, const IndirectArguments* visibility,
-                    const InstanceBuffer* gpu_instances) {
+                    const InstanceBuffer* gpu_instances, BindingScope* binding_scope) {
+    const auto previous_binding = binding_scope ? *binding_scope : BindingScope{};
+    if (binding_scope)
+        binding_scope->invalidate(); // Failed submissions cannot leave a reusable binding.
+    const bool binding_eligible =
+        binding_scope && !shadow_pass_ && !sprite_ && !material_surface_ && !temporal_ &&
+        !indirect_ && !reflection_ && !normal_ && !weighted_ && !transmission_ && !skin &&
+        morph_weights.empty() && !wind_ && !gpu_instances && !visibility &&
+        object_parameters.empty() && !material_dynamic_bound_ && decals.empty() &&
+        !decals_active_ && local_irradiance.empty() && !local_irradiance_active_ &&
+        local_fog.empty() && !fog_volumes_active_ &&
+        std::none_of(images.begin(), images.end(), [](const auto& image) { return image.frame; });
     if (gpu_instances) {
         require(gpu_instances->buffer && gpu_instances->count >= 1 &&
                     gpu_instances->count <= instance_limit && instances.empty() && instances_ &&
@@ -1423,6 +1443,13 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         parity == TransformParity::Singular
             ? 2
             : unsigned((parity == TransformParity::Negative) != view.orientation_reversed);
+    const auto selected_shadows =
+        shadows_ ? shadow_views(shadows) : std::array<IDeviceObject*, shadow_light_limit>{};
+    bool reuse_binding = binding_eligible && previous_binding.owner == this &&
+                         previous_binding.context == context && previous_binding.parity == index &&
+                         previous_binding.generation == binding_generation_ &&
+                         previous_binding.shadows == selected_shadows;
+    std::array<ITextureView*, 3> selected_environment{};
     if (decals.empty())
         clear_decals(context);
     else {
@@ -1548,11 +1575,14 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         MapHelper<Row> values(context, environment_, MAP_WRITE, MAP_FLAG_DISCARD);
         require(static_cast<Row*>(values) != nullptr, "environment upload allocation failed");
         values[0] = params;
+        selected_environment = {diffuse, specular, charlie};
+        reuse_binding = reuse_binding && previous_binding.environment == selected_environment;
         for (const auto& [name, value] :
              {std::pair{"g_ForgeDiffuse", diffuse}, std::pair{"g_ForgeSpecular", specular},
               std::pair{"g_ForgeCharlie", charlie}})
-            if (auto* variable = bindings_[index]->GetVariableByName(SHADER_TYPE_PIXEL, name))
-                variable->Set(value);
+            if (!reuse_binding)
+                if (auto* variable = bindings_[index]->GetVariableByName(SHADER_TYPE_PIXEL, name))
+                    variable->Set(value);
     }
     if (shadows_) {
         {
@@ -1564,7 +1594,8 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                 std::fill_n(static_cast<Row*>(data),
                             shadow_light_limit * ShadowLighting::rows_per_light, Row{});
         }
-        bind_shadows(shadows);
+        if (!reuse_binding)
+            bind_shadows(shadows);
     }
     if (transmission_) {
         require(transmission && transmission->background && transmission->viewport == view.viewport,
@@ -1728,7 +1759,12 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                                   SET_VERTEX_BUFFERS_FLAG_RESET);
     }
     context->SetPipelineState(pipelines_[index]);
-    context->CommitShaderResources(bindings_[index], RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (!reuse_binding)
+        context->CommitShaderResources(bindings_[index], RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (binding_scope) {
+        binding_scope->commits += !reuse_binding;
+        binding_scope->reuses += reuse_binding;
+    }
     if (mesh_.indices) {
         context->SetIndexBuffer(mesh_.indices, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         if (visibility) {
@@ -1764,6 +1800,14 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         draw.NumInstances = draw_instance_count;
         draw.Flags = DRAW_FLAG_VERIFY_ALL;
         context->Draw(draw);
+    }
+    if (binding_eligible) {
+        binding_scope->owner = this;
+        binding_scope->context = context;
+        binding_scope->parity = index;
+        binding_scope->generation = binding_generation_;
+        binding_scope->environment = selected_environment;
+        binding_scope->shadows = selected_shadows;
     }
 }
 } // namespace forge

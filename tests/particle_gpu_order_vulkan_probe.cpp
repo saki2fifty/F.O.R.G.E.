@@ -8,10 +8,11 @@ int main(int argc, char** argv) {
         const bool numeric = argc == 1 || (argc == 2 && std::string_view(argv[1]) == "--numeric");
         const bool scene = argc == 1 || (argc == 2 && std::string_view(argv[1]) == "--scene");
         const bool materials = argc == 2 && std::string_view(argv[1]) == "--materials";
+        const bool bindings = argc == 2 && std::string_view(argv[1]) == "--bindings";
         const bool material_scene = argc == 3 && std::string_view(argv[1]) == "--materials-scene";
-        if (!numeric && !scene && !materials && !material_scene)
-            throw std::runtime_error(
-                "Choose --numeric, --scene, --materials or --materials-scene <scratch>");
+        if (!numeric && !scene && !materials && !material_scene && !bindings)
+            throw std::runtime_error("Choose --numeric, --scene, --materials, --bindings or "
+                                     "--materials-scene <scratch>");
         Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device;
         Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context;
         Diligent::EngineVkCreateInfo create;
@@ -21,6 +22,8 @@ int main(int argc, char** argv) {
         forge::DiligentPresentation presentation(device);
         if (material_scene)
             forge::test_particle_palette_scene::exercise(presentation, context, argv[2]);
+        if (bindings)
+            forge::test_particle_palette::exercise(presentation, context, true);
         if (materials)
             forge::test_particle_palette::exercise(presentation, context);
         if (numeric)

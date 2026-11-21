@@ -161,6 +161,7 @@ class MeshSceneRenderer {
         std::size_t calls{}, instances{}, batched_calls{};
         // CPU submission counts, never a readback estimate of hidden geometry.
         std::size_t occluder_calls{}, occlusion_queries{}, indirect_calls{};
+        std::size_t binding_commits{}, binding_reuses{};
     };
     DrawStats draw_stats() const { return draw_stats_; }
     std::size_t bundle_count() const;

@@ -108,6 +108,21 @@ class MeshDraw {
     // or object-value publication. Returns whether this pass consumes a value.
     bool prepare_object_material_values(std::span<const MaterialParameterOverride>,
                                         std::string_view slot);
+    // Borrow only within one contiguous submission sequence. The caller must
+    // invalidate after intervening renderer work; this owns no native resources.
+    struct BindingScope {
+        void invalidate() { owner = nullptr; }
+        std::size_t commits{}, reuses{};
+
+      private:
+        friend class MeshDraw;
+        const MeshDraw* owner{};
+        Diligent::IDeviceContext* context{};
+        unsigned parity{};
+        std::uint64_t generation{};
+        std::array<Diligent::ITextureView*, 3> environment{};
+        std::array<Diligent::IDeviceObject*, shadow_light_limit> shadows{};
+    };
     void draw(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
               std::span<const LightView>, const EnvironmentLighting* = nullptr,
               const std::array<float, 3>* legacy_tint = nullptr,
@@ -123,9 +138,12 @@ class MeshDraw {
               std::span<const EnvironmentProbe> local_irradiance = {},
               const MeshWindSample* wind = nullptr, std::span<const FogVolumeSample> local_fog = {},
               const IndirectArguments* visibility = nullptr,
-              const InstanceBuffer* gpu_instances = nullptr);
+              const InstanceBuffer* gpu_instances = nullptr, BindingScope* = nullptr);
 
   private:
+    std::array<Diligent::IDeviceObject*, shadow_light_limit>
+    shadow_views(const ShadowLighting*) const;
+    std::uint64_t binding_generation_{};
     unsigned instance_rows() const;
     const MaterialParameterUniform* material_parameter_binding(std::string_view) const;
     void object_material_values(Diligent::IDeviceContext*,

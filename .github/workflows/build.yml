@@ -195,6 +195,9 @@ jobs:
       - name: Test required Linux compiler setup
         if: runner.os == 'Linux'
         run: python tests/ci_compiler_test.py
+      - name: Validate required native acceptance selection
+        run: python tests/ci_acceptance_test.py
+        working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Test build-cache invalidation
         run: python tests/ci_cache_test.py
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}

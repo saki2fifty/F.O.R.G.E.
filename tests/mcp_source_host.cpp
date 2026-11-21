@@ -11,6 +11,7 @@
 #include "collision_editor.hpp"
 #include "content_imports.hpp"
 #include "editable_mesh_editor.hpp"
+#include "event_time.hpp"
 #include "foliage_automation.hpp"
 #include "import_document_automation.hpp"
 #include "material_editor.hpp"
@@ -32,6 +33,7 @@
 #include "tile_set_editor.hpp"
 #include "ui_localization_editor.hpp"
 #include <chrono>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <thread>
@@ -211,6 +213,8 @@ int main(int argc, char** argv) {
         // client closes it. Instrumented source/history coverage also needs this
         // finite lifetime; each parent case retains its independent timeout.
         const auto end = std::chrono::steady_clock::now() + std::chrono::minutes(20);
+        std::string source_observation;
+        forge::Json source_diagnostics = forge::Json::array();
         while (workspace.active() && std::chrono::steady_clock::now() < end &&
                !forge::test::marker_present(root / "stop")) {
             files.changed = false;
@@ -267,6 +271,28 @@ int main(int argc, char** argv) {
             if (auto catalog = models.take_catalog())
                 imports.catalog_changed(std::move(catalog));
             imports.poll(files.document, files.status);
+            // Fixture evidence stays outside Game, so recording it cannot
+            // trigger the project's source watcher or change publication inputs.
+            const auto sources = imports.sources();
+            forge::Json observation{{"message", files.status.substr(0, 2048)},
+                                    {"source_scan_complete", sources && sources->complete},
+                                    {"jobs", forge::Json::array()}};
+            for (const auto& job : imports.jobs())
+                observation["jobs"].push_back({{"asset", job.at("asset")},
+                                               {"state", job.at("state")},
+                                               {"stage", job.at("stage")},
+                                               {"diagnostic", job.at("diagnostic")}});
+            if (const auto value = observation.dump(); value != source_observation) {
+                source_observation = value;
+                observation["time"] = forge::ui::event_time_local();
+                source_diagnostics.push_back(std::move(observation));
+                if (source_diagnostics.size() > 8)
+                    source_diagnostics.erase(source_diagnostics.begin());
+                std::ofstream diagnostic(root / "source-publication-diagnostics.json");
+                diagnostic << source_diagnostics.dump(2) << '\n';
+                if (!diagnostic)
+                    throw std::runtime_error("Cannot record fixture source diagnostics");
+            }
             // No renderer/shader worker profile: graph source/history is exercised,
             // graph compilation remains a separate platform acceptance boundary.
             ImGui::NewFrame();
