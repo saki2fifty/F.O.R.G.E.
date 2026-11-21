@@ -229,13 +229,8 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
             for (unsigned c = 0; c < 4; ++c) {
                 if (!std::isfinite(actual[p][c]) || std::abs(actual[p][c] - expected[p][c]) > 3e-5f)
                     throw std::runtime_error(nlohmann::json{
-                        {"frame", frames},
-                        {"pixel", p},
-                        {"actual", actual[p]},
-                        {"expected", expected[p]},
-                        {"gpu_draws", gpu.draw_stats().calls},
-                        {"cpu_draws",
-                         cpu.draw_stats().calls}}.dump());
+                        {"pixel", p}, {"actual", actual[p]}, {"expected", expected[p]}}
+                                                 .dump());
                 visible += std::abs(expected[p][c] - background[c]) > .001f;
             }
         check(visible > 100, "Published palette comparison had no visible geometry");

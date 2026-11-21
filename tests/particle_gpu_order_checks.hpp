@@ -1,7 +1,6 @@
 #pragma once
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
-#include "gpu_readback_diagnostics.hpp"
 #include "particle_gpu.hpp"
 #include "particle_gpu_order.hpp"
 #include <algorithm>
@@ -15,7 +14,6 @@
 #include <iterator>
 #include <limits>
 #include <memory>
-#include <nlohmann/json.hpp>
 #include <numeric>
 #include <stdexcept>
 namespace forge::particle_order_test {
@@ -30,10 +28,8 @@ struct Fixture {
     using SourceSlice = ParticleGpuOrder::Source;
     ParticleGpuOrder order;
     RefCntAutoPtr<IBuffer> staging;
-    IRenderDevice* presentation_device_; // Borrowed; presentation outlives this fixture.
     unsigned count = 0, padded = 1;
-    Fixture(DiligentPresentation& presentation)
-        : order(presentation), presentation_device_(presentation.device()) {
+    Fixture(DiligentPresentation& presentation) : order(presentation) {
         check(!order.buffer() && !order.tags() && !order.count(),
               "Lazy sort resource published storage");
         BufferDesc desc;
@@ -64,8 +60,7 @@ struct Fixture {
                             0, padded * sizeof(Packet), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->WaitForIdle();
         MapHelper<Packet> mapped(context, staging, MAP_READ, MAP_FLAG_DO_NOT_WAIT);
-        test_gpu::require_readback(bool(static_cast<Packet*>(mapped)), presentation_device_,
-                                   "Product sorted rows unavailable");
+        check(bool(static_cast<Packet*>(mapped)), "Product sorted rows unavailable");
         return {static_cast<Packet*>(mapped), static_cast<Packet*>(mapped) + padded};
     }
     std::vector<std::uint32_t> read_tags(IDeviceContext* context) {
@@ -79,8 +74,7 @@ struct Fixture {
                             RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->WaitForIdle();
         MapHelper<std::uint32_t> mapped(context, staging, MAP_READ, MAP_FLAG_DO_NOT_WAIT);
-        test_gpu::require_readback(bool(static_cast<std::uint32_t*>(mapped)), presentation_device_,
-                                   "Product sorted tags unavailable");
+        check(bool(static_cast<std::uint32_t*>(mapped)), "Product sorted tags unavailable");
         return {static_cast<std::uint32_t*>(mapped), static_cast<std::uint32_t*>(mapped) + padded};
     }
     void lifecycle(IRenderDevice* device, IDeviceContext* context) {
@@ -316,23 +310,9 @@ inline void source_tag_cases(Fixture& fixture, IRenderDevice* device, IDeviceCon
                 const auto selected = fixture.read_tags(context);
                 check(selected.size() == output.size(), "Device tag/packet counts disagree");
                 for (unsigned i = 0; i < input.size(); ++i)
-                    if (std::memcmp(&output[i], &input[expected[i]], sizeof(Packet)) != 0 ||
-                        selected[i] != tags[expected[i]])
-                        throw std::runtime_error(nlohmann::json{
-                            {"reason",
-                             "Source tags changed stable packet order, bits or provenance"},
-                            {"sources", source_count},
-                            {"full", full},
-                            {"forward", forward},
-                            {"index", i},
-                            {"reference", expected[i]},
-                            {"actual_tag", selected[i]},
-                            {"expected_tag", tags[expected[i]]},
-                            {"actual_bits",
-                             std::bit_cast<std::array<std::uint32_t, 28>>(output[i])},
-                            {"expected_bits",
-                             std::bit_cast<std::array<std::uint32_t, 28>>(input[expected[i]])}}
-                                                     .dump());
+                    check(std::memcmp(&output[i], &input[expected[i]], sizeof(Packet)) == 0 &&
+                              selected[i] == tags[expected[i]],
+                          "Source tags changed stable packet order, bits or provenance");
                 for (auto i = input.size(); i < selected.size(); ++i)
                     check(selected[i] == UINT32_MAX, "Tag padding retained old source metadata");
                 ++cases;

@@ -3984,66 +3984,6 @@ Vulkan/llvmpipe check and personally reviewed. The canonical asset is used by th
 manual; local receipts retain source, build, test and image provenance. This image
 shows Game output without editor chrome. Native Windows execution, physical GPU
 acceptance and full editor visual review remain separate.
-
-
-## GPU readback failure status
-
-Shared native test readback guards capture the backend and, on D3D12,
-`GetDeviceRemovedReason` before throwing. When the installed SDK and native
-interface provide it after device removal, bounded DRED breadcrumb and page-fault
-observations accompany that status. The viewport fixture enables available DRED
-collection before creating its test device. Readback allocation/mapping still fails the
-case; the guard neither retries nor changes synchronization or resource ownership.
-Debug messages collected after exception unwinding can include device destruction,
-so those later messages alone do not establish the original failure. Vulkan
-execution and native Windows execution remain separate evidence.
-
-
-The focused shader audit executes its complete selected set and preserves all
-failures in one run. A failed case still fails the audit. Scene-rendering fixtures
-must select the same color format as their render attachment; the default scene
-renderer uses RGBA8, so floating-point numeric targets specify their format
-explicitly. Empty numeric producer readbacks complete queued device work before
-the fixture finishes its frame.
-
-For a focused native particle readback investigation, combine `shader_only` with
-`particle_readback_only`. This selects the plane, ordering and sorted Scene
-readback cases and requires native GPU validation. It remains a partial diagnostic;
-it does not replace the full shader selection, source gate or release acceptance.
-The audit scope artifact records the selected mode.
-
-The isolated particle investigation branch also carries a compiler differential:
-implicit D3D12 compute shaders use DXC/SM6 instead of the established FXC/SM5.1
-selection. Graphics and explicit compiler choices retain their previous policy.
-This is an experiment against the failed native baseline, not an accepted shipping
-compiler policy or a release source. It requires focused native evidence before
-any production recommendation and the normal full compatibility gates afterward.
-
-The isolated diagnostic's `particle_gpu_validation` input defaults to true. Set it
-to false only with `particle_readback_only` to compare the same three cases without
-GPU-based shader instrumentation. The native CPU debug layer remains enabled;
-this comparison does not weaken the ordinary source or release gates. The audit
-scope artifact records the choice. The preceding compiler experiment passed plane
-and ordering numeric cases, while the Scene case crashed under GPU validation;
-that remains a failed diagnostic, not acceptance.
-
-The isolated native readback fixture shares the existing editor fixture's
-`fixture_crash.hpp` capture owner. It pre-opens `fixture-crash.txt` outside the
-exception filter and preserves the native exit code. Scene breadcrumbs identify
-the frame, prepare/draw/readback/finish phase and contributor counts. Captures are
-fault record/module-relative offset plus last breadcrumb; they deliberately do
-not claim that a stack captured inside a filter is the original fault stack.
-This test-only extraction adds no shipping crash reporter or acceptance fallback.
-The native viewport also registers an `ID3D12InfoQueue1` callback when supported.
-It appends bounded error/corruption messages to that pre-opened file before a
-debug-layer exception can bypass C++ handlers. The callback makes no D3D calls
-and does not change validation, break settings, assertions or process failure.
-
-The isolated capacity experiment partitions the same 2048 native sampler
-descriptors into512 persistent and1536 dynamic entries. It measures whether the
-independent CPU reference exceeds the default dynamic region. This fixture-only
-partition is not a shipping policy or proof of complete resource admission.
-
 ## Ordered particle Material palette checks
 
 `particle_palette_source` covers all twelve source17/value40–51 combinations,

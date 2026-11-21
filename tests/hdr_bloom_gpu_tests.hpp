@@ -1,5 +1,4 @@
 #pragma once
-#include "gpu_readback_diagnostics.hpp"
 #include "hdr_bloom.hpp"
 #include <bit>
 #include <cmath>
@@ -81,7 +80,7 @@ inline std::vector<Pixel> read(Diligent::IRenderDevice* device, Diligent::IDevic
     desc.CPUAccessFlags = CPU_ACCESS_READ;
     RefCntAutoPtr<ITexture> staging;
     device->CreateTexture(desc, nullptr, &staging);
-    test_gpu::require_readback(bool(staging), device, "Bloom readback texture creation failed");
+    check(bool(staging), "Bloom readback texture creation failed");
     context->SetRenderTargets(0, nullptr, nullptr, RESOURCE_STATE_TRANSITION_MODE_NONE);
     CopyTextureAttribs copy{source, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, staging,
                             RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
@@ -89,7 +88,7 @@ inline std::vector<Pixel> read(Diligent::IRenderDevice* device, Diligent::IDevic
     context->WaitForIdle();
     MappedTextureSubresource mapped;
     context->MapTextureSubresource(staging, 0, 0, MAP_READ, MAP_FLAG_DO_NOT_WAIT, nullptr, mapped);
-    test_gpu::require_readback(mapped.pData != nullptr, device, "Bloom HDR readback map failed");
+    check(mapped.pData != nullptr, "Bloom HDR readback map failed");
     std::vector<Pixel> pixels(std::size_t(desc.Width) * desc.Height);
     for (unsigned y = 0; y < desc.Height; ++y) {
         const auto* row = static_cast<const std::byte*>(mapped.pData) + y * mapped.Stride;

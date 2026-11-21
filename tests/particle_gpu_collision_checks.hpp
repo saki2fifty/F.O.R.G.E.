@@ -1,6 +1,5 @@
 #pragma once
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
-#include "gpu_readback_diagnostics.hpp"
 #include "particle_gpu_camera_reference.hpp"
 #include "particle_gpu_collision_shaders.hpp"
 #include "particle_gpu_reference.hpp"
@@ -156,11 +155,8 @@ RWStructuredBuffer<float4> Result;
                             {
                                 MapHelper<std::array<float, 4>> mapped(context, staging, MAP_READ,
                                                                        MAP_FLAG_DO_NOT_WAIT);
-                                const auto operation =
-                                    "Plane readback map failed; case=" + std::to_string(cases);
-                                test_gpu::require_readback(
-                                    bool(static_cast<std::array<float, 4>*>(mapped)), device,
-                                    operation.c_str());
+                                check(bool(static_cast<std::array<float, 4>*>(mapped)),
+                                      "Plane readback map failed");
                                 for (unsigned i = 0; i < 3; i++)
                                     actual[i] = mapped[i];
                             }

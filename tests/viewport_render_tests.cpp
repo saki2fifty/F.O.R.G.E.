@@ -3,7 +3,6 @@
 #include <windows.h>
 
 // Native declarations must precede Diligent's native command queue interface.
-#include <cstdlib>
 #include <d3d12.h>
 #include <d3d12sdklayers.h>
 #include <d3dcompiler.h>
@@ -17,8 +16,6 @@
 #include "ImGuiImplDiligent.hpp"
 #include "authoring.hpp"
 #include "dynamic_descriptor_checks.hpp"
-#include "fixture_crash.hpp"
-#include "gpu_readback_diagnostics.hpp"
 #include "material_lightmap_gpu_tests.hpp"
 #include "particle_alpha_render_tests.hpp"
 #include "particle_billboard_render_tests.hpp"
@@ -61,30 +58,6 @@ void require(bool value, const char* text) {
         throw std::runtime_error(text);
 }
 void check(HRESULT result, const char* text) { require(SUCCEEDED(result), text); }
-struct NativeDebugCapture {
-    ComPtr<ID3D12InfoQueue1> queue;
-    DWORD cookie = 0;
-    static void message(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity,
-                        D3D12_MESSAGE_ID id, LPCSTR description, void*) {
-        if (severity > D3D12_MESSAGE_SEVERITY_ERROR)
-            return;
-        // Called before a debug-layer exception can bypass C++ handlers. Do not
-        // call D3D APIs or allocate here; callbacks may run on a driver thread.
-        const auto file = forge::test::fixture_crash_file_handle;
-        if (!file || file == INVALID_HANDLE_VALUE)
-            return;
-        char buffer[6144];
-        std::snprintf(buffer, sizeof(buffer), "D3D12 category=%u severity=%u id=%u: %.5800s\n",
-                      unsigned(category), unsigned(severity), unsigned(id),
-                      description ? description : "(no description)");
-        DWORD written = 0;
-        WriteFile(file, buffer, static_cast<DWORD>(std::strlen(buffer)), &written, nullptr);
-    }
-    ~NativeDebugCapture() {
-        if (queue && cookie)
-            (void)queue->UnregisterMessageCallback(cookie);
-    }
-};
 using Pixels = std::vector<std::array<unsigned char, 4>>;
 void equivalent_solid(const Pixels& candidate, const Pixels& reference) {
     require(candidate.size() == reference.size() && !reference.empty(), "Missing solid capture");
@@ -123,9 +96,16 @@ Pixels readback(IRenderDevice* device, IDeviceContext* context, ITextureView* vi
     context->WaitForIdle();
     MappedTextureSubresource data;
     context->MapTextureSubresource(staging, 0, 0, MAP_READ, MAP_FLAG_DO_NOT_WAIT, nullptr, data);
-    forge::test_gpu::require_readback(
-        data.pData != nullptr, device,
-        (std::string("Readback map failed for ") + texture->GetDesc().Name).c_str());
+    if (!data.pData) {
+        RefCntAutoPtr<IRenderDeviceD3D12> native(device, IID_RenderDeviceD3D12);
+        std::ostringstream message;
+        message << "Readback map failed for " << texture->GetDesc().Name;
+        if (native)
+            message << "; GetDeviceRemovedReason=0x" << std::hex
+                    << static_cast<unsigned long>(
+                           native->GetD3D12Device()->GetDeviceRemovedReason());
+        throw std::runtime_error(message.str());
+    }
     Pixels result(desc.Width * desc.Height);
     for (unsigned y = 0; y < desc.Height; ++y)
         std::memcpy(result.data() + y * desc.Width,
@@ -275,7 +255,6 @@ void check_shader_assets(IRenderDevice* device, IDeviceContext* context,
 #include "view_image_readback_tests.hpp"
 int main(int argc, char** argv) {
     ComPtr<ID3D12InfoQueue> diagnostics;
-    NativeDebugCapture debug_capture;
     try {
         require(argc == 2 || argc == 3 ||
                     (argc == 4 &&
@@ -301,28 +280,11 @@ int main(int argc, char** argv) {
                 "Expected image output directory, optional render case and graph content root");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
-        forge::test::initialize_fixture_crash_capture(images);
-        forge::test::fixture_breadcrumb("viewport-start");
         ComPtr<ID3D12Debug> debug;
         if (SUCCEEDED(::D3D12GetDebugInterface(IID_PPV_ARGS(&debug))))
             debug->EnableDebugLayer();
         else
             std::cout << "D3D12 debug layer is unavailable; native diagnostics are limited\n";
-#ifdef __ID3D12DeviceRemovedExtendedDataSettings_INTERFACE_DEFINED__
-        ComPtr<ID3D12DeviceRemovedExtendedDataSettings> dred_settings;
-        if (SUCCEEDED(::D3D12GetDebugInterface(IID_PPV_ARGS(&dred_settings)))) {
-            dred_settings->SetAutoBreadcrumbsEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
-            dred_settings->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
-        }
-#endif
-        if (const char* validation = std::getenv("FORGE_GPU_VALIDATION");
-            validation && std::string_view(validation) == "1") {
-            ComPtr<ID3D12Debug1> gpu_debug;
-            require(debug && SUCCEEDED(debug.As(&gpu_debug)),
-                    "Requested GPU validation is unavailable");
-            gpu_debug->SetEnableGPUBasedValidation(TRUE);
-            std::cout << "Native GPU validation enabled for this diagnostic run\n";
-        }
         ComPtr<IDXGIFactory4> dxgi;
         check(CreateDXGIFactory1(IID_PPV_ARGS(&dxgi)), "DXGI factory failed");
         ComPtr<IDXGIAdapter> warp;
@@ -331,14 +293,6 @@ int main(int argc, char** argv) {
         check(D3D12CreateDevice(warp.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&native)),
               "WARP D3D12 device failed");
         (void)native.As(&diagnostics);
-        if (SUCCEEDED(native.As(&debug_capture.queue))) {
-            check(debug_capture.queue->RegisterMessageCallback(&NativeDebugCapture::message,
-                                                               D3D12_MESSAGE_CALLBACK_FLAG_NONE,
-                                                               nullptr, &debug_capture.cookie),
-                  "D3D12 diagnostic callback registration failed");
-            std::cout << "D3D12 error callback registered before native renderer attachment\n";
-        } else
-            std::cout << "D3D12 diagnostic callbacks unavailable; queued diagnostics only\n";
         ComPtr<ID3D12CommandQueue> native_queue;
         D3D12_COMMAND_QUEUE_DESC queue_desc{};
         check(native->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&native_queue)),

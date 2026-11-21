@@ -3,9 +3,6 @@
 #include "hdr_bloom_gpu_tests.hpp"
 #include "mesh_render_host.hpp"
 #include "tile_map_render_tests.hpp"
-#ifdef _WIN32
-#include "fixture_crash.hpp"
-#endif
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -95,17 +92,6 @@ inline void execute(DiligentPresentation& presentation, Diligent::IDeviceContext
     AffineTransform eye;
     unsigned frames = 0;
     const auto draw = [&](bool diagnostic = false) {
-        const auto trace = [&](const char* phase) {
-#ifdef _WIN32
-            char label[64];
-            std::snprintf(label, sizeof(label), "sorted-f%u-%s-m%zu-p%zu-d%u", frames, phase,
-                          scene.meshes.size(), scene.particles.size(), unsigned(diagnostic));
-            test::fixture_breadcrumb(label);
-#else
-            (void)phase;
-#endif
-        };
-        trace("prepare-begin");
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
         do {
             host->pump();
@@ -115,7 +101,6 @@ inline void execute(DiligentPresentation& presentation, Diligent::IDeviceContext
             if (renderer.pending())
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
         } while (renderer.pending());
-        trace("prepare-ready");
         auto* rtv = color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
         auto* dsv = depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
         if (!frames)
@@ -137,9 +122,7 @@ inline void execute(DiligentPresentation& presentation, Diligent::IDeviceContext
                                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         Viewport viewport{0, 0, float(width), float(height), 0, 1};
         context->SetViewports(1, &viewport, width, height);
-        trace("draw-begin");
         renderer.draw(scene, camera_view(camera, eye, width, height), UINT32_MAX, color, dsv);
-        trace("draw-ready");
         if (!diagnostic && !renderer.diagnostics().empty())
             throw std::runtime_error(renderer.diagnostics().front().text);
         check(!diagnostic ||
@@ -150,10 +133,8 @@ inline void execute(DiligentPresentation& presentation, Diligent::IDeviceContext
                               }),
               "Incomplete ordered view lost its diagnostic");
         auto pixels = test_bloom::read(device, context, color);
-        trace("readback-ready");
         context->FinishFrame();
         device->ReleaseStaleResources();
-        trace("finish-ready");
         ++frames;
         return pixels;
     };
