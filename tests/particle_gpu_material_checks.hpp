@@ -3,6 +3,7 @@
 #include "mesh_draw.hpp"
 #include "mesh_draw_bundle.hpp"
 #include "particle_gpu_order.hpp"
+#include <algorithm>
 #include <memory>
 #include <numeric>
 namespace forge::test_particle_palette {
@@ -11,6 +12,17 @@ using test_bloom::check;
 using Row = std::array<float, 4>;
 using Packet = std::array<Row, 7>;
 inline constexpr unsigned extent = 64;
+inline bool equivalent_sample(float actual, float expected, bool metallic_rgb) {
+    if (!std::isfinite(actual) || !std::isfinite(expected))
+        return false;
+    // Distinct optimized pixel programs may fuse/refactor valid PBR arithmetic.
+    // Retain the absolute floor and strict alpha/other-model checks; scale the
+    // MR RGB budget with HDR radiance, not with display-range assumptions.
+    const float budget =
+        metallic_rgb ? std::max(3e-5f, 4e-5f * std::max(std::abs(actual), std::abs(expected)))
+                     : 3e-5f;
+    return std::abs(actual - expected) <= budget;
+}
 inline RefCntAutoPtr<IBuffer> buffer(IRenderDevice* device, const void* data, Uint64 bytes,
                                      Diligent::BIND_FLAGS bindings, unsigned stride = 0) {
     BufferDesc desc;
@@ -283,10 +295,12 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
         return;
     }
     unsigned frames = 0, cases = 0;
+    double maximum_absolute = 0, maximum_scaled = 0;
     for (const char* model : {"forge.gltf.unlit.v1", "forge.gltf.metallic-roughness.v1",
                               "forge.gltf.specular-glossiness.v1"})
         for (unsigned member_count : {2u, 4u})
             for (bool different_sampler : {false, true}) {
+                const bool metallic = std::string_view(model) == "forge.gltf.metallic-roughness.v1";
                 std::vector<MaterialData> values;
                 std::vector<MeshDraw::Textures> images;
                 std::vector<RefCntAutoPtr<ITexture>> assets;
@@ -484,11 +498,11 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
                                       "Out-of-palette indices sampled a valid Material");
                         }
                         const auto expected = draw(0), actual = draw(1), negative = draw(2);
-                        unsigned differences = 0, visible = 0;
+                        unsigned differences = 0, rejected_indices = 0, visible = 0;
                         for (unsigned i = 0; i < actual.size(); ++i)
                             for (unsigned c = 0; c < 4; ++c) {
-                                if (!std::isfinite(actual[i][c]) ||
-                                    std::abs(actual[i][c] - expected[i][c]) > 3e-5f)
+                                const bool metallic_rgb = c < 3 && metallic;
+                                if (!equivalent_sample(actual[i][c], expected[i][c], metallic_rgb))
                                     throw std::runtime_error(nlohmann::json{
                                         {"model", model},
                                         {"members", member_count},
@@ -498,16 +512,25 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
                                         {"actual", actual[i]},
                                         {"expected",
                                          expected[i]}}.dump());
+                                const double error =
+                                    std::abs(double(actual[i][c]) - expected[i][c]);
+                                maximum_absolute = std::max(maximum_absolute, error);
+                                maximum_scaled = std::max(
+                                    maximum_scaled,
+                                    error / std::max(1., std::abs(double(expected[i][c]))));
                                 differences += std::abs(actual[i][c] - negative[i][c]) > .001f;
+                                rejected_indices +=
+                                    !equivalent_sample(actual[i][c], negative[i][c], metallic_rgb);
                                 visible += c < 3 && std::abs(expected[i][c] - .02f) > .01f;
                             }
-                        check(differences > 100 && visible > 100,
+                        check(differences > 100 && rejected_indices > 100 && visible > 100,
                               "Mesh palette failed visible/incorrect-index negative controls");
                         ++cases;
                     }
                 context->WaitForIdle();
             }
     std::cout << "MATERIAL_MESH_DRAW_PROOF cases=" << cases << " frames=" << frames
+              << " max_absolute=" << maximum_absolute << " max_scaled=" << maximum_scaled
               << "; real MeshDraw, three builtin models, two/four Materials, lighting, "
                  "UV/textures/samplers, reverse views, 64-instance slices\n";
     bundle_preparation(presentation, context, mesh, gpu.lods[0].parts[0], color, depth);
