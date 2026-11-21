@@ -1,6 +1,8 @@
 #pragma once
 #include "pbr_material.hpp"
 #include <optional>
+#include <span>
+#include <string_view>
 namespace forge {
 inline constexpr const char* material_sampler_variable = "g_MaterialSamplers";
 // Shader declaration lowering only; authored material data and SRB array identity
@@ -16,6 +18,13 @@ struct MaterialShader {
     std::vector<std::array<float, 4>> uniforms;
     std::vector<MaterialShaderTexture> textures;
     std::vector<SamplerState> samplers;
+};
+// Engine-generated helper/resource names only. Supplied named samplers are
+// declared by the composing caller; canonical per-Material slot indices remain
+// unchanged. No scope or borrowed span is retained by the generated result.
+struct MaterialShaderScope {
+    std::string_view symbol_prefix;
+    std::span<const std::string> sampler_names;
 };
 struct MaterialParameterUniform {
     std::string key;
@@ -41,4 +50,8 @@ MaterialShader material_shader(const PbrMaterialProfile&, std::span<const unsign
                                bool sprite_profile = false,
                                std::optional<TextureFilter> sprite_mips = {},
                                bool fixed_values = false);
+MaterialShader material_shader(const PbrMaterialProfile&, std::span<const unsigned> uv_sets,
+                               MaterialSamplerBinding, bool sprite_profile,
+                               std::optional<TextureFilter> sprite_mips, bool fixed_values,
+                               const MaterialShaderScope&);
 } // namespace forge

@@ -4043,3 +4043,67 @@ The isolated capacity experiment partitions the same 2048 native sampler
 descriptors into512 persistent and1536 dynamic entries. It measures whether the
 independent CPU reference exceeds the default dynamic region. This fixture-only
 partition is not a shipping policy or proof of complete resource admission.
+
+## Ordered particle Material palette checks
+
+`particle_palette_source` covers all twelve source17/value40–51 combinations,
+old-profile byte restoration, identity/reopen, retained inactive policies and
+atomic activation. `mesh_material_palette` and `material_parameter_overrides`
+exercise canonical helper/alias compatibility and unchanged ordinary generation.
+`particle_gpu_material_vulkan` and native
+`editor_render_particle-gpu-material-numeric` share actual MeshDraw checks, while
+`particle_gpu_material_scene_vulkan` and
+`editor_render_particle-gpu-material-scene` use ordinary publication/catalog/
+resource owners and the bounded renderer's complete-view admission and budgets.
+
+`particle_material_gallery` checks the editable four-Material scene;
+`particle_material_gallery_export` publishes, packages, relocates and hides its
+asset sources before running the ordinary particle World. The shared graphics
+consumers `particle_material_gallery_game_vulkan` and
+`particle_material_gallery_game` render that copied presentation. They require
+192 live device births in three existing64-instance draw slices, visible coverage
+and identical repeated presentation. Shader audit selection and build targets
+include the new native/source/Gallery checks; registration alone is not execution
+or release acceptance.
+
+`manual/images/compatible-material-particles.png` is an unedited640x360capture of
+that source-hidden Gallery Game at three seconds on local software Vulkan using
+the Mesa lavapipe ICD. The image SHA256 is
+`fc0b383cb60ab30fe5f0f8f44cb7dfec878a338a24f264516826ce72aca76254`.
+Its C++/CMake input digest is
+`1f8ba3d8cc1b37f2cb8d8603f62b4f20c4d3bca23109a04dee04b62fe4abed3b`;
+the local batch evidence owner records the exact executable, source assets and
+graphics-gate receipt. This authentic renderer output explains the result, not
+native editor control placement or physical-hardware/Windows acceptance.
+
+`mcp_particle_material_stdio` bootstraps a published double-sided Blend Material
+and sorted GPU trail/opacity through the ordinary document API, then reuses the
+full workflow's exact Material-palette assertions. Both current and legacy MCP
+formats cover strict arguments, permissions/discovery, stale revisions/session,
+no-ops, Undo/Redo, geometry/profile publication and saved identity/reopen. This
+focused counterpart permits scoped native sanitizer execution without repeating
+every older particle control. The complete `mcp_particle_evaluation_stdio`
+regression remains in the normal suite. Timeout/forced cleanup of a broader
+instrumented run is retained as failure; only clean individual cases supply
+sanitizer evidence.
+
+The native-only `particle_material_graph_gallery_game` prepares the existing
+Gallery Shader through its normal worker, configures one of the copied four
+Effects with that program through the document owner, and publishes/packages the
+exact ten-record closure. The same World/Game fixture requires one Graph and
+three built-in producers and four Material selections. This consumer is registered
+and locally compile-checked; native execution remains a separately recorded gap
+until its Windows job actually passes.
+
+## Focused Windows navigation checks
+
+Set `navigation_debug_only` on `build.yml` to build the two navigation fixture
+binaries and worker with the same Windows core Debug toolchain. The focused gate
+requires exactly `navigation`, `navigation_planar_assets`,
+`navigation_dynamic_obstacles`, `navigation_link_gallery` and
+`navigation_link_arc_gallery`, and runs their ordinary CTest timeouts. Planar
+publication, dynamic obstacles and runtime coverage use separate scratch roots;
+the link and arc cases each exercise both authored and source-hidden relocated
+content. No assertion or production timeout is removed. Direct fixture invocation
+without a scope still runs the original combined workload. This focused gate
+does not replace the full source matrix or establish delivery acceptance.

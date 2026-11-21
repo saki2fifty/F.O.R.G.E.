@@ -219,12 +219,29 @@ class ParticleEffectEditor {
                 });
             FORGE_UI_PROBE("particles:gpu-sorted");
             ui::help("Orders particles back to front on the device. Disables weighted alpha; "
-                     "Scene weighted transparency must be off. Requires one compatible shared "
-                     "Mesh/Material for the complete visible alpha group, a built-in Blend "
+                     "Scene weighted transparency must be off. Uses one shared Material by "
+                     "default; Compatible Materials enables a bounded selection. Requires one "
+                     "compatible static Mesh for the complete visible alpha group, built-in Blend "
                      "Material and depth testing without writes. Other transparent contributors "
                      "or incompatible emitters omit the sorted GPU group with a diagnostic. "
                      "Graph, alignment, ribbons, plane motion and opacity settings are retained. "
                      "Ordering is per particle or ribbon segment, not per fragment.");
+            bool palette =
+                document_->source().document.value("gpu_material_palette_enabled", false);
+            if (ImGui::Checkbox("Compatible Materials (GPU)", &palette))
+                mutate("Set GPU compatible Materials", [&](auto& value) {
+                    ParticleEffectSource candidate{value};
+                    candidate.enable_gpu_material_palette(palette);
+                    value = std::move(candidate.document);
+                });
+            FORGE_UI_PROBE("particles:gpu-material-palette");
+            ui::help("Enabling selects sorted GPU evaluation and allows up to four compatible "
+                     "Materials in the complete visible alpha group. The static Mesh/part, "
+                     "built-in Material model, texture roles and UV channels must match. Factors, "
+                     "textures, UV transforms and samplers can differ. Other transparent sources, "
+                     "custom Material Shaders, transmission, projected decals/light images and "
+                     "incompatible selections omit the group with a diagnostic. Settings are "
+                     "retained while another evaluation mode is active.");
             auto program = document_->source().graph_program().value_or(ParticleGraphProgram{});
             const auto edit_program = [&](const ParticleGraphProgram& next, bool activate) {
                 mutate("Edit particle graph program", [&](auto& source) {

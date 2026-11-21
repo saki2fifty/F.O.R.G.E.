@@ -77,6 +77,11 @@ def check_particle_graph(read, mutate, edit, status, content, failed, root):
                   document_revision=status(owner)['revision']), 'wrong_document')
     assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == original
     assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == graph
+    assert edit('forge_asset_document_particle_gpu_material_palette', owner, enabled=True)['ok']
+    palette = content(owner)
+    assert palette['version'] == 17 and palette['profile'] == 'gpu_graph_palette_sorted1'
+    assert palette['program'] == graph['program'] and palette['asset_id'] == graph['asset_id']
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == graph
     assert edit('forge_asset_document_particle_evaluation', owner, evaluation='cpu')['ok']
     cpu = content(owner)
     assert cpu['version'] == 4 and cpu['profile'] == 'cpu_mesh2' and cpu['program'] == program

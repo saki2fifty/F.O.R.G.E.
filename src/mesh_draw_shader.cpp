@@ -63,6 +63,9 @@ std::string shader_varyings(const MeshVertexFetch& fetch, bool sprite_profile,
             varyings += "float2 UV" + std::to_string(u) + ":TEXCOORD" + std::to_string(4 + u) + ";";
     else
         varyings += "float2 UV[" + std::to_string(uv_count) + "]:TEXCOORD4;";
+    if (fetch.material_index)
+        varyings +=
+            "nointerpolation uint MaterialIndex:TEXCOORD" + std::to_string(4 + uv_count) + ";";
     if (sprite_profile)
         varyings += "nointerpolation float4 SpriteClamp:TEXCOORD5;"
                     "nointerpolation float4 SpriteCrop:TEXCOORD6;";
@@ -90,6 +93,9 @@ std::string mesh_shader_varyings(const MeshVertexFetch& fetch, bool sprite_profi
 MeshGeometryShader mesh_geometry_shader(const MeshVertexFetch& fetch, bool allow_instances,
                                         bool sprite_profile) {
     const bool instanced = allow_instances && !fetch.skin && !fetch.morph_count;
+    require(!fetch.material_index ||
+                (instanced && fetch.triangles && !sprite_profile && !fetch.temporal && !fetch.wind),
+            "Material selection requires the base static triangle instance layout");
     require(!fetch.wind || (instanced && !sprite_profile),
             "Wind geometry requires the static Mesh instance profile");
     if (sprite_profile)
@@ -117,6 +123,8 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
     if (instanced) {
         vs += "struct ForgeInstance {float4 R0:ATTRIB0;float4 R1:ATTRIB1;float4 R2:ATTRIB2;"
               "float4 B0:ATTRIB3;float4 B1:ATTRIB4;float4 B2:ATTRIB5;float4 Tint:ATTRIB6;";
+        if (fetch.material_index)
+            vs += "uint MaterialIndex:ATTRIB7;";
         if (sprite_profile)
             vs += "float4 Atlas:ATTRIB7;float4 AtlasClamp:ATTRIB8;float4 Crop:ATTRIB9;";
         if (fetch.temporal)
@@ -230,6 +238,8 @@ previous=mul(float3x3(previousRows[0].xyz,previousRows[1].xyz,previousRows[2].xy
     vs += "[unroll]for(uint i=0;i<" + std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];";
     if (instanced && !sprite_profile)
         vs += "if(instance.Tint.w==4)o.UV[0].y=v.Position.y>0?instance.B1.w:instance.B0.w;";
+    if (fetch.material_index)
+        vs += "o.MaterialIndex=instance.MaterialIndex;";
     if (sprite_profile)
         vs += "float2 local=float2(v.UV[0].x,1-v.UV[0].y);"
               "if(instance.B2.x==0 && instance.B2.w!=0)local=local.yx;"
@@ -836,6 +846,114 @@ ForgeTemporalTargets main(ForgeVarying input,bool front:SV_IsFrontFace) {
 )hlsl";
     }
     return {vs, ps, material, sheen, transmission, geometry, instanced, decal_capacity};
+}
+MeshMaterialPaletteShader mesh_material_palette_shader(const MeshVertexFetch& input,
+                                                       std::span<const PbrMaterialProfile> profiles,
+                                                       bool area_lights) {
+    require(!profiles.empty() && profiles.size() <= mesh_material_palette_limit,
+            "Material palette requires one to four members");
+    auto fetch = input;
+    fetch.material_index = true;
+    MeshMaterialPaletteShader result;
+    std::string skeleton;
+    std::vector<MaterialShader> canonical;
+    const auto strip_material = [](const MeshDrawShader& draw) {
+        auto source = draw.pixel;
+        const auto at = source.find(draw.material.source);
+        require(!draw.material.source.empty() && at != std::string::npos &&
+                    source.find(draw.material.source, at + draw.material.source.size()) ==
+                        std::string::npos,
+                "Material palette lost its canonical helper boundary");
+        source.erase(at, draw.material.source.size());
+        return source;
+    };
+    const auto& first = profiles.front();
+    for (const auto& profile : profiles) {
+        const auto& values = profile.values;
+        require(values.alpha == MaterialAlpha::Blend && !values.depth_write &&
+                    values.model == first.values.model &&
+                    values.depth_test == first.values.depth_test &&
+                    values.double_sided == first.values.double_sided,
+                "Material palette requires matching Blend raster state and built-in model");
+        auto draw =
+            mesh_draw_shader(fetch, profile, false, MaterialSamplerBinding::NamedElements, nullptr,
+                             {}, false, {}, false, false, false, area_lights, false);
+        require(draw.instanced && draw.geometry.empty() && !draw.transmission,
+                "Material palette requires static non-transmission geometry");
+        auto candidate = strip_material(draw);
+        if (canonical.empty()) {
+            skeleton = std::move(candidate);
+            result.draw = draw;
+        } else {
+            require(
+                candidate == skeleton && draw.vertex == result.draw.vertex,
+                "Material palette members require matching generated lighting and UV interface");
+            const auto& reference = canonical.front();
+            require(draw.material.textures.size() == reference.textures.size() &&
+                        draw.material.uniforms.size() == reference.uniforms.size(),
+                    "Material palette members have different helper layouts");
+            for (std::size_t i = 0; i < reference.textures.size(); ++i)
+                require(draw.material.textures[i].role == reference.textures[i].role &&
+                            draw.material.textures[i].uv_slot == reference.textures[i].uv_slot,
+                        "Material palette members have different texture interfaces");
+        }
+        canonical.push_back(std::move(draw.material));
+    }
+    std::string helpers = "static uint g_ForgeMaterialIndex;\n";
+    unsigned texture_count = 0;
+    for (unsigned i = 0; i < profiles.size(); ++i) {
+        std::vector<std::string> sampler_names;
+        for (const auto& state : canonical[i].samplers) {
+            const auto at = std::find(result.samplers.begin(), result.samplers.end(), state);
+            const auto slot = unsigned(at - result.samplers.begin());
+            if (at == result.samplers.end())
+                result.samplers.push_back(state);
+            sampler_names.push_back("ForgePaletteSampler" + std::to_string(slot));
+        }
+        const auto prefix = "ForgePalette" + std::to_string(i) + "_";
+        result.members.push_back(material_shader(profiles[i], fetch.uv_sets,
+                                                 MaterialSamplerBinding::NamedElements, false, {},
+                                                 false, {prefix, sampler_names}));
+        texture_count += unsigned(result.members.back().textures.size());
+    }
+    require(result.samplers.size() <= mesh_material_palette_sampler_limit && texture_count <= 32,
+            "Material palette exceeds its shared sampler or texture budget");
+    for (unsigned i = 0; i < result.samplers.size(); ++i)
+        helpers += "SamplerState ForgePaletteSampler" + std::to_string(i) + ";\n";
+    for (const auto& member : result.members)
+        helpers += member.source;
+    const auto selector = [&](std::string_view type, const std::string& name,
+                              std::string_view arguments, std::string_view call) {
+        helpers += std::string(type) + " " + name + "(" + std::string(arguments) + "){\n";
+        for (unsigned i = 0; i < profiles.size(); ++i) {
+            if (i + 1 < profiles.size())
+                helpers += "if(g_ForgeMaterialIndex==" + std::to_string(i) + "u)";
+            helpers += "return ForgePalette" + std::to_string(i) + "_" + name + "(" +
+                       std::string(call) + ");\n";
+        }
+        helpers += "}\n";
+    };
+    selector("float", "ForgeAlphaCutoff", {}, {});
+    selector("float", "ForgeDielectricF0", {}, {});
+    for (const auto& binding : material_parameter_uniforms(first.values))
+        selector(binding.width == 1 ? "float" : "float" + std::to_string(binding.width),
+                 "ForgeParameter_" + binding.key, {}, {});
+    for (const auto& texture : canonical.front().textures) {
+        selector("float2", "ForgeUV_" + texture.role, "float2 uv", "uv");
+        selector("float4", "ForgeSample_" + texture.role, "float2 uv,out bool valid", "uv,valid");
+    }
+    const auto at = result.draw.pixel.find(result.draw.material.source);
+    result.draw.pixel.replace(at, result.draw.material.source.size(), helpers);
+    const std::string entry =
+        "float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {";
+    const auto main = result.draw.pixel.find(entry);
+    require(main != std::string::npos, "Material palette lost its shared color entry");
+    result.draw.pixel.insert(main + entry.size(),
+                             "if(input.MaterialIndex>=" + std::to_string(profiles.size()) +
+                                 "u)discard;g_ForgeMaterialIndex=input.MaterialIndex;\n");
+    result.draw.material = {};
+    result.draw.material.source = std::move(helpers);
+    return result;
 }
 std::string material_graph_shader_wrapper(const SurfaceShaderDefinition& definition,
                                           std::string_view source, bool depth_only,

@@ -13,8 +13,10 @@ namespace {
 struct alignas(16) OrderValues {
     std::array<unsigned, 4> limits{};
     MeshInstanceRow forward{}, center{};
+    std::array<unsigned, 4> source_info{};
+    std::array<std::array<unsigned, 4>, particle_emitter_limit> source_ranges{};
 };
-static_assert(sizeof(OrderValues) == 48);
+static_assert(sizeof(OrderValues) == 1088);
 static_assert(mesh_static_instance_rows == 7);
 constexpr std::uint64_t packet_bytes = mesh_static_instance_rows * sizeof(MeshInstanceRow);
 void require(bool value, const char* message) {
@@ -22,10 +24,11 @@ void require(bool value, const char* message) {
         throw std::runtime_error(message);
 }
 constexpr const char* order_source = R"(
-cbuffer SortValues { uint4 Limits;float4 Forward,MeshCenter; };
+cbuffer SortValues { uint4 Limits;float4 Forward,MeshCenter;uint4 SourceInfo,SourceRanges[64]; };
 StructuredBuffer<float4> SourceRows;
 RWStructuredBuffer<uint4> SortKeys;
 RWStructuredBuffer<float4> SortedRows;
+RWStructuredBuffer<uint> SortedTags;
 bool Before(uint4 a,uint4 b) {
     if(a.w!=b.w)return a.w>b.w;
     if(a.w!=0) {
@@ -45,7 +48,10 @@ bool Before(uint4 a,uint4 b) {
         center=float3(dot(SourceRows[row],position4),dot(SourceRows[row+1],position4),dot(SourceRows[row+2],position4));
     }
     float depth=dot(center,Forward.xyz);
-    SortKeys[id]=uint4(asuint(depth),id,0,isfinite(depth)?1:0);
+    uint tag=0;
+    [loop]for(uint source=0;source<SourceInfo.x;++source)
+        if(id<SourceRanges[source].y){tag=SourceRanges[source].z;break;}
+    SortKeys[id]=uint4(asuint(depth),id,tag,isfinite(depth)?1:0);
 #elif SORT_PASS==1
     uint other=id^Limits.w;if(other<=id||other>=Limits.y)return;
     uint4 first=SortKeys[id],second=SortKeys[other];bool ascending=(id&Limits.z)==0;
@@ -56,6 +62,7 @@ bool Before(uint4 a,uint4 b) {
     uint4 key=SortKeys[id];
     [unroll]for(uint row=0;row<7;++row)
         SortedRows[7*id+row]=key.w!=0?SourceRows[7*key.y+row]:float4(0,0,0,row==6?4:0);
+    SortedTags[id]=key.w!=0?key.z:0xffffffffu;
 #endif
 }
 )";
@@ -68,7 +75,7 @@ void ParticleGpuOrder::prepare() {
     require(presentation_.device()->GetDeviceInfo().Features.ComputeShaders ==
                 DEVICE_FEATURE_STATE_ENABLED,
             "Ordered GPU particles require compute shader support");
-    RefCntAutoPtr<IBuffer> combined, keys, ordered, values;
+    RefCntAutoPtr<IBuffer> combined, keys, ordered, tags, values;
     BufferDesc desc;
     desc.Name = "FORGE ordered particle input";
     desc.Size = particle_scene_capacity * packet_bytes;
@@ -85,6 +92,10 @@ void ParticleGpuOrder::prepare() {
     desc.Size = particle_scene_capacity * packet_bytes;
     desc.BindFlags = BIND_UNORDERED_ACCESS | BIND_VERTEX_BUFFER;
     presentation_.device()->CreateBuffer(desc, nullptr, &ordered);
+    desc.Name = "FORGE ordered particle source tags";
+    desc.Size = particle_scene_capacity * sizeof(std::uint32_t);
+    desc.ElementByteStride = sizeof(std::uint32_t);
+    presentation_.device()->CreateBuffer(desc, nullptr, &tags);
     desc.Name = "FORGE ordered particle constants";
     desc.Size = sizeof(OrderValues);
     desc.Mode = BUFFER_MODE_UNDEFINED;
@@ -93,7 +104,8 @@ void ParticleGpuOrder::prepare() {
     desc.CPUAccessFlags = CPU_ACCESS_WRITE;
     desc.BindFlags = BIND_UNIFORM_BUFFER;
     presentation_.device()->CreateBuffer(desc, nullptr, &values);
-    require(combined && keys && ordered && values, "Ordered GPU particle allocation failed");
+    require(combined && keys && ordered && tags && values,
+            "Ordered GPU particle allocation failed");
     std::array<RefCntAutoPtr<IPipelineState>, 3> pipelines;
     std::array<RefCntAutoPtr<IShaderResourceBinding>, 3> bindings;
     for (unsigned pass = 0; pass < pipelines.size(); ++pass) {
@@ -126,8 +138,10 @@ void ParticleGpuOrder::prepare() {
         set("SortKeys", keys->GetDefaultView(BUFFER_VIEW_UNORDERED_ACCESS));
         if (pass != 1)
             set("SourceRows", combined->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
-        if (pass == 2)
+        if (pass == 2) {
             set("SortedRows", ordered->GetDefaultView(BUFFER_VIEW_UNORDERED_ACCESS));
+            set("SortedTags", tags->GetDefaultView(BUFFER_VIEW_UNORDERED_ACCESS));
+        }
     }
     combined_ = std::move(combined);
     keys_ = std::move(keys);
@@ -135,6 +149,7 @@ void ParticleGpuOrder::prepare() {
     pipelines_ = std::move(pipelines);
     bindings_ = std::move(bindings);
     ordered_ = std::move(ordered);
+    tags_ = std::move(tags);
 }
 void ParticleGpuOrder::evaluate(IDeviceContext* context, std::span<const Source> sources,
                                 const CameraView& camera, const std::array<float, 3>& mesh_center) {
@@ -149,12 +164,14 @@ void ParticleGpuOrder::evaluate(IDeviceContext* context, std::span<const Source>
                 "Ordered GPU particle depth inputs must be finite");
     }
     unsigned total = 0;
-    for (const auto& source : sources) {
+    input.source_info[0] = unsigned(sources.size());
+    for (std::size_t index = 0; index < sources.size(); ++index) {
+        const auto& source = sources[index];
         require(source.count <= particle_scene_capacity - total,
                 "Ordered GPU particles exceed the 8192-instance view budget");
         if (source.count) {
             require(source.buffer && source.buffer != combined_ && source.buffer != keys_ &&
-                        source.buffer != ordered_,
+                        source.buffer != ordered_ && source.buffer != tags_,
                     "Ordered GPU particle source buffer is unavailable or aliases its output");
             const auto& desc = source.buffer->GetDesc();
             require(desc.Mode == BUFFER_MODE_STRUCTURED &&
@@ -162,6 +179,7 @@ void ParticleGpuOrder::evaluate(IDeviceContext* context, std::span<const Source>
                         desc.Size >= source.count * packet_bytes,
                     "Ordered GPU particle source range or row layout is invalid");
         }
+        input.source_ranges[index] = {total, total + source.count, source.tag, 0};
         total += source.count;
     }
     if (!total)
@@ -208,6 +226,7 @@ void ParticleGpuOrder::clear() {
     combined_.Release();
     keys_.Release();
     ordered_.Release();
+    tags_.Release();
     values_.Release();
 }
 } // namespace forge

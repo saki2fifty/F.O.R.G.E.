@@ -33,7 +33,8 @@ struct Fixture {
     unsigned count = 0, padded = 1;
     Fixture(DiligentPresentation& presentation)
         : order(presentation), presentation_device_(presentation.device()) {
-        check(!order.buffer() && !order.count(), "Lazy sort resource published storage");
+        check(!order.buffer() && !order.tags() && !order.count(),
+              "Lazy sort resource published storage");
         BufferDesc desc;
         desc.Name = "FORGE product order test readback";
         desc.Size = 8192 * sizeof(Packet);
@@ -54,6 +55,7 @@ struct Fixture {
     std::vector<Packet> read(IDeviceContext* context) {
         if (!count) {
             // Empty producer passes can still queue reset/dispatch commands.
+            // Complete the fixture's work before its caller finishes the frame.
             context->WaitForIdle();
             return {};
         }
@@ -64,6 +66,21 @@ struct Fixture {
         test_gpu::require_readback(bool(static_cast<Packet*>(mapped)), presentation_device_,
                                    "Product sorted rows unavailable");
         return {static_cast<Packet*>(mapped), static_cast<Packet*>(mapped) + padded};
+    }
+    std::vector<std::uint32_t> read_tags(IDeviceContext* context) {
+        if (!count) {
+            context->WaitForIdle();
+            return {};
+        }
+        check(order.tags() != nullptr, "Product sort omitted its parallel source tags");
+        context->CopyBuffer(order.tags(), 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, staging, 0,
+                            padded * sizeof(std::uint32_t),
+                            RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->WaitForIdle();
+        MapHelper<std::uint32_t> mapped(context, staging, MAP_READ, MAP_FLAG_DO_NOT_WAIT);
+        test_gpu::require_readback(bool(static_cast<std::uint32_t*>(mapped)), presentation_device_,
+                                   "Product sorted tags unavailable");
+        return {static_cast<std::uint32_t*>(mapped), static_cast<std::uint32_t*>(mapped) + padded};
     }
     void lifecycle(IRenderDevice* device, IDeviceContext* context) {
         Packet packet{};
@@ -123,11 +140,13 @@ struct Fixture {
             order.evaluate(context, valid, camera, {0, std::numeric_limits<float>::infinity(), 0});
         });
         order.clear();
-        check(!order.count() && !order.buffer(), "Sort clear retained published state");
+        check(!order.count() && !order.buffer() && !order.tags(),
+              "Sort clear retained published state");
         order.evaluate(context, {}, camera, {});
-        check(!order.count() && !order.buffer(), "Empty sort allocated stale geometry");
+        check(!order.count() && !order.buffer() && !order.tags(),
+              "Empty sort allocated stale geometry");
         order.evaluate(context, valid, camera, {});
-        check(order.count() == 1 && order.buffer(), "Cleared sort did not recover");
+        check(order.count() == 1 && order.buffer() && order.tags(), "Cleared sort did not recover");
     }
 };
 inline float depth(const Packet& p, const Row& f) {
@@ -252,10 +271,68 @@ inline void mesh_center_cases(Fixture& fixture, IRenderDevice* device, IDeviceCo
     }
 }
 
+inline void source_tag_cases(Fixture& fixture, IRenderDevice* device, IDeviceContext* context) {
+    unsigned cases = 0;
+    for (unsigned source_count : {1u, 2u, 3u, 64u})
+        for (bool full : {false, true}) {
+            std::vector<RefCntAutoPtr<IBuffer>> buffers(source_count);
+            std::vector<Fixture::SourceSlice> slices;
+            std::vector<Packet> input;
+            std::vector<std::uint32_t> tags;
+            for (unsigned source = 0; source < source_count; ++source) {
+                const unsigned count = full ? 128 : source % 3 == 1 ? 0 : 2 + source % 5;
+                const std::uint32_t tag = source % 4 == 0   ? 0u
+                                          : source % 4 == 1 ? UINT32_MAX
+                                          : source % 4 == 2 ? 0x80000001u
+                                                            : source * 0x01000101u;
+                const auto first = input.size();
+                for (unsigned i = 0; i < count; ++i) {
+                    input.push_back(packet(unsigned(input.size()), full ? 1 : 2));
+                    tags.push_back(tag);
+                }
+                if (count) {
+                    BufferDesc desc;
+                    desc.Name = "FORGE opaque source tag test";
+                    desc.Size = count * sizeof(Packet);
+                    desc.Usage = USAGE_DEFAULT;
+                    desc.Mode = BUFFER_MODE_STRUCTURED;
+                    desc.ElementByteStride = sizeof(Row);
+                    desc.BindFlags = BIND_SHADER_RESOURCE;
+                    BufferData data{input.data() + first, count * sizeof(Packet)};
+                    device->CreateBuffer(desc, &data, &buffers[source]);
+                    check(bool(buffers[source]), "Tagged source buffer unavailable");
+                }
+                slices.push_back({buffers[source], count, tag});
+            }
+            for (const Row forward : {Row{0, 0, 1, 0}, Row{0, 0, -1, 0}}) {
+                std::vector<unsigned> expected(input.size());
+                std::iota(expected.begin(), expected.end(), 0);
+                std::stable_sort(expected.begin(), expected.end(), [&](unsigned a, unsigned b) {
+                    return depth(input[a], forward) > depth(input[b], forward);
+                });
+                fixture.evaluate_device(context, slices, forward);
+                const auto output = fixture.read(context);
+                const auto selected = fixture.read_tags(context);
+                check(selected.size() == output.size(), "Device tag/packet counts disagree");
+                for (unsigned i = 0; i < input.size(); ++i)
+                    check(std::memcmp(&output[i], &input[expected[i]], sizeof(Packet)) == 0 &&
+                              selected[i] == tags[expected[i]],
+                          "Source tags changed stable packet order, bits or provenance");
+                for (auto i = input.size(); i < selected.size(); ++i)
+                    check(selected[i] == UINT32_MAX, "Tag padding retained old source metadata");
+                ++cases;
+                context->FinishFrame();
+                device->ReleaseStaleResources();
+            }
+        }
+    std::cout << "GPU_ORDER_SOURCE_TAGS cases=" << cases << "; full32-bit metadata preserved\n";
+}
+
 inline void execute(DiligentPresentation& presentation, IDeviceContext* context) {
     auto* device = presentation.device();
     Fixture proof(presentation);
     synthetic_cases(proof, device, context);
+    source_tag_cases(proof, device, context);
     BufferDesc desc;
     desc.Name = "FORGE unsorted producer test readback";
     desc.Size = 8192 * sizeof(Packet);

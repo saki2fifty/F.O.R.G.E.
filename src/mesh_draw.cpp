@@ -158,7 +158,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format, bool enable_skin,
                    SHADER_COMPILER compiler, SHADER_OPTIMIZATION_LEVEL optimization,
                    const MaterialShaderSnapshot* surface, MeshDrawProfile draw_profile,
-                   bool area_lights, bool wind)
+                   bool area_lights, bool wind, std::span<const PaletteMaterial> palette)
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN),
       temporal_(temporal_mesh_profile(draw_profile) && !shadow_pass_),
       indirect_(indirect_mesh_profile(draw_profile) && !shadow_pass_),
@@ -190,6 +190,16 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     require(!normal_ || !surface || surface->program.surface_wrapper_version >= 6,
             "Rebuild this Shader and dependent Materials to use material-normal occlusion");
     require(!area_lights_ || !sprite_, "Area lighting requires a Mesh draw");
+    require(palette.empty() ||
+                (!surface && draw_profile == MeshDrawProfile::Mesh && !shadow_pass_ && !wind),
+            "Material palette requires the built-in base Mesh color profile");
+    require(palette.size() <= mesh_material_palette_limit,
+            "Material palette exceeds the bounded member count");
+    for (const auto& member : palette)
+        require(member.values && member.textures, "Material palette member is incomplete");
+    require(palette.empty() || *palette.front().values == source,
+            "Material palette first member differs from the base raster selection");
+    palette_size_ = unsigned(palette.size());
     sprite_trim_allowed_ = sprite_trim_material_compatible(source);
     device_ = presentation.device();
     material_surface_ = surface != nullptr;
@@ -224,7 +234,14 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                                      ? MaterialSamplerBinding::NamedElements
                                      : MaterialSamplerBinding::Array;
     MeshDrawShader program;
-    if (surface) {
+    std::optional<MeshMaterialPaletteShader> palette_program;
+    if (palette_size_) {
+        std::vector<PbrMaterialProfile> profiles;
+        for (const auto& member : palette)
+            profiles.push_back(prepare_pbr_material(*member.values));
+        palette_program = mesh_material_palette_shader(fetch, profiles, area_lights_);
+        program = palette_program->draw;
+    } else if (surface) {
         const auto generated = mesh_geometry_shader(fetch, true, sprite_);
         program.vertex = generated.vertex;
         program.geometry = generated.geometry;
@@ -385,6 +402,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     lights_ = buffer(device, "FORGE light list",
                      mesh_draw_light_limit * (area_lights_ ? 7 : 4) * sizeof(Row));
     RefCntAutoPtr<IBuffer> values, surface_state, surface_uv, graph_pbr_values;
+    std::vector<RefCntAutoPtr<IBuffer>> palette_values;
     if (surface) {
         const auto bytes = surface_parameter_bytes(source, surface_layout);
         material_defaults_ = bytes;
@@ -405,6 +423,11 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             surface_uv = buffer(device, "FORGE surface texture coordinates",
                                 surface_layout.uv_bytes, rows.data());
         }
+    } else if (palette_program) {
+        for (const auto& member : palette_program->members)
+            palette_values.push_back(buffer(device, "FORGE palette material values",
+                                            member.uniforms.size() * sizeof(Row),
+                                            member.uniforms.data()));
     } else {
         values = buffer(device, "FORGE material values", material.uniforms.size() * sizeof(Row),
                         material.uniforms.data());
@@ -421,7 +444,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     if (surface && surface->program.surface->physically_based)
         graph_pbr_values = buffer(device, "FORGE graph PBR defaults",
                                   material.uniforms.size() * sizeof(Row), material.uniforms.data());
-    auto sampler_states = material.samplers;
+    auto sampler_states = palette_program ? palette_program->samplers : material.samplers;
     if (surface)
         for (const auto& [role, declaration] : surface->program.surface->textures) {
             (void)declaration;
@@ -549,8 +572,17 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         for (unsigned i = 0; i < rows; ++i)
             instance_layout[i] =
                 LayoutElement{i, 0, 4, VT_FLOAT32, False, INPUT_ELEMENT_FREQUENCY_PER_INSTANCE};
+        if (palette_size_)
+            instance_layout[rows] = LayoutElement{rows,
+                                                  1,
+                                                  1,
+                                                  VT_UINT32,
+                                                  False,
+                                                  0,
+                                                  sizeof(std::uint32_t),
+                                                  INPUT_ELEMENT_FREQUENCY_PER_INSTANCE};
         g.InputLayout.LayoutElements = instance_layout.data();
-        g.InputLayout.NumElements = rows;
+        g.InputLayout.NumElements = rows + (palette_size_ ? 1 : 0);
     }
     g.DepthStencilDesc.DepthEnable = shadow_pass_ || source.depth_test;
     g.DepthStencilDesc.DepthWriteEnable = shadow_pass_ || source.depth_write;
@@ -653,6 +685,11 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                 bind(SHADER_TYPE_PIXEL, "ForgeSurfaceUV", surface_uv);
             if (graph_pbr_values)
                 bind(SHADER_TYPE_PIXEL, "ForgeMaterialValues", graph_pbr_values, false);
+        } else if (palette_program) {
+            for (unsigned i = 0; i < palette_size_; ++i)
+                bind(SHADER_TYPE_PIXEL,
+                     ("ForgePalette" + std::to_string(i) + "_ForgeMaterialValues").c_str(),
+                     palette_values[i], false);
         } else
             bind(SHADER_TYPE_PIXEL, "ForgeMaterialValues", values, !shadow_pass_);
         if (lit) {
@@ -695,6 +732,21 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             require(desc.ArraySize > 0 && desc.ArraySize <= sampler_objects.size(),
                     "material sampler array differs from the admitted binding table");
             variable->SetArray(sampler_objects.data(), 0, desc.ArraySize);
+        }
+        if (palette_program) {
+            for (unsigned i = 0; i < samplers.size(); ++i)
+                bind(SHADER_TYPE_PIXEL, ("ForgePaletteSampler" + std::to_string(i)).c_str(),
+                     samplers[i], false);
+            for (unsigned i = 0; i < palette_size_; ++i)
+                for (const auto& slot : palette_program->members[i].textures) {
+                    const auto& selected = *palette[i].textures;
+                    const auto found = selected.find(slot.role);
+                    require(found != selected.end() && found->second,
+                            "Palette texture resource unavailable: " + slot.role);
+                    require(found->second->GetTexture()->GetDesc().Type == RESOURCE_DIM_TEX_2D,
+                            "Palette material texture requires a 2D resource");
+                    bind(SHADER_TYPE_PIXEL, slot.texture_variable.c_str(), found->second, false);
+                }
         }
         if (surface) {
             const auto dimension = [](TextureDimension value) {
@@ -798,6 +850,8 @@ const MaterialParameterUniform* MeshDraw::material_parameter_binding(std::string
 }
 bool MeshDraw::prepare_object_material_values(std::span<const MaterialParameterOverride> parameters,
                                               std::string_view slot) {
+    require(!palette_size_ || parameters.empty(),
+            "Palette object values must be projected before resource preparation");
     if (!material_immutable_)
         return false;
     bool active = false;
@@ -1005,7 +1059,20 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     gpu_instances->offset <= desc.Size &&
                     gpu_instances->count <= (desc.Size - gpu_instances->offset) / stride,
                 "GPU instance buffer range exceeds its vertex allocation");
+        require(bool(gpu_instances->material_indices) == bool(palette_size_),
+                "GPU Material index input differs from the prepared draw profile");
+        if (palette_size_) {
+            const auto& tags = gpu_instances->material_indices->GetDesc();
+            require((tags.BindFlags & BIND_VERTEX_BUFFER) != 0 &&
+                        gpu_instances->material_offset % sizeof(std::uint32_t) == 0 &&
+                        gpu_instances->material_offset <= tags.Size &&
+                        gpu_instances->count <=
+                            (tags.Size - gpu_instances->material_offset) / sizeof(std::uint32_t),
+                    "GPU Material index range exceeds its vertex allocation");
+        }
     }
+    require(!palette_size_ || gpu_instances,
+            "Material palette requires an exclusive device instance and index submission");
     const Uint32 draw_instance_count = gpu_instances       ? gpu_instances->count
                                        : instances.empty() ? 1
                                                            : Uint32(instances.size());
@@ -1653,9 +1720,10 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         IBuffer* selected = instances_;
         if (gpu_instances)
             selected = gpu_instances->buffer;
-        IBuffer* vertices[]{selected};
-        const Uint64 offset = gpu_instances ? gpu_instances->offset : 0;
-        context->SetVertexBuffers(0, 1, vertices, &offset,
+        IBuffer* vertices[]{selected, gpu_instances ? gpu_instances->material_indices : nullptr};
+        const Uint64 offsets[]{gpu_instances ? gpu_instances->offset : 0,
+                               gpu_instances ? gpu_instances->material_offset : 0};
+        context->SetVertexBuffers(0, palette_size_ ? 2 : 1, vertices, offsets,
                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                                   SET_VERTEX_BUFFERS_FLAG_RESET);
     }

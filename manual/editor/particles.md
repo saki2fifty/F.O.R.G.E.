@@ -225,7 +225,7 @@ The Gallery scene in the Game renderer at three seconds.
 6. Export using the runtime kit packaged with this editor. The player needs compute-capable graphics; editable sources and a compiler are not required.
 
 The entire visible transparent group must use compatible sorted GPU particles.
-Emitters must share the same Mesh, Material and images, raster orientation,
+With **Compatible Materials (GPU)** off, emitters must share the same Mesh, Material and images, raster orientation,
 layers and other draw settings. Opaque and masked geometry can still block the
 particles through depth testing. Ordinary transparent Meshes, CPU alpha
 particles, other GPU alpha modes, visible Sprite/Tile layers and incompatible
@@ -245,6 +245,36 @@ Intersecting surfaces can still show ordering artifacts because fragments within
 a particle or segment are not sorted separately. Source changes need
 **Save / Publish** before Play or export. An older runtime kit that lacks this
 transport is rejected during export.
+
+### Use distinct compatible Materials
+
+Open **Scenes/255-compatible-material-particles.scene.json** in FeatureGallery.
+Four emitters use separate teal, amber, violet and blue Materials. Their Particle
+Effects and Materials are in **Assets/Particles/Materials**. The Scene includes a
+camera and light and runs without project C++ code.
+
+![Four overlapping particle clouds with distinct compatible Materials in the Game renderer](../images/compatible-material-particles.png)
+
+The Gallery Game at three seconds, with all four Material selections ordered together.
+
+1. Stop Play and open each participating Particle Effect from **Content**.
+2. Enable **Compatible Materials (GPU)**. This enables **Sorted alpha (GPU)** and selects GPU evaluation or retains an active Particle Graph.
+3. Use the same Mesh and compatible built-in Blend Materials with depth testing enabled and depth writes disabled. Keep the same built-in shading model and texture roles in all Materials; their factors, images, UV transforms and sampler choices can differ.
+4. Leave the Scene's **Weighted transparency** off. Choose **Save / Publish** for every changed asset, save the Scene and press **Play**.
+5. Export with the runtime kit included with this editor.
+
+All visible sorted GPU emitters in the group must enable this choice. A view can
+contain up to four distinct Material selections, with at most eight unique
+sampler states and 32 texture bindings.
+Geometry, raster orientation, layers and shadow reception must remain compatible.
+Projected decals, projected light images, custom Material Shader surfaces and
+transmission cannot participate. The renderer reports an incompatible selection
+in **Problems** and omits the complete group until it is corrected.
+
+Turning this choice off restores the single-Material sorted transport. Changing
+to CPU or weighted GPU alpha retains the inactive choice. Undo/Redo restores the
+source settings; particles continue to use the ordinary World emission clock.
+This option does not sort individual fragments inside a particle or ribbon.
 
 ## GPU opacity over life
 

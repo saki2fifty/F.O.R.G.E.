@@ -82,6 +82,12 @@ inline void execute(DiligentPresentation& presentation, Diligent::IDeviceContext
     target.BindFlags = BIND_DEPTH_STENCIL;
     device->CreateTexture(target, nullptr, &depth);
     check(color && depth, "Ordered particle targets unavailable");
+    auto mismatch_desc = color->GetDesc();
+    mismatch_desc.Name = "FORGE intentionally mismatched target";
+    mismatch_desc.Format = TEX_FORMAT_RGBA8_UNORM;
+    RefCntAutoPtr<ITexture> mismatch;
+    device->CreateTexture(mismatch_desc, nullptr, &mismatch);
+    check(bool(mismatch), "Mismatched-format fixture target unavailable");
     const std::array<float, 4> background{.02f, .04f, .08f, 1};
     Camera camera;
     camera.projection = 1;
@@ -112,6 +118,18 @@ inline void execute(DiligentPresentation& presentation, Diligent::IDeviceContext
         trace("prepare-ready");
         auto* rtv = color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
         auto* dsv = depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
+        if (!frames)
+            for (ITexture* rejected : {static_cast<ITexture*>(nullptr), mismatch.RawPtr()}) {
+                bool refused = false;
+                try {
+                    renderer.draw(scene, camera_view(camera, eye, width, height), UINT32_MAX,
+                                  rejected, dsv);
+                } catch (const std::exception& error) {
+                    refused = std::string_view(error.what()).find("prepared pipeline format") !=
+                              std::string_view::npos;
+                }
+                check(refused, "Scene draw accepted a null or incompatible color attachment");
+            }
         context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->ClearRenderTarget(rtv, background.data(),
                                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

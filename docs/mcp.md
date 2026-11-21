@@ -3731,6 +3731,27 @@ whole-emitter fallback, CPU readback or per-fragment sorting. Discovery describe
 this admission boundary; exposing the source operation does not imply arbitrary
 mixed-Material alpha support.
 
+## Ordered device Material selections
+
+`asset.document.particle_gpu_material_palette` requires `asset.write`,
+`editor:"particle_effect"`, the current document session/revision and boolean
+`enabled`. Its discovered MCP binding is
+`forge_asset_document_particle_gpu_material_palette`. It routes through the same
+source method and history as **Compatible Materials (GPU)**; strict argument
+validation, project scope, busy-state guards, no-op handling and Undo/Redo remain
+owned by the existing document API. Read-only clients do not receive the mutator.
+
+Source17 retains `gpu_material_palette_enabled`; enabling it selects sorted GPU
+alpha or keeps an active Particle Graph. CPU and weighted selections retain the
+inactive policy. Profiles40–51 require a bounded complete group with compatible
+static geometry/built-in Material interfaces, at most four distinct physical
+Material/parameter selections, eight sampler states and 32 texture bindings.
+Distinct factors/images/UV/sampler settings are supported within those constraints;
+projected decals/light images and custom Material surfaces are unavailable. See
+the [particle contract](particle-effects.md#bounded-ordered-material-palettes).
+Save and await publication before Play/export. The matching kit must advertise
+`runtime_particle_gpu_material_palette:1` alongside the other selected capabilities.
+
 ## Explicit weighted device particles
 
 `asset.document.particle_gpu_weighted` requires `asset.write`,

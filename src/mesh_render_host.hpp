@@ -441,5 +441,18 @@ class MeshSceneRenderer {
     std::vector<Diagnostic> diagnostics_;
     std::size_t omitted_ = 0;
     DrawStats draw_stats_;
+    struct ParticleMaterialPalette {
+        struct Member {
+            std::shared_ptr<MeshDrawBundle> bundle;
+            std::vector<MaterialParameterOverride> parameters;
+        };
+        std::vector<Member> members;
+        unsigned lod{}, part{};
+        bool area_lights{};
+        std::uint64_t material_bytes() const;
+        // Destroy bindings before the source bundles and their native leases.
+        std::unique_ptr<MeshDraw> draw;
+    };
+    std::unique_ptr<ParticleMaterialPalette> particle_palette_;
 };
 } // namespace forge

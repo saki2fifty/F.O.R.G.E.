@@ -163,10 +163,23 @@ int main(int argc, char** argv) {
             std::cout << std::filesystem::absolute(root).string() << '\n';
             return 0;
         }
+        const auto scope = argc == 4 ? std::string_view(argv[3]) : std::string_view{};
+        if (scope == "--planar-assets" || scope == "--dynamic-obstacles") {
+            const auto worker = std::filesystem::absolute(argv[2]);
+            if (scope == "--planar-assets")
+                planar_asset_tests(root, worker);
+            else
+                dynamic_obstacle_runtime_tests(root, worker);
+            std::filesystem::remove_all(root);
+            return 0;
+        }
         if (argc == 3) {
             planar_asset_tests(root, std::filesystem::absolute(argv[2]));
             dynamic_obstacle_runtime_tests(root, std::filesystem::absolute(argv[2]));
         }
+        check(argc == 3 || scope == "--runtime-only" || scope == "--prepare" ||
+                  scope == "--prepare-character",
+              "Unknown navigation test scope");
         EngineContext author;
         Scene scene(author.world());
         scene.restore_snapshot(input());
@@ -278,7 +291,7 @@ int main(int argc, char** argv) {
         record = updated;
         scene.entity("agent").set<NavigationAgent>({{record.id}, true, true, 2, .1f, 8, .1, 0});
         auto snapshot = scene.snapshot();
-        if (argc == 4) {
+        if (argc == 4 && scope != "--runtime-only") {
             const bool character = std::string_view(argv[3]) == "--prepare-character";
             check(character || std::string_view(argv[3]) == "--prepare", "Unknown mode");
             if (character) {

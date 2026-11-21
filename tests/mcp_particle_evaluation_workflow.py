@@ -4,10 +4,11 @@ import time
 from uuid import uuid4
 from mcp_particle_graph_workflow import check_particle_graph
 from mcp_particle_trail_workflow import check_gpu_trails
-from mcp_particle_sorted_workflow import check_gpu_sorted
+from mcp_particle_sorted_workflow import check_gpu_sorted, check_gpu_material_palette
 
 
-def check_particle_evaluation(read, mutate, edit, status, content, failed, root, tools):
+def check_particle_evaluation(read, mutate, edit, status, content, failed, root, tools,
+                              material_only=False):
     owner = 'particle_effect'
     catalog = read('forge_asset_particles_catalog')
     assert catalog['profiles'] == dict(cpu='cpu_mesh2', gpu='gpu_mesh1', graph='gpu_graph1',
@@ -36,6 +37,31 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
             time.sleep(.02)
         assert not settled['dirty'] and not settled['unpublished'] and not settled['diagnostic'], settled
         return settled
+
+    if material_only:
+        material_path = 'Assets/Palette.material.json'
+        assert mutate('forge_asset_document_create', editor='material', path=material_path,
+                      patch=[dict(op='replace', path='/overrides', value=dict(
+                          model='forge.gltf.unlit.v1', alpha=2, depth_test=True,
+                          depth_write=False, double_sided=True))])['ok']
+        material = content('material')['asset_id']
+        save('material')
+        assert edit('forge_asset_document_close', 'material')['ok']
+        path = 'Assets/Palette.particles.json'
+        assert mutate('forge_asset_document_create', editor=owner, path=path,
+                      patch=[dict(op='add', path='/extensions',
+                                  value=dict(preserve='palette regression'))])['ok']
+        assert edit('forge_asset_document_particle_gpu_sorted', owner, enabled=True)['ok']
+        assert edit('forge_asset_document_particle_trails', owner, backend='gpu', enabled=True)['ok']
+        assert edit('forge_asset_document_particle_opacity', owner, backend='gpu', enabled=True)['ok']
+        assert edit('forge_asset_document_patch', owner, patch=[
+            dict(op='replace', path='/material', value=material)])['ok']
+        assert content(owner)['profile'] == 'gpu_sorted_trail_opacity1'
+        save()
+        assert edit('forge_asset_document_close', owner)['ok']
+        check_gpu_material_palette(read, mutate, edit, status, content, failed, root, tools,
+                                   catalog, save, path)
+        return
 
     path = 'Assets/DeviceEffect.particles.json'
     stops = [dict(id=str(uuid4()), time=t, value=value, interpolation='linear')
@@ -516,4 +542,6 @@ def check_particle_evaluation(read, mutate, edit, status, content, failed, root,
                      catalog, save, trail_path)
     check_gpu_sorted(read, mutate, edit, status, content, failed, root, tools,
                      catalog, save, trail_path)
+    check_gpu_material_palette(read, mutate, edit, status, content, failed, root, tools,
+                               catalog, save, trail_path)
     check_particle_graph(read, mutate, edit, status, content, failed, root)

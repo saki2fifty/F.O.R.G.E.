@@ -164,8 +164,22 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "billboard1 when selected. Stopped Scene/asset/Timeline previews require Play; "
                  "there is no analytic fallback. Budgets reject without committing any particle "
                  "clock/contact state."},
+                {"gpu_material_palette",
+                 "asset.document.particle_gpu_material_palette enables source17/values40-51. "
+                 "Selects GPU sorted alpha and preserves Graph/geometry/opacity settings; "
+                 "requires runtime_particle_gpu_material_palette1, sorted1/GPU1 and matching "
+                 "producer capabilities. The complete visible alpha group must opt in. At most "
+                 "four physical Material/value selections, eight unique samplers and 32 textures "
+                 "over one static Mesh publication/part, parity/layers/shadow policy. Built-in "
+                 "model, generated lighting and texture-role/UV interface must match; factors, "
+                 "texture resources, UV transforms and samplers can differ. No custom Material "
+                 "Shader, transmission, projected decals/light images, skin/morph/wind or "
+                 "ordinary/CPU/2D alpha mixing. Incompatible/pending/budget failures omit the "
+                 "complete group, preserving opaque depth. False returns to the retained "
+                 "single-Material policy. Inactive settings and stop IDs are retained."},
                 {"gpu_sorted",
-                 "asset.document.particle_gpu_sorted enables source15, values26-37: built-in/"
+                 "asset.document.particle_gpu_sorted selects the source15 single-Material "
+                 "baseline, values26-37: built-in/"
                  "Graph Mesh or camera quads, built-in plane motion or ribbons, each optionally "
                  "with GPU lifetime opacity. Requires runtime_particle_gpu_sorted1 and GPU1, "
                  "plus matching graph/alignment/plane/ribbon/opacity capabilities. Disables "
@@ -175,7 +189,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "Mesh/CPU/Sprite/Tile contributors or incompatible/pending resources refuse "
                  "the GPU sorted group with a diagnostic. Opaque geometry remains depth tested. "
                  "Stable device particle/segment depth ordering, no readback or CPU fallback; "
-                 "not per-fragment ordering. Retains inactive source settings and stop IDs."},
+                 "not per-fragment ordering. Retains inactive source settings and stop IDs. "
+                 "An enabled source17 Material policy selects its palette versions instead."},
                 {"gpu_weighted",
                  "asset.document.particle_gpu_weighted selects explicit approximate weighted "
                  "device alpha (values12/gpu_weighted1,13/gpu_graph_weighted1, "
@@ -874,6 +889,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                                "particle_scene_collision",
                                "particle_gpu_weighted",
                                "particle_gpu_sorted",
+                               "particle_gpu_material_palette",
                                "particle_program",
                                "paint",
                                "tile_collision",
@@ -925,6 +941,19 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                               "weighted alpha unless sorted GPU alpha is active; requires the "
                               "selected complete-view "
                               "Scene transport. Float precision applies; no automatic fallback."}};
+        } else if (std::string_view(action) == "particle_gpu_material_palette") {
+            properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
+            properties["enabled"] = {
+                {"type", "boolean"},
+                {"description",
+                 "Select bounded compatible Materials with sorted GPU alpha. Disables weighted "
+                 "alpha and preserves Graph/geometry/opacity settings. All visible alpha "
+                 "contributors must opt in and share compatible static Mesh and built-in Blend "
+                 "Material interfaces, with depth testing and no depth writes. At most four "
+                 "Material/value selections; incompatible "
+                 "views omit the complete group. False restores the retained single-Material "
+                 "policy. Inactive settings are retained."}};
+            needed.push_back("enabled");
         } else if (std::string_view(action) == "particle_gpu_sorted") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
             properties["enabled"] = {

@@ -58,6 +58,7 @@ CURVED_MESH_ONLY = "--curved-mesh-only" in sys.argv[5:]
 MESH_FOLIAGE_ONLY = "--mesh-foliage-only" in sys.argv[5:]
 CLIP_PREVIEW_ONLY = '--clip-preview-only' in sys.argv[5:]
 PARTICLE_EVALUATION_ONLY = '--particle-evaluation-only' in sys.argv[5:]
+PARTICLE_MATERIAL_ONLY = '--particle-material-only' in sys.argv[5:]
 PARTICLE_SCENE_ONLY = '--particle-scene-only' in sys.argv[5:]
 
 
@@ -191,7 +192,7 @@ for legacy in protocol_cases():
         assert {'forge_prefab_source_read', 'forge_prefab_source_targets'} <= names
         assert not {'forge_prefab_variant_create', 'forge_prefab_duplicate', 'forge_prefab_source_rebase', 'forge_prefab_source_revert', 'forge_prefab_source_suppress'} & names
         assert not any(name.startswith(('forge_prefab_source_member_', 'forge_prefab_source_nested_', 'forge_prefab_source_mixins_')) for name in names)
-        assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'particle_evaluation', 'particle_program', 'save', 'paint', 'stroke', 'fill', 'copy_pixels', 'cancel_pixels', 'close', 'tile_collision', 'tile_animation', 'tile_autotile'))
+        assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'particle_evaluation', 'particle_program', 'particle_gpu_material_palette', 'save', 'paint', 'stroke', 'fill', 'copy_pixels', 'cancel_pixels', 'close', 'tile_collision', 'tile_animation', 'tile_autotile'))
         if PLANAR_MESH_ONLY:
             preview = client.tool('forge_asset_document_template', target=state['result']['target'],
                                   editor='editable_mesh', mesh_profile='planar_quad', mesh_size=[2, 1])
@@ -260,8 +261,9 @@ for legacy in protocol_cases():
         if PARTICLE_SCENE_ONLY:
             check_particle_scene(read, mutate, edit, status, content, failed, root, declared_tools)
             continue
-        if PARTICLE_EVALUATION_ONLY:
-            check_particle_evaluation(read, mutate, edit, status, content, failed, root, declared_tools)
+        if PARTICLE_EVALUATION_ONLY or PARTICLE_MATERIAL_ONLY:
+            check_particle_evaluation(read, mutate, edit, status, content, failed, root, declared_tools,
+                                      material_only=PARTICLE_MATERIAL_ONLY)
             continue
         if CLIP_PREVIEW_ONLY:
             check_clip_preview(read, mutate, edit, status, content, root, declared_tools, client, discovery)

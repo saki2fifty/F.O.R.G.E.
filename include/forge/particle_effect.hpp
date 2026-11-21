@@ -106,7 +106,8 @@ enum ProfileFlag : unsigned {
     Collision = 64,
     Weighted = 128,
     Sorted = 256,
-    SceneCollision = 512
+    SceneCollision = 512,
+    MaterialPalette = 1024
 };
 struct ValueProfile {
     unsigned version;
@@ -156,7 +157,25 @@ inline constexpr std::array value_profiles{
     ValueProfile{37, "gpu_sorted_trail_opacity1", Gpu | Sorted | Trail | Opacity},
     ValueProfile{38, "cpu_scene_collision1", CpuAlpha | Opacity | SceneCollision},
     ValueProfile{39, "cpu_scene_collision_billboard1",
-                 CpuAlpha | Opacity | SceneCollision | Billboard}};
+                 CpuAlpha | Opacity | SceneCollision | Billboard},
+    ValueProfile{40, "gpu_palette_sorted1", Gpu | Sorted | MaterialPalette},
+    ValueProfile{41, "gpu_graph_palette_sorted1", Gpu | Graph | Sorted | MaterialPalette},
+    ValueProfile{42, "gpu_palette_sorted_billboard1", Gpu | Sorted | MaterialPalette | Billboard},
+    ValueProfile{43, "gpu_graph_palette_sorted_billboard1",
+                 Gpu | Graph | Sorted | MaterialPalette | Billboard},
+    ValueProfile{44, "gpu_palette_sorted_collision1", Gpu | Sorted | MaterialPalette | Collision},
+    ValueProfile{45, "gpu_palette_sorted_trail1", Gpu | Sorted | MaterialPalette | Trail},
+    ValueProfile{46, "gpu_palette_sorted_opacity1", Gpu | Sorted | MaterialPalette | Opacity},
+    ValueProfile{47, "gpu_graph_palette_sorted_opacity1",
+                 Gpu | Graph | Sorted | MaterialPalette | Opacity},
+    ValueProfile{48, "gpu_palette_sorted_opacity_billboard1",
+                 Gpu | Sorted | MaterialPalette | Opacity | Billboard},
+    ValueProfile{49, "gpu_graph_palette_sorted_opacity_billboard1",
+                 Gpu | Graph | Sorted | MaterialPalette | Opacity | Billboard},
+    ValueProfile{50, "gpu_palette_sorted_collision_opacity1",
+                 Gpu | Sorted | MaterialPalette | Collision | Opacity},
+    ValueProfile{51, "gpu_palette_sorted_trail_opacity1",
+                 Gpu | Sorted | MaterialPalette | Trail | Opacity}};
 static_assert([] {
     for (unsigned i = 0; i < value_profiles.size(); ++i)
         if (value_profiles[i].version != i + 1)
@@ -191,6 +210,10 @@ constexpr bool particle_uses_sorted_alpha(const ParticleEffectData& data) {
 }
 constexpr bool particle_uses_gpu_sorted_alpha(const ParticleEffectData& data) {
     return particle_detail::has(data, particle_detail::Gpu | particle_detail::Sorted);
+}
+constexpr bool particle_uses_gpu_material_palette(const ParticleEffectData& data) {
+    return particle_detail::has(data, particle_detail::Gpu | particle_detail::Sorted |
+                                          particle_detail::MaterialPalette);
 }
 constexpr bool particle_uses_gpu_opacity(const ParticleEffectData& data) {
     return particle_detail::has(data, particle_detail::Gpu | particle_detail::Opacity);

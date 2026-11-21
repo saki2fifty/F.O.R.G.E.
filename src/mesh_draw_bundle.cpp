@@ -1,4 +1,6 @@
 #include "mesh_draw_bundle.hpp"
+#include "material_parameter_overrides.hpp"
+#include "mesh_draw_shader.hpp"
 #include "sprite_draw_selection.hpp"
 #include <algorithm>
 #include <forge/engine_assets.hpp>
@@ -117,35 +119,77 @@ std::unique_ptr<MeshDraw> MeshDrawBundle::prepare_draw(Diligent::IDeviceContext*
                                                        unsigned lod, unsigned part,
                                                        Diligent::TEXTURE_FORMAT target,
                                                        MeshDrawProfile profile, bool area_lights) {
-    MaterialData defaults;
-    defaults.model = "forge.gltf.metallic-roughness.v1";
+    const auto material = prepare_material(lod, part, profile);
+    return std::make_unique<MeshDraw>(
+        presentation_, context, mesh_.get().lods.at(lod).parts.at(part), material.values,
+        material.textures, target, depth_, skinned_, Diligent::SHADER_COMPILER_DEFAULT,
+        Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT, material.surface, profile, area_lights, wind_);
+}
+MeshDrawBundle::DrawMaterial MeshDrawBundle::prepare_material(unsigned lod, unsigned part,
+                                                              MeshDrawProfile profile) const {
+    DrawMaterial result;
+    result.values.model = "forge.gltf.metallic-roughness.v1";
     const auto& selected = prepared_.selection.parts.at(lod).at(part);
     const auto id = prepared_.material_asset(selected.id);
-    const auto* values = &defaults;
-    const MaterialShaderSnapshot* surface = nullptr;
-    MeshDraw::Textures native_textures;
     if (id) {
         const auto& material = prepared_.materials.at(id).get();
-        values = &material.values;
-        surface = material.surface ? &*material.surface : nullptr;
+        result.values = material.values;
+        result.surface = material.surface ? &*material.surface : nullptr;
         const auto image =
             sprite_draw_mip_filter(profile) ? sprite_material_image(material) : std::string_view{};
         for (const auto& [role, ref] : material.textures) {
             if (role == image)
                 continue;
-            const auto semantic = values->textures.at(role).semantic;
-            native_textures[role] = textures_.at(prepared_.texture_asset({ref.id, semantic}))
+            const auto semantic = result.values.textures.at(role).semantic;
+            result.textures[role] = textures_.at(prepared_.texture_asset({ref.id, semantic}))
                                         .get()
                                         ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
         }
         for (const auto& [role, ref] : material.render_textures)
-            native_textures[role] = render_textures_.at(ref.id).get()->GetDefaultView(
+            result.textures[role] = render_textures_.at(ref.id).get()->GetDefaultView(
                 Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
     }
-    return std::make_unique<MeshDraw>(
-        presentation_, context, mesh_.get().lods.at(lod).parts.at(part), *values, native_textures,
-        target, depth_, skinned_, Diligent::SHADER_COMPILER_DEFAULT,
-        Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT, surface, profile, area_lights, wind_);
+    return result;
+}
+std::unique_ptr<MeshDraw> MeshDrawBundle::prepare_palette(Diligent::IDeviceContext* context,
+                                                          unsigned lod, unsigned part,
+                                                          std::span<const PaletteMember> members,
+                                                          bool area_lights) const {
+    if (members.empty() || members.size() > mesh_material_palette_limit ||
+        members.front().bundle != this)
+        throw std::invalid_argument(
+            "Palette requires its base bundle and bounded complete members");
+    const auto& base = mesh_.get().lods.at(lod).parts.at(part);
+    std::vector<DrawMaterial> materials;
+    materials.reserve(members.size());
+    for (const auto& member : members) {
+        if (!member.bundle)
+            throw std::invalid_argument("Palette source bundle is unavailable");
+        const auto& bundle = *member.bundle;
+        if (&bundle.presentation_ != &presentation_ || bundle.color_ != color_ ||
+            bundle.depth_ != depth_ || bundle.skinned_ || bundle.wind_ ||
+            bundle.profile_ != MeshDrawProfile::Mesh || bundle.mesh_.source() != mesh_.source())
+            throw std::invalid_argument(
+                "Palette members require one physical static Mesh selection");
+        const auto& geometry = bundle.mesh_.get().lods.at(lod).parts.at(part);
+        if (geometry.vertices != base.vertices || geometry.indices != base.indices)
+            throw std::invalid_argument("Palette native geometry differs from its base part");
+        auto material = bundle.prepare_material(lod, part, MeshDrawProfile::Mesh);
+        if (material.surface)
+            throw std::invalid_argument("Palette requires built-in Material surfaces");
+        material.values = detail::project_material_parameters(
+            material.values, nullptr, bundle.slot(lod, part), member.parameters);
+        materials.push_back(std::move(material));
+    }
+    std::vector<MeshDraw::PaletteMaterial> inputs;
+    inputs.reserve(materials.size());
+    for (const auto& material : materials)
+        inputs.push_back({&material.values, &material.textures});
+    return std::make_unique<MeshDraw>(presentation_, context, base, materials.front().values,
+                                      materials.front().textures, color_, depth_, false,
+                                      Diligent::SHADER_COMPILER_DEFAULT,
+                                      Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT, nullptr,
+                                      MeshDrawProfile::Mesh, area_lights, false, inputs);
 }
 bool MeshDrawBundle::render_textures_ready(const RenderTextureInputs& inputs) const {
     for (const auto& [asset, image] : render_textures_) {
@@ -155,6 +199,17 @@ bool MeshDrawBundle::render_textures_ready(const RenderTextureInputs& inputs) co
             return false;
     }
     return true;
+}
+void MeshDrawBundle::validate_resources() const {
+    (void)mesh_.get();
+    for (const auto& [key, texture] : textures_) {
+        (void)key;
+        (void)texture.get();
+    }
+    for (const auto& [id, texture] : render_textures_) {
+        (void)id;
+        (void)texture.get();
+    }
 }
 std::size_t MeshDrawBundle::draw_part_count() const {
     std::size_t count = 0;
@@ -330,21 +385,29 @@ void MeshDrawBundle::draw_part(
     std::span<const MeshDraw::Decal> decals, bool weighted, const RenderBounds* decal_bounds,
     std::span<const MeshDraw::LightImage> images,
     std::span<const EnvironmentProbe> local_irradiance, std::span<const FogVolumeSample> local_fog,
-    const MeshDraw::IndirectArguments* visibility, const MeshDraw::InstanceBuffer* gpu_instances) {
+    const MeshDraw::IndirectArguments* visibility, const MeshDraw::InstanceBuffer* gpu_instances,
+    MeshDraw* palette_draw) {
     const bool area_lights = std::any_of(lights.begin(), lights.end(), [](const auto& light) {
         return light.kind >= unsigned(LightKind::Rectangle);
     });
-    if ((motion || indirect || reflection || normal || area_lights || weighted) &&
+    if (palette_draw &&
+        (!gpu_instances || !gpu_instances->material_indices || sprite || motion || indirect ||
+         reflection || normal || weighted || !decals.empty() ||
+         std::any_of(images.begin(), images.end(), [](const auto& image) { return image.frame; })))
+        throw std::invalid_argument("Palette draw requires an exclusive compatible GPU color pass");
+    if (!palette_draw && (motion || indirect || reflection || normal || area_lights || weighted) &&
         !surface_prepared(lod, part, bool(motion), indirect, reflection, normal, area_lights,
                           weighted))
         throw std::runtime_error("Surface Mesh part was not prepared before drawing");
-    auto& selected = motion || indirect || reflection || normal || area_lights || weighted
+    auto* selected = palette_draw ? palette_draw
+                     : motion || indirect || reflection || normal || area_lights || weighted
                          ? surface_lods_
                                .at(surface_index(bool(motion), indirect, reflection, normal,
                                                  area_lights, weighted))
                                .at(lod)
                                .at(part)
-                         : lods_.at(lod).at(part);
+                               .get()
+                         : lods_.at(lod).at(part).get();
     if (!selected)
         throw std::runtime_error("Surface Mesh part was not prepared before drawing");
     if (sprite_draw_mip_filter(profile_)) {
@@ -356,18 +419,15 @@ void MeshDrawBundle::draw_part(
     } else if (sprite_mip)
         throw std::invalid_argument("Base-level draw cannot consume a filtered Sprite frame");
     // Validate owner lifetime and mark this submission before any native draw.
-    (void)mesh_.get();
-    for (const auto& [key, texture] : textures_) {
-        (void)key;
-        (void)texture.get();
-    }
+    validate_resources();
     const auto* skin =
         pose && pose->lods.at(lod).at(part).skin ? &*pose->lods.at(lod).at(part).skin : nullptr;
-    selected->draw(context, pose ? pose->world : world, camera, lights, environment, legacy_tint,
-                   shadows, shadow_slots, transmission,
-                   pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
-                   skin, instances, parameters, slot(lod, part), sprite, fog, motion, decals,
-                   decal_bounds, images, local_irradiance, pose ? &pose->wind : nullptr, local_fog,
-                   visibility, gpu_instances);
+    selected->draw(
+        context, pose ? pose->world : world, camera, lights, environment, legacy_tint, shadows,
+        shadow_slots, transmission,
+        pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{}, skin,
+        instances, palette_draw ? std::span<const MaterialParameterOverride>{} : parameters,
+        slot(lod, part), sprite, fog, motion, decals, decal_bounds, images, local_irradiance,
+        pose ? &pose->wind : nullptr, local_fog, visibility, gpu_instances);
 }
 } // namespace forge
