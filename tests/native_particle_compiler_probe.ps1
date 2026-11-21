@@ -9,18 +9,17 @@ New-Item -ItemType Directory $output | Out-Null
 $prior = [Environment]::GetEnvironmentVariable('FORGE_NATIVE_FXC_PROBE', 'Process')
 $results = @()
 try {
-    foreach ($mode in @('fxc-50', 'fxc-50-disabled', 'dxc')) {
+    foreach ($mode in @('fxc-50')) {
         $env:FORGE_NATIVE_FXC_PROBE = $mode
         $destination = Join-Path $output $mode
         New-Item -ItemType Directory $destination | Out-Null
-        $names = @('editor_render_particle-gpu-plane-numeric', 'editor_render_particle-gpu-order-numeric',
-                   'editor_render_particle-gpu-material-numeric', 'editor_render_particle-gpu-material-scene')
+        $names = @('editor_render_particle-gpu-material-numeric')
         $selection = '^(' + ($names -join '|') + ')$'
         ctest --test-dir $build -R $selection --output-on-failure --no-tests=error --output-junit (Join-Path $destination 'results.xml') 2>&1 |
             Tee-Object -FilePath (Join-Path $destination 'ctest.log')
         $code = $LASTEXITCODE
         $results += @{ mode = $mode; exit_code = $code; selection = $selection; sampler_heap = 'runtime defaults' }
-        $results | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $output 'results.json')
+        $results | ConvertTo-Json -AsArray -Depth 4 | Set-Content (Join-Path $output 'results.json')
         foreach ($name in $names) {
             $directory = $name.Substring('editor_render_'.Length)
             $images = Join-Path $build "grid-test-images/$directory"

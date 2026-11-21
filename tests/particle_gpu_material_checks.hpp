@@ -282,7 +282,7 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
                       camera_view(Camera{}, {}, extent, extent));
         return;
     }
-    unsigned frames = 0, cases = 0;
+    unsigned frames = 0, cases = 0, mismatched_cases = 0;
     for (const char* model : {"forge.gltf.unlit.v1", "forge.gltf.metallic-roughness.v1",
                               "forge.gltf.specular-glossiness.v1"})
         for (unsigned member_count : {2u, 4u})
@@ -485,22 +485,42 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
                         }
                         const auto expected = draw(0), actual = draw(1), negative = draw(2);
                         unsigned differences = 0, visible = 0;
+                        double absolute_error = 0, scaled_error = 0;
+                        unsigned worst_pixel = 0;
+                        bool mismatched = false;
                         for (unsigned i = 0; i < actual.size(); ++i)
                             for (unsigned c = 0; c < 4; ++c) {
-                                if (!std::isfinite(actual[i][c]) ||
-                                    std::abs(actual[i][c] - expected[i][c]) > 3e-5f)
-                                    throw std::runtime_error(nlohmann::json{
-                                        {"model", model},
-                                        {"members", member_count},
-                                        {"births", births},
-                                        {"reverse", reverse},
-                                        {"pixel", i},
-                                        {"actual", actual[i]},
-                                        {"expected",
-                                         expected[i]}}.dump());
+                                check(std::isfinite(actual[i][c]), "Nonfinite palette pixel");
+                                const double error =
+                                    std::abs(double(actual[i][c]) - expected[i][c]);
+                                if (error > absolute_error) {
+                                    absolute_error = error;
+                                    worst_pixel = i;
+                                }
+                                scaled_error = std::max(
+                                    scaled_error,
+                                    error / std::max(1., std::abs(double(expected[i][c]))));
+                                mismatched |= std::abs(actual[i][c] - expected[i][c]) > 3e-5f;
                                 differences += std::abs(actual[i][c] - negative[i][c]) > .001f;
                                 visible += c < 3 && std::abs(expected[i][c] - .02f) > .01f;
                             }
+                        mismatched_cases += mismatched;
+                        std::cout << "MATERIAL_CASE_ERROR "
+                                  << nlohmann::json{{"model", model},
+                                                    {"members", member_count},
+                                                    {"births", births},
+                                                    {"reverse", reverse},
+                                                    {"different_sampler", different_sampler},
+                                                    {"max_absolute", absolute_error},
+                                                    {"max_scaled", scaled_error},
+                                                    {"worst_pixel", worst_pixel},
+                                                    {"actual", actual[worst_pixel]},
+                                                    {"expected", expected[worst_pixel]},
+                                                    {"mismatched", mismatched},
+                                                    {"wrong_index_channels", differences},
+                                                    {"covered_channels", visible}}
+                                         .dump()
+                                  << std::endl;
                         check(differences > 100 && visible > 100,
                               "Mesh palette failed visible/incorrect-index negative controls");
                         ++cases;
@@ -510,6 +530,7 @@ inline void exercise(DiligentPresentation& presentation, IDeviceContext* context
     std::cout << "MATERIAL_MESH_DRAW_PROOF cases=" << cases << " frames=" << frames
               << "; real MeshDraw, three builtin models, two/four Materials, lighting, "
                  "UV/textures/samplers, reverse views, 64-instance slices\n";
+    check(!mismatched_cases, "Material image matrix contains original-threshold failures");
     bundle_preparation(presentation, context, mesh, gpu.lods[0].parts[0], color, depth);
 }
 } // namespace forge::test_particle_palette
