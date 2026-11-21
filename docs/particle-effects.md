@@ -790,6 +790,36 @@ to the profile's existing typed GPU/sorted/geometry/opacity capabilities. An old
 kit cannot silently accept a new profile. The editable Gallery scene is
 `Scenes/255-compatible-material-particles.scene.json`.
 
+### Device image validation
+
+The lower renderer fixture compares independently sorted ordinary Material draws
+with the composed palette across48 cases/145 frames. Native shader capture shows
+identical vertex arithmetic apart from the extra integer Material-index output.
+The pixel programs have different precision contexts: the ordinary path includes
+precise projected-surface calculations, while the bounded palette excludes those
+features. Native optimized code therefore uses different precision annotations and
+multiply-add sequences. HLSL permits these rounding differences; see Microsoft's
+[precise modifier](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/precise)
+and [multiply-add contract](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/mad).
+The same first failing metallic-roughness case becomes exactly equal when only
+graphics optimization is disabled. Production optimization remains enabled.
+
+The regression compares metallic-roughness RGB using
+`abs(actual-expected) <= max(3e-5, 4e-5*max(abs(actual),abs(expected)))`.
+This retains an absolute floor while scaling with HDR radiance. Alpha, Unlit and
+specular-glossiness retain the original3e-5 absolute limit. Both inputs must be
+finite. The measured native48-case baseline has maximum scaled error3.3964e-5
+and maximum absolute error0.0013466 at HDR intensity; an absolute-only limit
+incorrectly rejects14 metallic-roughness cases. The budget applies to this fixture,
+not to every authored lighting configuration or physical adapter.
+
+The incorrect-Material render must still differ by more than0.001 in over100
+channels and fail the same HDR-aware comparison in over100 channels. Visible
+coverage, exact out-of-palette discard, full-bit tags, draw/slice counts, resource
+refusal/recovery and the independent published-Scene checks remain separate gates.
+The passing image report includes maximum absolute/scaled errors. Changing this
+comparison changes no shader source, Material value, ordering, ABI or runtime policy.
+
 ## CPU Scene geometry response
 
 [ADR073](decisions/073-scene-particle-collision.md) assigns transient histories to

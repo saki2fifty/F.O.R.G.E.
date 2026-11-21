@@ -252,14 +252,21 @@ The upstream checkout stays unchanged. Staging/revision/source refusal checks,
 exact extracted metadata methods under ASan/UBSan and the independent768-dispatch
 software Vulkan fixture pass. Native compilation and all48 lower Material cases
 now execute without the former allocation crash; plane/tag/binding/published-Scene
-controls pass. The lower image matrix still fails14 metallic-roughness cases at
-its original absolute tolerance; no numeric acceptance or tolerance change is claimed.
+controls pass. The absolute-only lower image comparison recorded14 metallic-
+roughness failures. Exact native shader capture and a graphics-only optimization
+control establish permitted precision/refactoring differences between the two
+generated programs. The fixture now uses the documented
+[HDR-aware RGB budget](particle-effects.md#device-image-validation), preserving
+strict alpha/other-model checks, finite inputs and incorrect-index controls.
+Production shader math and optimization policy are unchanged; the revised numeric
+gate still requires native execution before acceptance.
 The stress fixture initially bound transient dynamic buffers to an array variable,
 which the pinned native backend explicitly does not support. It now uses separate
 root views with changing offsets on both backends, retaining their default compiler
 selection. The earlier Vulkan array expression also crashed pinned glslang lowering;
-that path is not validated or enabled. Finite-budget stress/recovery, the complete
-native numeric gate and matching installed kit/player acceptance remain pending.
+that path is not validated or enabled. Native finite-budget stress/recovery and
+both source-hidden Material Games pass with supported root views. The complete
+revised numeric gate and matching installed kit/player acceptance remain pending.
 
 ## Body loads — pinned Jolt5.6.0
 
