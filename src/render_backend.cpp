@@ -26,6 +26,8 @@ void prepare_renderer_shader(const RenderDeviceInfo& device, ShaderCreateInfo& s
     if (shader.ByteCode || shader.SourceLanguage != SHADER_SOURCE_LANGUAGE_HLSL)
         return;
     if (device.Type == RENDER_DEVICE_TYPE_D3D12) {
+        const bool implicit_compute = shader.ShaderCompiler == SHADER_COMPILER_DEFAULT &&
+                                      shader.Desc.ShaderType == SHADER_TYPE_COMPUTE;
         require(shader.ShaderCompiler == SHADER_COMPILER_DEFAULT ||
                     shader.ShaderCompiler == SHADER_COMPILER_FXC ||
                     shader.ShaderCompiler == SHADER_COMPILER_DXC,
@@ -34,6 +36,7 @@ void prepare_renderer_shader(const RenderDeviceInfo& device, ShaderCreateInfo& s
             shader.ShaderCompiler = SHADER_COMPILER_FXC;
         if (shader.HLSLVersion == ShaderVersion{})
             shader.HLSLVersion = shader.ShaderCompiler == SHADER_COMPILER_DXC ? ShaderVersion{6, 0}
+                                 : implicit_compute                           ? ShaderVersion{5, 0}
                                                                               : ShaderVersion{5, 1};
     } else {
         require(shader.ShaderCompiler != SHADER_COMPILER_FXC,

@@ -340,6 +340,13 @@ Windows execution, including all three workflows with and without textures. Loca
 DXC shader-model6 checks are supplementary; selected FXC5.1/D3D12 acceptance still
 requires Windows and is not inferred from another compiler's success.
 
+Renderer-created D3D12 HLSL compute programs with an implicit compiler and version
+select FXC shader model5.0. Graphics programs keep the FXC5.1 default. Explicit
+compiler and language-version requests retain their selection, optimization flags
+are preserved, and supplied bytecode bypasses source compiler selection. This
+runtime default does not change the authored Shader or Particle Graph worker's
+FXC5.1 compilation and reflection boundary.
+
 The prepared draw carries the authored tangent and bitangent through its signed
 surface frame into the pixel stage. Normal mapping prefers that explicit basis,
 including tangent.w. It reconstructs from selected UV derivatives only when the
