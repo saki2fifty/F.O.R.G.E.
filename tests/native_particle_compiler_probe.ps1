@@ -8,10 +8,7 @@ if (Test-Path $output) { throw 'Native regression output already exists' }
 New-Item -ItemType Directory $output | Out-Null
 $destination = Join-Path $output 'production-default'
 New-Item -ItemType Directory $destination | Out-Null
-$names = @('editor_render_dynamic-descriptors', 'editor_render_mesh-bindings',
-    'editor_render_particle-gpu-plane-numeric', 'editor_render_particle-gpu-order-numeric',
-    'editor_render_particle-gpu-material-numeric', 'editor_render_particle-gpu-material-scene',
-    'particle_material_gallery_game', 'particle_material_graph_gallery_game')
+$names = @('diligentfx_patch', 'editor_viewport_render', 'editor_render_frame')
 $selection = '^(' + ($names -join '|') + ')$'
 ctest --test-dir $build -R $selection --output-on-failure --no-tests=error --output-junit (Join-Path $destination 'results.xml') 2>&1 |
     Tee-Object -FilePath (Join-Path $destination 'ctest.log')
