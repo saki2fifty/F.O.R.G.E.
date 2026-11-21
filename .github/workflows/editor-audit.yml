@@ -251,6 +251,7 @@ jobs:
           key: ${{ steps.cache-key.outputs.key }}-${{ inputs.source_commit }}
           restore-keys: |
             ${{ steps.cache-key.outputs.key }}-
+            ${{ steps.cache-key.outputs.legacy_key || steps.cache-key.outputs.key }}-
       - name: Discard an incomplete cache restore
         if: ${{ !inputs.clean_build && (steps.editor-cache.outcome == 'failure' || steps.editor-cache.outputs.cache-matched-key == '') }}
         shell: pwsh
@@ -577,6 +578,7 @@ jobs:
           key: ${{ steps.cache-key.outputs.key }}-a98be9a672394d3d91c2b9067331d0252f9b4313
           restore-keys: |
             ${{ steps.cache-key.outputs.key }}-
+            ${{ steps.cache-key.outputs.legacy_key || steps.cache-key.outputs.key }}-
       - name: Discard an incomplete cache restore
         if: ${{ !inputs.clean_build && (steps.editor-cache.outcome == 'failure' || steps.editor-cache.outputs.cache-matched-key == '') }}
         shell: pwsh

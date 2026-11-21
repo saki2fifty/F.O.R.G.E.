@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 
 
-def cache_key(root, environment):
+def cache_key(root, environment, *, legacy=False):
     digest = hashlib.sha256()
     # CMake/Ninja caches contain absolute paths and compiler/SDK-specific objects.
     for name in ('ImageVersion', 'VCToolsVersion', 'WindowsSDKVersion', 'RUNNER_ARCH'):
@@ -20,7 +20,10 @@ def cache_key(root, environment):
         digest.update(subprocess.check_output(command))
     # Editor consumer targets are always reconfigured by CMake. Their link/input
     # changes belong to Ninja; dependency declarations and environment stay keyed.
-    fragments = [p for p in root.glob('cmake/*.cmake') if p.name != 'editor.cmake']
+    # Vulkan probes explicitly require Linux and cannot affect this Windows cache.
+    # Retain the previous identity as a restore fallback for existing cache entries.
+    excluded = {'editor.cmake'} if legacy else {'editor.cmake', 'vulkan_probe.cmake'}
+    fragments = [p for p in root.glob('cmake/*.cmake') if p.name not in excluded]
     for path in sorted([root/'CMakeLists.txt', root/'CMakePresets.json', *fragments, *root.glob('cmake/patches/*.patch'), *root.glob('cmake/patches/*.json'), root/'tools/stage_diligentfx_patch.py']):
         digest.update(path.relative_to(root).as_posix().encode())
         digest.update(path.read_bytes())
@@ -28,7 +31,10 @@ def cache_key(root, environment):
 
 
 if __name__ == '__main__':
-    key = cache_key(Path(__file__).resolve().parents[1], os.environ)
+    root = Path(__file__).resolve().parents[1]
+    key = cache_key(root, os.environ)
+    legacy = cache_key(root, os.environ, legacy=True)
     with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
         output.write('key=' + key + '\n')
+        output.write('legacy_key=' + legacy + '\n')
     print('Windows build cache identity:', key)
