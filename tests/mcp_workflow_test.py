@@ -390,15 +390,21 @@ for legacy in selected_protocols:
             assert tool['annotations']['readOnlyHint']
             assert tool['inputSchema']['properties']['limit']['maximum'] == 128
             assert names['forge_export_run']['inputSchema']['properties']['collect_gpu_profile'] == dict(type='boolean')
+            assert names['forge_export_run']['inputSchema']['properties']['stream_gpu_profile'] == dict(type='boolean')
+            assert tool['inputSchema']['properties']['live'] == dict(type='boolean')
+            assert tool['inputSchema']['properties']['snapshot']['maxLength'] == 256
             state = discovery()
             missing = '00000000-0000-4000-8000-000000000099'
             profile_request = dict(target=state['result']['target'], operation=missing)
             failed(client.tool('forge_export_gpu_profile', **profile_request), 'wrong_job')
             for invalid in (dict(offset=-1), dict(offset=513), dict(limit=0), dict(limit=129),
-                            dict(limit=True), dict(path='../Outside')):
+                            dict(limit=True), dict(path='../Outside'), dict(live='yes'), dict(snapshot=True),
+                            dict(snapshot='x' * 257)):
                 failed(client.tool('forge_export_gpu_profile', **profile_request, **invalid),
                        'invalid_arguments')
             failed(mutate('forge_export_run', operation=missing, collect_gpu_profile='yes'),
+                   'invalid_arguments')
+            failed(mutate('forge_export_run', operation=missing, stream_gpu_profile='yes'),
                    'invalid_arguments')
             assert not read('forge_export_status')['started']
             for mode in ('read', 'output', 'execute'):
@@ -2599,6 +2605,46 @@ for legacy in selected_protocols:
                        and 'tick' not in row for row in samples)
             failed(client.tool('forge_export_gpu_profile', target=discovery()['result']['target'],
                                operation=export['operation']), 'wrong_job')
+        if os.name == 'nt' and completed['gpu_live_profiling_supported']:
+            def wait_live(operation):
+                state = until(lambda: read('forge_export_status'),
+                              lambda r: r['gpu_profile_live_ready'] or not r['busy'], timeout=120)
+                assert state['busy'] and state['running'] and state['gpu_profile_live_ready'], dict(
+                    status=state, run_log=read('forge_export_run_log'))
+                first = read('forge_export_gpu_profile', operation=operation, live=True, limit=1)
+                assert first['provisional'] is True and first['snapshot']
+                failed(client.tool('forge_export_gpu_profile', target=discovery()['result']['target'],
+                                   operation=operation), 'not_ready')
+                return first
+            streaming = ok('forge_export_run', operation=measured['operation'], verify_startup=True,
+                           stream_gpu_profile=True)
+            first_live = wait_live(streaming['operation'])
+            if first_live['sample_count']:
+                failed(client.tool('forge_export_gpu_profile', target=discovery()['result']['target'],
+                                   operation=streaming['operation'], live=True, offset=1), 'invalid_arguments')
+            newer = until(lambda: read('forge_export_status'),
+                          lambda r: r['gpu_profile_live_snapshot'] != first_live['snapshot'], timeout=10)
+            assert newer['busy'] and newer['gpu_profile_live_ready'], newer
+            failed(client.tool('forge_export_gpu_profile', target=discovery()['result']['target'],
+                               operation=streaming['operation'], live=True,
+                               snapshot=first_live['snapshot']), 'stale_snapshot')
+            failed(client.tool('forge_export_gpu_profile', target=discovery()['result']['target'],
+                               operation=streaming['operation'], live=True, offset=512,
+                               snapshot=first_live['snapshot']), 'stale_snapshot')
+            complete_live = until(lambda: read('forge_export_status'), lambda r: not r['busy'], timeout=120)
+            assert complete_live['exit_code'] == 0 and complete_live['gpu_profile_ready'], complete_live
+            assert not complete_live['gpu_profile_live_ready'] and not complete_live['gpu_profile_live_snapshot']
+            final = read('forge_export_gpu_profile', operation=streaming['operation'])
+            assert final['report']['session'] == first_live['report']['session']
+            failed(client.tool('forge_export_gpu_profile', target=discovery()['result']['target'],
+                               operation=streaming['operation'], live=True), 'not_ready')
+            cancel_stream = ok('forge_export_run', operation=streaming['operation'], verify_startup=True,
+                               stream_gpu_profile=True)
+            wait_live(cancel_stream['operation'])
+            ok('forge_export_cancel', operation=cancel_stream['operation'])
+            cancelled = until(lambda: read('forge_export_status'), lambda r: not r['busy'], timeout=120)
+            assert not cancelled['gpu_profile_ready'] and not cancelled['gpu_profile_live_ready']
+            assert cancelled['gpu_profile_error'] and not cancelled['gpu_profile_live_snapshot']
         if os.name != 'nt':
             unsupported = mutate('forge_export_run', operation=export['operation'],
                                  verify_startup=True)

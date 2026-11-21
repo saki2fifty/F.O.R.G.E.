@@ -2265,6 +2265,16 @@ The complete project/Play/export fixture creates its game Camera through the
 ordinary MCP Scene operations and verifies an active Camera during Play before
 running the exported game with GPU profiling. Standalone rendering retains its
 normal missing-Camera error; computation-only editor Play remains separate.
+With a matching live-capable runtime kit, the same fixture observes the running
+production host through MCP, refuses final reads before retirement, checks stale
+live snapshot tokens, accepts the final clean-exit report and clears data after
+cancellation. Both protocol formats execute these checks. The source-hidden
+standalone package fixture additionally enables live profiling on its production
+FPS verification when the installed kit advertises the capability. It verifies
+consecutive live records, final host/build identity and successful native exit with
+sources and fixture kit removed; older kits keep their original startup arguments.
+These are executable fixture requirements, not a statement that a particular
+source or physical device has completed them.
 Native host stderr and shutdown reasons remain visible on failure; private stdout connection
 handoffs are never logged. This unnumbered partial audit cannot qualify a delivery.
 Fixture control files tolerate Windows sharing/lock races until their next poll;

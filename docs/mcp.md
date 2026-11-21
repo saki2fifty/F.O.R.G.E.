@@ -2098,10 +2098,28 @@ whole-frame/device utilization. The latest512 shared service records bound retai
 history; pending/skipped queries remain explicit. Software verification is not
 physical hardware acceptance. See [profiling](cpu-profiling.md).
 
+`stream_gpu_profile:true` additionally enables collection and provisional live
+observations on the same supervised run. It requires exact base capability1 and
+`engine.runtime_gpu_profiling_live:1`; status reports
+`gpu_live_profiling_supported`, `gpu_profile_live_requested`,
+`gpu_profile_live_ready` and `gpu_profile_live_snapshot`. Read the existing
+`export.gpu_profile` with `live:true`. Offset0 returns an opaque `snapshot` token
+and `provisional:true`; include that token for subsequent offsets. A newer snapshot
+returns `stale_snapshot`; restart at offset0. Missing tokens for later pages,
+non-Boolean flags, oversized tokens and invalid cursors are refused. Tokens apply
+only to live reads, which retain the same project/operation and read grants.
+
+Live observations are captured at most1Hz and are not successful-run evidence.
+A finite `verify_startup:true` stream waits for three observations before exit.
+Successful retirement clears live data and admits the ordinary final report;
+cancellation/failure clears both. The default read remains the immutable accepted
+report. No separate history, process attachment or network service is created.
+
 ## Coverage and maintaining parity
 
-These workflows are implemented in **development source**, not the current
-Build208 ZIP. Platform execution/visual acceptance remain separate from implementation.
+Workflow availability follows the current source and matching runtime kit. See
+[delivery status](status.md) for the accepted package boundary. Platform execution
+and visual or physical acceptance remain separate from implementation.
 
 | Workflow | MCP coverage | Authoritative owner |
 | --- | --- | --- |

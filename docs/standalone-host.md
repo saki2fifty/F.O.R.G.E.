@@ -33,6 +33,13 @@ actual device/adapter and distinguish software rendering. The Export Game task
 uses the same flag for ordinary profiling and finite verification, with current
 runtime-kit profile1 admission. See [profiling](cpu-profiling.md) and
 [user controls](../manual/editor/performance.md).
+The additional `--gpu-profile-live` option also enables collection and emits
+provisional observations at most once per steady-clock second through the same
+supervised stdout. A separate `runtime_gpu_profiling_live:1` kit capability admits
+owned live launches. Finite verification waits for three live observations; ordinary
+launches and final-report acceptance retain their existing behavior. Live pages
+are explicitly provisional and guarded by snapshot tokens. No query drain, second
+profiling history, arbitrary process attachment or network service is added.
 
 Reachable Input Message Released/Changed declarations require runtime-kit
 `engine.runtime_input_message_triggers:1`. Saved Scene/Prefab/variant components

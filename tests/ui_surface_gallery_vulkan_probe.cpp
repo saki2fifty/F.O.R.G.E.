@@ -34,7 +34,8 @@ std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* c
                            const std::filesystem::path& project, AssetId scene,
                            const std::vector<std::byte>& font, const std::filesystem::path& images,
                            bool mesh_surface = false, bool binding_pair = false,
-                           Json* gpu_observation = nullptr, ServiceAccess profile_services = {}) {
+                           Json* gpu_observation = nullptr, ServiceAccess profile_services = {},
+                           StandaloneGpuProfileReceiver* live_receiver = nullptr) {
     std::filesystem::create_directories(images);
     GamePresentation visual(presentation, context, project, font);
     visual.dimensions(640, 360, 1);
@@ -45,11 +46,23 @@ std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* c
     GameSession game(std::move(config));
     const auto ticket = game.prepare(load_game_scene(project, {scene}));
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    std::uint64_t live_ordinal = 0;
     const auto submit = [&] {
         presentation.end_frame(context);
         context->Flush();
         context->FinishFrame();
         presentation.device()->ReleaseStaleResources();
+        if (live_receiver) {
+            const auto report = standalone_gpu_profile_observation(
+                presentation.gpu_profile_status(), profile_services.profile_status(),
+                visual.session(), build_id, source_commit);
+            const auto record = standalone_gpu_profile_live_record(report, ++live_ordinal);
+            for (std::size_t offset = 0; offset < record.size(); offset += 31)
+                live_receiver->append(std::string_view(record).substr(offset, 31));
+            check(live_receiver->report().is_null() && !live_receiver->live_report().is_null() &&
+                      live_receiver->error().empty(),
+                  "Actual native live samples lost their provisional admission");
+        }
     };
     for (;;) {
         presentation.begin_frame();
@@ -266,9 +279,10 @@ int main(int argc, char** argv) {
                   "Software fixture requires native duration queries");
             presentation.gpu_profiling(true);
             Json report;
+            StandaloneGpuProfileReceiver live_receiver(true);
             const auto measured =
                 render(presentation, context, root, scene, font, scratch / "profiled", false, false,
-                       &report, services.access());
+                       &report, services.access(), &live_receiver);
             check(measured == original && !cpu_clock_reads,
                   "Native GPU collection changed Game pixels or read the CPU profile clock");
             bool ui_seen = false, geometry_seen = false;
@@ -283,6 +297,15 @@ int main(int argc, char** argv) {
                 receiver.append(std::string_view(bytes).substr(offset, 31));
             receiver.finish(true);
             check(receiver.report() == report, "Graphical native report changed in transport");
+            check(live_receiver.live_report().at("gpu") == report.at("gpu"),
+                  "Native live and final captures disagree at the same submitted frame");
+            const auto live_page = live_receiver.live_page();
+            check(live_page.at("provisional") == true && live_page.at("sample_count") > 0,
+                  "Native live sample pages did not retain their provisional scope");
+            live_receiver.append(bytes);
+            live_receiver.finish(true);
+            check(live_receiver.live_report().is_null() && live_receiver.report() == report,
+                  "Final native retirement did not replace live observations");
             std::ofstream(scratch / "gpu-profile.json") << report.dump(2);
             test::game_gpu_profile_controls(report, scratch / "controls");
             presentation.gpu_profiling(false);

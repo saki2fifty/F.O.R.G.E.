@@ -150,12 +150,14 @@ class GameExportTask {
         }
     }
     void run(SceneDocument& document, [[maybe_unused]] bool verify_startup = false,
-             [[maybe_unused]] bool collect_gpu_profile = false) {
+             [[maybe_unused]] bool collect_gpu_profile = false,
+             [[maybe_unused]] bool stream_gpu_profile = false) {
         document.check_ownership();
         if (busy() || document.project() != project_ || output_.empty() || result_.is_null())
             throw std::runtime_error("Export this project successfully before testing its game");
-        if (collect_gpu_profile &&
-            !standalone_gpu_profile_supported(result_.at("manifest").at("engine")))
+        collect_gpu_profile = collect_gpu_profile || stream_gpu_profile;
+        if (collect_gpu_profile && !standalone_gpu_profile_supported(
+                                       result_.at("manifest").at("engine"), stream_gpu_profile))
             throw std::runtime_error(
                 "GPU game profiling requires the runtime kit packaged with this editor");
 #ifndef _WIN32
@@ -185,8 +187,12 @@ class GameExportTask {
             throw;
         }
         game_lease_ = std::move(run_lease);
+        const auto& engine = result_.at("manifest").at("engine");
         gpu_profile_ = collect_gpu_profile
-                           ? std::optional<StandaloneGpuProfileReceiver>(std::in_place)
+                           ? std::optional<StandaloneGpuProfileReceiver>(
+                                 std::in_place, stream_gpu_profile,
+                                 Json{{"id", engine.at("build_id")},
+                                      {"source_commit", engine.at("source_commit")}})
                            : std::nullopt;
         writer_ = std::move(writer);
         operation_ = AssetId::generate().str();
@@ -224,21 +230,22 @@ class GameExportTask {
                 int code = 0;
                 const bool finished = game_.pump(output, code);
                 if (gpu_profile_)
-                    gpu_profile_->append(output);
-                run_log_.append(output);
+                    run_log_.append(gpu_profile_->append(output));
+                else
+                    run_log_.append(output);
                 if (finished) {
                     running_ = false;
                     release_game_test();
                     if (gpu_profile_)
-                        gpu_profile_->finish(code == 0 && game_.retired() &&
-                                             !stop_.stop_requested());
+                        run_log_.append(gpu_profile_->finish(code == 0 && game_.retired() &&
+                                                             !stop_.stop_requested()));
                     exit_code_ = code;
                     if (code)
                         error_ = "Exported game exited with code " + std::to_string(code);
                 }
             } catch (const std::exception& e) {
                 if (gpu_profile_ && !gpu_profile_->finished())
-                    gpu_profile_->finish(false);
+                    run_log_.append(gpu_profile_->finish(false));
                 running_ = false;
                 game_.close();
                 try {
@@ -298,7 +305,8 @@ class GameExportTask {
                         arguments.emplace_back("--show-fps");
                     }
                     if (gpu_profile_)
-                        arguments.emplace_back("--gpu-profile");
+                        arguments.emplace_back(gpu_profile_->live_enabled() ? "--gpu-profile-live"
+                                                                            : "--gpu-profile");
                     game_.start(arguments, nullptr, std::filesystem::u8path(output_), 0);
                     game_started_ = true;
                     running_ = true;
@@ -314,7 +322,7 @@ class GameExportTask {
                 if (preparing_run_) {
                     game_.close();
                     if (gpu_profile_ && !gpu_profile_->finished())
-                        gpu_profile_->finish(false);
+                        run_log_.append(gpu_profile_->finish(false));
                     try {
                         release_game_test();
                     } catch (const std::exception& cleanup) {
@@ -448,15 +456,17 @@ class GameExportTask {
                 if (!busy() && !result_.is_null()) {
                     const bool supported =
                         standalone_gpu_profile_supported(result_.at("manifest").at("engine"));
-                    const auto start_profile = [&](bool verify) {
+                    const auto start_profile = [&](bool verify, bool live) {
                         try {
-                            run(document, verify, true);
+                            run(document, verify, true, live);
                         } catch (const std::exception& e) {
                             error_ = e.what();
                             report_error("game-export", error_);
                         }
                     };
-                    draw_game_gpu_profile_actions(supported, locked, start_profile);
+                    draw_game_gpu_profile_actions(supported, locked, start_profile,
+                                                  standalone_gpu_profile_supported(
+                                                      result_.at("manifest").at("engine"), true));
                 }
             }
             if (gpu_profile_)

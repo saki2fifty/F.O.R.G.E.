@@ -20,27 +20,36 @@ struct ExportAutomation {
             std::lock_guard lock(task.progress_->mutex);
             progress = task.progress_->value;
         }
-        return {{"started", true},
-                {"busy", task.busy()},
-                {"operation", task.operation_},
-                {"stage", task.preparing_run_ ? "Verifying exported game before launch"
-                          : task.running_     ? "Exported game running"
-                          : task.pending_     ? "Waiting for imports"
-                                              : progress.stage},
-                {"completed", progress.completed},
-                {"total", progress.total},
-                {"output", task.output_},
-                {"error", task.error_},
-                {"cancel_requested", task.stop_.stop_requested()},
-                {"running", task.running_},
-                {"startup_verification", task.startup_verification_},
-                {"gpu_profiling_supported",
-                 !task.result_.is_null() &&
-                     standalone_gpu_profile_supported(task.result_.at("manifest").at("engine"))},
-                {"gpu_profile_requested", task.gpu_profile_.has_value()},
-                {"gpu_profile_ready", task.gpu_profile_ && !task.gpu_profile_->report().is_null()},
-                {"gpu_profile_error", task.gpu_profile_ ? task.gpu_profile_->error() : ""},
-                {"exit_code", task.exit_code_ ? Json(*task.exit_code_) : Json()}};
+        return {
+            {"started", true},
+            {"busy", task.busy()},
+            {"operation", task.operation_},
+            {"stage", task.preparing_run_ ? "Verifying exported game before launch"
+                      : task.running_     ? "Exported game running"
+                      : task.pending_     ? "Waiting for imports"
+                                          : progress.stage},
+            {"completed", progress.completed},
+            {"total", progress.total},
+            {"output", task.output_},
+            {"error", task.error_},
+            {"cancel_requested", task.stop_.stop_requested()},
+            {"running", task.running_},
+            {"startup_verification", task.startup_verification_},
+            {"gpu_profiling_supported",
+             !task.result_.is_null() &&
+                 standalone_gpu_profile_supported(task.result_.at("manifest").at("engine"))},
+            {"gpu_profile_requested", task.gpu_profile_.has_value()},
+            {"gpu_live_profiling_supported",
+             !task.result_.is_null() &&
+                 standalone_gpu_profile_supported(task.result_.at("manifest").at("engine"), true)},
+            {"gpu_profile_live_requested", task.gpu_profile_ && task.gpu_profile_->live_enabled()},
+            {"gpu_profile_live_ready",
+             task.gpu_profile_ && !task.gpu_profile_->live_report().is_null()},
+            {"gpu_profile_live_snapshot",
+             task.gpu_profile_ ? task.gpu_profile_->live_snapshot() : ""},
+            {"gpu_profile_ready", task.gpu_profile_ && !task.gpu_profile_->report().is_null()},
+            {"gpu_profile_error", task.gpu_profile_ ? task.gpu_profile_->error() : ""},
+            {"exit_code", task.exit_code_ ? Json(*task.exit_code_) : Json()}};
     }
     static std::vector<LiveAuthoringMethod> methods(EditorFiles& files, ui::GameExportTask& task,
                                                     ExportAutomationProviders providers,
@@ -66,10 +75,16 @@ struct ExportAutomation {
             "Read up to128 native GPU duration observations from this operation's successfully "
             "retired graphical game. GPU frames are presentation submissions; pending queries "
             "and skipped samples remain explicit. Software verification is not physical hardware "
-            "timing. Read export.status first; no file or process is opened by this read.",
+            "timing. Set live:true for explicitly provisional readings from a stream_gpu_profile "
+            "run. The first page returns a snapshot token; supply it for later offsets. A newer "
+            "observation makes that token stale; restart at offset0. Live readings disappear on "
+            "retirement. Default reads still require successful exit. Read export.status first; "
+            "no file or process is opened by this read.",
             "export.read",
             automation_object({{"operation", automation_uuid()},
                                {"offset", automation_integer(0, 512)},
+                               {"live", {{"type", "boolean"}}},
+                               {"snapshot", automation_text(256)},
                                {"limit", automation_integer(1, 128)}},
                               {"operation"}),
             false, [&files, &task](const Json& request) {
@@ -79,18 +94,36 @@ struct ExportAutomation {
                     throw AuthoringError("wrong_job", "Read this project's current export first");
                 if (!task.gpu_profile_)
                     throw AuthoringError("not_requested", "Run the game with collect_gpu_profile");
-                const auto& report = task.gpu_profile_->report();
+                const bool live = request.value("live", false);
+                if (!live && request.contains("snapshot"))
+                    throw AuthoringError("invalid_arguments", "Snapshot tokens require live:true");
+                if (live && !task.gpu_profile_->live_enabled())
+                    throw AuthoringError("not_requested", "Run the game with stream_gpu_profile");
+                const auto& report =
+                    live ? task.gpu_profile_->live_report() : task.gpu_profile_->report();
                 if (report.is_null()) {
                     if (!task.gpu_profile_->error().empty())
                         throw AuthoringError("gpu_profile_unavailable", task.gpu_profile_->error());
-                    throw AuthoringError("not_ready", "Wait for successful graphical game exit");
+                    throw AuthoringError("not_ready",
+                                         live ? "Wait for a running game's live GPU observation"
+                                              : "Wait for successful graphical game exit");
                 }
                 const auto& samples = report.at("gpu").at("samples");
                 const auto offset = request.value("offset", std::size_t{});
                 const auto limit = request.value("limit", std::size_t(64));
+                const auto snapshot = request.value("snapshot", std::string{});
+                if (live) {
+                    if (offset && snapshot.empty())
+                        throw AuthoringError("invalid_arguments",
+                                             "Later live pages require their snapshot token");
+                    if (!snapshot.empty() && snapshot != task.gpu_profile_->live_snapshot())
+                        throw AuthoringError("stale_snapshot",
+                                             "Live GPU snapshot changed; restart at offset0");
+                }
                 if (offset > samples.size())
                     throw AuthoringError("invalid_cursor", "GPU sample offset exceeds this report");
-                auto page = task.gpu_profile_->page(offset, limit);
+                auto page = live ? task.gpu_profile_->live_page(snapshot, offset, limit)
+                                 : task.gpu_profile_->page(offset, limit);
                 page["operation"] = task.operation_;
                 return page;
             }));
@@ -162,12 +195,17 @@ struct ExportAutomation {
                 "Optional collect_gpu_profile requests a bounded GPU duration report on the "
                 "same owned output channel; requires gpu_profiling_supported in export.status. "
                 "Read pages after successful exit with export.gpu_profile. Cancelled/failed "
-                "processes do not establish an accepted report. Poll status/log or stop with "
+                "processes do not establish an accepted report. Optional stream_gpu_profile "
+                "also enables collection and adds provisional at-most1Hz observations while "
+                "running; requires gpu_live_profiling_supported. Read with live:true and guarded "
+                "snapshot pages. Finite verification waits for at least three live observations. "
+                "Poll status/log or stop with "
                 "export.cancel.",
                 "export.execute",
                 automation_object({{"operation", automation_uuid()},
                                    {"verify_startup", {{"type", "boolean"}}},
-                                   {"collect_gpu_profile", {{"type", "boolean"}}}},
+                                   {"collect_gpu_profile", {{"type", "boolean"}}},
+                                   {"stream_gpu_profile", {{"type", "boolean"}}}},
                                   {"operation"}),
                 true, [&files, &task, providers, root](const Json& request) {
                     files.document.check_ownership();
@@ -185,7 +223,8 @@ struct ExportAutomation {
                         throw AuthoringError("invalid_path", "The granted output is unavailable");
                     (void)output.relative(std::filesystem::u8path(task.output_));
                     task.run(files.document, request.value("verify_startup", false),
-                             request.value("collect_gpu_profile", false));
+                             request.value("collect_gpu_profile", false),
+                             request.value("stream_gpu_profile", false));
                     return state(task, files);
                 }));
         for (auto& method : result)

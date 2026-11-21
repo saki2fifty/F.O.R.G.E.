@@ -13,7 +13,8 @@ int main() {
             return parse_game_launch({arguments.begin(), arguments.size()});
         };
         const auto normal = parse({});
-        check(!normal.project && !normal.verify_startup && !normal.show_fps && !normal.gpu_profile,
+        check(!normal.project && !normal.verify_startup && !normal.show_fps &&
+                  !normal.gpu_profile && !normal.gpu_profile_live,
               "Default launch changed distribution or diagnostic policy");
         const auto fps = parse({"--show-fps"});
         check(!fps.project && !fps.verify_startup && fps.show_fps,
@@ -24,6 +25,11 @@ int main() {
         const auto gpu = parse({"--gpu-profile", "--verify-startup", "--show-fps"});
         check(gpu.gpu_profile && gpu.verify_startup && gpu.show_fps && !gpu.project,
               "GPU diagnostic intent did not compose with existing finite verification");
+        const auto live = parse({"--gpu-profile-live", "--verify-startup"});
+        check(live.gpu_profile && live.gpu_profile_live && live.verify_startup && !live.project,
+              "Live profiling did not compose with collection and finite startup verification");
+        check(!gpu.gpu_profile_live,
+              "Ordinary final-report profiling silently enabled live output");
         const auto physical = parse({"--project", "Folder/game", "--gpu-profile"});
         check(physical.gpu_profile && physical.project == "Folder/game" &&
                   !physical.verify_startup && !physical.show_fps,

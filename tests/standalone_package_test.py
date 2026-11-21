@@ -90,8 +90,30 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     checked = run([relocated/'forge_game.exe', '--verify-startup'], cwd=relocated, env=env,
                   evidence_log=evidence/'production-startup.log')
     assert 'FORGE standalone startup verified' in checked.stdout
-    fps_checked = run([relocated/'forge_game.exe', '--verify-startup', '--show-fps'],
+    live_supported = metadata['engine'].get('runtime_gpu_profiling_live') == 1
+    profile_args = ['--gpu-profile-live'] if live_supported else []
+    fps_checked = run([relocated/'forge_game.exe', '--verify-startup', '--show-fps', *profile_args],
                       cwd=relocated, env=env, evidence_log=evidence/'production-fps-startup.log')
+    if live_supported:
+        live = [json.loads(line.removeprefix('FORGE GPU LIVE '))
+                for line in fps_checked.stdout.splitlines() if line.startswith('FORGE GPU LIVE ')]
+        final = [json.loads(line.removeprefix('FORGE GPU PROFILE '))
+                 for line in fps_checked.stdout.splitlines() if line.startswith('FORGE GPU PROFILE ')]
+        assert len(live) >= 3 and len(final) == 1, fps_checked.stdout
+        assert [row['ordinal'] for row in live] == list(range(1, len(live) + 1))
+        accepted = final[0]
+        assert accepted['build'] == dict(id=metadata['engine']['build_id'],
+                                         source_commit=metadata['engine']['source_commit'])
+        assert all(row['format'] == 'forge.standalone-gpu-live' and row['version'] == 1 and
+                   row['report']['session'] == accepted['session'] and
+                   row['report']['build'] == accepted['build'] for row in live)
+        if accepted['gpu']['available']:
+            assert accepted['gpu']['samples'], accepted
+        else:
+            assert accepted['gpu']['reason'], accepted
+        (evidence/'production-live-gpu.json').write_text(json.dumps(dict(
+            native_exit=fps_checked.returncode, sources_offline=True, relocated=True,
+            live_observations=len(live), final=accepted)), encoding='utf-8')
     rate = re.search(r'frame statistics verified: ([0-9.e+\-]+) FPS, ([0-9.e+\-]+) ms mean, '
                      r'([0-9.e+\-]+) ms peak', fps_checked.stdout)
     assert rate, fps_checked.stdout

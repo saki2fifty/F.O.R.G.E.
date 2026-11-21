@@ -20,6 +20,13 @@ indices and publishes one ordinary stroke after preparation. Native pointer and
 semantic MCP workflows share that owner. Gallery 257 demonstrates collider and
 cross-dab sphere separation; this extension is also outside package 256.
 
+Source also adds opt-in provisional live standalone GPU observations through the
+existing native profiling, supervised process and run-scoped receiver. Native controls
+and shared MCP pages distinguish live snapshots from successful-retirement final
+reports and guard changing snapshot tokens. Local receiver, lifecycle, software GPU
+and MCP schema checks pass; current-source Windows producer/package execution remains
+a separate pending gate. This source extension is outside the accepted package above.
+
 The capability notes below retain their original implementation/evidence scope.
 Their older pending-platform statements are historical; they do not override the
 immutable delivery gate above or establish physical hardware acceptance.

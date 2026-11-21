@@ -315,6 +315,17 @@ rendering; your adapter and timings will differ.
 and offline audio. It exits automatically and reports the same kind of observations.
 Use this to check the workflow; measure your game's hardware with **Profile game**.
 
+To inspect readings while the game runs, choose **Watch GPU timings** instead.
+The panel shows **LIVE GPU TIMINGS — PROVISIONAL** after the first observation.
+Observations are captured at most once per second. Inspect the same pass table,
+or use **Copy live GPU observation** to copy a snapshot with its provisional
+status. The readings are temporary; they do not prove a successful game exit.
+Close the game normally to replace them with the final accepted report.
+
+![Export Game with Watch GPU timings, the amber provisional label, native GPU pass table and Copy live GPU observation](../images/standalone-gpu-live.png)
+
+The amber heading distinguishes a live observation from the final accepted report.
+
 **GPU ms** is elapsed GPU queue time for an individual renderer pass. **Frame**
 identifies a presentation submission, independently of simulation ticks. These
 rows do not measure total device utilization or complete frame time. Collection
@@ -322,11 +333,15 @@ adds overhead. The host retains at most 512 shared profile records; the report
 contains the retained GPU samples. Earlier records may be absent, and pending
 queries are not converted into completed durations during shutdown.
 
-The report is accepted after successful process shutdown. **Stop game test**,
+The final report is accepted after successful process shutdown. **Stop game test**,
 a crash or an incomplete/malformed report leaves it unavailable; inspect the
-report message and timestamped run log. Closing the Export Game panel keeps the test running.
+report message and timestamped run log. Live readings are cleared when the test
+ends, including after cancellation or failure. Profiling transport records are
+consumed by the live report panel; ordinary game messages retain their timestamped
+log. Closing the Export Game panel keeps the test running.
 Opening another project or starting a new export clears the displayed report.
 
 If the runtime kit is unsupported, rebuild the export using the matching kit.
+An older kit may support final reports while **Watch GPU timings** is unavailable.
 Finish any other editor operation reported by Export Game before starting a test. A device or build without supported GPU queries shows its reason and keeps
 rendering; FORGE does not substitute CPU timings.

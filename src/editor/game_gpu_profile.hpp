@@ -6,18 +6,26 @@
 namespace forge::ui {
 // Rendering and event routing only; ExportTask retains process/report authority.
 template <class Start>
-void draw_game_gpu_profile_actions(bool supported, bool locked, Start start) {
+void draw_game_gpu_profile_actions(bool supported, bool locked, Start start,
+                                   bool live_supported = false) {
     ImGui::BeginDisabled(!supported || locked);
     if (button("Profile game",
                "Run the exported game with native GPU duration queries. Close its window "
                "normally to accept the report."))
-        start(false);
+        start(false, false);
     FORGE_UI_PROBE("export:gpu-profile-game");
     if (button("Verify GPU timings",
                "Run finite graphical verification with native asynchronous GPU duration "
                "queries. WARP timings describe software rendering."))
-        start(true);
+        start(true, false);
     FORGE_UI_PROBE("export:gpu-profile");
+    ImGui::BeginDisabled(!live_supported);
+    if (button("Watch GPU timings",
+               "Run the game with provisional GPU observations updated at most once per second. "
+               "The final report still requires a successful normal exit."))
+        start(false, true);
+    FORGE_UI_PROBE("export:gpu-profile-live");
+    ImGui::EndDisabled();
     ImGui::EndDisabled();
     if (!supported)
         ImGui::TextWrapped("GPU reports require the runtime kit packaged with this editor.");
@@ -29,11 +37,19 @@ inline void draw_game_gpu_profile_report(const StandaloneGpuProfileReceiver& rec
         ImGui::TextWrapped("GPU report: %s", receiver.error().c_str());
         return;
     }
-    if (receiver.report().is_null()) {
-        ImGui::TextUnformatted("GPU report pending successful game exit.");
+    const bool provisional = receiver.report().is_null() && !receiver.live_report().is_null();
+    if (receiver.report().is_null() && !provisional) {
+        ImGui::TextUnformatted(receiver.live_enabled() && !receiver.finished()
+                                   ? "Waiting for the first live GPU observation."
+                                   : "GPU report pending successful game exit.");
         return;
     }
-    const auto& report = receiver.report();
+    const auto& report = provisional ? receiver.live_report() : receiver.report();
+    if (provisional) {
+        ImGui::TextColored({1.f, .78f, .32f, 1.f}, "LIVE GPU TIMINGS — PROVISIONAL");
+        ImGui::TextWrapped("The game is still running. These readings are not a successful-run "
+                           "report. Close the game normally to accept its final report.");
+    }
     const auto& gpu = report.at("gpu");
     const auto& samples = gpu.at("samples");
     const auto& device = gpu.at("device");
@@ -51,8 +67,14 @@ inline void draw_game_gpu_profile_report(const StandaloneGpuProfileReceiver& rec
     ImGui::TextWrapped("The shared profiling history retains at most %u records. Scroll to "
                        "inspect individual completed samples.",
                        report.at("history").at("capacity").get<unsigned>());
-    if (button("Copy GPU report", "Copy the accepted report, adapter and run details as JSON."))
-        ImGui::SetClipboardText(report.dump(2).c_str());
+    if (button(provisional ? "Copy live GPU observation" : "Copy GPU report",
+               "Copy the observation, adapter, run details and provisional status as JSON.")) {
+        auto copied = report;
+        if (provisional)
+            copied = {
+                {"provisional", true}, {"snapshot", receiver.live_snapshot()}, {"report", report}};
+        ImGui::SetClipboardText(copied.dump(2).c_str());
+    }
     FORGE_UI_PROBE("export:gpu-profile-copy");
     if (ImGui::BeginTable("Exported game GPU durations", 4,
                           ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |

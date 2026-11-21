@@ -616,5 +616,47 @@ transport, unchanged Game collection-off/on pixels and production controls at
 full MCP workflow implements the successful exported Windows process/report/page
 check; execution with a matching current Windows kit is pending. Native Windows execution,
 physical hardware performance, external-client review and whole-program native
-GPU leak acceptance remain separately pending. The optional report is a completed
-run observation, not live remote GPU attachment or a continuous profiling stream.
+GPU leak acceptance remain separately pending. The original optional report remains a completed-run observation. Explicit
+live collection uses the same owned run as described below; arbitrary attachment
+to other processes and a remote network service are not provided.
+
+### Provisional live standalone observations
+
+`--gpu-profile-live` additionally enables base GPU collection and emits at most one
+snapshot per steady-clock second over the existing supervised stdout. It does not
+use simulation ticks or change query ownership, history capacity or GPU synchronization.
+`--verify-startup` with this option waits for three observations before its ordinary
+finite successful shutdown. Unsupported native query devices retain their reason
+and empty GPU observations, rather than substituting CPU timing.
+
+The additive kit capability `engine.runtime_gpu_profiling_live:1` is extracted from
+the same host header by the existing installer. Base capability1 is still required.
+Ordinary and final-report launches retain older-kit behavior; requesting live mode
+with a missing/wrong/noninteger capability fails before execution.
+
+Each `FORGE GPU LIVE ` line contains format `forge.standalone-gpu-live`, version1,
+a positive consecutive transport ordinal and one complete existing version1 report.
+Payload/event/depth limits remain1MiB/32768/16. The same run-scoped receiver retains
+only its latest provisional report, validates exact verified-export build metadata,
+consistent host/session/device identity and nondecreasing native history epoch/frame
+(and sequence within one epoch). UTC capture time is provenance, not a monotonic
+clock. A history reset may begin a new epoch. Invalid sequence/identity/framing
+clears provisional data and prevents final acceptance. Default receiver mode ignores
+the distinct live prefix and retains the original final-report protocol.
+
+Live pages include `provisional:true` and an opaque session/ordinal `snapshot` token.
+Later offsets require that token; a newer observation rejects the old token so
+pages cannot silently mix snapshots. This adds no second profiling history. Native
+controls read the same latest report and copy its explicit provisional wrapper.
+In live mode the receiver consumes profiling wire lines before ordinary output reaches
+TimedTextLog; ordinary log bytes and timestamps keep their existing owner. Ambiguous
+partial prefixes are buffered until they can be classified or the run finishes.
+
+The original final record is still emitted only after native owners retire.
+The receiver exposes it only after successful, uncancelled supervisor retirement,
+then discards the provisional snapshot. Failed/cancelled runs discard both; closing
+the Export panel does not stop the owned run. Project changes/new operations keep
+the existing lifecycle and operation scoping. Collection/serialization adds overhead;
+a delayed stdout consumer can delay delivery. No physical performance, total-device
+utilization, arbitrary remote attachment or GPU leak acceptance follows from these
+provisional readings.

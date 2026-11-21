@@ -70,26 +70,31 @@ Game PNG SHA256 `40b56bc7ed5e29cc0261e63dadc8e901433daaed5c3bdd2dd3f8fe0ba5e4e21
 
 ## Exported-game GPU report controls
 
-`manual/images/standalone-gpu-report.png` is the unretouched840 by610 production
-GPU subsection of Export Game, rendered through the existing ImGui/SDL software
-capture backend. It displays132 genuine native GamePresentation duration samples
-from lavapipe Vulkan, including geometry, UI composition and Render Texture work.
-The native device name/backend/software flag, history and pending counts come
-from the same bounded report. The renderer checks exact Game pixels with collection
-off/on, separate GPU/profile clocks, typed report transport and actual control/
-copy/disabled-kit routing in four100/150/200percent/narrow layouts.
+[Final report](../../../manual/images/standalone-gpu-report.png) and
+[live observations](../../../manual/images/standalone-gpu-live.png) are unretouched
+840×610 production GPU subsections of Export Game through the pinned ImGui/SDL
+software capture backend. They display 136 genuine native GamePresentation
+samples from lavapipe Vulkan, including geometry, UI composition and Render Texture
+work. Device/backend/software identity and pending/history counts come from the
+same native report. The live image shows the amber provisional label and explicit
+copy action; the final image retains successful-retirement semantics.
 
-This is an isolated production subsection capture, not full Windows Main or
-physical GPU/input/DPI acceptance. Fixture callbacks check UI intent; graphical
-Windows executable/report acceptance is separately pending. No controls, values,
-dimensions or pixels were fabricated, cropped or retouched. The canonical image
-is shared with the manual and README.
+The native fixture proves exact collection-off/on Game pixels, separate profiling
+clocks, live samples/pages while the presentation owner is active and the receiver
+retirement-admission checks. Actual pointer controls, copy contents, busy locks and older-kit live
+refusal run at100/150/200percent and a narrow layout. The fixture callbacks validate
+launch intent; exported Windows producer/process acceptance is a separate gate.
+No full Main, physical GPU/input/DPI/performance or GPU sanitizer claim is made.
+No controls, values, dimensions or pixels were fabricated, cropped or retouched.
 
-Local provenance: `AgentFiles/build/phase413-standalone-gpu-profiling/controls-capture.json`
-and `AgentFiles/build/phase356-ui-custom-shader-capability/phase413-render15.json`.
-These records identify original pixels, native report, development binary/input
-digest and software backend; local configured metadata is unassigned/d70e63a,
-not a numbered delivery or the accepted source commit.
+Current provenance: `AgentFiles/build/phase436-live-standalone-gpu-observations/controls-capture.json`
+and `AgentFiles/build/phase356-ui-custom-shader-capability/check-live-gpu-native196.json`.
+The exact development producer and inputs are recorded there; configured build
+metadata remains unassigned/d70e63a360dd422c211e0d323c3c90567b001eb5, distinct
+from the source batch or a numbered delivery. Canonical bytes are copied unchanged.
+
+Final PNG SHA256: `01ecf3713bb9908bca9bcfb7999af6c75b696e94babf6975f1befa1653bd1e3f`.
+Live PNG SHA256: `eecfcae53e99318afe4e271514d5ee170b2cca33e104e3727bb7375cf021fae7`.
 
 ## Physical character drop Game views
 

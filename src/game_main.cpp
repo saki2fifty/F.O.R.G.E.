@@ -81,6 +81,9 @@ int main(int argc, char** argv) {
         return 0;
     }
     bool software = false, verify_startup = false, show_fps = false, gpu_profile = false;
+    bool gpu_profile_live = false;
+    std::uint64_t gpu_live_ordinal = 0;
+    auto gpu_live_next = std::chrono::steady_clock::time_point::min();
     unsigned verification_frames = 0;
     bool verification_statistics_seen = false;
     std::ofstream log;
@@ -114,6 +117,7 @@ int main(int argc, char** argv) {
         verify_startup = launch.verify_startup;
         show_fps = launch.show_fps;
         gpu_profile = launch.gpu_profile;
+        gpu_profile_live = launch.gpu_profile_live;
         const bool packaged_start = !launch.project;
         software = verify_startup; // Explicit diagnostic mode uses WARP/offline audio.
         if (launch.project)
@@ -595,6 +599,18 @@ int main(int argc, char** argv) {
                         ui.frame_statistics(pending_rate);
                 }
             }
+            if (gpu_profile_live) {
+                const auto now = std::chrono::steady_clock::now();
+                if (now >= gpu_live_next) {
+                    const auto report = standalone_gpu_profile_observation(
+                        device.gpu_profile_status(), bootstrap.access().profile_status(),
+                        presentation.session(), build_id, source_commit);
+                    std::cout << '\n'
+                              << standalone_gpu_profile_live_record(report, ++gpu_live_ordinal)
+                              << std::flush;
+                    gpu_live_next = now + std::chrono::seconds(1);
+                }
+            }
 #ifdef FORGE_GAME_FIXTURE
             test::GameHostFixture::check(graphics.context->GetFrameNumber() == frame_number + 1,
                                          "Primary presentation must finish exactly one frame");
@@ -603,7 +619,8 @@ int main(int argc, char** argv) {
                 const bool statistics_ready =
                     !show_fps || (verification_statistics_seen && presentation_rate.sample());
                 verification_statistics_seen = presentation_rate.sample().has_value();
-                if (++verification_frames >= 4 && statistics_ready) {
+                if (++verification_frames >= 4 && statistics_ready &&
+                    (!gpu_profile_live || gpu_live_ordinal >= 3)) {
                     if (show_fps) {
                         const auto& sample = *presentation_rate.sample();
                         std::cout << "FORGE standalone frame statistics verified: " << sample.fps
