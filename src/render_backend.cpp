@@ -43,7 +43,12 @@ void prepare_renderer_shader(const RenderDeviceInfo& device, ShaderCreateInfo& s
                     const std::string_view mode{selected};
                     if (mode == "dxc")
                         shader.ShaderCompiler = SHADER_COMPILER_DXC;
-                    else if (mode == "fxc-disabled")
+                    else if (mode == "fxc-50")
+                        shader.HLSLVersion = {5, 0};
+                    else if (mode == "fxc-50-disabled") {
+                        shader.HLSLVersion = {5, 0};
+                        shader.ShaderOptimizationLevel = SHADER_OPTIMIZATION_LEVEL_DISABLED;
+                    } else if (mode == "fxc-disabled")
                         shader.ShaderOptimizationLevel = SHADER_OPTIMIZATION_LEVEL_DISABLED;
                     else if (mode == "fxc-0")
                         shader.ShaderOptimizationLevel = SHADER_OPTIMIZATION_LEVEL_0;

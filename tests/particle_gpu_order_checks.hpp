@@ -15,6 +15,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <numeric>
 #include <stdexcept>
 namespace forge::particle_order_test {
@@ -315,9 +316,23 @@ inline void source_tag_cases(Fixture& fixture, IRenderDevice* device, IDeviceCon
                 const auto selected = fixture.read_tags(context);
                 check(selected.size() == output.size(), "Device tag/packet counts disagree");
                 for (unsigned i = 0; i < input.size(); ++i)
-                    check(std::memcmp(&output[i], &input[expected[i]], sizeof(Packet)) == 0 &&
-                              selected[i] == tags[expected[i]],
-                          "Source tags changed stable packet order, bits or provenance");
+                    if (std::memcmp(&output[i], &input[expected[i]], sizeof(Packet)) != 0 ||
+                        selected[i] != tags[expected[i]])
+                        throw std::runtime_error(nlohmann::json{
+                            {"reason",
+                             "Source tags changed stable packet order, bits or provenance"},
+                            {"sources", source_count},
+                            {"full", full},
+                            {"forward", forward},
+                            {"index", i},
+                            {"reference", expected[i]},
+                            {"actual_tag", selected[i]},
+                            {"expected_tag", tags[expected[i]]},
+                            {"actual_bits",
+                             std::bit_cast<std::array<std::uint32_t, 28>>(output[i])},
+                            {"expected_bits",
+                             std::bit_cast<std::array<std::uint32_t, 28>>(input[expected[i]])}}
+                                                     .dump());
                 for (auto i = input.size(); i < selected.size(); ++i)
                     check(selected[i] == UINT32_MAX, "Tag padding retained old source metadata");
                 ++cases;
