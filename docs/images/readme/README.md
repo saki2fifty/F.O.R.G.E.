@@ -4503,3 +4503,24 @@ Canonical SHA-256 values:
 
 - `manual/images/scene-particle-impacts.png`: `506bb18e60ede1d0a824979d16da0dc7b5ca6e699ac3dce4be320df5502ff213`.
 - `manual/images/xy-particle-impact-trails.png`: `e0257a1572290a87cd46a849cfc2a35c57ab37c7d41d63dce15c2f5dfa75f2da`.
+
+
+## Resting Scene-particle Game views
+
+Canonical image: [resting-scene-particles.png](../../../manual/images/resting-scene-particles.png).
+Gallery263, original640 by360 Game output at3s; native supported floor
+heads and source-hidden relocated content are checked by `particle_resting_gallery_game_vulkan`.
+Image SHA-256: `edb187ed26d8ed1ddbab7d0ba79d12e84dc7301122a8c42206355c945bbfeddd`.
+
+Canonical image: [xy-resting-scene-particles.png](../../../manual/images/xy-resting-scene-particles.png).
+Gallery264, original640 by360 Game output at3s; native supported floor
+heads and source-hidden relocated content are checked by `particle_xy_resting_gallery_game_vulkan`.
+Image SHA-256: `b17fc25178b2f9ba25e95fe4a0517ce4983ae80ebebf7dceba4a1c9a113fe548`.
+
+Compiled source-input SHA-256: `6116d9d104ed43627f68dd3afa3affa125ad297254b12a29a9cd1471be45985d`.
+Both captures were personally reviewed and copied byte-for-byte without crop,
+resize, retouch or inserted controls. The production FrameRenderer runs on local
+software Vulkan/lavapipe. Authored teal/amber colours are shown without the optional
+contact System; native runtime tests separately verify copied Touch observations.
+These are Game captures, not editor-controls screenshots, physical GPU, Windows
+or exported-EXE acceptance.

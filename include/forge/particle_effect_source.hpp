@@ -20,6 +20,7 @@ inline constexpr unsigned particle_scene_collision_profile_version = 1;
 inline constexpr unsigned particle_scene_collision_2d_profile_version = 1;
 inline constexpr unsigned particle_scene_trail_profile_version = 1;
 inline constexpr unsigned particle_scene_impacts_profile_version = 1;
+inline constexpr unsigned particle_scene_resting_profile_version = 1;
 inline constexpr unsigned particle_gpu_material_palette_profile_version = 1;
 // This importer ID is persisted in source settings; backend selection never changes it.
 inline constexpr const char* particle_effect_importer = "forge.particles.cpu-mesh";
@@ -52,6 +53,7 @@ struct ParticleEffectSource {
     void set_trails(bool enabled, std::optional<ParticleTrailSettings> = {});
     void set_world_trails(bool enabled, std::optional<ParticleTrailSettings> = {});
     void set_scene_impacts(bool enabled);
+    void set_scene_resting(bool enabled);
     void set_gpu_trails(bool enabled, std::optional<ParticleTrailSettings> = {});
     void set_collision(bool enabled, std::optional<ParticleCollisionPlane> = {});
     void set_gpu_collision(bool enabled, std::optional<ParticleCollisionPlane> = {});

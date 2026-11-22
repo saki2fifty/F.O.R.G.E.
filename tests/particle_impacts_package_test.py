@@ -1,4 +1,4 @@
-"""Export the shipped editable impact System and observe both relocated Games."""
+"""Export the shipped contact System and observe four relocated Games."""
 import hashlib
 import json
 import shutil
@@ -63,11 +63,13 @@ forge_install_gameplay_runtime(impact NAME project.particle_impact_gallery)
     shutil.copy2(observer, runtime_kit / 'forge_game_fixture.exe')
     metadata = json.loads((runtime_kit / 'forge.runtime-kit.json').read_text())
     assert metadata['engine']['runtime_particle_scene_impacts'] == 1
+    assert metadata['engine']['runtime_particle_scene_resting'] == 1
     metadata['files']['forge_game_fixture.exe'] = dict(bytes=len(witness),
         sha256=hashlib.sha256(witness).hexdigest())
     (runtime_kit / 'forge.runtime-kit.json').write_text(json.dumps(metadata))
     exports = []
-    for name in ('261-scene-particle-impacts', '262-xy-particle-impact-trails'):
+    for name in ('261-scene-particle-impacts', '262-xy-particle-impact-trails',
+                 '263-resting-scene-particles', '264-xy-resting-scene-particles'):
         scene = json.loads((source / 'Scenes' / (name + '.scene.json')).read_text())
         settings['startup_scene'] = scene['asset_id']
         (source / 'forge.project.json').write_text(json.dumps(settings))
@@ -88,10 +90,13 @@ forge_install_gameplay_runtime(impact NAME project.particle_impact_gallery)
         output.mkdir()
         run([destination / 'forge_game.exe', '--verify-startup'],
             name + '-production.log', clean=True, cwd=destination)
-        run([destination / 'forge_game_fixture.exe', '--packaged-particle-impacts', output],
+        resting = name.startswith(('263-', '264-'))
+        mode = '--packaged-particle-resting' if resting else '--packaged-particle-impacts'
+        run([destination / 'forge_game_fixture.exe', mode, output],
             name + '-capture.log', clean=True, cwd=destination)
         result = json.loads((output / 'particle-impacts-result.json').read_text())
         assert result['tick'] >= 180 and len(result['emitters']) == 2
+        assert not resting or all(row['resting_heads'] > 0 for row in result['emitters'])
         results.append(dict(scene=name, tick=result['tick'], source_hidden=True,
-                            production_exit=0, witness_exit=0))
+                            resting=resting, production_exit=0, witness_exit=0))
     (evidence / 'result.json').write_text(json.dumps(results, indent=2))

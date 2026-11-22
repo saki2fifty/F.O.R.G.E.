@@ -78,3 +78,4 @@ Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS
 contracts remain unchanged. Implementation triggers are stated in each record.
 | [077](077-scene-particle-impact-notifications.md) | Copied previous-interval particle contacts use existing history, fixed owner and exact SDK |
+| [078](078-resting-scene-particles.md) | Opt-in transient CPU Scene support through existing motion and native-query owners |

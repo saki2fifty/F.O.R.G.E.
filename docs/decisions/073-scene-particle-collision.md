@@ -45,7 +45,9 @@ sides of an impact; remove a birth exactly at contact death or lifetime end.
 Initially penetrating births end. Zero permitted rebounds means kill at the first
 incoming contact; exhausting the limit ends at the next. Sustained zero-normal-
 speed contact under inward acceleration ends instead of creating a resting-body
-solver. A small metric/coordinate-aware departure bias resolves native touching
+solver. Explicit resting profiles extend this rule in
+[ADR078](078-resting-scene-particles.md); older profiles retain it.
+A small metric/coordinate-aware departure bias resolves native touching
 hits without excluding a whole compound or concave body from later queries.
 
 ## Budgets, lifecycle and presentation

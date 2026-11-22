@@ -24,6 +24,9 @@
 #include <forge/shader_asset.hpp>
 #include <iostream>
 #include <tuple>
+#include <utility>
+#include <vector>
+
 using namespace forge;
 int main(int argc, char** argv) {
     try {
@@ -172,73 +175,61 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            for (unsigned values : {38u, 39u, 52u, 53u, 54u, 55u, 56u, 57u, 58u, 59u, 60u, 61u}) {
+            for (unsigned values : {38u, 39u, 52u, 53u, 54u, 55u, 56u, 57u, 58u, 59u, 60u, 61u,
+                                    62u, 63u, 64u, 65u, 66u, 67u, 68u, 69u, 70u, 71u, 72u, 73u}) {
                 effect.metadata["forge.particle_effect"]["value_version"] = values;
                 particles.replace(effect);
-                Json scene_kit{
+                const bool xy = values == 52 || values == 53 || values == 55 || values == 58 ||
+                                values == 59 || values == 61 || values == 64 || values == 65 ||
+                                values == 67 || values == 70 || values == 71 || values == 73;
+                const bool billboard = values == 39 || values == 53 || values == 57 ||
+                                       values == 59 || values == 63 || values == 65 ||
+                                       values == 69 || values == 71;
+                const bool trail = values == 54 || values == 55 || values == 60 || values == 61 ||
+                                   values == 66 || values == 67 || values == 72 || values == 73;
+                const bool impacts = (values >= 56 && values <= 61) || values >= 68;
+                const bool resting = values >= 62;
+                std::vector<std::pair<const char*, unsigned>> capabilities{
                     {"runtime_particle_effect", particle_effect_cooked_version},
                     {"runtime_particle_alpha", particle_alpha_profile_version},
                     {"runtime_particle_opacity", particle_opacity_profile_version},
                     {"runtime_particle_scene_collision", particle_scene_collision_profile_version}};
-                if (values == 52 || values == 53 || values == 55 || values == 58 || values == 59 ||
-                    values == 61) {
-                    reject([&] { validate_runtime_compatibility(particles, scene_kit); });
-                    scene_kit["runtime_particle_scene_collision_2d"] =
-                        particle_scene_collision_2d_profile_version;
+                if (xy)
+                    capabilities.emplace_back("runtime_particle_scene_collision_2d",
+                                              particle_scene_collision_2d_profile_version);
+                if (billboard)
+                    capabilities.emplace_back("runtime_particle_billboard",
+                                              particle_billboard_profile_version);
+                if (trail) {
+                    capabilities.emplace_back("runtime_particle_trail",
+                                              particle_trail_profile_version);
+                    capabilities.emplace_back("runtime_particle_scene_trail",
+                                              particle_scene_trail_profile_version);
                 }
-                if (values == 39 || values == 53 || values == 57 || values == 59) {
+                if (impacts)
+                    capabilities.emplace_back("runtime_particle_scene_impacts",
+                                              particle_scene_impacts_profile_version);
+                if (resting)
+                    capabilities.emplace_back("runtime_particle_scene_resting",
+                                              particle_scene_resting_profile_version);
+                Json scene_kit = Json::object();
+                for (const auto& [name, version] : capabilities) {
                     reject([&] { validate_runtime_compatibility(particles, scene_kit); });
-                    scene_kit["runtime_particle_billboard"] = particle_billboard_profile_version;
-                }
-                if (values == 54 || values == 55 || values == 60 || values == 61) {
-                    reject([&] { validate_runtime_compatibility(particles, scene_kit); });
-                    scene_kit["runtime_particle_trail"] = particle_trail_profile_version;
-                    reject([&] { validate_runtime_compatibility(particles, scene_kit); });
-                    scene_kit["runtime_particle_scene_trail"] =
-                        particle_scene_trail_profile_version;
-                }
-                if (values >= 56) {
-                    reject([&] { validate_runtime_compatibility(particles, scene_kit); });
-                    scene_kit["runtime_particle_scene_impacts"] =
-                        particle_scene_impacts_profile_version;
+                    scene_kit[name] = version;
                 }
                 validate_runtime_compatibility(particles, scene_kit);
-                for (const Json& invalid :
-                     {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"), Json(2),
-                      Json((std::uint64_t{1} << 32) + 1)}) {
+                for (const auto& [name, version] : capabilities) {
+                    (void)version;
                     auto wrong = scene_kit;
-                    if (values >= 56) {
-                        wrong["runtime_particle_scene_impacts"] = invalid;
-                        reject([&] { validate_runtime_compatibility(particles, wrong); });
-                        wrong = scene_kit;
-                    }
-                    wrong["runtime_particle_scene_collision"] = invalid;
+                    wrong.erase(name);
                     reject([&] { validate_runtime_compatibility(particles, wrong); });
-                    if (values == 52 || values == 53 || values == 55 || values == 58 ||
-                        values == 59 || values == 61) {
+                    for (const Json& invalid :
+                         {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"), Json(2),
+                          Json((std::uint64_t{1} << 32) + 1)}) {
                         wrong = scene_kit;
-                        wrong["runtime_particle_scene_collision_2d"] = invalid;
+                        wrong[name] = invalid;
                         reject([&] { validate_runtime_compatibility(particles, wrong); });
                     }
-                    if (values == 54 || values == 55 || values == 60 || values == 61)
-                        for (const auto* capability :
-                             {"runtime_particle_trail", "runtime_particle_scene_trail"}) {
-                            wrong = scene_kit;
-                            wrong[capability] = invalid;
-                            reject([&] { validate_runtime_compatibility(particles, wrong); });
-                        }
-                }
-                for (const auto* missing :
-                     {"runtime_particle_effect", "runtime_particle_alpha",
-                      "runtime_particle_opacity", "runtime_particle_scene_collision",
-                      "runtime_particle_billboard", "runtime_particle_scene_collision_2d",
-                      "runtime_particle_trail", "runtime_particle_scene_trail",
-                      "runtime_particle_scene_impacts"}) {
-                    if (!scene_kit.contains(missing))
-                        continue;
-                    auto wrong = scene_kit;
-                    wrong.erase(missing);
-                    reject([&] { validate_runtime_compatibility(particles, wrong); });
                 }
             }
             effect.metadata["forge.particle_effect"]["value_version"] = 4;

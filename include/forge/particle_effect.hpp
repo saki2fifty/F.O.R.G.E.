@@ -111,7 +111,8 @@ enum ProfileFlag : unsigned {
     MaterialPalette = 1024,
     SceneCollision2D = 2048,
     SceneTrail = 4096,
-    SceneImpact = 8192
+    SceneImpact = 8192,
+    SceneRest = 16384
 };
 struct ValueProfile {
     unsigned version;
@@ -198,7 +199,34 @@ inline constexpr std::array value_profiles{
                  CpuAlpha | Opacity | SceneCollision | Trail | SceneTrail | SceneImpact},
     ValueProfile{61, "cpu_scene_impact_trail_2d1",
                  CpuAlpha | Opacity | SceneCollision | SceneCollision2D | Trail | SceneTrail |
-                     SceneImpact}};
+                     SceneImpact},
+    ValueProfile{62, "cpu_scene_rest1", CpuAlpha | Opacity | SceneCollision | SceneRest},
+    ValueProfile{63, "cpu_scene_rest_billboard1",
+                 CpuAlpha | Opacity | SceneCollision | SceneRest | Billboard},
+    ValueProfile{64, "cpu_scene_rest_2d1",
+                 CpuAlpha | Opacity | SceneCollision | SceneRest | SceneCollision2D},
+    ValueProfile{65, "cpu_scene_rest_2d_billboard1",
+                 CpuAlpha | Opacity | SceneCollision | SceneRest | SceneCollision2D | Billboard},
+    ValueProfile{66, "cpu_scene_rest_trail1",
+                 CpuAlpha | Opacity | SceneCollision | SceneRest | Trail | SceneTrail},
+    ValueProfile{67, "cpu_scene_rest_trail_2d1",
+                 CpuAlpha | Opacity | SceneCollision | SceneRest | SceneCollision2D | Trail |
+                     SceneTrail},
+    ValueProfile{68, "cpu_scene_rest_impact1",
+                 CpuAlpha | Opacity | SceneCollision | SceneRest | SceneImpact},
+    ValueProfile{69, "cpu_scene_rest_impact_billboard1",
+                 CpuAlpha | Opacity | SceneCollision | SceneRest | Billboard | SceneImpact},
+    ValueProfile{70, "cpu_scene_rest_impact_2d1",
+                 CpuAlpha | Opacity | SceneCollision | SceneRest | SceneCollision2D | SceneImpact},
+    ValueProfile{71, "cpu_scene_rest_impact_2d_billboard1",
+                 CpuAlpha | Opacity | SceneCollision | SceneRest | SceneCollision2D | Billboard |
+                     SceneImpact},
+    ValueProfile{72, "cpu_scene_rest_impact_trail1",
+                 CpuAlpha | Opacity | SceneCollision | SceneRest | Trail | SceneTrail |
+                     SceneImpact},
+    ValueProfile{73, "cpu_scene_rest_impact_trail_2d1",
+                 CpuAlpha | Opacity | SceneCollision | SceneRest | SceneCollision2D | Trail |
+                     SceneTrail | SceneImpact}};
 static_assert([] {
     for (unsigned i = 0; i < value_profiles.size(); ++i)
         if (value_profiles[i].version != i + 1)
@@ -261,6 +289,9 @@ constexpr bool particle_uses_scene_collision_2d(const ParticleEffectData& data) 
 }
 constexpr bool particle_uses_scene_trails(const ParticleEffectData& data) {
     return particle_detail::has(data, particle_detail::SceneTrail);
+}
+constexpr bool particle_uses_scene_resting(const ParticleEffectData& data) {
+    return particle_detail::has(data, particle_detail::SceneRest);
 }
 constexpr bool particle_uses_scene_impacts(const ParticleEffectData& data) {
     return particle_detail::has(data, particle_detail::SceneImpact);

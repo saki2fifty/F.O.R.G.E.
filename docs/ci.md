@@ -4131,8 +4131,23 @@ Their `_game` checks render through the Windows host; local `_game_vulkan` check
 use software Vulkan. Shared particle history/runtime/source and native editor
 checks cover bounded corner retention, birth widths, shrinking tails, transactional
 budgets and source history. `mcp_particle_scene_stdio` covers both supported
-protocol envelopes and allows240seconds for the expanded publication/reopen
+protocol envelopes and allows600seconds for the expanded publication/reopen
 workflow. Native child shutdown must succeed; wrapper cleanup is not acceptance.
 The focused shader selection enumerates the new tests explicitly and the complete
 editor selector includes them. Neither local software rendering nor CI replaces
 physical-device review.
+
+
+Resting Scene particles add `particle_resting_gallery` and
+`particle_xy_resting_gallery`, their `_export` source-hidden runtime checks and
+`_gallery_game` Windows rendering checks. Local `_gallery_game_vulkan` variants
+use software Vulkan and assert supported living floor heads. The shared source,
+motion/state/runtime, native inspector, manifest and `mcp_particle_scene_stdio`
+checks include independent query/geometry/notification profiles, support loss,
+atomic invalid queries and bounded native work. The source-hidden production
+`native_sdk_particle_resting_process` checks both Scenes with the original shared
+contact System and graceful native runtime exit. The combined Windows package
+acceptance also exports263/264 using the shipped SDK/runtime kit, removes source
+projects and verifies real player startup plus supported heads in GameHostFixture.
+Windows-only package witness compilation/execution is established by CI, never by
+local Linux checks. Physical review remains a distinct acceptance step.

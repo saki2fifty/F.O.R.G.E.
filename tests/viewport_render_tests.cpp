@@ -275,6 +275,8 @@ int main(int argc, char** argv) {
                       std::string_view(argv[2]) == "particle-material-graph-gallery" ||
                       std::string_view(argv[2]) == "particle-scene-collision-gallery" ||
                       std::string_view(argv[2]) == "particle-xy-scene-collision-gallery" ||
+                      std::string_view(argv[2]) == "particle-resting-gallery" ||
+                      std::string_view(argv[2]) == "particle-xy-resting-gallery" ||
                       std::string_view(argv[2]) == "particle-scene-impact-gallery" ||
                       std::string_view(argv[2]) == "particle-xy-scene-impact-gallery" ||
                       std::string_view(argv[2]) == "particle-world-trail-gallery" ||
@@ -353,6 +355,13 @@ int main(int argc, char** argv) {
             } else if (selected == "particle-gpu-sorted-countercases") {
                 require(argc == 4, "GPU sorted countercases need relocated published content");
                 forge::particle_sorted_content_test::execute(isolated, context, argv[3]);
+            } else if (selected == "particle-resting-gallery" ||
+                       selected == "particle-xy-resting-gallery") {
+                require(argc == 4, "Resting particle render needs relocated cooked content");
+                const bool xy = selected == "particle-xy-resting-gallery";
+                forge::test_particle_alpha::gallery(isolated, context, argv[3], images, true, xy,
+                                                    false, false, false, false, false, false, false,
+                                                    true, xy, false, true, true);
             } else if (selected == "particle-scene-impact-gallery" ||
                        selected == "particle-xy-scene-impact-gallery") {
                 require(argc == 4, "Impact particle render needs relocated cooked content");

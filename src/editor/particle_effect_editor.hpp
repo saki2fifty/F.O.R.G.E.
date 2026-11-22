@@ -327,6 +327,20 @@ class ParticleEffectEditor {
                          "during the next fixed tick through the matching SDK, with Physics "
                          "permission. Reads do not consume events. Supports World 3D/XY and "
                          "historical World trails. Settings remain while inactive.");
+                bool resting = document_->source().document.value("scene_resting_enabled", false);
+                if (ImGui::Checkbox("Rest on Scene surfaces (CPU)", &resting))
+                    mutate("Set particle Scene resting", [&](auto& value) {
+                        ParticleEffectSource candidate{value};
+                        candidate.set_scene_resting(resting);
+                        value = std::move(candidate.document);
+                    });
+                FORGE_UI_PROBE("particles:scene-resting");
+                ui::help("Keep supported zero-restitution contacts alive. Set Scene restitution "
+                         "to 0 and allow at least one rebound. Tangent velocity/friction/drag "
+                         "remain active; lost support releases gravity. Probes share the existing "
+                         "query budgets. Sliding support checks are bounded to 1/120 s and a "
+                         "quarter radius of travel. Geometry uses its current fixed snapshot; "
+                         "moving-surface continuous collision is unavailable.");
                 int scene_space =
                     document_->source().document.value("scene_collision_2d", false) ? 1 : 0;
                 if (ImGui::Combo("Scene query space", &scene_space, "World 3D\0World XY\0"))

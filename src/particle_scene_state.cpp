@@ -89,7 +89,8 @@ ParticleSceneHistory advance_particle_scene_history(const ParticleSceneHistory& 
                 ++work.queries;
                 return query(origin, delta, radius);
             },
-            born, particle_uses_scene_collision_2d(effect), particle_uses_scene_impacts(effect));
+            born, particle_uses_scene_collision_2d(effect), particle_uses_scene_impacts(effect),
+            particle_uses_scene_resting(effect));
         value.state = trace.step.state;
         if (value.state.alive && live_age(effect, window_after, current, ordinal)) {
             require(next.live.size() < effect.capacity,

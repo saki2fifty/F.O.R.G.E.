@@ -42,6 +42,7 @@ struct Example {
     bool scene_collision_2d = false;
     bool world_trails = false;
     bool impacts = false;
+    bool resting = false;
 };
 constexpr Example alpha{"Scenes/240-sorted-alpha-particles.scene.json",
                         "Assets/Particles/Alpha/GlassCloud.particles.json", false};
@@ -174,6 +175,21 @@ constexpr Example xy_scene_impacts{.scene = "Scenes/262-xy-particle-impact-trail
                                    .scene_collision_2d = true,
                                    .world_trails = true,
                                    .impacts = true};
+constexpr Example scene_resting{.scene = "Scenes/263-resting-scene-particles.scene.json",
+                                .effect = "Assets/Particles/Collision/RestingCloud.particles.json",
+                                .opacity = true,
+                                .scene_collision = true,
+                                .impacts = true,
+                                .resting = true};
+constexpr Example xy_scene_resting{.scene = "Scenes/264-xy-resting-scene-particles.scene.json",
+                                   .effect =
+                                       "Assets/Particles/Collision/XYRestingCloud.particles.json",
+                                   .opacity = true,
+                                   .billboards = true,
+                                   .scene_collision = true,
+                                   .scene_collision_2d = true,
+                                   .impacts = true,
+                                   .resting = true};
 constexpr const char* quad_material = "Assets/Particles/Billboards/SoftCloud.material.json";
 constexpr const char* quad_texture = "Assets/Particles/Billboards/SoftCloud.paint-texture.json";
 constexpr const char* gpu_quad_material = "Assets/Particles/Billboards/DeviceCloud.material.json";
@@ -187,6 +203,8 @@ const char* material_source(const Example& example) {
                                                       : alpha_material;
 }
 unsigned value_version(const Example& example) {
+    if (example.resting)
+        return example.scene_collision_2d ? 71u : 68u;
     if (example.impacts)
         return example.world_trails         ? (example.scene_collision_2d ? 61u : 60u)
                : example.scene_collision_2d ? (example.billboards ? 59u : 58u)
@@ -369,6 +387,11 @@ void author(const std::filesystem::path& root, const Example& example) {
         effect.set_world_trails(true, ParticleTrailSettings{.75, 12});
     if (example.impacts)
         effect.set_scene_impacts(true);
+    if (example.resting) {
+        effect.document["spawn_rate"] = 12;
+        effect.set_scene_collision(true, ParticleSceneCollision{.06, 0, 1, 8, UINT32_MAX});
+        effect.set_scene_resting(true);
+    }
     write(root / example.effect, effect.document);
     auto catalog = AssetCatalog::open_project(root);
     if (!reuse_material)
@@ -542,13 +565,15 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
               render.cameras.size() == 1 && render.lights.size() == 1,
           "Sorted-alpha example lost its native Scene consumers");
     if (example.scene_collision) {
-        check(effect.document.at("version").get<unsigned>() == (example.impacts        ? 20u
+        check(effect.document.at("version").get<unsigned>() == (example.resting        ? 21u
+                                                                : example.impacts      ? 20u
                                                                 : example.world_trails ? 19
                                                                 : example.scene_collision_2d
                                                                     ? 18
                                                                     : 16) &&
                   effect.compiled().scene_collision ==
-                      ParticleSceneCollision{.06, .65, .15, 2, UINT32_MAX} &&
+                      (example.resting ? ParticleSceneCollision{.06, 0, 1, 8, UINT32_MAX}
+                                       : ParticleSceneCollision{.06, .65, .15, 2, UINT32_MAX}) &&
                   !effect.compiled().collision && scene.document().at("entities").size() == 6,
               "Scene example lost explicit World collision settings or its six native actors");
         for (const auto& mesh : render.meshes) {
@@ -869,6 +894,13 @@ void verify_export(const std::filesystem::path& root, const Example& example,
         if (example.scene_collision) {
             check(emitter.world_samples && emitter.world_samples->size() == samples.size(),
                   "Source-hidden Scene effect lost its copied World observations");
+            if (example.resting)
+                check(std::any_of(samples.begin(), samples.end(),
+                                  [](const auto& particle) {
+                                      return particle.velocity[1] == 0 &&
+                                             particle.position[1] < .07;
+                                  }),
+                      "Source-hidden resting Gallery has no supported living floor head");
             if (example.world_trails) {
                 check(emitter.world_paths && !emitter.world_paths->paths.paths.empty(),
                       "Source-hidden World trails lost their detached historical geometry");
@@ -911,7 +943,16 @@ int main(int argc, char** argv) {
         check(argc >= 3, "Need sorted-alpha Gallery action and project root");
         const auto root = std::filesystem::absolute(argv[2]);
         const std::string_view action = argv[1];
-        if (action == "--author-scene-impacts" || action == "--author-xy-scene-impacts")
+        if (action == "--author-resting" || action == "--author-xy-resting")
+            author(root, action == "--author-resting" ? scene_resting : xy_scene_resting);
+        else if (action == "--inspect-resting" || action == "--inspect-xy-resting")
+            (void)inspect(root, action == "--inspect-resting" ? scene_resting : xy_scene_resting);
+        else if (action == "--prepare-resting")
+            prepare(root, scene_resting);
+        else if (action == "--prepare-xy-resting") {
+            check(argc == 4, "Need the texture publication worker");
+            prepare(root, xy_scene_resting, true, std::filesystem::absolute(argv[3]));
+        } else if (action == "--author-scene-impacts" || action == "--author-xy-scene-impacts")
             author(root, action == "--author-scene-impacts" ? scene_impacts : xy_scene_impacts);
         else if (action == "--inspect-scene-impacts" || action == "--inspect-xy-scene-impacts")
             (void)inspect(root,
@@ -1075,6 +1116,7 @@ int main(int argc, char** argv) {
                    action == "--verify-export-xy-scene-collision" ||
                    action == "--verify-export-scene-impacts" ||
                    action == "--verify-export-xy-scene-impacts" ||
+                   action == "--verify-export-resting" || action == "--verify-export-xy-resting" ||
                    action == "--verify-export-world-trails" ||
                    action == "--verify-export-xy-world-trails") {
             const bool gpu = action == "--verify-export-gpu-sorted" ||
@@ -1085,6 +1127,7 @@ int main(int argc, char** argv) {
                              action == "--verify-export-gpu-billboards" ||
                              action == "--verify-export-gpu-graph-billboards";
             const bool billboards = action == "--verify-export-billboards" ||
+                                    action == "--verify-export-xy-resting" ||
                                     action == "--verify-export-scene-collision" ||
                                     action == "--verify-export-xy-scene-collision" || gpu;
             check(argc == (billboards ? 5 : 4),
@@ -1094,7 +1137,9 @@ int main(int argc, char** argv) {
             std::filesystem::create_directories(copy.parent_path());
             std::filesystem::copy(root, copy, std::filesystem::copy_options::recursive);
             verify_export(copy,
-                          action == "--verify-export-scene-impacts"          ? scene_impacts
+                          action == "--verify-export-resting"                ? scene_resting
+                          : action == "--verify-export-xy-resting"           ? xy_scene_resting
+                          : action == "--verify-export-scene-impacts"        ? scene_impacts
                           : action == "--verify-export-xy-scene-impacts"     ? xy_scene_impacts
                           : action == "--verify-export-world-trails"         ? world_ribbons
                           : action == "--verify-export-xy-world-trails"      ? xy_world_ribbons

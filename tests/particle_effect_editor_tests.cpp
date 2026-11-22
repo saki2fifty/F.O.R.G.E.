@@ -807,6 +807,29 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
                 !test::ui_targets.at("particles:preview_play").enabled,
             "Native impact notifications lost World trail/XY motion or Play prerequisite");
     const auto impact_trails = editor.document()->source().document;
+    click("particles:scene-resting");
+    frame();
+    require(editor.document()->source().compiled().version == 72 &&
+                editor.document()->source().document.at("version").get<unsigned>() == 21 &&
+                editor.document()->source().document.at("scene_resting_enabled").get<bool>() &&
+                !test::ui_targets.at("particles:preview_play").enabled,
+            "Native resting response lost trail, notification or Play prerequisites");
+    const auto resting_trails = editor.document()->source().document;
+    click("particles:scene-impacts");
+    require(editor.document()->source().compiled().version == 66,
+            "Disabling notifications disabled resting response");
+    editor.undo();
+    require(editor.document()->source().document == resting_trails,
+            "Resting source history lost the independent notification setting");
+    click("particles:scene-resting");
+    require(editor.document()->source().compiled().version == 60,
+            "Disabling resting response changed selected geometry or notifications");
+    editor.undo();
+    require(editor.document()->source().document == resting_trails,
+            "Resting response Undo lost exact retained source settings");
+    editor.undo();
+    require(editor.document()->source().document == impact_trails,
+            "Resting response Undo did not restore the exact older source");
     click("particles:scene-impacts");
     require(editor.document()->source().compiled().version == 54,
             "Disabling impact notifications disabled historical trails");

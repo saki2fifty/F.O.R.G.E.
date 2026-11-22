@@ -3421,3 +3421,18 @@ Both Scenes run their saved motion without optional code. Add the original
 `CodeExamples/ParticleImpactTint.cpp` System with the matching SDK and Physics
 permission to turn an emitter pink after its first contact. Stop restores authored
 colours. See [setup, timing and export](../../../manual/editor/particles.md#scene-impact-notifications).
+
+
+### Resting Scene particles
+
+- **263 — Resting Scene particles:** CPU Mesh heads land and remain supported by 3D colliders.
+- **264 — XY resting Scene particles:** camera-aligned heads use native XY colliders while retaining independent depth.
+
+Open the Scene and press Play. Both include the floor, inclined obstacle, camera
+and light. The shared effects use zero restitution, inward acceleration and
+**Rest on Scene surfaces (CPU)**. Stop before moving or resizing the colliders.
+Removing support or sliding past its edge releases particles into ordinary motion;
+their lifetime still applies. **Scene impact notifications (CPU)** is enabled for
+optional project-code observations; the Scenes run without a C++ module. Use the
+packaged runtime kit when exporting. See the
+[resting workflow and limits](../../../manual/editor/particles.md#rest-on-scene-surfaces).

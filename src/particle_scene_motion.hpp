@@ -5,10 +5,16 @@
 #include <functional>
 
 namespace forge {
+struct ParticleSceneSupport {
+    EntityRef collider;
+    Double3 normal{};
+    bool operator==(const ParticleSceneSupport&) const = default;
+};
 struct ParticleSceneState {
     ParticleMotionState motion;
     unsigned bounces = 0;
     bool alive = true;
+    std::optional<ParticleSceneSupport> support{};
     bool operator==(const ParticleSceneState&) const = default;
 };
 struct ParticleSceneKnot {
@@ -37,7 +43,7 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState&,
                                                 const ParticleSceneCollision&,
                                                 const ParticleSceneQuery&,
                                                 bool initial_probe = false, bool planar_2d = false,
-                                                bool capture_impacts = false);
+                                                bool capture_impacts = false, bool resting = false);
 std::optional<ParticleMotionState>
 sample_particle_scene_motion(const ParticleSceneStep&, double time, bool include_death = false);
 } // namespace forge

@@ -36,3 +36,20 @@ publication, and export checks an explicit typed impact capability. Gallery261/2
 and the original ParticleImpactTint System demonstrate the optional runtime colour
 response. Manual steps and authentic Game captures describe timing and limits.
 Local integration evidence and platform/physical acceptance remain separate.
+
+
+CPU Scene particles can opt into resting support for zero-restitution contacts
+under inward acceleration. Mesh, camera-plane and historical World ribbons support
+3D/XY queries and independent copied notifications. Existing transient history and
+native query owners revalidate support; sliding preserves tangent motion and
+releases at support loss within bounded intervals. All probes share existing
+query ceilings; failed updates preserve accepted observations. Earlier profiles
+retain their behavior, and the installed SDK boundary is unchanged.
+
+Native **Rest on Scene surfaces (CPU)** and MCP `particle_scene_resting` share
+source validation, history and publication. Source21 and values62–73 retain
+independent geometry/query/notification choices. Export requires the typed resting
+capability. Editable Gallery263/264 and illustrated manual steps demonstrate the
+workflow. Discrete support does not imply moving-surface continuous collision,
+rigid-body impulses or static-friction simulation. Local functional/software-visual,
+native Windows and physical acceptance remain separate.

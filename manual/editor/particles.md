@@ -472,7 +472,7 @@ shows the surfaces used by the 2D colliders.
 2. Enable **Scene collision (CPU)**. This selects **CPU (sorted alpha)** and turns off local-plane and ribbon activation while retaining their settings.
 3. Choose **Scene query space**: **World 3D** uses 3D colliders and sphere radius 0.001–1,000 m; **World XY** uses 2D colliders and circle radius 0.005–500 m. Set **Scene radius (m)** within that range. Radius is independent of visible size, emitter scale and lifetime size curves. Change an unsupported retained radius before selecting a different space.
 4. Set **Scene restitution** and **Scene friction** from 0 to 1. Restitution controls normal rebound speed; friction removes a fraction of tangent velocity at each impact. These Effect settings control the response; Scene bodies do not receive particle impulses.
-5. Set **Scene permitted bounces** from 0 to 16. After that many rebounds, the next incoming contact ends the particle. Zero ends it at the first contact. Initially penetrating births and sustained inward-force contact without normal rebound also end.
+5. Set **Scene permitted bounces** from 0 to 16. After that many rebounds, the next incoming contact ends the particle. Zero ends it at the first contact. Initially penetrating births also end. Sustained inward-force contact without normal rebound ends unless **Rest on Scene surfaces (CPU)** is enabled as described below.
 6. Use **Scene collision layers** to choose the named Physics layers to query. **No layers** allows free flight inside the running World. Sensor shapes are ignored. These collision layers are separate from the emitter's rendering layers.
 7. Keep camera alignment enabled for quads, or turn it off to use the saved Mesh. Lifetime size, color and opacity controls remain available. Fading transparent particles need a Blend Material with depth testing enabled and depth writing disabled.
 8. Choose **Save / Publish**, save the Scene and press **Play**. Add enabled Physics bodies and colliders matching the selected space for any other surfaces the particles should hit. Export through **Export Game** using the runtime kit packaged with this editor.
@@ -493,8 +493,9 @@ Scene collision supports CPU Mesh, camera-plane particles and the historical
 ribbon workflow below. It does not combine with GPU evaluation, local analytic
 ribbons or the local-plane response. Queries use bounded
 straight sphere or circle sweeps to approximate curved paths against the current physics
-snapshot; this is not continuous moving-surface collision. There are no resting
-contacts, synchronous collision callbacks or two-way rigid-body response. Enable
+snapshot; this is not continuous moving-surface collision. Resting contacts require
+the separate control below. There are no synchronous collision callbacks or two-way
+rigid-body impulses. Enable
 **Scene impact notifications (CPU)** to let project code read copied contacts in
 the next fixed tick, as described below.
 
@@ -508,6 +509,52 @@ Scene collision reserves at most 1,024 births across enabled emitters, within th
 ordinary 8,192-instance Scene budget. High rates, playback speeds, small radii or
 many contacts can exceed the per-update collision work budget. Reduce these
 settings or the number/capacity of emitters when a budget error is reported.
+
+## Rest on Scene surfaces
+
+Use this option to keep CPU particles on a floor or incline after they land.
+Open **Scenes/263-resting-scene-particles.scene.json** in FeatureGallery for
+Mesh particles against 3D colliders. Use
+**Scenes/264-xy-resting-scene-particles.scene.json** for camera-aligned particles
+against XY colliders. Both include a camera, light, floor and inclined obstacle.
+Press **Play** to observe landing, sliding and supported heads. Stop before editing
+Scene geometry or publishing Effect settings.
+
+![Teal and amber Mesh particles above and resting on the floor and incline](../images/resting-scene-particles.png)
+
+The 3D resting Gallery in the Game renderer at three seconds.
+
+![Camera-aligned teal and amber particles against the XY floor and incline](../images/xy-resting-scene-particles.png)
+
+The XY resting Gallery in Game at three seconds.
+
+
+1. Stop Play and open the Particle Effect from Content. Enable **Scene collision (CPU)** and select the query space matching your Scene colliders.
+2. Enable **Rest on Scene surfaces (CPU)**. Set **Scene restitution** to 0 and **Scene permitted bounces** to at least 1. Give the particles acceleration into the surface, such as a negative Y value for a horizontal floor.
+3. Set **Scene friction** to control tangent velocity lost at landing. A value of 1 removes tangent motion at contact; smaller values allow particles to slide. Acceleration along a surface and drag continue to affect that motion. This is not a static-friction simulation.
+4. Use Mesh, camera-aligned quads or **World ribbon trails (CPU)**. Enable **Scene impact notifications (CPU)** separately if project code needs copied landing and support observations.
+5. Choose **Save / Publish**, save the Scene and press **Play**. Particles stay supported while inward acceleration presses them against valid queried geometry. Removing support or reaching an edge releases them into ordinary motion. Their authored lifetime still applies.
+6. Export through **Export Game** with the runtime kit packaged with this editor. Kits without resting support are rejected before replacing the export.
+
+Initially penetrating births and zero-normal XY overlaps still end, as do contacts
+that exceed the permitted bounce count. **Scene permitted bounces** set to 0 still
+ends a particle at its first incoming contact. Positive restitution keeps ordinary
+rebounds. Support does not transfer a body's movement or apply impulses to it.
+
+Stationary support needs one native probe per advancing fixed interval. Sliding
+checks intervals up to 1/120 second and radius/4 travel against the current physics
+snapshot. Edge release follows that bounded approximation; fast moving surfaces
+have no continuous collision guarantee. All probes share the existing 256 queries
+per birth and 8,192 per Scene update. Large or fast sliding populations can exceed
+those limits; the update reports an error rather than skipping support checks.
+
+A World ribbon retains its earlier path while its head rests. Its tail continues
+to shrink; a path whose visible points all coincide has no ribbon area. Mesh or
+camera-aligned geometry keeps a visible resting head. Resting state is transient,
+clears on restart and is not simulated in stopped Scene or isolated Effect views.
+With notifications enabled, landing reports Bounce and ongoing support reports
+Touch at most once per birth in each advancing interval. Project code reads those
+copied observations in the next fixed tick.
 
 ## Historical World ribbon trails
 
@@ -688,5 +735,5 @@ paused outside a stepped fixed tick. They do not execute a callback immediately
 inside collision detection. At most8,192 slots are retained for one completed
 interval, subject to the existing Scene collision budgets. A later empty interval,
 Stop or visual reset does not replay old contacts. These transient observations
-are not saved or recovered. They do not add resting contacts, two-way impulses,
-GPU collision readback or continuous moving-surface collision.
+are not saved or recovered. Resting response uses the separate opt-in control above. Notifications do not add
+two-way impulses, GPU collision readback or continuous moving-surface collision.

@@ -10,6 +10,7 @@
 #include <forge/animation.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/render_components.hpp>
+#include <forge/render_scene.hpp>
 #include <numbers>
 namespace forge::test {
 struct GameHostFixture {
@@ -23,7 +24,7 @@ struct GameHostFixture {
          expect_module = false, loads = false, velocity = false, contacts = false, volumes = false,
          movement_2d = false, slider = false, motors = false, position_drive = false,
          connected = false, swing_twist = false, distance_springs = false, animation_exits = false,
-         particle_impacts = false;
+         particle_impacts = false, particle_resting = false;
     std::map<std::string, unsigned> exit_states;
     std::array<double, 2> swing_maximum{}, swing_minimum{180, 180};
     std::array<double, 2> spring_minimum{100, 100}, spring_maximum{};
@@ -87,7 +88,9 @@ struct GameHostFixture {
         loads = argc == 3 && std::string_view(argv[1]) == "--packaged-loads";
         velocity = argc == 3 && std::string_view(argv[1]) == "--packaged-velocity";
         contacts = argc == 3 && std::string_view(argv[1]) == "--packaged-contacts";
-        particle_impacts = argc == 3 && std::string_view(argv[1]) == "--packaged-particle-impacts";
+        particle_resting = argc == 3 && std::string_view(argv[1]) == "--packaged-particle-resting";
+        particle_impacts = particle_resting || (argc == 3 && std::string_view(argv[1]) ==
+                                                                 "--packaged-particle-impacts");
         volumes = argc == 3 && std::string_view(argv[1]) == "--packaged-volumes";
         movement_2d = argc == 3 && std::string_view(argv[1]) == "--packaged-movement-2d";
         slider = argc == 3 && std::string_view(argv[1]) == "--packaged-slider";
@@ -522,6 +525,21 @@ struct GameHostFixture {
             if (tick < 180)
                 return;
             Json emitters = Json::array();
+            std::map<std::string, unsigned> supported;
+            if (particle_resting) {
+                const auto observation =
+                    extract_render_scene(game.active().simulation.presentation(1));
+                check(observation.diagnostics.empty(),
+                      "Exported resting Gallery has invalid native presentation");
+                for (const auto& actor : observation.particles) {
+                    check(actor.world_samples.has_value(),
+                          "Exported resting Gallery lost its live World heads");
+                    for (const auto& head : *actor.world_samples)
+                        if (head.sample.velocity[1] == 0 && head.sample.position[1] >= .059 &&
+                            head.sample.position[1] < .07)
+                            ++supported[actor.entity.str()];
+                }
+            }
             const auto scene = game.active().scene.snapshot();
             for (const auto& entity : scene.at("entities")) {
                 const auto& components = entity.at("components");
@@ -532,7 +550,12 @@ struct GameHostFixture {
                           emitter.at("tint_g").get<float>() == .15f &&
                           emitter.at("tint_b").get<float>() == .5f,
                       "Exported Gallery code did not react to Scene-particle impacts");
-                emitters.push_back({{"entity", entity.at("id")}, {"value", emitter}});
+                const auto resting_heads = supported[entity.at("id").get<std::string>()];
+                check(!particle_resting || resting_heads > 0,
+                      "Exported resting Gallery has no supported living floor head");
+                emitters.push_back({{"entity", entity.at("id")},
+                                    {"value", emitter},
+                                    {"resting_heads", resting_heads}});
             }
             check(emitters.size() == 2, "Exported impact Gallery lost its two emitters");
             atomic_write(output / "particle-impacts-result.json",

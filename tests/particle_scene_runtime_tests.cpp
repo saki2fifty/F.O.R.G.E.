@@ -413,6 +413,70 @@ void impact_publication(const std::filesystem::path& root, AssetId effect, bool 
     check(view->impact_frame() == ParticleImpactFrame{},
           "Visual reset retained a published impact interval");
 }
+void resting_runtime(const std::filesystem::path& root, AssetId effect, bool planar, bool trails,
+                     bool impacts, const std::filesystem::path& sdk) {
+    Fixture live(root, scene(effect, planar), true, impacts ? sdk : std::filesystem::path{});
+    live.ready();
+    const auto view = particle_runtime_access(live.engine.world());
+    const auto floor = *live.engine.world().reference(live.authored.entity("floor").id());
+    const auto inspect = [&](bool first) {
+        const auto capture = live.captured();
+        check(capture.world_samples && capture.world_samples->size() == 4,
+              "Resting runtime lost living heads or used the isolated analytic evaluator");
+        for (const auto& head : *capture.world_samples)
+            check(std::abs(head.sample.position[1] - (planar ? .055 : .050005)) < 2e-5 &&
+                      head.sample.velocity[1] == 0,
+                  "A native resting head drifted through its support plane");
+        check(!trails || (capture.world_paths && !capture.world_paths->paths.points.empty()),
+              "Resting World trails lost their historical path capture");
+        const auto frame = view->impact_frame();
+        check(frame.count == (impacts ? 4u : 0u),
+              "Resting response ignored the independent impact-notification opt-in");
+        for (std::size_t i = 0; i < frame.count; ++i) {
+            const auto hit = view->impact_at(i);
+            check(hit && hit->contact.collider == floor && hit->birth == i &&
+                      hit->planar_2d == planar && hit->contact.outgoing_velocity[1] == 0 &&
+                      hit->contact.kind == (first ? ParticleSceneImpactKind::Bounce
+                                                  : ParticleSceneImpactKind::Touch),
+                  "Resting impact publication changed support identity or invented bounces");
+        }
+        return capture;
+    };
+    live.simulation.tick(.1f);
+    inspect(true);
+    live.simulation.tick(.1f);
+    const auto held = inspect(false);
+    live.simulation.tick(.01f);
+    inspect(false);
+    if (impacts && !sdk.empty()) {
+        std::vector<Json> observations;
+        for (const auto& diagnostic : live.engine.services().diagnostics()) {
+            const auto text = diagnostic.at("text").get<std::string>();
+            if (text.starts_with("Particle impacts: "))
+                observations.push_back(Json::parse(text.substr(18)));
+        }
+        check(observations.size() == 3 && observations[0].at("count").get<int>() == 0 &&
+                  observations[2].at("events").size() == 4,
+              "SDK did not expose the prior completed resting-support interval");
+        for (const auto& event : observations[2].at("events"))
+            check(event.at("kind").get<unsigned>() == 0 &&
+                      event.at("incoming").at(1).get<double>() == 0 &&
+                      event.at("outgoing").at(1).get<double>() == 0,
+                  "SDK changed a copied resting Touch into a repeated Bounce");
+    }
+    live.authored.entity("floor").destruct();
+    live.simulation.tick(.1f);
+    const auto released = live.captured();
+    check(released.world_samples && released.world_samples->size() == 4 &&
+              released.world_samples->front().sample.position[1] <
+                  held.world_samples->front().sample.position[1] - .04 &&
+              released.world_samples->front().sample.velocity[1] < -.9 &&
+              view->impact_frame().count == 0,
+          "Retiring native support retained a resting constraint or stale contact broadcast");
+    live.simulation.reset_presentation();
+    check(view->impact_frame() == ParticleImpactFrame{} && live.captured().world_samples->empty(),
+          "Reset retained private supported state or copied resting observations");
+}
 void impact_sdk(const std::filesystem::path& root, AssetId effect, bool planar,
                 const std::filesystem::path& sdk, bool denied, bool retire) {
     Fixture live(root, scene(effect, planar), true, sdk,
@@ -481,8 +545,8 @@ int main(int argc, char** argv) {
         AssetImportService imports(lease, particle_effect_import_registry(),
                                    {"linux", "none", "cpu"});
         auto publish = [&](const char* name, bool heavy, bool analytic, bool planar_2d = false,
-                           bool world_trails = false, bool impacts = false,
-                           bool billboards = false) {
+                           bool world_trails = false, bool impacts = false, bool billboards = false,
+                           bool resting = false) {
             auto document = ParticleEffectDocument::create(lease, name);
             document->edit(document->revision(), "Scene particle fixture", [&](auto& value) {
                 ParticleEffectSource source{value};
@@ -508,6 +572,12 @@ int main(int argc, char** argv) {
                     }
                     if (impacts)
                         source.set_scene_impacts(true);
+                    if (resting) {
+                        source.document["lifetime"] = 1;
+                        source.document["acceleration"] = {0, -9.81, 0};
+                        source.set_scene_collision(true, ParticleSceneCollision{.05, 0, .25, 4, 1});
+                        source.set_scene_resting(true);
+                    }
                 }
                 value = std::move(source.document);
             });
@@ -543,6 +613,18 @@ int main(int argc, char** argv) {
         historical_trails(root, world_trails, false);
         historical_trails(root, world_trails_xy, true);
         historical_reservation(root, heavy_trails);
+        for (bool impacts : {false, true})
+            for (bool planar : {false, true})
+                for (unsigned geometry = 0; geometry < 3; ++geometry) {
+                    const auto name = "Assets/Rest" + std::to_string(geometry) +
+                                      (planar ? "XY" : "3D") + (impacts ? "Impact" : "") +
+                                      ".particles.json";
+                    const auto effect = publish(name.c_str(), false, false, planar, geometry == 2,
+                                                impacts, geometry == 1, true);
+                    resting_runtime(root, effect, planar, geometry == 2, impacts,
+                                    argc >= 4 ? std::filesystem::path(argv[2])
+                                              : std::filesystem::path{});
+                }
         for (bool planar : {false, true})
             for (unsigned geometry = 0; geometry < 3; ++geometry) {
                 const auto name = "Assets/Impact" + std::to_string(geometry) +

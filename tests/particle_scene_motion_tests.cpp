@@ -12,6 +12,70 @@ void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
 }
+void stationary_rest(const ParticleSceneQuery& query, Double3 position, bool planar) {
+    const ParticleSceneCollision settings{.05, 0, 1, 4, UINT32_MAX};
+    const ParticleSceneState initial{{position, {0, -1, planar ? 2. : 0.}}};
+    const Double3 acceleration{0, -4, planar ? -3. : 0.};
+    const auto old = advance_particle_scene_motion(initial, acceleration, 0, .3, settings, query,
+                                                   false, planar, true);
+    check(!old.state.alive && old.death && !old.state.support,
+          "The legacy zero-restitution profile gained resting state");
+    const auto held = advance_particle_scene_motion(initial, acceleration, 0, .3, settings, query,
+                                                    false, planar, true, true);
+    check(held.state.alive && held.state.support && !held.death && held.state.bounces == 1 &&
+              held.state.motion.velocity[1] == 0 && held.impacts.size() == 1 &&
+              held.impacts.front().kind == ParticleSceneImpactKind::Bounce,
+          "Opted-in native particle did not settle without duplicate contact outcomes");
+    const auto sampled = sample_particle_scene_motion(held, .25);
+    check(sampled && std::abs(sampled->position[1] - held.state.motion.position[1]) < 1e-8,
+          "Supported presentation fell through its plane between fixed endpoints");
+    if (planar)
+        check(std::abs(held.state.motion.position[2] - (position[2] + .6 - .135)) < 1e-8 &&
+                  std::abs(sampled->position[2] - (position[2] + .5 - .09375)) < 1e-8,
+              "XY resting constrained analytic depth");
+    auto state = held.state;
+    for (unsigned i = 0; i < 4; ++i) {
+        const auto next = advance_particle_scene_motion(state, acceleration, 0, .1, settings, query,
+                                                        false, planar, true, true);
+        check(next.state.alive && next.state.support && next.queries == 1 &&
+                  next.state.bounces == held.state.bounces && next.impacts.size() == 1 &&
+                  next.impacts.front().kind == ParticleSceneImpactKind::Touch &&
+                  std::abs(next.state.motion.position[1] - held.state.motion.position[1]) < 1e-8,
+              "Stationary support bounced, drifted, lost native identity or spent excess queries");
+        state = next.state;
+    }
+    auto sliding = held.state;
+    sliding.motion.velocity[0] = .25;
+    const auto moved = advance_particle_scene_motion(sliding, acceleration, 0, .1, settings, query,
+                                                     false, planar, true, true);
+    check(moved.state.alive && moved.state.support && moved.state.bounces == held.state.bounces &&
+              moved.state.motion.velocity[0] == .25 &&
+              std::abs(moved.state.motion.position[0] - (sliding.motion.position[0] + .025)) <
+                  5e-7 &&
+              std::abs(moved.state.motion.position[1] - held.state.motion.position[1]) < 1e-8 &&
+              moved.impacts.size() == 1 && moved.queries <= 40,
+          "Supported native slide lost tangent velocity, contact plane, notification or budget");
+    const auto gone = [](const Double3&, const Double3&, double) -> std::optional<PhysicsHit> {
+        return {};
+    };
+    const auto released = advance_particle_scene_motion(state, acceleration, 0, .1, settings, gone,
+                                                        false, planar, true, true);
+    check(released.state.alive && !released.state.support && released.impacts.empty() &&
+              released.state.motion.position[1] < state.motion.position[1] - .019 &&
+              state.support.has_value(),
+          "Missing support did not release gravity or mutated the prior candidate");
+}
+void native_support_edge(const ParticleSceneQuery& query, double offset, bool planar) {
+    const ParticleSceneState initial{{{offset + 9.9, .15, 0}, {1, -1, 0}}};
+    const auto result = advance_particle_scene_motion(
+        initial, {0, -4, 0}, 0, .5, ParticleSceneCollision{.05, 0, 0, 16, UINT32_MAX}, query, false,
+        planar, true, true);
+    check(result.state.alive && !result.state.support && result.state.motion.position[1] < -.02 &&
+              result.state.motion.position[0] > offset + 10.2 &&
+              result.queries <= particle_scene_birth_query_limit && initial.bounces == 0 &&
+              !initial.support,
+          "Native finite support did not release a sliding birth beyond its edge");
+}
 Json box(const char* id, double x, double y, double height, unsigned layer, bool sensor) {
     return {{"id", id},
             {"name", id},
@@ -60,6 +124,9 @@ void xy_cases(double offset) {
             {hit->normal[0], hit->normal[1], 0},
             hit->fraction};
     };
+    stationary_rest(query, {offset, offset + .15, 7}, true);
+    if (offset == 0)
+        native_support_edge(query, offset, true);
     ParticleSceneCollision settings;
     settings.friction = .75;
     ParticleSceneState falling{{{offset, offset + 3, 1e8}, {6, -120, 7}}};
@@ -185,6 +252,9 @@ void force_cases(PhysicsService& physics, double offset) {
         sweep.displacement = delta;
         return physics.shape_cast(sweep, {1u << 1, false});
     };
+    stationary_rest(query, {offset, .15, 7}, false);
+    if (offset == 0)
+        native_support_edge(query, offset, false);
     const auto clear = [](const auto&, const auto&, double) -> std::optional<PhysicsHit> {
         return {};
     };
@@ -392,6 +462,134 @@ void impact_records() {
                   touched.impacts.front().outgoing_velocity,
           "A departing contact was misreported as a rebound or death");
 }
+void resting_mock() {
+    const EntityRef target{AssetId::generate(), EntityId::generate()};
+    const ParticleSceneQuery floor = [&](const Double3& origin, const Double3& delta,
+                                         double radius) -> std::optional<PhysicsHit> {
+        if (delta[1] >= 0)
+            return {};
+        const auto fraction = std::max(0., (radius - origin[1]) / delta[1]);
+        if (fraction > 1)
+            return {};
+        return PhysicsHit{target,
+                          {origin[0] + delta[0] * fraction, 0, origin[2] + delta[2] * fraction},
+                          {0, 1, 0},
+                          fraction};
+    };
+    stationary_rest(floor, {0, .15, 7}, false);
+    stationary_rest(floor, {0, .15, 7}, true);
+    for (bool planar : {false, true}) {
+        const auto edge = [&](const Double3& origin, const Double3& delta,
+                              double radius) -> std::optional<PhysicsHit> {
+            auto hit = floor(origin, delta, radius);
+            return hit && hit->position[0] <= .1 ? hit : std::optional<PhysicsHit>{};
+        };
+        const auto departing = advance_particle_scene_motion(
+            {{{0, .15, 0}, {1, -1, 0}}}, {0, -4, 0}, 0, .3,
+            ParticleSceneCollision{.05, 0, 0, 4, UINT32_MAX}, edge, false, planar, true, true);
+        check(departing.state.alive && !departing.state.support &&
+                  std::abs(departing.state.motion.position[0] - .3) < 1e-10 &&
+                  departing.state.motion.position[1] < .02 && departing.queries < 120,
+              "Sliding across a support edge did not release within its bounded interval");
+    }
+    ParticleSceneCollision kill{.05, 0, 1, 0, UINT32_MAX};
+    const auto ended = advance_particle_scene_motion({{{0, .15, 0}, {0, -1, 0}}}, {0, -4, 0}, 0, .3,
+                                                     kill, floor, false, false, true, true);
+    check(!ended.state.alive && !ended.state.support && ended.impacts.size() == 1 &&
+              ended.impacts.front().kind == ParticleSceneImpactKind::End,
+          "Resting overrode explicit zero permitted rebounds");
+    const ParticleSceneCollision settings{.05, 0, 0, 4, UINT32_MAX};
+    const ParticleSceneState supported{
+        {{0, .050005, 0}, {0, 0, 0}}, 1, true, ParticleSceneSupport{target, {0, 1, 0}}};
+    const auto fails = [&](const ParticleSceneState& state, const ParticleSceneQuery& query,
+                           bool planar = false) {
+        const auto before = state;
+        bool rejected = false;
+        try {
+            advance_particle_scene_motion(state, {0, -4, 0}, 0, .1, settings, query, false, planar,
+                                          true, true);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        check(rejected && state == before,
+              "Invalid resting state/query partially adopted a motion candidate");
+    };
+    for (unsigned invalid = 0; invalid < 4; ++invalid) {
+        auto state = supported;
+        if (invalid == 0)
+            state.support->collider = {};
+        else if (invalid == 1)
+            state.support->normal = {};
+        else if (invalid == 2)
+            state.support->normal = {0, 2, 0};
+        else
+            state.support->normal = {0, 0, 1};
+        fails(state, floor, invalid == 3);
+    }
+    for (unsigned invalid = 0; invalid < 4; ++invalid)
+        fails(supported,
+              [&](const Double3& origin, const Double3& delta,
+                  double radius) -> std::optional<PhysicsHit> {
+                  auto hit = *floor(origin, delta, radius);
+                  if (invalid == 0)
+                      throw std::runtime_error("Native support query failure");
+                  if (invalid == 1)
+                      hit.fraction = 2;
+                  else if (invalid == 2)
+                      hit.position[0] = std::numeric_limits<double>::infinity();
+                  else
+                      hit.normal[0] = std::numeric_limits<double>::quiet_NaN();
+                  return hit;
+              });
+    auto sliding = supported;
+    sliding.motion.velocity[0] = 100;
+    unsigned calls = 0;
+    fails(sliding, [&](const Double3& origin, const Double3& delta, double radius) {
+        ++calls;
+        return floor(origin, delta, radius);
+    });
+    check(calls == particle_scene_birth_query_limit,
+          "Support probes bypassed the existing per-birth native-query ceiling");
+    const EntityRef replacement{target.scene, EntityId::generate()};
+    const auto replaced = [&](const Double3& origin, const Double3& delta,
+                              double radius) -> std::optional<PhysicsHit> {
+        auto hit = floor(origin, delta, radius);
+        if (hit)
+            hit->entity = replacement;
+        return hit;
+    };
+    const auto renewed = advance_particle_scene_motion(supported, {0, -4, 0}, 0, .1, settings,
+                                                       replaced, false, false, true, true);
+    check(renewed.state.alive && renewed.state.support &&
+              renewed.state.support->collider == replacement && renewed.state.bounces == 2,
+          "A replacement surface inherited the retired support identity without a new contact");
+    const Double3 normal{.6, .8, 0};
+    const auto slope = [&](const Double3& origin, const Double3& delta,
+                           double radius) -> std::optional<PhysicsHit> {
+        const auto dot = [&](const Double3& v) { return v[0] * normal[0] + v[1] * normal[1]; };
+        const auto along = dot(delta);
+        if (along >= 0)
+            return {};
+        const auto fraction = (radius - dot(origin)) / along;
+        if (fraction < 0 || fraction > 1)
+            return {};
+        Double3 point;
+        for (unsigned axis = 0; axis < 3; ++axis)
+            point[axis] = origin[axis] + delta[axis] * fraction - radius * normal[axis];
+        return PhysicsHit{target, point, normal, fraction};
+    };
+    for (bool planar : {false, true}) {
+        ParticleSceneState tilted{{{.050005 * .6, .050005 * .8, 7}, {0, 0, 0}},
+                                  1,
+                                  true,
+                                  ParticleSceneSupport{target, normal}};
+        const auto held = advance_particle_scene_motion(tilted, {-2.4, -3.2, 0}, 2, .1, settings,
+                                                        slope, false, planar, true, true);
+        check(held.state.alive && held.state.support && held.queries == 1 &&
+                  held.state.bounces == 1 && held.state.motion == tilted.motion,
+              "A sloped support changed identity, drifted or invented extra bounces");
+    }
+}
 void settings_codec() {
     ParticleSceneCollision settings{.025, .75, .25, 16, 0x80000001u};
     const auto encoded = encode_particle_scene_collision(settings);
@@ -441,6 +639,7 @@ void settings_codec() {
 int main() {
     try {
         impact_records();
+        resting_mock();
         xy_compound_contacts();
         settings_codec();
         for (double offset : {0., 1e8, -1e8}) {

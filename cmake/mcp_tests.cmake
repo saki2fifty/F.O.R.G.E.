@@ -395,7 +395,9 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
  # through both protocols, including native shutdown and transcript serialization.
  set_tests_properties(mcp_particle_evaluation_stdio PROPERTIES TIMEOUT 1200)
  add_test(NAME mcp_particle_scene_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_source_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_source_host> $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_CURRENT_BINARY_DIR}/mcp-particle-scene-capture.json.gz" --particle-scene-only)
- set_tests_properties(mcp_particle_scene_stdio PROPERTIES TIMEOUT 240)
+ # Scene query space, trails, notifications and resting support share full
+ # revision/history/publication/reopen checks and a graceful native shutdown.
+ set_tests_properties(mcp_particle_scene_stdio PROPERTIES TIMEOUT 600)
  add_test(NAME mcp_source_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_source_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_source_host> $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_CURRENT_BINARY_DIR}/mcp-source-protocol-capture.json.gz")
  add_test(NAME mcp_audio_streaming_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_source_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_source_host> $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_CURRENT_BINARY_DIR}/mcp-audio-streaming-capture.json.gz" --audio-streaming-only)
  set_tests_properties(mcp_audio_streaming_stdio PROPERTIES TIMEOUT 120 ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")

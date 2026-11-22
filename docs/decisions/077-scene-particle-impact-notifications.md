@@ -55,5 +55,7 @@ alpha, opacity, Scene-query and geometry capabilities. Old or incorrectly typed
 kits reject before replacing an accepted export. The editable Gallery System uses
 the public SDK and modifies only runtime ParticleEmitter tint after observations.
 
-Resting contacts, moving-surface continuous collision, two-way impulses, device
-readback and synchronous collision callbacks remain outside this contract.
+Resting response is a separate opt-in extension in
+[ADR078](078-resting-scene-particles.md), using the same copied records.
+Moving-surface continuous collision, two-way impulses, device readback and
+synchronous collision callbacks remain outside this contract.

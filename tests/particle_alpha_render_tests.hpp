@@ -302,7 +302,7 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
                     bool graph = false, bool trails = false, bool collision = false,
                     bool weighted = false, bool gpu_opacity = false, bool sorted = false,
                     bool scene_collision = false, bool scene_collision_2d = false,
-                    bool world_trails = false, bool impacts = false) {
+                    bool world_trails = false, bool impacts = false, bool resting = false) {
     using test_bloom::check;
 #ifdef _WIN32
     const RuntimePackageTarget target{"windows", "d3d12"};
@@ -329,8 +329,9 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     check(effects.wait(ticket, std::chrono::seconds(15)), "Source-free alpha Effect load stalled");
     const auto selected = effects.acquire(ticket);
     check(selected &&
-              selected->version == (impacts ? (world_trails ? (scene_collision_2d ? 61u : 60u)
-                                                            : (scene_collision_2d ? 58u : 56u))
+              selected->version == (resting   ? (scene_collision_2d ? 71u : 68u)
+                                    : impacts ? (world_trails ? (scene_collision_2d ? 61u : 60u)
+                                                              : (scene_collision_2d ? 58u : 56u))
                                     : world_trails       ? (scene_collision_2d ? 55u : 54u)
                                     : scene_collision_2d ? 53u
                                     : scene_collision    ? 39u
@@ -376,6 +377,15 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     check(snapshot.diagnostics.empty() && snapshot.particles.size() == 2 &&
               snapshot.cameras.size() == 1 && snapshot.meshes.size() == (scene_collision ? 2u : 1u),
           "Source-free alpha Game lost its native consumers");
+    if (resting)
+        for (const auto& emitter : snapshot.particles)
+            check(emitter.world_samples &&
+                      std::any_of(emitter.world_samples->begin(), emitter.world_samples->end(),
+                                  [](const auto& head) {
+                                      return head.sample.velocity[1] == 0 &&
+                                             head.sample.position[1] < .07;
+                                  }),
+                  "Source-hidden Game has no resting floor head");
     auto host = std::make_shared<MeshResourceHost>(presentation, context, content);
     host->catalog(catalog);
     FrameRenderer renderer(presentation);
@@ -441,7 +451,9 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     }
     std::filesystem::create_directories(images);
     save_view_png(
-        images / (impacts              ? (scene_collision_2d ? "xy-particle-impact-trails.png"
+        images / (resting              ? (scene_collision_2d ? "xy-resting-scene-particles.png"
+                                                             : "resting-scene-particles.png")
+                  : impacts            ? (scene_collision_2d ? "xy-particle-impact-trails.png"
                                                              : "scene-particle-impacts.png")
                   : world_trails       ? (scene_collision_2d ? "xy-world-particle-trails.png"
                                                              : "world-particle-trails.png")

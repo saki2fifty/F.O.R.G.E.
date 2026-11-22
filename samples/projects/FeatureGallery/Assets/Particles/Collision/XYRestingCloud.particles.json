@@ -1,0 +1,109 @@
+{
+  "acceleration": [
+    0,
+    -4,
+    0
+  ],
+  "asset_id": "79b06b87-182b-46ef-9daf-16ec34405721",
+  "billboard_enabled": true,
+  "burst_count": 32,
+  "capacity": 128,
+  "collision": {
+    "bounce_limit": 4,
+    "friction": 0.1,
+    "normal": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "offset": -1.0,
+    "radius": 0.0,
+    "restitution": 0.5
+  },
+  "collision_enabled": false,
+  "color_end": [
+    1,
+    1,
+    1
+  ],
+  "color_gradient": [],
+  "color_start": [
+    1,
+    1,
+    1
+  ],
+  "cone_angle": 35,
+  "direction": [
+    0.0,
+    1.0,
+    0.0
+  ],
+  "drag": 0.1,
+  "emission": "continuous",
+  "format": "forge.particle_effect",
+  "gpu_billboard_enabled": false,
+  "gpu_collision_enabled": false,
+  "gpu_material_palette_enabled": false,
+  "gpu_opacity_enabled": false,
+  "gpu_sorted_enabled": false,
+  "gpu_trail_enabled": false,
+  "gpu_weighted_enabled": false,
+  "lifetime": 4,
+  "material": "302ccb2e-4c2f-4e45-b686-e0a09a6ecaa7",
+  "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+  "opacity_curve": [
+    {
+      "id": "05a0aa3b-798d-4b44-bce1-b23cc8773cc1",
+      "interpolation": "linear",
+      "time": 0.0,
+      "value": 0.0
+    },
+    {
+      "id": "69096e7f-ab7a-4069-84d9-56cdad9a46ab",
+      "interpolation": "linear",
+      "time": 0.15,
+      "value": 1
+    },
+    {
+      "id": "cd18c843-ac53-4a23-a7ad-067be17d34b9",
+      "interpolation": "linear",
+      "time": 1.0,
+      "value": 0.0
+    }
+  ],
+  "opacity_enabled": true,
+  "opacity_end": 0,
+  "opacity_start": 0,
+  "profile": "cpu_scene_rest_impact_2d_billboard1",
+  "scene_collision": {
+    "bounce_limit": 8,
+    "friction": 1.0,
+    "mask": 4294967295,
+    "radius": 0.06,
+    "restitution": 0.0
+  },
+  "scene_collision_2d": true,
+  "scene_collision_enabled": true,
+  "scene_impacts_enabled": true,
+  "scene_resting_enabled": true,
+  "shape": "box",
+  "shape_radius": 1.0,
+  "shape_size": [
+    2,
+    0.25,
+    1
+  ],
+  "size_curve": [],
+  "size_end": 0.06,
+  "size_start": 0.12,
+  "spawn_rate": 12,
+  "speed_max": 1.5,
+  "speed_min": 0.5,
+  "trail": {
+    "duration": 0.5,
+    "segments": 8
+  },
+  "trail_enabled": false,
+  "version": 21,
+  "world_trail_enabled": false
+}

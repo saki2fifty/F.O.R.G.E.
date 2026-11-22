@@ -61,7 +61,7 @@ or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph came
 analytic-trail CPU10/plane-collision CPU11/explicit weighted GPU12–15/GPU opacity16–19/
 GPU plane20–22/GPU ribbon23–25/ordered GPU26–37/CPU Scene collision38–39/
 GPU Material palettes40–51/CPU XY Scene collision52–53/historical Scene trails54–55/
-CPU Scene-impact observations56–61;
+CPU Scene-impact observations56–61/resting CPU Scene response62–73;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -844,8 +844,10 @@ selection retains inactive Scene settings without projecting them.
 Radius is0.001–1000 world meters, coefficients0–1, rebounds0–16 and mask a uint32.
 PhysicsService owns sphere sweeps against realized3D geometry after physics adoption;
 sensors are ignored. Particle radius and response do not inherit visual size or
-mix Scene-body contact materials. There are no two-way impulses, resting solver,
-continuous moving-surface dynamics, GPU Scene queries, ribbon histories or callbacks.
+mix Scene-body contact materials. The original profiles have no resting response
+or ribbon history; explicit extensions below add those options. There are no
+two-way impulses, rigid-body resting solver, continuous moving-surface dynamics,
+GPU Scene queries or synchronous callbacks.
 Explicit source18/values52/53 extend the same owner to native XY geometry as
 described below; they do not change the original3D profiles.
 At birth the adopted fixed-update affine transforms position, velocity and
@@ -918,8 +920,9 @@ at that time. Native casts return a target surface witness and may report a cent
 inside the geometric radius due to contact tolerance. The particle response clips
 the incoming chord fraction to that witness supporting plane at the actual radius
 and leaves at least0.005m departure clearance. Original3D contact/bias semantics are
-unchanged. There is no resting solver, moving-surface continuous response, callback,
-body impulse, GPU Scene query or world-history ribbon simulation.
+unchanged. Explicit resting and World-ribbon profiles are described below. There
+is no rigid-body solver, moving-surface continuous response, synchronous callback,
+body impulse or GPU Scene query.
 
 Native **Scene query space** selects **World 3D** or **World XY**. Shared
 `asset.document.particle_scene_collision` and MCP
@@ -1030,5 +1033,57 @@ ribbons. `CodeExamples/ParticleImpactTint.cpp` is the original shared managed
 System. Installed sample `particle_impact_gallery_gameplay` compiles that same
 source with its standalone matching-SDK descriptor. It changes runtime emitter
 colour on a copied contact; unmodified Gallery scenes still simulate without
-optional code. No native contact causes a synchronous project callback, resting
-constraint, collider impulse or device-particle readback.
+optional code. No native contact causes a synchronous project callback, collider
+impulse or device-particle readback. Resting response is an independent opt-in below.
+
+## Resting CPU Scene response
+
+[ADR078](decisions/078-resting-scene-particles.md) extends the existing history
+owner with a copied supporting collider and unit normal per birth. Source21
+requires Boolean `scene_resting_enabled`. Explicit values62/63 select 3D
+Mesh/camera-plane,64/65 XY Mesh/camera-plane,66/67 3D/XY World ribbons. Values68–73
+select the same six geometries with independent copied impact notifications.
+Older profile meanings, source identities and saved inactive settings remain.
+`ParticleEffectSource::set_scene_resting` normalizes through the existing source
+owner and canonical profile table. Enabling selects CPU sorted alpha and Scene
+collision; disabling an absent older field is an exact no-op.
+
+Native **Rest on Scene surfaces (CPU)** and
+`asset.document.particle_scene_resting` / `forge_asset_document_particle_scene_resting`
+call that same setter. Existing asset.write grants, sessions, exact revisions,
+Undo/Redo, publication and save/reopen apply. Stopped Scene, Timeline and isolated
+Effect previews still require Play; they do not create a second physics context.
+
+Zero restitution and inward acceleration can keep an incoming birth alive after
+an allowed rebound. At least one rebound must be permitted. Existing contact
+friction removes tangent velocity once; tangent acceleration and drag continue.
+A valid support probe constrains the inward normal acceleration only. Initial
+penetration, zero-normal XY overlap and exhausted rebound limits still end the
+birth. Positive restitution retains ordinary bounce response. This is not a
+rigid-body or static/Coulomb-friction solver and does not transfer surface velocity.
+
+Revalidate support through the existing filtered native query. A stationary held
+birth needs one probe per advancing interval. Sliding steps are bounded by
+1/120 s and radius/4 travel, retaining ordinary motion casts and a final endpoint
+probe. Missing or changed support releases ordinary motion; replacement geometry
+must establish a new contact identity. This is discrete current-snapshot support,
+not moving-surface continuous collision. Every support probe shares the existing
+256-query birth and8192-query World limits. Failure rejects the detached candidate
+before adoption. Existing chord-knot interpolation and independent analytic XY
+depth remain authoritative.
+
+Copied notifications remain optional and use unchanged existing SDK shapes.
+Landing reports Bounce; continuing support reports at most one Touch per birth in
+an advancing interval. The existing weak bridge publishes only after whole-candidate
+adoption and exposes the prior completed interval during the next fixed tick.
+No callback, additional store or installed SDK slot is introduced. Lifecycle reset,
+disabling and seed/effect replacement clear support with the ordinary histories.
+World ribbons retain earlier motion while a supported head remains alive; paths
+whose points all coincide have zero ribbon area. Existing bounds/render/capture
+owners consume actual world samples without reapplying emitter transforms.
+
+Exports require typed `runtime_particle_scene_resting:1` as well as the selected
+effect/alpha/opacity/query/geometry/notification capabilities. Missing, malformed
+or unsupported kit fields reject before replacing accepted output. The source
+and private motion headers add no installed SDK ABI; matching-boundary evidence
+and local/native/physical acceptance are recorded separately.

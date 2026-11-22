@@ -202,4 +202,58 @@ def check_particle_scene(read, mutate, edit, status, content, failed, root, tool
     assert edit('forge_asset_document_close', owner)['ok']
     assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
     assert content(owner) == impacts
+    rest_name = 'forge_asset_document_particle_scene_resting'
+    rest_tool = next(item for item in tools if item['name'] == rest_name)
+    rest_schema = rest_tool['inputSchema']['properties']
+    assert rest_schema['editor']['const'] == owner and rest_schema['enabled']['type'] == 'boolean'
+    assert not rest_tool['annotations']['readOnlyHint']
+    assert 'runtime_particle_scene_resting1' in catalog['scene_resting']
+    before = status(owner)
+    assert edit(rest_name, owner, enabled=False)['ok']
+    assert content(owner) == impacts and status(owner)['revision'] == before['revision']
+    assert edit(rest_name, owner, enabled=True)['ok']
+    resting = content(owner)
+    assert resting['version'] == 21 and resting['profile'] == 'cpu_scene_rest_impact_trail_2d1'
+    assert resting['scene_resting_enabled'] and resting['scene_impacts_enabled']
+    for key in ('asset_id', 'size_curve', 'extensions', 'trail', 'scene_collision'):
+        assert resting[key] == impacts[key]
+    failed(mutate(rest_name, editor=owner, enabled=False,
+                  document_session=before['session'], document_revision=before['revision']), 'stale_document')
+    current = status(owner)
+    failed(mutate(rest_name, editor=owner, enabled=False,
+                  document_session=current['session'] + 1000,
+                  document_revision=current['revision']), 'wrong_document')
+    for invalid in (None, 1, 'true'):
+        assert not edit(rest_name, owner, enabled=invalid)['ok']
+        assert content(owner) == resting and status(owner)['revision'] == current['revision']
+    assert edit(rest_name, owner, enabled=True)['ok']
+    assert status(owner)['revision'] == current['revision']
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == impacts
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == resting
+    save(73)
+    assert edit(impact_name, owner, enabled=False)['ok']
+    assert content(owner)['profile'] == 'cpu_scene_rest_trail_2d1'
+    assert content(owner)['scene_resting_enabled']
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == resting
+    assert edit(name, owner, enabled=True, space='world3d')['ok']
+    assert content(owner)['profile'] == 'cpu_scene_rest_impact_trail1'
+    assert edit(trail_name, owner, space='world', enabled=False)['ok']
+    assert content(owner)['profile'] == 'cpu_scene_rest_impact_billboard1'
+    assert edit('forge_asset_document_particle_billboards', owner, enabled=False)['ok']
+    assert content(owner)['profile'] == 'cpu_scene_rest_impact1'
+    assert edit('forge_asset_document_particle_evaluation', owner, evaluation='gpu')['ok']
+    assert content(owner)['profile'] == 'gpu_mesh1' and content(owner)['scene_resting_enabled']
+    assert edit('forge_asset_document_particle_evaluation', owner, evaluation='cpu_alpha')['ok']
+    assert content(owner)['profile'] == 'cpu_scene_rest_impact1'
+    for _ in range(5):
+        assert edit('forge_asset_document_undo', owner)['ok']
+    assert content(owner) == resting
+    assert edit(rest_name, owner, enabled=False)['ok']
+    assert content(owner)['profile'] == 'cpu_scene_impact_trail_2d1'
+    assert content(owner)['scene_impacts_enabled'] and not content(owner)['scene_resting_enabled']
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == resting
+    save(73)
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
+    assert content(owner) == resting
     assert edit('forge_asset_document_close', owner)['ok']

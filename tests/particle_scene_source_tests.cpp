@@ -342,6 +342,74 @@ void impact_profiles() {
             }
         }
 }
+void rest_profiles() {
+    constexpr unsigned expected[2][2][3] = {{{62, 63, 66}, {64, 65, 67}},
+                                            {{68, 69, 72}, {70, 71, 73}}};
+    for (bool impacts : {false, true})
+        for (bool planar : {false, true})
+            for (unsigned geometry = 0; geometry < 3; ++geometry) {
+                auto source = ParticleEffectSource::create(AssetId::generate());
+                source.document["extensions"] = {{"scene_resting_enabled", "opaque"}};
+                const auto original = source.document;
+                source.set_scene_resting(false);
+                check(source.document == original, "Inactive resting upgraded legacy source");
+                if (geometry == 1)
+                    source.enable_billboards(true);
+                source.set_scene_collision(true, ParticleSceneCollision{.05, 0, .25, 4, 3}, planar);
+                if (geometry == 2)
+                    source.set_world_trails(true, ParticleTrailSettings{.5, 4});
+                if (impacts)
+                    source.set_scene_impacts(true);
+                const auto previous = source.compiled().version;
+                source.set_scene_resting(true);
+                const auto active = source.document;
+                check(active.at("version").get<unsigned>() == 21 &&
+                          source.compiled().version == expected[impacts][planar][geometry] &&
+                          particle_uses_scene_resting(source.compiled()) &&
+                          particle_uses_scene_impacts(source.compiled()) == impacts &&
+                          active.at("asset_id") == original.at("asset_id") &&
+                          active.at("extensions") == original.at("extensions") &&
+                          parse(active).document == active &&
+                          decode_cooked_particle_effect(source.cook(), source.asset(), 3) ==
+                              source.compiled(),
+                      "Resting profile lost explicit values, source/cook identity or prior intent");
+                source.set_scene_resting(true);
+                check(source.document == active, "Repeated resting activation changed source");
+                for (auto backend : {ParticleEvaluation::Cpu, ParticleEvaluation::Gpu}) {
+                    source.set_evaluation(backend);
+                    check(!particle_uses_scene_resting(source.compiled()) &&
+                              source.document.at("scene_resting_enabled").get<bool>(),
+                          "Inactive resting intent leaked into another backend or was discarded");
+                    source.set_evaluation(ParticleEvaluation::CpuAlpha);
+                    check(source.document == active, "Resting backend round trip lost source");
+                }
+                source.set_scene_resting(false);
+                check(source.compiled().version == previous,
+                      "Disabling resting changed prior geometry or notifications");
+                source.set_scene_resting(true);
+                check(source.document == active, "Resting toggle lost retained source values");
+                source.set_scene_impacts(!impacts);
+                check(source.compiled().version == expected[!impacts][planar][geometry] &&
+                          source.document.at("version").get<unsigned>() == 21,
+                      "Notification change downgraded or disabled resting source");
+                source.set_scene_impacts(impacts);
+                source.set_scene_collision_space(!planar);
+                check(source.compiled().version == expected[impacts][!planar][geometry],
+                      "Query-space change discarded resting");
+                source.set_scene_collision_space(planar);
+                check(source.document == active,
+                      "Resting query/notification round trip lost source");
+                for (const auto& invalid :
+                     {nlohmann::json(), nlohmann::json(1), nlohmann::json("true")}) {
+                    auto wrong = active;
+                    wrong["scene_resting_enabled"] = invalid;
+                    reject([&] { (void)parse(wrong); });
+                }
+                auto wrong_version = active;
+                wrong_version["version"] = 20;
+                reject([&] { (void)parse(wrong_version); });
+            }
+}
 } // namespace
 int main() {
     try {
@@ -349,6 +417,7 @@ int main() {
         xy_profiles();
         world_trail_profiles();
         impact_profiles();
+        rest_profiles();
         std::cout << "Scene particle source profiles passed\n";
         return 0;
     } catch (const std::exception& error) {

@@ -9,7 +9,7 @@ from pathlib import Path
 from runtime_client import Runtime
 
 
-def verify(runtime, module, fixture, gallery):
+def verify(runtime, module, fixture, gallery, resting=False, asset_worker=None):
     runtime, module, fixture, gallery = map(Path, (runtime, module, fixture, gallery))
     fingerprint = json.loads(subprocess.check_output(
         [runtime, '--sdk-info'], text=True))['fingerprint']
@@ -19,9 +19,18 @@ def verify(runtime, module, fixture, gallery):
             root = scratch / 'project'
             shutil.copytree(gallery, root)
             action = '--prepare-xy-scene-impacts' if planar else '--prepare-scene-impacts'
-            subprocess.run([fixture, action, root], check=True, timeout=90)
+            if resting:
+                action = '--prepare-xy-resting' if planar else '--prepare-resting'
+            command = [fixture, action, root]
+            if resting and planar:
+                assert asset_worker, 'Textured resting Gallery requires its asset worker'
+                command.append(asset_worker)
+            subprocess.run(command, check=True, timeout=90)
             path = ('Scenes/262-xy-particle-impact-trails.scene.json' if planar else
                     'Scenes/261-scene-particle-impacts.scene.json')
+            if resting:
+                path = ('Scenes/264-xy-resting-scene-particles.scene.json' if planar else
+                        'Scenes/263-resting-scene-particles.scene.json')
             source = json.loads((root / path).read_text())
             actors = [row['id'] for row in source['entities']
                       if 'forge.particle_emitter' in row['components']]
@@ -63,6 +72,10 @@ def verify(runtime, module, fixture, gallery):
                     assert value['tint_r'] == 1 and abs(value['tint_g'] - .15) < 1e-6
                     assert value['tint_b'] == .5
                     assert row['particle_playback']['generation'] > 0
+                    if resting:
+                        heads = row['particle_playback']['world_samples']
+                        assert heads and any(head['velocity'][1] == 0 and
+                            .059 <= head['position'][1] < .07 for head in heads), heads
                 observed = worker.request('snapshot')
                 assert observed['timing']['tick'] == state['timing']['tick']
                 assert emitters(observed) == emitters(state)
@@ -70,8 +83,11 @@ def verify(runtime, module, fixture, gallery):
                 assert worker.process.returncode == 0
             finally:
                 worker.close()
-    print('Source-hidden production runtime: 3D/XY impacts drove the original Gallery System; clean exits')
+    print('Source-hidden production runtime: 3D/XY ' + ('resting contacts' if resting else 'impacts') +
+          ' drove the original Gallery System; clean exits')
 
 
 if __name__ == '__main__':
-    verify(*(Path(value).resolve() for value in sys.argv[1:5]))
+    verify(*(Path(value).resolve() for value in sys.argv[1:5]),
+           resting='--resting' in sys.argv[5:],
+           asset_worker=Path(sys.argv[6]).resolve() if len(sys.argv) == 7 else None)

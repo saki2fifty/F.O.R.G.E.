@@ -2284,6 +2284,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "158c5dd8-5b4c-47d7-985e-49981d208590",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/263-resting-scene-particles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "15900000-1590-4159-8159-000000000001",
       "metadata": {},
       "schema_version": 3,
@@ -7562,6 +7572,16 @@
       "type": "ui_document"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "4d2bd400-6d1e-4df1-830a-4c49a541d3d8",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Collision/RestingCloud.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
       "dependencies": [
         "2a41b161-1112-435d-8b15-d8142e43c778"
       ],
@@ -10409,6 +10429,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "6f9474c3-105d-4ee3-a373-117e2bb241db",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/264-xy-resting-scene-particles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "6fbe604b-3302-400b-8790-5bd2cab2c6a1",
       "metadata": {
         "forge.import": {
@@ -11403,6 +11433,16 @@
       "source": "Scenes/243-gpu-camera-particles.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "79b06b87-182b-46ef-9daf-16ec34405721",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Collision/XYRestingCloud.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],
