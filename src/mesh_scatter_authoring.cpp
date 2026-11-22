@@ -111,25 +111,9 @@ MeshScatterSettings mesh_scatter_settings(const Json& a) {
                                a.at("count"),
                                a.at("seed")};
 }
-Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
+std::vector<MeshScatterCandidate> mesh_scatter_candidates(const LocalTransform& local,
+                                                          const Json& a) {
     const auto settings = mesh_scatter_settings(a);
-    const auto name = a.at("name").get<std::string>();
-    if (name.find_first_not_of(" \t\r\n") == std::string::npos)
-        invalid("Foliage group name must not be blank");
-    auto doc = scene.document();
-    const auto view = scene.effective_document();
-    const Json* prototype = nullptr;
-    for (const auto& row : view.at("entities"))
-        if (row.at("id") == source)
-            prototype = &row;
-    if (!prototype || prototype->value("prefab", false) ||
-        !prototype->at("components").contains("forge.mesh_renderer"))
-        invalid("Choose a Scene entity with a Mesh Renderer as the foliage template");
-    const auto& renderer = prototype->at("components").at("forge.mesh_renderer");
-    if (!renderer.contains("mesh") || !renderer.at("mesh").is_string() ||
-        !AssetId::parse(renderer.at("mesh").get<std::string>()))
-        invalid("The foliage template needs a nonempty Mesh reference");
-    const auto local = read_local(prototype->at("components"));
     const auto placements = mesh_scatter_layout(settings);
     std::vector<double> heights;
     if (a.contains("world_heights")) {
@@ -191,39 +175,14 @@ Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
         if (!retained)
             invalid("Placement mask must retain at least one candidate");
     }
-    if (doc.at("entities").size() + retained + 1 > 10000)
-        throw AuthoringError("limit_exceeded",
-                             "Foliage placement would exceed 10000 Scene entities");
-    std::set<std::string> occupied;
-    for (const auto& row : doc.at("entities"))
-        occupied.insert(row.at("id").get<std::string>());
-    auto fresh = [&] {
-        std::string id;
-        do {
-            id = EntityId::generate().str();
-        } while (!occupied.insert(id).second);
-        return id;
-    };
-    const auto group = fresh();
-    Json root = {{"id", group},
-                 {"name", name},
-                 {"spatial", {{"mode", "follow_structure"}}},
-                 {"components", {{"forge.primitive", {{"kind", no_primitive}}}}}};
-    LocalTransform group_transform;
-    group_transform.translation = {settings.center[0], settings.center[1], settings.center[2]};
-    write_local(root, {}, group_transform, TransformChannel::All);
-    doc["entities"].push_back(std::move(root));
-    Json created = Json::array();
+    std::vector<MeshScatterCandidate> result;
+    result.reserve(placements.size());
     for (std::size_t i = 0; i < placements.size(); ++i) {
-        if (!selected[i])
+        if (!selected[i]) {
+            result.push_back({{}, false});
             continue;
+        }
         const auto& p = placements[i];
-        const auto id = fresh();
-        Json row = {{"id", id},
-                    {"name", name + " " + std::to_string(i + 1)},
-                    {"parent", group},
-                    {"spatial", {{"mode", "follow_structure"}}},
-                    {"components", {{"forge.mesh_renderer", renderer}}}};
         auto transform = local;
         transform.translation = {p.offset[0], heights.empty() ? 0 : heights[i] - settings.center[1],
                                  p.offset[1]};
@@ -248,13 +207,72 @@ Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
         }
         transform.scale = checked_local_scale(
             {local.scale.x * p.scale, local.scale.y * p.scale, local.scale.z * p.scale});
+        result.push_back({transform, selected[i]});
+    }
+    return result;
+}
+Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
+    const auto settings = mesh_scatter_settings(a);
+    const auto name = a.at("name").get<std::string>();
+    if (name.find_first_not_of(" \t\r\n") == std::string::npos)
+        invalid("Foliage group name must not be blank");
+    auto doc = scene.document();
+    const auto view = scene.effective_document();
+    const Json* prototype = nullptr;
+    for (const auto& row : view.at("entities"))
+        if (row.at("id") == source)
+            prototype = &row;
+    if (!prototype || prototype->value("prefab", false) ||
+        !prototype->at("components").contains("forge.mesh_renderer"))
+        invalid("Choose a Scene entity with a Mesh Renderer as the foliage template");
+    const auto& renderer = prototype->at("components").at("forge.mesh_renderer");
+    if (!renderer.contains("mesh") || !renderer.at("mesh").is_string() ||
+        !AssetId::parse(renderer.at("mesh").get<std::string>()))
+        invalid("The foliage template needs a nonempty Mesh reference");
+    const auto local = read_local(prototype->at("components"));
+    const auto candidates = mesh_scatter_candidates(local, a);
+    const auto retained = std::size_t(std::count_if(
+        candidates.begin(), candidates.end(), [](const auto& value) { return value.selected; }));
+    if (doc.at("entities").size() + retained + 1 > 10000)
+        throw AuthoringError("limit_exceeded",
+                             "Foliage placement would exceed 10000 Scene entities");
+    std::set<std::string> occupied;
+    for (const auto& row : doc.at("entities"))
+        occupied.insert(row.at("id").get<std::string>());
+    auto fresh = [&] {
+        std::string id;
+        do {
+            id = EntityId::generate().str();
+        } while (!occupied.insert(id).second);
+        return id;
+    };
+    const auto group = fresh();
+    Json root = {{"id", group},
+                 {"name", name},
+                 {"spatial", {{"mode", "follow_structure"}}},
+                 {"components", {{"forge.primitive", {{"kind", no_primitive}}}}}};
+    LocalTransform group_transform;
+    group_transform.translation = {settings.center[0], settings.center[1], settings.center[2]};
+    write_local(root, {}, group_transform, TransformChannel::All);
+    doc["entities"].push_back(std::move(root));
+    Json created = Json::array();
+    for (std::size_t i = 0; i < candidates.size(); ++i) {
+        if (!candidates[i].selected)
+            continue;
+        const auto id = fresh();
+        Json row = {{"id", id},
+                    {"name", name + " " + std::to_string(i + 1)},
+                    {"parent", group},
+                    {"spatial", {{"mode", "follow_structure"}}},
+                    {"components", {{"forge.mesh_renderer", renderer}}}};
+        const auto& transform = candidates[i].transform;
         write_local(row, {}, transform, TransformChannel::All);
         doc["entities"].push_back(std::move(row));
         created.push_back(id);
     }
     scene.edit(doc);
     return {{"operation", "mesh.scatter"}, {"selected", group},
-            {"created", created},          {"candidate_count", placements.size()},
-            {"placed_count", retained},    {"aligned_to_slope", !normals.empty()}};
+            {"created", created},          {"candidate_count", candidates.size()},
+            {"placed_count", retained},    {"aligned_to_slope", a.contains("world_normals")}};
 }
 } // namespace forge::detail

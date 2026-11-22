@@ -1,5 +1,27 @@
 # Feature Gallery
 
+## Foliage template Mesh bounds
+
+Open **Scenes/267-foliage-mesh-bounds.scene.json** and press Play → Game.
+**Root sphere meadow** has 64 saved plants; **Mesh bounds meadow** has 20. Both
+patches start from 96 candidates and separate their retained volumes. The left
+patch uses a 0.15 m sphere above each root. The right encloses each static blade's
+Mesh at its mirrored scale, seeded yaw/scale and terrain slope alignment, with
+0.05 m padding and zero world offset. The world-axis boxes conservatively include
+empty space. Every plant remains an ordinary saved Mesh Renderer object.
+
+Stop Play and select **Blade template**. Open Foliage placement, choose the template
+with **Use selected Mesh Renderer**, enable surface projection and select the
+layered terrain. Use 96 candidates, radius 2.75, spacing 0.1, seed 91 and scale
+0.65..1.15; enable slope alignment. Enable **Reject collisions**, choose **Template
+Mesh bounds**, set padding 0.05 and all clearance offsets to 0, then enable
+**Separate new plants**. Choose **Check layout** before **Place foliage**. Native
+3D colliders block placement; visible meshes alone do not. Save and choose this
+Scene as startup to export. No project C++ module is required.
+See [foliage clearance](../../../manual/editor/foliage.md#keep-clear-of-colliders).
+
+![Root-sphere and template Mesh-bounds foliage patches in the Game view](../../../manual/images/foliage-mesh-bounds-game.png)
+
 ## Foliage brush clearance
 
 Open **Scenes/257-foliage-brush-clearance.scene.json** and press Play → Game.

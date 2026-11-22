@@ -4,6 +4,11 @@
 #include <forge/project_lease.hpp>
 #include <memory>
 namespace forge {
+struct MeshBounds;
+struct MeshResourceData;
+// Static published-geometry admission shared by bounds preparation and its consumers.
+MeshBounds foliage_template_bounds(const MeshResourceData&);
+enum class FoliageClearanceProfile { WorldSphere, MeshBounds };
 struct FoliageCollisionSettings {
     double radius = .25;
     Double3 offset{0, .5, 0};
@@ -12,6 +17,8 @@ struct FoliageCollisionSettings {
     EntityId surface;
     std::vector<EntityId> ignored;
     bool avoid_new_overlaps = false;
+    FoliageClearanceProfile profile = FoliageClearanceProfile::WorldSphere;
+    double padding = 0;
 };
 // Canonical copied choices for request/gesture fingerprints and result inspection.
 Json foliage_collision_settings(const FoliageCollisionSettings&);

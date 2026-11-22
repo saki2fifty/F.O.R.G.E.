@@ -1,9 +1,11 @@
 #include "foliage_collision.hpp"
 #include "mesh_scatter_authoring.hpp"
+#include "render_bounds.hpp"
 #include "runtime_package.hpp"
 #include "terrain_foliage_authoring.hpp"
 #include <cmath>
 #include <forge/game_content.hpp>
+#include <forge/mesh_resource.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/runtime_world.hpp>
 #include <forge/scene_identity.hpp>
@@ -16,7 +18,9 @@ namespace {
 constexpr auto path = "Scenes/156-foliage-clearance.scene.json";
 constexpr auto separated_path = "Scenes/256-foliage-candidate-clearance.scene.json";
 constexpr auto stroke_path = "Scenes/257-foliage-brush-clearance.scene.json";
+constexpr auto bounds_path = "Scenes/267-foliage-mesh-bounds.scene.json";
 constexpr double separated_radius = .4;
+enum class Gallery { Sphere, Separated, Stroke, MeshBounds };
 void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
@@ -26,8 +30,13 @@ Json read(const std::filesystem::path& file) {
     std::ifstream(file) >> result;
     return result;
 }
-void author(const std::filesystem::path& root, bool separate = false, bool stroke = false) {
-    const auto destination = stroke ? stroke_path : separate ? separated_path : path;
+void author(const std::filesystem::path& root, Gallery mode = Gallery::Sphere) {
+    const bool separate = mode != Gallery::Sphere, stroke = mode == Gallery::Stroke,
+               mesh_bounds = mode == Gallery::MeshBounds;
+    const auto destination = mesh_bounds ? bounds_path
+                             : stroke    ? stroke_path
+                             : separate  ? separated_path
+                                         : path;
     check(!std::filesystem::exists(root / destination), "Clearance Gallery already exists");
     auto lease = std::make_shared<ProjectLease>(root);
     EngineContext engine;
@@ -50,6 +59,9 @@ void author(const std::filesystem::path& root, bool separate = false, bool strok
             surface = row.at("id");
     }
     check(!prototype.empty() && !surface.empty(), "Clearance Gallery actors missing");
+    if (mesh_bounds)
+        authoring_command(scene, "transform.scale",
+                          {{"entity", prototype}, {"value", {{"x", -2}, {"y", 1.4}, {"z", 2}}}});
     const auto obstacle = authoring_command(scene, "entity.create",
                                             {{"recipe", "primitive.0"},
                                              {"name", "Clearance obstacle - ignore to compare"}})
@@ -79,7 +91,9 @@ void author(const std::filesystem::path& root, bool separate = false, bool strok
             settings.radius = 2.75;
             settings.spacing = .1;
         }
-        const auto* name = stroke ? (patch ? "Brush plant separation" : "Brush collider clearance")
+        const auto* name = mesh_bounds ? (patch ? "Mesh bounds meadow" : "Root sphere meadow")
+                           : stroke
+                               ? (patch ? "Brush plant separation" : "Brush collider clearance")
                            : !separate ? "Cleared meadow"
                            : patch     ? "Separated meadow"
                                        : "Unseparated meadow";
@@ -109,6 +123,15 @@ void author(const std::filesystem::path& root, bool separate = false, bool strok
         config.avoid_new_overlaps = separate && patch;
         if (separate)
             config.radius = separated_radius;
+        if (mesh_bounds) {
+            config.avoid_new_overlaps = true;
+            config.radius = .15;
+            if (patch) {
+                config.profile = FoliageClearanceProfile::MeshBounds;
+                config.padding = .05;
+                config.offset = {};
+            }
+        }
         task.start(lease, scene, prepared.at("arguments"), config);
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
         while (task.busy()) {
@@ -140,8 +163,9 @@ void author(const std::filesystem::path& root, bool separate = false, bool strok
     const std::array roots{scene.asset_id()};
     prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
 }
-void exercise(const std::filesystem::path& root, AssetId id, bool separate = false,
-              bool stroke = false) {
+void exercise(const std::filesystem::path& root, AssetId id, Gallery mode = Gallery::Sphere) {
+    const bool separate = mode != Gallery::Sphere, stroke = mode == Gallery::Stroke,
+               mesh_bounds = mode == Gallery::MeshBounds;
     RuntimeWorld world({}, {}, std::nullopt, root, false);
     world.scene.restore_snapshot(load_game_scene(root, {id}));
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
@@ -153,15 +177,36 @@ void exercise(const std::filesystem::path& root, AssetId id, bool separate = fal
     const auto source = world.scene.effective_document();
     unsigned plants = 0, obstacles = 0, unseparated = 0;
     std::vector<LocalTranslation> separated;
+    std::vector<PhysicsOverlap> separated_boxes;
+    ResourceLease<MeshAsset> template_mesh;
+    if (mesh_bounds) {
+        AssetId asset;
+        for (const auto& row : source.at("entities"))
+            if (row.at("name").get<std::string>().starts_with("Blade template"))
+                asset = row.at("components").at("forge.mesh_renderer").at("mesh").get<AssetId>();
+        check(bool(asset), "Mesh bounds Gallery lost its template");
+        const auto resources = world.engine.services().resources();
+        const auto token = resources->request(RuntimeResourceKind::Mesh, asset);
+        while (!(template_mesh = resources->mesh(token))) {
+            resources->synchronize();
+            check(std::chrono::steady_clock::now() < deadline, "Gallery template Mesh stalled");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        check(template_mesh->mesh.lods.size() == 1 && template_mesh->mesh.lods[0].parts.size() == 1,
+              "Gallery static blade geometry contract changed");
+    }
     for (const auto& row : source.at("entities")) {
         const auto name = row.at("name").get<std::string>();
         if (name.starts_with("Clearance obstacle"))
             ++obstacles;
         const bool separated_plant =
-            separate && name.starts_with(stroke ? "Brush plant separation " : "Separated meadow ");
+            separate && name.starts_with(mesh_bounds ? "Mesh bounds meadow "
+                                         : stroke    ? "Brush plant separation "
+                                                     : "Separated meadow ");
         const bool unseparated_plant =
-            separate &&
-            name.starts_with(stroke ? "Brush collider clearance " : "Unseparated meadow ");
+            separate && name.starts_with(mesh_bounds ? "Root sphere meadow "
+                                         : stroke    ? "Brush collider clearance "
+                                                     : "Unseparated meadow ");
         if (!separated_plant && !unseparated_plant && !name.starts_with("Cleared meadow "))
             continue;
         if (!row.at("components").contains("forge.mesh_renderer"))
@@ -169,16 +214,39 @@ void exercise(const std::filesystem::path& root, AssetId id, bool separate = fal
         const auto& m = row.at("world_affine");
         PhysicsOverlap query;
         query.origin = {m[3], m[7].get<double>() + .5, m[11]};
-        query.dimensions = {separate ? separated_radius : .25, 0, 0};
+        query.dimensions = {mesh_bounds ? .15 : separate ? separated_radius : .25, 0, 0};
+        if (mesh_bounds && separated_plant) {
+            AffineTransform frame;
+            for (unsigned i = 0; i < 12; ++i)
+                frame.m[i] = m[i].get<double>();
+            const auto box = transform_bounds(template_mesh->mesh.lods[0].parts[0].bounds, frame);
+            query.shape = PhysicsOverlap::Shape::Box;
+            query.origin = {(box.minimum[0] + box.maximum[0]) * .5,
+                            (box.minimum[1] + box.maximum[1]) * .5,
+                            (box.minimum[2] + box.maximum[2]) * .5};
+            for (unsigned axis = 0; axis < 3; ++axis)
+                query.dimensions[axis] = std::max(.001, box.maximum[axis] - box.minimum[axis] + .1);
+        }
         check(!world.physics()->overlap_any(query, {UINT32_MAX, false}),
               "Saved Gallery plant overlaps the actual native collider");
         ++plants;
         unseparated += unseparated_plant;
         if (separated_plant) {
-            for (const auto& earlier : separated)
-                check(std::hypot(query.origin.x - earlier.x, query.origin.y - earlier.y,
-                                 query.origin.z - earlier.z) >= 2 * separated_radius,
-                      "Saved Gallery contains overlapping new clearance spheres");
+            if (mesh_bounds) {
+                for (const auto& earlier : separated_boxes)
+                    check(std::abs(query.origin.x - earlier.origin.x) >=
+                                  .5 * (query.dimensions[0] + earlier.dimensions[0]) ||
+                              std::abs(query.origin.y - earlier.origin.y) >=
+                                  .5 * (query.dimensions[1] + earlier.dimensions[1]) ||
+                              std::abs(query.origin.z - earlier.origin.z) >=
+                                  .5 * (query.dimensions[2] + earlier.dimensions[2]),
+                          "Saved Gallery Mesh bounds overlap another retained plant");
+                separated_boxes.push_back(query);
+            } else
+                for (const auto& earlier : separated)
+                    check(std::hypot(query.origin.x - earlier.x, query.origin.y - earlier.y,
+                                     query.origin.z - earlier.z) >= 2 * separated_radius,
+                          "Saved Gallery contains overlapping new clearance spheres");
             separated.push_back(query.origin);
         }
     }
@@ -202,31 +270,46 @@ int main(int argc, char** argv) {
             return 0;
         }
         if (argc == 3 && std::string_view(argv[1]) == "--author-separated") {
-            author(argv[2], true);
+            author(argv[2], Gallery::Separated);
             return 0;
         }
         if (argc == 3 && std::string_view(argv[1]) == "--author-stroke") {
-            author(argv[2], true, true);
+            author(argv[2], Gallery::Stroke);
             return 0;
         }
-        check(argc == 3, "Need Gallery and scratch paths");
+        if (argc == 3 && std::string_view(argv[1]) == "--author-bounds") {
+            author(argv[2], Gallery::MeshBounds);
+            return 0;
+        }
+        const bool bounds_only = argc == 4 && std::string_view(argv[3]) == "--bounds";
+        check(argc == 3 || bounds_only, "Need Gallery and scratch paths");
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "Gallery";
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
+        if (bounds_only) {
+            const auto id = read(root / bounds_path).at("asset_id").get<AssetId>();
+            exercise(root, id, Gallery::MeshBounds);
+            const std::array roots{id};
+            package_runtime_content(root, scratch / "Content", roots, {"windows", "d3d12"});
+            std::filesystem::rename(scratch / "Content", scratch / "Relocated");
+            std::filesystem::rename(root, scratch / "SourcesOffline");
+            exercise(scratch / "Relocated", id, Gallery::MeshBounds);
+            return 0;
+        }
         const auto id = read(root / path).at("asset_id").get<AssetId>();
         const auto separated_id = read(root / separated_path).at("asset_id").get<AssetId>();
         const auto stroke_id = read(root / stroke_path).at("asset_id").get<AssetId>();
         exercise(root, id);
-        exercise(root, separated_id, true);
-        exercise(root, stroke_id, true, true);
+        exercise(root, separated_id, Gallery::Separated);
+        exercise(root, stroke_id, Gallery::Stroke);
         const std::array roots{id, separated_id, stroke_id};
         package_runtime_content(root, scratch / "Content", roots, {"windows", "d3d12"});
         std::filesystem::rename(scratch / "Content", scratch / "Relocated");
         std::filesystem::rename(root, scratch / "SourcesOffline");
         exercise(scratch / "Relocated", id);
-        exercise(scratch / "Relocated", separated_id, true);
-        exercise(scratch / "Relocated", stroke_id, true, true);
+        exercise(scratch / "Relocated", separated_id, Gallery::Separated);
+        exercise(scratch / "Relocated", stroke_id, Gallery::Stroke);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

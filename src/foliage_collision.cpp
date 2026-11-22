@@ -3,11 +3,15 @@
 #include "authored_component.hpp"
 #include "collision_selection.hpp"
 #include "mesh_scatter_authoring.hpp"
+#include "render_bounds.hpp"
+#include "spatial_document.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <forge/mesh_resource.hpp>
 #include <forge/project.hpp>
 #include <forge/runtime_world.hpp>
+#include <limits>
 #include <set>
 
 namespace forge {
@@ -17,6 +21,9 @@ Json foliage_collision_settings(const FoliageCollisionSettings& value) {
             {"mask", value.mask},
             {"include_sensors", value.include_sensors},
             {"avoid_new_overlaps", value.avoid_new_overlaps},
+            {"profile", value.profile == FoliageClearanceProfile::MeshBounds ? "mesh-bounds-v1"
+                                                                             : "world-sphere-v1"},
+            {"padding", value.padding},
             {"surface", value.surface ? Json(value.surface) : Json()},
             {"ignored", value.ignored}};
 }
@@ -30,6 +37,10 @@ std::string digest(const Json& value) {
     return asset_detail::content_digest(std::as_bytes(std::span(text)));
 }
 void validate(const FoliageCollisionSettings& value) {
+    require(unsigned(value.profile) <= unsigned(FoliageClearanceProfile::MeshBounds),
+            "invalid_arguments", "Unknown foliage clearance profile");
+    require(std::isfinite(value.padding) && value.padding >= 0 && value.padding <= 100,
+            "invalid_arguments", "Foliage Mesh bounds padding must be 0 to 100 meters");
     require(std::isfinite(value.radius) && value.radius >= .001 && value.radius <= 100,
             "invalid_arguments", "Foliage clearance sphere radius must be 0.001 to 100 meters");
     for (const auto coordinate : value.offset)
@@ -44,6 +55,47 @@ void validate(const FoliageCollisionSettings& value) {
                 "Ignored foliage objects require complete entity IDs");
 }
 } // namespace
+MeshBounds foliage_template_bounds(const MeshResourceData& data) {
+    MeshLimits limits;
+    limits.bytes = 8 * 1024 * 1024;
+    limits.vertices = 16384;
+    limits.indices = 49152;
+    limits.parts = 32;
+    validate_mesh(data.mesh, limits);
+    require(data.mesh.morph_names.empty() && data.mesh.morph_defaults.empty(),
+            "unsupported_template",
+            "Mesh bounds clearance requires a static Mesh without morph targets");
+    if (data.model)
+        require(
+            std::none_of(data.model->nodes.begin(), data.model->nodes.end(),
+                         [](const auto& node) { return node.skin || !node.morph_weights.empty(); }),
+            "unsupported_template", "Mesh bounds clearance does not sample deformed Model nodes");
+    std::optional<MeshBounds> local;
+    for (const auto& lod : data.mesh.lods)
+        for (const auto& part : lod.parts) {
+            require(part.joint_palette.empty() && part.morph_targets.empty(),
+                    "unsupported_template",
+                    "Mesh bounds clearance does not sample skin or morph deformation");
+            require(std::none_of(part.streams.begin(), part.streams.end(),
+                                 [](const auto& stream) {
+                                     return stream.semantic.starts_with("JOINTS_") ||
+                                            stream.semantic.starts_with("WEIGHTS_");
+                                 }),
+                    "unsupported_template",
+                    "Mesh bounds clearance does not sample skin attributes");
+            if (!local)
+                local = part.bounds;
+            else
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    local->minimum[axis] =
+                        std::min(local->minimum[axis], part.bounds.minimum[axis]);
+                    local->maximum[axis] =
+                        std::max(local->maximum[axis], part.bounds.maximum[axis]);
+                }
+        }
+    require(bool(local), "invalid_template", "Mesh bounds clearance needs geometry");
+    return *local;
+}
 struct FoliageCollisionPreparation::Impl {
     struct Work {
         // Retire the native world/loaders before releasing project ownership.
@@ -57,6 +109,12 @@ struct FoliageCollisionPreparation::Impl {
         std::string fingerprint, operation, snapshot_digest, command;
         std::vector<std::size_t> dab_counts;
         std::vector<LocalTranslation> origins;
+        // Transient preparation inputs, discarded once the same ordered query
+        // sequence is ready. Neither is a persistent geometry or placement owner.
+        std::vector<LocalTransform> placements;
+        std::vector<PhysicsOverlap> boxes;
+        AssetId prototype_mesh;
+        std::uint64_t mesh_token = 0;
         std::vector<bool> mask;
         std::vector<EntityRef> exclusions;
         unsigned cursor = 0, queried = 0, retained = 0, new_overlaps = 0;
@@ -145,6 +203,21 @@ Json FoliageCollisionPreparation::start(std::shared_ptr<const ProjectLease> leas
     next->catalog_document = catalog->document();
     next->catalog = std::move(catalog);
     next->config = std::move(config);
+    LocalTransform prototype;
+    if (next->config.profile == FoliageClearanceProfile::MeshBounds) {
+        const auto effective = scene.effective_document();
+        for (const auto& row : effective.at("entities"))
+            if (row.at("id") == next->arguments.at("entity")) {
+                const auto& components = row.at("components");
+                const auto& renderer = components.at("forge.mesh_renderer");
+                require(!renderer.contains("wind") || !renderer.at("wind").value("enabled", false),
+                        "unsupported_template", "Mesh bounds clearance does not sample wind");
+                prototype = detail::read_local(components);
+                next->prototype_mesh = renderer.at("mesh").get<AssetId>();
+            }
+        require(bool(next->prototype_mesh), "invalid_arguments",
+                "Mesh bounds clearance requires a selected Mesh template");
+    }
     next->fingerprint = fingerprint;
     next->operation = AssetId::generate().str();
     next->deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
@@ -160,6 +233,15 @@ Json FoliageCollisionPreparation::start(std::shared_ptr<const ProjectLease> leas
         require(next->origins.size() + placements.size() <= detail::mesh_scatter_limit,
                 "limit_exceeded", "Foliage clearance allows at most 512 total candidates");
         next->dab_counts.push_back(placements.size());
+        if (next->config.profile == FoliageClearanceProfile::MeshBounds) {
+            auto candidates = detail::mesh_scatter_candidates(prototype, dab);
+            for (auto& candidate : candidates) {
+                candidate.transform.translation.x += settings.center[0];
+                candidate.transform.translation.y += settings.center[1];
+                candidate.transform.translation.z += settings.center[2];
+                next->placements.push_back(candidate.transform);
+            }
+        }
         for (std::size_t i = 0; i < placements.size(); ++i) {
             next->mask.push_back(!dab.contains("placement_mask") ||
                                  dab.at("placement_mask")[i].get<bool>());
@@ -197,7 +279,7 @@ Json FoliageCollisionPreparation::start(std::shared_ptr<const ProjectLease> leas
                      {"checked_count", 0},
                      {"retained_count", 0},
                      {"new_overlap_count", 0},
-                     {"profile", "world-sphere-v1"},
+                     {"profile", foliage_collision_settings(next->config).at("profile")},
                      {"message", "Preparing collision assets"}};
     impl_->work = std::move(next);
     return state();
@@ -224,6 +306,9 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
                 ProjectSettings(work.project, work.project_settings).physics(), std::nullopt,
                 work.project, false);
             work.world->scene.restore_snapshot(work.snapshot);
+            if (work.prototype_mesh)
+                work.mesh_token = work.world->engine.services().resources()->request(
+                    RuntimeResourceKind::Mesh, work.prototype_mesh);
             work.snapshot = Json();
             work.authored_types = Json();
             return;
@@ -231,6 +316,53 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
         if (impl_->status.at("state") == "preparing") {
             if (!work.world->prepare_physics_assets())
                 return;
+            if (work.mesh_token) {
+                const auto resources = work.world->engine.services().resources();
+                const auto state = resources->inspect(work.mesh_token);
+                require(state.diagnostic.empty(), "invalid_template", state.diagnostic.c_str());
+                if (state.state == "loading" || state.state == "queued" ||
+                    state.state == "dependency pending")
+                    return;
+                const auto mesh = resources->mesh(work.mesh_token);
+                require(state.state == "ready" && bool(mesh) &&
+                            state.requested_revision == state.retained_revision,
+                        "invalid_template", "Mesh bounds clearance needs a ready selected Mesh");
+                const auto local = foliage_template_bounds(mesh.get());
+                work.boxes.reserve(work.placements.size());
+                for (std::size_t index = 0; index < work.placements.size(); ++index) {
+                    if (!work.mask[index]) {
+                        work.boxes.emplace_back();
+                        continue;
+                    }
+                    const auto& placement = work.placements[index];
+                    const auto bounds = transform_bounds(local, affine_transform(placement));
+                    PhysicsOverlap box;
+                    box.shape = PhysicsOverlap::Shape::Box;
+                    Double3 center;
+                    for (unsigned axis = 0; axis < 3; ++axis) {
+                        center[axis] = bounds.minimum[axis] +
+                                       (bounds.maximum[axis] - bounds.minimum[axis]) * .5;
+                        const double half = std::max(center[axis] - bounds.minimum[axis],
+                                                     bounds.maximum[axis] - center[axis]);
+                        const double size = std::max(.001, 2 * (half + work.config.padding));
+                        float rounded = float(size);
+                        if (double(rounded) < size)
+                            rounded =
+                                std::nextafter(rounded, std::numeric_limits<float>::infinity());
+                        box.dimensions[axis] = rounded;
+                        center[axis] += work.config.offset[axis];
+                        require(std::isfinite(center[axis]) && std::abs(center[axis]) <= 1e9 &&
+                                    std::isfinite(box.dimensions[axis]) &&
+                                    box.dimensions[axis] <= 10000,
+                                "invalid_arguments", "Mesh clearance bounds exceed physics limits");
+                    }
+                    box.origin = {center[0], center[1], center[2]};
+                    work.boxes.push_back(box);
+                }
+                work.placements.clear();
+                resources->release(work.mesh_token);
+                work.mesh_token = 0;
+            }
             work.world->physics()->synchronize(0);
             impl_->current_assets();
             const auto native = work.world->physics()->status();
@@ -254,7 +386,10 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
             const auto index = work.cursor++;
             if (!work.mask[index])
                 continue;
-            query.origin = work.origins[index];
+            if (work.config.profile == FoliageClearanceProfile::MeshBounds)
+                query = work.boxes[index];
+            else
+                query.origin = work.origins[index];
             work.mask[index] = !work.world->physics()->overlap_any(query, filter);
             if (work.mask[index] && work.config.avoid_new_overlaps) {
                 // Earlier true mask entries are the already admitted candidates.
@@ -262,9 +397,21 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
                 for (unsigned previous = 0; previous < index; ++previous) {
                     if (!work.mask[previous])
                         continue;
-                    const auto& origin = work.origins[previous];
-                    if (std::hypot(query.origin.x - origin.x, query.origin.y - origin.y,
-                                   query.origin.z - origin.z) < 2 * work.config.radius) {
+                    bool overlaps;
+                    if (work.config.profile == FoliageClearanceProfile::MeshBounds) {
+                        const auto& other = work.boxes[previous];
+                        overlaps = std::abs(query.origin.x - other.origin.x) <
+                                       .5 * (query.dimensions[0] + other.dimensions[0]) &&
+                                   std::abs(query.origin.y - other.origin.y) <
+                                       .5 * (query.dimensions[1] + other.dimensions[1]) &&
+                                   std::abs(query.origin.z - other.origin.z) <
+                                       .5 * (query.dimensions[2] + other.dimensions[2]);
+                    } else {
+                        const auto& origin = work.origins[previous];
+                        overlaps = std::hypot(query.origin.x - origin.x, query.origin.y - origin.y,
+                                              query.origin.z - origin.z) < 2 * work.config.radius;
+                    }
+                    if (overlaps) {
                         work.mask[index] = false;
                         ++work.new_overlaps;
                         break;

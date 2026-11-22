@@ -159,7 +159,10 @@ still delegated to the existing authoring command.
 
 ## Native collision clearance preparation
 
-`FoliageCollisionPreparation` owns one transient `world-sphere-v1` request. It
+`FoliageCollisionPreparation` owns one transient clearance request. Its default
+`world-sphere-v1` profile retains the explicit world-radius behavior; the optional
+`mesh-bounds-v1` profile derives a conservative world box from the static template.
+It
 captures the project lease, source snapshot/revision, published AssetCatalog and
 ProjectSettings, then composes the existing private RuntimeWorld/resource/physics
 owners. No gameplay modules, audio or UI are loaded and no simulation tick runs.
@@ -184,7 +187,7 @@ unchanged. Dense valid overlap is an occupied candidate, not an all-hit-list err
 One task admits at most 512 candidates and performs at most 16 native queries per
 poll, with a 30-second wall deadline. Previously excluded candidates are skipped;
 query hits clear original-order mask entries. Heights, normals, seeded layout,
-yaw, scale and spacing retain correspondence. Optional `avoid_new_overlaps`
+yaw, scale and spacing retain correspondence. In `world-sphere-v1`, optional `avoid_new_overlaps`
 defaults false. With it enabled, a candidate that passes the native collider
 query is compared against earlier retained candidate spheres using the same
 validated world-space origins and radius. Overlapping interiors reject the later
@@ -197,9 +200,35 @@ The layer mask controls existing colliders; mask 0 still permits this candidate
 filter. `new_overlap_count` reports candidates rejected only by this second filter
 in both task status and ready result; it is 0 with the option off. The copied
 setting participates in the existing retry fingerprint and ready-result settings.
+The `mesh-bounds-v1` profile reuses `mesh_scatter_candidates`, the same copied
+group-local transforms and masks consumed by ordinary saved `mesh.scatter`.
+The existing placement owner retains height parsing, slope normalization,
+template/yaw composition and signed scale validation; no second transform codec
+or generation algorithm exists. Masked candidates do not acquire a transform.
+The root group has identity rotation/scale, so its center translates each admitted
+candidate into the same saved world frame.
+
+The private world's existing RuntimeResourceService asynchronously admits the
+captured template Mesh. Preparation waits for a ready lease with equal requested
+and retained revisions; the existing catalog/settings checks reject stale results.
+No new loader, mutable Mesh cache or persistent asset is created. The profile
+admits at most8MiB scalar data/16384vertices/49152indices/32parts using MeshLimits;
+ordinary runtime resource memory bounds also apply while loading. Wind-enabled
+templates, skin palettes and morph targets are refused. Every staticLOD/part bounds
+contributes to one local enclosure. `transform_bounds` applies the actual candidate
+frame; padding0..100m extends every side and the existing offset shifts the box in
+world axes. Float dimensions round outward only where required; each full dimension
+is at least.001m and at most10000m. Existing +/-1e9query-origin validation remains.
+Native `overlap_any` retains geometry/filter ownership. With new-plant separation,
+the same ordered copied boxes reject intersecting interiors, allowing tangency.
+Earlier excluded/rejected candidates never block later ones. Radius remains an
+inactive retained sphere setting. The canonical profile/padding join the existing
+fingerprint, status and ready-result settings. This is conservative static bounds
+clearance, not exact triangle collision, XY placement or deformed Mesh support.
+
 The same task additionally admits existing `mesh.stroke` arguments. Original dab
 layouts flatten into one bounded origin/mask sequence, retaining only derived
-per-dab counts for serialization. The sphere filter compares across dab boundaries.
+per-dab counts for serialization. The selected volume filter compares across dab boundaries.
 All original arguments pass the ordinary complete command preview before filtering.
 Fully blocked dabs are omitted from returned stroke arguments; `retained_dab_indices`
 maps the surviving dabs to original zero-based indices and `original_dab_count`

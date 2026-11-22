@@ -135,7 +135,7 @@ new clearance spheres across the remaining dabs. Both strokes use 0.4 m spheres.
 
 1. Open a project and choose a template with **Use selected Mesh Renderer**.
 2. Enable **Project onto a surface**, choose its geometry profile, then select the ground object in Hierarchy and choose **Use selected terrain** or **Use selected Mesh**. Keep that surface selected.
-3. Set **Radius (m)** and **Candidate count** for each dab. Configure slope, alignment, scale and yaw as for one patch. Optionally enable **Reject collisions** and set the clearance controls below. **Separate new plants** checks the same spheres across the whole stroke, including between dabs.
+3. Set **Radius (m)** and **Candidate count** for each dab. Configure slope, alignment, scale and yaw as for one patch. Optionally enable **Reject collisions** and set the clearance controls below. **Separate new plants** checks the selected clearance volumes across the whole stroke, including between dabs.
 4. Enable **Paint in Scene view**. Set **Dab distance (m)**, the minimum horizontal distance between sampled dab centers. Values from 0.01 to 2000 m are allowed. The single-disk center and Check layout / Place foliage controls become disabled.
 5. Drag the left mouse button over the chosen visible surface in Scene view. Green circles mark sampled centers. Release to submit the whole stroke, or press Escape before release to cancel it. With clearance enabled, wait for preparation; **Cancel clearance** stops it before placement. One Scene Undo removes the whole completed stroke.
 6. Save the Scene. Keep the surface selected to paint another stroke. Expand the new stroke group in Hierarchy to edit its dab groups and individual plants.
@@ -153,7 +153,7 @@ the new plants against each other.
 Each stroke allows at most 16 dabs and 512 total candidates. Exceeding either
 limit cancels the whole stroke. Reduce Candidate count, shorten the stroke or
 increase Dab distance. Fast motion does not fill unsampled gaps. Minimum spacing
-applies within each dab. With **Separate new plants** enabled, clearance spheres
+applies within each dab. With **Separate new plants** enabled, clearance volumes
 also keep retained candidates apart across dabs. Markers show
 centers, not the final plant shapes or a world-radius outline.
 
@@ -186,30 +186,59 @@ clearance spheres and the central collider; the separated group also checks
 the new plants against each other. Open the Scene and press **Play → Game** to
 see the saved ordinary objects.
 
+**Gallery 267 — Foliage Mesh bounds** compares 64 plants retained by small root
+spheres with 20 retained by static Mesh bounds. Both patches start from 96
+candidates and separate their retained volumes. The mirrored blade template,
+seeded variation and terrain slope alignment affect each Mesh clearance box.
+The scene contains ordinary saved objects, a camera and light, and exports
+without project C++ code.
+
+![Two saved foliage patches beside a collider in the Game view](../images/foliage-mesh-bounds-game.png)
+
+The left patch uses root spheres; the right uses conservative template Mesh bounds.
+
 1. Open a project, choose your template and set the layout. Surface projection, slope filters and slope alignment can stay enabled.
 2. Enable **Reject collisions**. Objects to avoid need enabled 3D Physics Bodies and colliders; a visible Mesh alone does not block placement. Save and publish any Collision asset edits first.
-3. Set **Clearance radius (m)** from 0.001 to 100. A sphere of this world-space radius tests each candidate; it does not scale or rotate with the template.
-4. Set **Clearance offset X (m)**, **Y (m)** and **Z (m)** relative to each candidate origin. Each offset is -1000 to 1000 meters. The default (0, 0.5, 0) checks above the plant's base. Offsets follow world axes, including with slope alignment.
+3. Choose **Clearance shape**. **World sphere** uses **Clearance radius (m)** from 0.001 to 100; its size does not follow the template. **Template Mesh bounds** encloses the static Mesh at each candidate's rotation, scale and slope alignment, then adds **Bounds padding (m)** from 0 to 100 on every side.
+4. Set **Clearance offset X (m)**, **Y (m)** and **Z (m)**. Each offset is -1000 to 1000 meters along world axes. The default (0, 0.5, 0) raises a sphere above the plant's base. For Mesh bounds, set all three to 0 to test the unshifted geometry; other offsets move the whole clearance box.
 5. Set **Collision layer mask** to the unsigned combination of the layer bits you want to avoid. The default 4294967295 selects every layer; 0 selects none. Enable **Include sensors** when sensor volumes should also exclude candidates.
 6. The template and selected projection surface are ignored automatically. To ignore another collider, select its object in Hierarchy and click **Ignore selected object**. Up to 14 additional objects are allowed. Children are separate objects. **Clear ignored objects** removes these additional exclusions.
-7. Enable **Separate new plants** to keep the clearance spheres of retained candidates from overlapping each other. The option starts off. It uses the same world-space radius, offsets and resolved heights, independently of the collider layer mask. Set that mask to 0 when you only want separation between new plants.
+7. Enable **Separate new plants** to keep the selected clearance volumes of retained candidates from overlapping each other. The option starts off. It uses the same sphere or Mesh box, offsets and resolved heights, independently of the collider layer mask. Set that mask to 0 when you only want separation between new plants.
 8. Choose **Check layout**. Preparation loads the current published collision data and reports the number of candidates retained, including how many were skipped for overlapping another new plant. It changes no Scene objects. **Cancel clearance** stops pending preparation.
 9. Choose **Place foliage**. The tool prepares current clearance, then creates the retained subset in one Scene Undo step. Save the Scene.
 
 ![Foliage controls with Separate new plants enabled, terrain projection, world-space sphere settings and a checked candidate subset](../images/foliage-clearance-controls.png)
 
-The clearance sphere tests the authored colliders without advancing simulation.
+The clearance volume tests the authored colliders without advancing simulation.
 It composes with the slope mask and keeps original candidate order, yaw, scale,
 height and normal. It does not resample to fill the count. A completely blocked
 layout reports an error and creates no group. Changing the Scene or project
 cancels stale preparation. Closing the panel or entering a mode that locks Scene
 edits cancels a pending placement. Assets or project settings that change during
 preparation require another check. Preparation has a 30-second deadline; missing
-or invalid collision assets are errors.
+or invalid collision assets or selected template Mesh resources are errors.
+
+**Template Mesh bounds** follows the template's local rotation and signed scale,
+the candidate's seeded yaw and scale variation, and any resolved slope alignment.
+It combines the bounds of every static Mesh LOD into a box along world axes.
+This conservatively includes empty space around tilted, separated or irregular
+geometry; it can reject a placement whose triangles would fit. It does not test
+exact triangle-against-triangle contact. Source position and parent transforms
+are not copied into the plant.
+
+This profile supports up to 8 MiB of Mesh data, 16,384 vertices, 49,152 indices and
+32 parts. Wind, skin and morph deformation are unavailable for bounds clearance.
+Disable template wind or use a static Mesh. Box dimensions must fit 10,000 meters
+on every world axis; a flat or collapsed axis uses at least a 1 mm thickness.
+Save and publish Mesh edits, then check again to use the updated geometry.
+
+![Foliage placement using Template Mesh bounds, padding, zero offsets and Separate new plants](../images/foliage-mesh-bounds-controls.png)
+
+Choose the Mesh bounds profile and check the layout before placing the retained subset.
 
 With **Separate new plants**, the first clear candidate is kept. Each later
-candidate is kept only when its sphere does not overlap an earlier retained
-sphere. Touching spheres are allowed. Previously excluded candidates do not
+candidate is kept only when its clearance volume does not overlap an earlier retained
+volume. Touching volumes are allowed. Previously excluded candidates do not
 block later ones. Height differences count in all three world axes. The filter
 keeps original candidate order and can retain fewer plants than the requested
 count; it never resamples. In brush mode it compares the entire stroke's retained
@@ -217,8 +246,9 @@ candidates across dab boundaries. Objects from earlier strokes need actual
 colliders to affect a later stroke's collider clearance.
 
 Clearance tests existing 3D colliders, including published Collision assets, and
-optionally the spheres of new plants. It does not test complete plant Mesh
-bounds, 2D colliders or future object motion. Adjust radius, offset, spacing and seed for
+optionally the selected volumes of new plants. Mesh bounds provide conservative
+clearance; exact plant triangle collision, 2D colliders and future object motion
+are unavailable. Adjust the shape, radius or padding, offset, spacing and seed for
 your geometry. Every query origin must lie within +/-1 billion meters on each axis.
 Tool choices and exclusions are session-only. Later collider changes do not move
 already placed objects.
@@ -299,9 +329,9 @@ to 10,000 entities and the normal command data budget.
 
 Spacing compares new origins in the current group. Mesh bounds can overlap, and
 existing objects require **Reject collisions** and enabled 3D colliders to affect
-clearance. **Separate new plants** uses clearance spheres between retained new
-candidates; increase the sphere radius to leave more room, or reduce it to keep
-more plants. Heightfield mode requires upright terrain with positive Y scale;
+clearance. **Separate new plants** uses the selected spheres or Mesh boxes between
+retained new candidates. Increase the sphere radius or bounds padding to leave
+more room, or reduce it to keep more plants. Heightfield mode requires upright terrain with positive Y scale;
 static Mesh mode supports the bounded published triangle profile above. Brush
 strokes use the limits described above; live surface links and world streaming
 are unavailable. Adjust objects with the normal

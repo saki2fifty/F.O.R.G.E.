@@ -14789,6 +14789,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "9bbe9824-4e25-40e3-a5c7-0d2235a47ff7",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/267-foliage-mesh-bounds.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "9c2e533d-f3f7-47b7-845f-0a9394908db1",
       "metadata": {},
       "schema_version": 5,

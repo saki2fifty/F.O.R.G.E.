@@ -2547,22 +2547,48 @@ Windows/full Main/MSVC/D3D12, physical GPU/input/DPI/performance and external-pl
 client acceptance remain separate. Runtime gameplay and audio recording are outside
 this silent-preview profile.
 
-## Foliage clearance controls
+## Foliage clearance and Mesh bounds controls
 
-[Clearance controls](../../../manual/images/foliage-clearance-controls.png) is an
-unretouched720×1990 production panel through forge_foliage_editor_tests
---capture-clearance, using Gallery156 in an isolated project. It shows heightfield
-projection, slope alignment, **Separate new plants** enabled, world-sphere
-settings, layers, sensor/exclusion controls and88of128retained candidates. Its
-0.55m minimum spacing already separates the0.25m spheres, so the new filter
-reports0additional exclusions. Source is the foliage candidate-clearance work
-based on3def3b4; exact source/producer hashes and successful capture/build receipts
-are retained in AgentFiles/build/phase434-foliage-candidate-clearance/capture-provenance.json.
-Actual wide/compact input fixtures at1/1.5/2scale retain normal Scene history.
-These software component captures do not establish full Main/Windows/MSVC/D3D12,
-hardware input/DPI, physical GPU or external client/player acceptance.
+[Sphere controls](../../../manual/images/foliage-clearance-controls.png) and
+[Mesh bounds controls](../../../manual/images/foliage-mesh-bounds-controls.png) are
+original720×2050 production Foliage placement panels. The native ImGui/SDL software
+fixture uses private projects copied from Gallery156 and267, actual input,
+read-only native preparation and normal Scene history. The sphere profile shows
+88of128retained candidates; the Mesh-bounds profile shows40of128, including38
+excluded for overlap with another new plant. Both captures were visually reviewed
+and copied without cropping, resizing, retouching or inserted controls.
 
-PNG SHA256: `f6e89e739a41416292765b2216eebb7c7a410303a2e24e402f19892d6fa184ea`.
+Reproduce with `forge_foliage_editor_tests --capture-clearance GALLERY OUTPUT`
+and `--capture-bounds GALLERY OUTPUT`. The normal input fixture also checks both
+profiles in wide/compact layouts at1/1.5/2scale. These are unassigned development
+working-tree captures on Linux with SDL software rendering. They do not establish
+full Main, Windows/MSVC/D3D12, hardware input/DPI or external client acceptance.
+
+Sphere PNG SHA256: `35173e71ae979df98cb4eeba11c366ecd1c6337c7923ccf9fc996ec05defaa24`.
+Mesh-bounds PNG SHA256: `c2536884e33bdac77162e7f914ec8dcfbd8fc659ed74fda2e0ed8a57920364d2`.
+Producer binary SHA256: `8e85cfdd131878c1860cf3c87327090b0d46843f67b468ef40db629edccefc94`.
+Compiled source-input SHA256: `ca44e114e1f29b8e7d1d0332512f0321ba3df25734a33e9ceee1851633518bb0`.
+
+## Foliage Mesh bounds Game view
+
+[Game output](../../../manual/images/foliage-mesh-bounds-game.png) losslessly encodes
+all original640×360 RGB pixels from Gallery267's source-hidden
+`relocated/90-640.ppm`. The left root-sphere patch contains64ordinary saved plants;
+the right static-Mesh-bounds patch contains20. Camera, light and native collider
+are saved in the same Scene. The production Game FrameRenderer uses the relocated
+published content after the original project is moved offline. The existing
+fixture checks88Scene-view instances, independent template picking, visible green
+geometry and four exact authored/relocated display pairs.
+
+Reproduce with `foliage_mesh_bounds_gallery_vulkan`. This image was personally
+viewed and its PNG conversion verified pixel-for-pixel, without retouch. It is an
+unassigned working-tree capture on software Vulkan/lavapipe, not physical GPU,
+Windows or graphical EXE acceptance. Native saved-clearance and source-hidden
+export assertions are separately checked by `foliage_mesh_bounds_gallery`.
+
+PNG SHA256: `c8c99b48182bf814db2757a330981f9906dd410b8121c29f730d6d3287875659`.
+Producer binary SHA256: `2f2a62a5101b9033b7c9146c4c0aabfdcb3b5c887f775d6951f3ae7742a5ca3c`.
+Compiled source-input SHA256: `08c64535cdd4dedfffff58aa719dc3b89d884045ca41f1319e98d58f99014a6f`.
 
 ## Imported lightmap graph
 

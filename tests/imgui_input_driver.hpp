@@ -86,6 +86,21 @@ class ImGuiInputDriver {
     }
 
   public:
+    void choose(const char* key, unsigned option) {
+        click(key);
+        auto& io = ImGui::GetIO();
+        const auto press = [&](ImGuiKey value) {
+            io.AddKeyEvent(value, true);
+            frame_();
+            io.AddKeyEvent(value, false);
+            frame_();
+        };
+        press(ImGuiKey_Home);
+        for (unsigned i = 0; i < option; ++i)
+            press(ImGuiKey_DownArrow);
+        press(ImGuiKey_Enter);
+        frame_();
+    }
     void type(const char* key, const char* value, bool submit = true) {
         auto& io = ImGui::GetIO();
 

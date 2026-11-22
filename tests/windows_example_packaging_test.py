@@ -71,6 +71,17 @@ class GalleryPackageTest(unittest.TestCase):
             relative = link.removeprefix('../../../manual/').split('#', 1)[0]
             self.assertTrue((SOURCE/'manual'/relative).is_file(), link)
             self.write(self.source/'manual'/relative, ('# '+Path(relative).stem+'\n').encode())
+        image_links = re.findall(r'!\[[^\]]*\]\((\.\./\.\./\.\./manual/[^)#]+\.png)\)',
+                                 (self.gallery/'README.md').read_text(encoding='utf-8'))
+        self.assertTrue(image_links)
+        self.gallery_manual_images = {}
+        for link in image_links:
+            relative = link.removeprefix('../../../manual/')
+            data = (SOURCE/'manual'/relative).read_bytes()
+            self.gallery_manual_images[link] = data
+            self.write(self.source/'manual'/relative, data)
+            with (self.source/'manual/README.md').open('ab') as page:
+                page.write(('\n![Gallery image]('+relative+')\n').encode())
         self.write(self.source/'samples/animation/two-joints.gltf', b'{}\n')
         self.write(self.source/'samples/projects/Other/main.scene.json', b'{}\n')
         self.write(self.source/'samples/projects/Other/.forge/cache/audio/audio.fpcm',
@@ -237,8 +248,17 @@ class GalleryPackageTest(unittest.TestCase):
                         page, separator, anchor = link.partition('#')
                         target = '../../manual/'+page.removeprefix('../../../manual/')[:-3]+'.html'+separator+anchor
                         content = content.replace((']('+link+')').encode(), (']('+target+')').encode())
+                    for link in self.gallery_manual_images:
+                        target = '../../manual/'+link.removeprefix('../../../manual/')
+                        content = content.replace((']('+link+')').encode(), (']('+target+')').encode())
                 self.assertEqual(archive.read(name), content, name)
                 self.assertEqual(manifest[name], hashlib.sha256(content).hexdigest(), name)
+            for link, pixels in self.gallery_manual_images.items():
+                target = 'manual/'+link.removeprefix('../../../manual/')
+                self.assertIn(('](../../'+target+')').encode(),
+                              archive.read('Examples/FeatureGallery/README.md'))
+                self.assertEqual(archive.read(target), pixels)
+                self.assertEqual(manifest[target], hashlib.sha256(pixels).hexdigest())
             for link in self.manual_links:
                 page, separator, anchor = link.partition('#')
                 target = 'manual/'+page.removeprefix('../../../manual/')[:-3]+'.html'

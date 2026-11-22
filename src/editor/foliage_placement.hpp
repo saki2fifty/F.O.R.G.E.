@@ -359,21 +359,37 @@ class FoliagePlacement {
             ImGui::EndDisabled();
             if (collision_enabled_) {
                 ImGui::TextWrapped(
-                    "Check a world-space sphere against authored 3D colliders. "
+                    "Check a clearance volume against authored 3D colliders. "
                     "The template and projection surface are ignored. No simulation runs. "
-                    "Separate new plants also checks this sphere between retained candidates. "
-                    "Full Mesh bounds are not tested.");
+                    "Separate new plants also compares the selected volumes between retained "
+                    "candidates. Mesh bounds conservatively include empty space.");
+                int profile = int(collision_settings_.profile);
+                if (ImGui::Combo("Clearance shape", &profile,
+                                 "World sphere\0Template Mesh bounds\0"))
+                    collision_settings_.profile = FoliageClearanceProfile(profile);
+                FORGE_UI_PROBE("foliage:clearance_profile");
+                help("Template Mesh bounds follow saved template rotation, signed scale, seeded "
+                     "variation and slope alignment. A world-axis box encloses every static LOD. "
+                     "Wind, skin and morph deformation are unavailable. Up to 8 MiB of Mesh "
+                     "data, 16384 vertices, 49152 indices and 32 parts. This is a conservative "
+                     "bounds check, rather than triangle-against-triangle collision.");
                 ImGui::Checkbox("Separate new plants", &collision_settings_.avoid_new_overlaps);
                 FORGE_UI_PROBE("foliage:separate_new");
-                help("Keep the first clear candidate, then skip new candidates with overlapping "
-                     "clearance spheres. Uses the same world-space radius and heights; touching "
-                     "spheres are allowed. No resampling or fixed retained-count promise.");
-                field("Clearance radius (m)", "clearance_radius", collision_settings_.radius,
-                      "Sphere radius, 0.001 to 100 m. This does not scale with the template.");
+                help(
+                    "Keep the first clear candidate, then skip new candidates with overlapping "
+                    "clearance volumes. Uses the same sphere or Mesh box and resolved heights; "
+                    "touching volumes are allowed. No resampling or fixed retained-count promise.");
+                if (collision_settings_.profile == FoliageClearanceProfile::WorldSphere)
+                    field("Clearance radius (m)", "clearance_radius", collision_settings_.radius,
+                          "Sphere radius, 0.001 to 100 m. This does not scale with the template.");
+                else
+                    field("Bounds padding (m)", "clearance_padding", collision_settings_.padding,
+                          "Add 0 to 100 m on every side of the transformed Mesh bounds.");
                 field("Clearance offset X (m)", "clearance_x", collision_settings_.offset[0],
                       "World-space offset from each candidate origin, +/-1000 m.");
                 field("Clearance offset Y (m)", "clearance_y", collision_settings_.offset[1],
-                      "World-space offset from each candidate origin, +/-1000 m.");
+                      "World-space offset, +/-1000 m. Use 0 on every axis to test the unshifted "
+                      "Mesh bounds. The sphere default raises its center by 0.5 m.");
                 field("Clearance offset Z (m)", "clearance_z", collision_settings_.offset[2],
                       "World-space offset from each candidate origin, +/-1000 m.");
                 ImGui::TextUnformatted("Collision layer mask");

@@ -178,6 +178,47 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     tools = client.request('tools/list')['result']['tools']
     collision_tool = next(tool for tool in tools if tool['name'] == 'forge_foliage_collision_start')
     assert collision_tool['inputSchema']['properties']['avoid_new_overlaps']['type'] == 'boolean'
+    properties = collision_tool['inputSchema']['properties']
+    assert properties['profile']['enum'] == ['world-sphere-v1', 'mesh-bounds-v1']
+    assert properties['padding']['minimum'] == 0 and properties['padding']['maximum'] == 100
+    for key, values in (('profile', ['unavailable', 1, None]),
+                        ('padding', [-1, 101, '0', None])):
+        for value in values:
+            failed(client.tool('forge_foliage_collision_start', target=discover()['result']['target'],
+                               arguments=selected['arguments'], **{key: value}),
+                   'invalid_arguments')
+            assert read('forge_scene_read') == cleared_scene
+
+    bounds_arguments = dict(arguments=selected['arguments'], surface=surface,
+                            profile='mesh-bounds-v1', padding=.05, mask=0,
+                            offset=dict(x=0, y=0, z=0))
+    bounded = read('forge_foliage_collision_start', **bounds_arguments)
+    assert bounded['profile'] == 'mesh-bounds-v1'
+    assert read('forge_foliage_collision_start', **bounds_arguments)['operation'] == bounded['operation']
+    deadline = time.monotonic() + 15
+    while True:
+        bounded = read('forge_foliage_collision_read', operation=bounded['operation'])
+        if bounded['state'] not in ('preparing', 'querying'):
+            break
+        assert time.monotonic() < deadline, bounded
+        time.sleep(.01)
+    assert bounded['state'] == 'ready', bounded
+    bounds_result = bounded['result']
+    assert bounds_result['physics_tick'] == 0 and bounds_result['settings']['padding'] == .05
+    assert bounds_result['settings']['profile'] == 'mesh-bounds-v1'
+    assert bounds_result['arguments']['placement_mask'] == selected['arguments']['placement_mask']
+    assert bounds_result['arguments']['world_heights'] == selected['arguments']['world_heights']
+    assert bounds_result['arguments']['world_normals'] == selected['arguments']['world_normals']
+    assert read('forge_scene_read') == cleared_scene
+    state = discover()
+    applied = client.tool('forge_mesh_scatter', target=state['result']['target'],
+                          expected_revision=bounds_result['scene_revision'],
+                          sequence=state['next_sequence'], arguments=bounds_result['arguments'])
+    assert applied['ok'], applied
+    bounded_scene = read('forge_scene_read')
+    assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == cleared_scene
+    assert mutate('forge_history_redo')['ok'] and read('forge_scene_read') == bounded_scene
+    assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == cleared_scene
     for invalid in (1, 'true', None):
         failed(client.tool('forge_foliage_collision_start', target=discover()['result']['target'],
                           arguments=selected['arguments'], avoid_new_overlaps=invalid),

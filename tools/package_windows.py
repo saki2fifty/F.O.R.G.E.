@@ -143,11 +143,13 @@ def _package(build, dependencies, output, gallery_root):
                      and p.suffix.lower() in ('.json', '.wav', '.gltf', '.glb', '.png', '.md', '.txt', '.bin', '.values', '.clip', '.ozz', '.fmesh', '.fmat', '.fpcm', '.cpp', '.hpp', '.cmake', '.rml', '.rcss', '.ttf', '.otf', '.ttc', '.otc')}
     example_files.update({'FeatureGallery/'+p.relative_to(gallery_root).as_posix(): p
                           for p in gallery_files(gallery_root)})
-    # Source Markdown links follow the repository layout; the distributed manual
-    # is HTML beside Examples. Hash the same derived README bytes that we write.
+    # Source manual/image links follow the repository layout. The distributed
+    # manual is HTML beside Examples; canonical image bytes stay in that manual.
+    # Hash the same derived README bytes that we write.
     example_overrides = {path: re.sub(
-        r'\]\(\.\./\.\./\.\./manual/([^()#]+)\.md(#[^()]*)?\)',
-        r'](../../manual/\1.html\2)', path.read_text(encoding='utf-8')).encode('utf-8')
+        r'\]\(\.\./\.\./\.\./manual/([^()#]+)\.(md|png)(#[^()]*)?\)',
+        lambda match: '](../../manual/'+match[1]+('.html' if match[2] == 'md' else '.png')+
+                      (match[3] or '')+')', path.read_text(encoding='utf-8')).encode('utf-8')
         for path in example_files.values() if path.suffix == '.md'}
     for relative, example in sorted(example_files.items()):
         content = example_overrides[example] if example in example_overrides else example.read_bytes()

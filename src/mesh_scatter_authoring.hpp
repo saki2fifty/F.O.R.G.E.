@@ -17,9 +17,17 @@ struct MeshScatterPlacement {
     double scale, yaw;
     bool operator==(const MeshScatterPlacement&) const = default;
 };
+struct MeshScatterCandidate {
+    LocalTransform transform;
+    bool selected = true;
+};
 // Bounded candidate generation only; no identities, Scene state or hidden runtime data.
 std::vector<MeshScatterPlacement> mesh_scatter_layout(const MeshScatterSettings&);
 MeshScatterSettings mesh_scatter_settings(const Json& arguments);
+// The exact group-local transform and mask later used by ordinary Scene placement.
+// Source preparation consumers share this owner for height, yaw, slope and scale.
+std::vector<MeshScatterCandidate> mesh_scatter_candidates(const LocalTransform& prototype,
+                                                          const Json& arguments);
 Json mesh_scatter_arguments(const std::string& source, const MeshScatterSettings&,
                             const std::string& name);
 Json scatter_mesh(SceneDraft&, const std::string& source, const Json& arguments);

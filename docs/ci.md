@@ -2821,6 +2821,18 @@ Undo/Redo, stale/source errors and document saving. `foliage_gallery` checks ori
 Gallery144 and heightfield Gallery147, including 128 expected projected origins and
 source-hidden relocated content. No project source reader is needed at runtime.
 
+`foliage_collision` also covers static template Mesh bounds: a canopy/root-sphere
+counterexample, placement yaw, mirrored scale, template rotation, slope alignment,
+ordered separation, all-LOD enclosure, deformed-geometry refusal and ordinary
+history. `foliage_editor` exercises the actual shape/padding controls in its six
+scale/layout combinations. The existing MCP preparation tool tests both profiles,
+schemas, invalid input, read-only retries and application through normal history.
+`foliage_mesh_bounds_gallery` checks Gallery267's saved native clearance and
+new-plant bounds, then exports, hides source and verifies relocated content.
+`foliage_mesh_bounds_gallery_vulkan` uses the existing Scene/Game fixture, visible
+green geometry and exact authored/relocated image pairs. Software Vulkan evidence
+does not establish Windows or physical-GPU acceptance.
+
 `terrain_foliage_vulkan` renders the same Scene View and Game consumers using the
 existing foliage probe's optional Scene argument. It verifies compatible batching,
 individual template picking, static frames, visible green geometry and four exact

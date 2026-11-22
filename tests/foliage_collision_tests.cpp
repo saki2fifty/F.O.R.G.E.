@@ -1,8 +1,10 @@
 #include "application_state_fixture.hpp"
 #include "authored_capture_fixture.hpp"
 #include "collision_authoring.hpp"
+#include "engine_render_resource.hpp"
 #include "foliage_collision.hpp"
 #include "mesh_scatter_authoring.hpp"
+#include "spatial_document.hpp"
 #include <chrono>
 #include <cmath>
 #include <forge/assets.hpp>
@@ -70,6 +72,175 @@ Json settled(FoliageCollisionPreparation& task, const Scene& scene,
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     return task.state();
+}
+void template_geometry_admission() {
+    const auto original = asset_detail::engine_mesh_resource(engine_primitive(0));
+    auto lods = original;
+    auto extra = lods.mesh.lods.front();
+    extra.screen_coverage = .5f;
+    for (auto& part : extra.parts) {
+        for (auto& stream : part.streams)
+            if (stream.semantic == "POSITION") {
+                auto& values = std::get<std::vector<float>>(stream.values);
+                for (std::size_t i = 0; i < values.size(); i += 3)
+                    values[i] += 4;
+            }
+        part.bounds = mesh_bounds(part);
+    }
+    lods.mesh.lods.push_back(extra);
+    const auto bounds = foliage_template_bounds(lods);
+    check(bounds.minimum[0] == original.mesh.lods[0].parts[0].bounds.minimum[0] &&
+              bounds.maximum[0] == extra.parts[0].bounds.maximum[0],
+          "Template bounds discarded a static LOD's geometry");
+    const auto refused = [&](const MeshResourceData& value) {
+        bool rejected = false;
+        try {
+            (void)foliage_template_bounds(value);
+        } catch (const AuthoringError& error) {
+            rejected = error.code == "unsupported_template";
+        }
+        check(rejected, "Deformed Mesh was admitted as static foliage bounds");
+    };
+    auto model = original;
+    model.model.emplace();
+    model.model->nodes.push_back({AssetId::generate(), 0, {}, true, true});
+    refused(model);
+    model.model->nodes[0].skin.reset();
+    model.model->nodes[0].morph_weights = {1};
+    refused(model);
+    auto morph = original;
+    morph.mesh.morph_names = {"Bend"};
+    morph.mesh.morph_defaults = {0};
+    for (auto& part : morph.mesh.lods[0].parts)
+        part.morph_targets.push_back({{"POSITION", 3, std::vector<float>(part.vertices * 3)}});
+    refused(morph);
+    auto skin = original;
+    for (auto& part : skin.mesh.lods[0].parts) {
+        part.streams.push_back({"JOINTS_0", 4, std::vector<std::uint32_t>(part.vertices * 4)});
+        std::vector<float> weights(part.vertices * 4);
+        for (std::size_t i = 0; i < weights.size(); i += 4)
+            weights[i] = 1;
+        part.streams.push_back({"WEIGHTS_0", 4, std::move(weights)});
+    }
+    refused(skin);
+}
+void mesh_bounds_clearance(const std::filesystem::path& base) {
+    const auto root = std::filesystem::absolute(base / AssetId::generate().str());
+    std::filesystem::create_directories(root);
+    auto lease = std::make_shared<ProjectLease>(root);
+    AssetCatalog(root).save(AssetCatalog::project_index(root));
+    ProjectSettings(root).save(ProjectSettings::defaults("Template bounds clearance"));
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto create = [&] {
+        return authoring_command(scene, "entity.create", {{"recipe", "primitive.0"}})
+            .at("selected")
+            .get<std::string>();
+    };
+    const auto source = create(), obstacle = create();
+    for (const char* type : {"forge.physics_body", "forge.box_collider"})
+        authoring_command(scene, "component.add", {{"entity", obstacle}, {"component", type}});
+    authoring_command(scene, "property.set",
+                      {{"entity", obstacle},
+                       {"component", "forge.physics_body"},
+                       {"field", "motion"},
+                       {"value", 0}});
+    const auto place_obstacle = [&](double x, double y) {
+        authoring_command(scene, "transform.position",
+                          {{"entity", obstacle}, {"value", {{"x", x}, {"y", y}, {"z", 0}}}});
+    };
+    const auto template_pose = [&](double x_scale, double yaw) {
+        authoring_command(scene, "transform.local",
+                          {{"entity", source},
+                           {"translation", {{"x", 90}, {"y", 80}, {"z", 70}}},
+                           {"rotation", detail::encode(rotation_about_axis({0, 1, 0}, yaw))},
+                           {"scale", {{"x", x_scale}, {"y", 2}, {"z", .2}}}});
+    };
+    template_pose(6, 0);
+    place_obstacle(2.5, 0);
+    detail::MeshScatterSettings scatter;
+    scatter.radius = .01;
+    scatter.spacing = 0;
+    scatter.count = 2;
+    scatter.scale_min = scatter.scale_max = 1;
+    scatter.yaw_min = scatter.yaw_max = 0;
+    auto arguments = detail::mesh_scatter_arguments(source, scatter, "Bounded plants");
+    arguments["world_heights"] = {0., 10.};
+    FoliageCollisionSettings settings;
+    settings.radius = .1;
+    settings.offset = {};
+    FoliageCollisionPreparation task;
+    const auto query = [&] {
+        const auto before = scene.document();
+        const auto revision = scene.revision();
+        task.start(lease, scene, arguments, settings);
+        const auto state = settled(task, scene, root);
+        check(state.at("state") == "ready" && scene.document() == before &&
+                  scene.revision() == revision && state.at("result").at("physics_tick") == 0,
+              "Template bounds clearance failed or changed the source Scene");
+        return state.at("result");
+    };
+    check(query().at("retained_count") == 2,
+          "The root-sphere counterexample unexpectedly contacted its distant obstacle");
+    settings.profile = FoliageClearanceProfile::MeshBounds;
+    auto result = query();
+    check(result.at("retained_count") == 1 &&
+              result.at("arguments").at("placement_mask") == Json::array({false, true}) &&
+              result.at("settings").at("profile") == "mesh-bounds-v1",
+          "Mesh bounds failed to reject the canopy while preserving the raised candidate");
+    arguments["yaw_min"] = arguments["yaw_max"] = 90;
+    check(query().at("retained_count") == 2, "Mesh bounds ignored seeded placement yaw");
+    template_pose(-6, 90);
+    check(query().at("retained_count") == 1,
+          "Mesh bounds lost mirrored template scale or template-plus-placement rotation");
+    template_pose(-6, 0);
+    arguments["yaw_min"] = arguments["yaw_max"] = 0;
+    place_obstacle(0, 2.5);
+    check(query().at("retained_count") == 2,
+          "Unaligned Mesh bounds unexpectedly reached the elevated obstacle");
+    arguments["world_normals"] =
+        Json::array({{{"x", 1}, {"y", 1}, {"z", 0}}, {{"x", 1}, {"y", 1}, {"z", 0}}});
+    check(query().at("retained_count") == 1, "Mesh bounds did not follow the resolved slope frame");
+    arguments.erase("world_normals");
+    arguments["world_heights"] = {0., .3};
+    settings.mask = 0;
+    check(query().at("retained_count") == 2, "Disabled separation changed the candidate pool");
+    settings.avoid_new_overlaps = true;
+    result = query();
+    check(result.at("retained_count") == 1 && result.at("new_overlap_count") == 1 &&
+              result.at("arguments").at("placement_mask") == Json::array({true, false}),
+          "Mesh bounds separation failed to keep the first overlapping candidate");
+    const auto before = scene.document();
+    const auto placed = authoring_command(scene, "mesh.scatter", result.at("arguments"));
+    check(placed.at("placed_count") == 1 && scene.undo() && scene.document() == before &&
+              scene.redo() && scene.undo() && scene.document() == before,
+          "Mesh bounds result bypassed ordinary atomic authoring history");
+    auto windy = scene.document();
+    for (auto& row : windy["entities"])
+        if (row.at("id") == source)
+            row["components"]["forge.mesh_renderer"]["wind"] = {
+                {"enabled", true}, {"direction_x", 1}, {"direction_z", 0}, {"amplitude", .2},
+                {"frequency", .5}, {"wavelength", 8},  {"height", 1.6},    {"phase", 0}};
+    scene.edit(windy);
+    const auto wind_before = scene.document();
+    bool wind_refused = false;
+    try {
+        task.start(lease, scene, arguments, settings);
+    } catch (const AuthoringError& error) {
+        wind_refused = error.code == "unsupported_template";
+    }
+    check(wind_refused && scene.document() == wind_before && scene.undo() &&
+              scene.document() == before,
+          "Wind-enabled template clearance was admitted or changed source intent");
+    settings.padding = std::numeric_limits<double>::quiet_NaN();
+    bool rejected = false;
+    try {
+        task.start(lease, scene, arguments, settings);
+    } catch (const AuthoringError& error) {
+        rejected = error.code == "invalid_arguments";
+    }
+    check(rejected && scene.document() == before,
+          "Invalid Mesh bounds padding changed the Scene or entered native preparation");
 }
 void separate_candidates(const std::filesystem::path& base) {
     const auto root = std::filesystem::absolute(base / AssetId::generate().str());
@@ -596,6 +767,8 @@ int main(int argc, char** argv) {
         if (argc >= 3)
             return 0;
         candidate_workload(std::filesystem::u8path(argv[1]), true);
+        template_geometry_admission();
+        mesh_bounds_clearance(std::filesystem::u8path(argv[1]));
         separate_candidates(std::filesystem::u8path(argv[1]));
         stroke_candidates(std::filesystem::u8path(argv[1]));
         exercise(std::filesystem::u8path(argv[1]));

@@ -1,5 +1,16 @@
 # 2026-11-22
 
+Foliage clearance can use the template's static Mesh bounds instead of a fixed
+world-space sphere. The shared placement owner supplies template rotation, signed
+scale, seeded variation and slope alignment; the existing resource and physics
+owners prepare conservative world-axis boxes. Optional padding, normal collider
+filters, ordered new-plant separation and the ordinary task/history rules apply.
+
+Native controls and the existing automation/MCP preparation tool expose both
+profiles. Earlier sphere requests retain their defaults. Gallery267 compares
+root-sphere and Mesh-bounds placement using ordinary saved objects. Exact triangle
+clearance, deformed Meshes and XY placement remain outside this bounded profile.
+
 CPU Scene particles can opt into linear moving-surface queries through the
 existing native physics and particle history owners. Source22/value74–97 compose
 3D/XY Mesh, camera-plane and World ribbons with resting and impact notifications.
