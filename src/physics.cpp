@@ -2930,6 +2930,22 @@ std::vector<EntityRef> PhysicsRuntime::overlap_shape_2d(const PhysicsOverlap2D& 
     });
     return result;
 }
+bool PhysicsRuntime::overlap_any_2d(const PhysicsOverlap2D& query,
+                                    PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    if (!self.native_2d) {
+        physics_detail::validate_query_filter(filter);
+        physics_detail::validate_overlap_2d(query);
+        return false;
+    }
+    return bool(
+        self.native_2d->overlap_any(query, filter, [&](std::uint64_t entity, EntityRef ref) {
+            const auto resolved = self.context.resolve(ref);
+            return resolved.state == WorldContext::ResolveState::Available &&
+                   resolved.entity == entity;
+        }));
+}
 std::optional<PhysicsHit2D> PhysicsRuntime::shape_cast_2d(const PhysicsSweep2D& query,
                                                           PhysicsQueryFilter filter) const {
     const auto& self = *impl_;

@@ -179,7 +179,8 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     collision_tool = next(tool for tool in tools if tool['name'] == 'forge_foliage_collision_start')
     assert collision_tool['inputSchema']['properties']['avoid_new_overlaps']['type'] == 'boolean'
     properties = collision_tool['inputSchema']['properties']
-    assert properties['profile']['enum'] == ['world-sphere-v1', 'mesh-bounds-v1']
+    assert properties['profile']['enum'] == ['world-sphere-v1', 'mesh-bounds-v1',
+                                             'world-circle-xy-v1', 'mesh-bounds-xy-v1']
     assert properties['padding']['minimum'] == 0 and properties['padding']['maximum'] == 100
     for key, values in (('profile', ['unavailable', 1, None]),
                         ('padding', [-1, 101, '0', None])):
@@ -219,6 +220,39 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == cleared_scene
     assert mutate('forge_history_redo')['ok'] and read('forge_scene_read') == bounded_scene
     assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == cleared_scene
+    xy_obstacle = create('XY clearance obstacle')
+    for component in ('forge.physics_body_2d', 'forge.box_collider_2d'):
+        assert mutate('forge_component_add', arguments=dict(entity=xy_obstacle, component=component))['ok']
+    for field, value in (('x', 100), ('y', 100)):
+        assert mutate('forge_property_set', arguments=dict(entity=xy_obstacle,
+            component='forge.box_collider_2d', field=field, value=value))['ok']
+    xy_before = read('forge_scene_read')
+    for profile in ('world-circle-xy-v1', 'mesh-bounds-xy-v1'):
+        for ignored, expected in (([], 'failed'), ([xy_obstacle], 'ready')):
+            xy = read('forge_foliage_collision_start', arguments=selected['arguments'],
+                      surface=surface, profile=profile, ignored=ignored)
+            deadline = time.monotonic() + 15
+            while xy['state'] in ('preparing', 'querying'):
+                assert time.monotonic() < deadline, xy
+                xy = read('forge_foliage_collision_read', operation=xy['operation'])
+                time.sleep(.01)
+            assert xy['state'] == expected, xy
+            assert xy['profile'] == profile and read('forge_scene_read') == xy_before
+            if expected == 'ready':
+                result = xy['result']
+                assert result['settings']['profile'] == profile
+                assert result['arguments']['placement_mask'] == selected['arguments']['placement_mask']
+                assert result['arguments']['world_heights'] == selected['arguments']['world_heights']
+                state = discover()
+                applied = client.tool('forge_mesh_scatter', target=state['result']['target'],
+                    expected_revision=result['scene_revision'], sequence=state['next_sequence'],
+                    arguments=result['arguments'])
+                assert applied['ok'], applied
+                assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == xy_before
+                assert mutate('forge_history_redo')['ok']
+                assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == xy_before
+    assert mutate('forge_entity_delete', arguments=dict(entity=xy_obstacle))['ok']
+    assert read('forge_scene_read') == cleared_scene
     for invalid in (1, 'true', None):
         failed(client.tool('forge_foliage_collision_start', target=discover()['result']['target'],
                           arguments=selected['arguments'], avoid_new_overlaps=invalid),

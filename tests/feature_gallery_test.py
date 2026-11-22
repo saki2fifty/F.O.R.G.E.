@@ -12,6 +12,19 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+# XY clearance saves the ordinary Mesh placements used by both runtime domains.
+xy_foliage_path = 'Scenes/268-foliage-xy-clearance.scene.json'
+xy_foliage = json.loads((project_root / xy_foliage_path).read_bytes())
+assert xy_foliage['asset_id'] == by_source[xy_foliage_path]['id'] == '64bc6c0a-490e-4784-9172-401d8fde8c2c'
+xy_nodes = xy_foliage['entities']
+assert sum('forge.physics_body_2d' in row['components'] for row in xy_nodes) == 1
+assert sum('forge.box_collider_2d' in row['components'] for row in xy_nodes) == 1
+assert sum('forge.camera' in row['components'] for row in xy_nodes) == 1
+assert sum('forge.light' in row['components'] for row in xy_nodes) >= 1
+for prefix, count in (('XY circle meadow ', 29), ('XY Mesh bounds meadow ', 5)):
+    plants = [row for row in xy_nodes if row['name'].startswith(prefix)]
+    assert len(plants) == count and all('forge.mesh_renderer' in row['components'] for row in plants)
+
 # A shared GPU source remains editable and publishes one explicit neutral envelope.
 gpu_path = 'Scenes/238-gpu-mesh-particles.scene.json'
 gpu_scene = json.loads((project_root / gpu_path).read_bytes())

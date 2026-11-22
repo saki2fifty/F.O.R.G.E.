@@ -7,6 +7,7 @@
 #include <forge/character_components.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/world.hpp>
+#include <functional>
 #include <map>
 #include <memory>
 #include <set>
@@ -138,6 +139,11 @@ class Native2D {
     std::optional<PhysicsHit2D> raycast(Double2, Double2, PhysicsQueryFilter) const;
     std::vector<PhysicsHit2D> raycast_all(Double2, Double2, PhysicsQueryFilter) const;
     std::vector<EntityRef> overlap(const PhysicsOverlap2D&, PhysicsQueryFilter) const;
+    // Resolve canonical ownership before entering native callbacks. The returned
+    // first hit is copied; the existing all-hit query keeps its complete limits.
+    std::optional<EntityRef>
+    overlap_any(const PhysicsOverlap2D&, PhysicsQueryFilter,
+                const std::function<bool(std::uint64_t, EntityRef)>& current) const;
     std::optional<PhysicsHit2D> shape_cast(const PhysicsSweep2D&, PhysicsQueryFilter) const;
     PhysicsMotionResult2D shape_cast_motion(const PhysicsSweep2D&, PhysicsQuerySlice,
                                             PhysicsQueryFilter) const;

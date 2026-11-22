@@ -116,20 +116,28 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
             complete_stroke = command.at("input_schema");
     }
     const Json coordinate{{"type", "number"}, {"minimum", -1000}, {"maximum", 1000}};
+    Json clearance_profiles = Json::array();
+    for (const auto& choice : foliage_clearance_choices())
+        clearance_profiles.push_back(choice.key);
     methods.push_back(automation_method(
         "foliage.collision.start",
-        "Prepare read-only clearance against current authored native 3D colliders. "
+        "Prepare read-only clearance against current authored native colliders. "
         "Profile world-sphere-v1 (default) uses the supplied radius. Profile mesh-bounds-v1 uses "
         "a conservative world-axis box enclosing the selected static template Mesh at each "
         "saved placement's rotation, signed scale, seeded variation and resolved slope. Every "
         "LOD is enclosed; empty space can be rejected. Wind/skin/morph deformation and exact "
         "triangle collision are unavailable. Mesh limits:8MiB data,16384vertices,49152indices, "
         "32parts. Optional padding0..100m expands each box side; sphere radius is inactive. "
+        "Profiles world-circle-xy-v1 and mesh-bounds-xy-v1 instead check native XY bodies with "
+        "a circle or the transformed Mesh bounds projected to a world-axis XY rectangle. "
+        "XY queries and new-candidate separation ignore Z and offset.z. The existing XZ disk, "
+        "world heights and saved Mesh transforms still define placement. These are clearance "
+        "profiles, not an XY placement or Sprite-template workflow. "
         "Poll foliage.collision.read with the returned operation. Supply ordinary scatter or "
         "stroke arguments, or the result of foliage.terrain.prepare/foliage.surface.prepare/"
         "foliage.stroke.prepare; heights, normals and "
         "original-order masks are "
-        "preserved. Radius0.001..100m; world offset defaults(0,0.5,0)m for both profiles. "
+        "preserved. Radius0.001..100m; world offset defaults(0,0.5,0)m for all profiles. "
         "Use offset(0,0,0) for unshifted Mesh bounds. Layer mask defaults all; "
         "sensors default excluded. The template and optional surface are ignored automatically, "
         "plus at most14 distinct ignored entity IDs. At most512 candidates,16 queries per poll, "
@@ -141,15 +149,15 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
         "forge_mesh_stroke at the returned scene_revision. Task candidate_count includes omitted "
         "dabs. Recheck before applying after published assets/settings change. "
         "Optional avoid_new_overlaps (default false) also filters overlapping new candidate "
-        "volumes in original order, keeping the first clear candidate. The same sphere or Mesh "
-        "box and resolved heights apply; touching volumes are allowed. Excluded candidates never "
+        "volumes in original order, keeping the first clear candidate. The selected shape and "
+        "domain apply; touching volumes are allowed. Excluded candidates never "
         "block later ones, no resampling occurs, and a zero collider layer mask still permits "
         "this candidate filter. new_overlap_count reports its exclusions. No project resources "
         "are imported or changed; Mesh bounds use the captured published resource selection.",
         "asset.read",
         automation_object(
             {{"arguments", {{"oneOf", Json::array({complete_scatter, complete_stroke})}}},
-             {"profile", {{"type", "string"}, {"enum", {"world-sphere-v1", "mesh-bounds-v1"}}}},
+             {"profile", {{"type", "string"}, {"enum", clearance_profiles}}},
              {"padding", {{"type", "number"}, {"minimum", 0}, {"maximum", 100}}},
              {"radius", {{"type", "number"}, {"minimum", .001}, {"maximum", 100}}},
              {"offset", automation_object({{"x", coordinate}, {"y", coordinate}, {"z", coordinate}},
@@ -162,10 +170,8 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
             {"arguments"}),
         false, [&scene, &project, clearance](const Json& request) {
             FoliageCollisionSettings settings;
-            settings.profile =
-                request.value("profile", std::string("world-sphere-v1")) == "mesh-bounds-v1"
-                    ? FoliageClearanceProfile::MeshBounds
-                    : FoliageClearanceProfile::WorldSphere;
+            settings.profile = foliage_clearance_profile(
+                request.value("profile", std::string(foliage_clearance_choices().front().key)));
             settings.padding = request.value("padding", settings.padding);
             settings.radius = request.value("radius", settings.radius);
             if (request.contains("offset"))

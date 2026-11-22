@@ -4550,3 +4550,25 @@ software Vulkan/lavapipe. Authored teal/amber colours are shown without the opti
 contact System; native runtime tests separately verify copied Touch observations.
 These are Game captures, not editor-controls screenshots, physical GPU, Windows
 or exported-EXE acceptance.
+
+
+## XY foliage clearance controls and Game view
+
+Canonical files: `manual/images/foliage-xy-clearance-controls.png` (720×2200) and
+`manual/images/foliage-xy-clearance-game.png` (640×360). The first captures the
+actual native Foliage placement panel, projected Mesh rectangle selection,
+disabled Z offset and checked layout. The second is the source-hidden exported
+Gallery268 through the production Game FrameRenderer on software Vulkan/lavapipe;
+38instances and four exact authored/relocated display pairs were checked.
+
+Source: working tree based on `9054661a1077e9139557bd699a562f268daf4829`, with the
+native XY foliage clearance changes. Normal affected-consumer build398 and
+capture402 produced the controls. Graphics build399 and run401 produced the Game
+PPM, encoded losslessly to PNG with RGB equality verified. Both original images
+were personally reviewed and copied at their original dimensions without retouch.
+Technical local capture provenance binds source-input, executable, run and PNG
+hashes. Controls PNG SHA256: `690ca4662e218743a85cfe643aa7c54632c6584f32d4e41b9483f30b397c59ad`.
+Game PNG SHA256: `45233724a51ff5a657c026d35370e816ed68ac934cfc345526ea696e4bbe3791`.
+These captures do not establish Windows, physical GPU/input/DPI or graphical
+standalone EXE acceptance. Existing 3D-profile captures remain attributable to
+their unchanged controls and documented profiles.

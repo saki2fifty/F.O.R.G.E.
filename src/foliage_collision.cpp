@@ -13,16 +13,39 @@
 #include <forge/runtime_world.hpp>
 #include <limits>
 #include <set>
+#include <type_traits>
+#include <variant>
 
 namespace forge {
+std::span<const FoliageClearanceChoice> foliage_clearance_choices() {
+    static constexpr FoliageClearanceChoice choices[]{
+        {FoliageClearanceProfile::WorldSphere, "world-sphere-v1", "World sphere", false, false},
+        {FoliageClearanceProfile::MeshBounds, "mesh-bounds-v1", "Template Mesh bounds", true,
+         false},
+        {FoliageClearanceProfile::CircleXY, "world-circle-xy-v1", "World circle (XY)", false, true},
+        {FoliageClearanceProfile::MeshBoundsXY, "mesh-bounds-xy-v1", "Template Mesh bounds (XY)",
+         true, true}};
+    return choices;
+}
+const FoliageClearanceChoice& foliage_clearance_choice(FoliageClearanceProfile profile) {
+    for (const auto& choice : foliage_clearance_choices())
+        if (choice.profile == profile)
+            return choice;
+    throw AuthoringError("invalid_arguments", "Unknown foliage clearance profile");
+}
+FoliageClearanceProfile foliage_clearance_profile(std::string_view key) {
+    for (const auto& choice : foliage_clearance_choices())
+        if (key == choice.key)
+            return choice.profile;
+    throw AuthoringError("invalid_arguments", "Unknown foliage clearance profile");
+}
 Json foliage_collision_settings(const FoliageCollisionSettings& value) {
     return {{"radius", value.radius},
             {"offset", {{"x", value.offset[0]}, {"y", value.offset[1]}, {"z", value.offset[2]}}},
             {"mask", value.mask},
             {"include_sensors", value.include_sensors},
             {"avoid_new_overlaps", value.avoid_new_overlaps},
-            {"profile", value.profile == FoliageClearanceProfile::MeshBounds ? "mesh-bounds-v1"
-                                                                             : "world-sphere-v1"},
+            {"profile", foliage_clearance_choice(value.profile).key},
             {"padding", value.padding},
             {"surface", value.surface ? Json(value.surface) : Json()},
             {"ignored", value.ignored}};
@@ -37,12 +60,11 @@ std::string digest(const Json& value) {
     return asset_detail::content_digest(std::as_bytes(std::span(text)));
 }
 void validate(const FoliageCollisionSettings& value) {
-    require(unsigned(value.profile) <= unsigned(FoliageClearanceProfile::MeshBounds),
-            "invalid_arguments", "Unknown foliage clearance profile");
+    (void)foliage_clearance_choice(value.profile);
     require(std::isfinite(value.padding) && value.padding >= 0 && value.padding <= 100,
             "invalid_arguments", "Foliage Mesh bounds padding must be 0 to 100 meters");
     require(std::isfinite(value.radius) && value.radius >= .001 && value.radius <= 100,
-            "invalid_arguments", "Foliage clearance sphere radius must be 0.001 to 100 meters");
+            "invalid_arguments", "Foliage clearance radius must be 0.001 to 100 meters");
     for (const auto coordinate : value.offset)
         require(std::isfinite(coordinate) && std::abs(coordinate) <= 1000, "invalid_arguments",
                 "Foliage clearance world offset must be within +/-1000 meters");
@@ -53,6 +75,42 @@ void validate(const FoliageCollisionSettings& value) {
     for (auto id : value.ignored)
         require(bool(id), "invalid_arguments",
                 "Ignored foliage objects require complete entity IDs");
+}
+template <class Query>
+Query bounds_query(const RenderBounds& bounds, const FoliageCollisionSettings& config) {
+    Query box;
+    box.shape = Query::Shape::Box;
+    Double3 center{};
+    for (unsigned axis = 0; axis < box.dimensions.size(); ++axis) {
+        center[axis] = bounds.minimum[axis] + (bounds.maximum[axis] - bounds.minimum[axis]) * .5;
+        const double half =
+            std::max(center[axis] - bounds.minimum[axis], bounds.maximum[axis] - center[axis]);
+        const double size = std::max(.001, 2 * (half + config.padding));
+        float rounded = float(size);
+        if (double(rounded) < size)
+            rounded = std::nextafter(rounded, std::numeric_limits<float>::infinity());
+        box.dimensions[axis] = rounded;
+        center[axis] += config.offset[axis];
+        require(std::isfinite(center[axis]) && std::abs(center[axis]) <= 1e9 &&
+                    std::isfinite(box.dimensions[axis]) && box.dimensions[axis] <= 10000,
+                "invalid_arguments", "Mesh clearance bounds exceed physics limits");
+    }
+    if constexpr (std::is_same_v<Query, PhysicsOverlap2D>)
+        box.origin = {center[0], center[1]};
+    else
+        box.origin = {center[0], center[1], center[2]};
+    return box;
+}
+Double3 query_position(const PhysicsOverlap& query) {
+    return {query.origin.x, query.origin.y, query.origin.z};
+}
+const Double2& query_position(const PhysicsOverlap2D& query) { return query.origin; }
+template <class Query> bool boxes_overlap(const Query& first, const Query& second) {
+    const auto a = query_position(first), b = query_position(second);
+    for (unsigned axis = 0; axis < first.dimensions.size(); ++axis)
+        if (std::abs(a[axis] - b[axis]) >= .5 * (first.dimensions[axis] + second.dimensions[axis]))
+            return false;
+    return true;
 }
 } // namespace
 MeshBounds foliage_template_bounds(const MeshResourceData& data) {
@@ -112,7 +170,7 @@ struct FoliageCollisionPreparation::Impl {
         // Transient preparation inputs, discarded once the same ordered query
         // sequence is ready. Neither is a persistent geometry or placement owner.
         std::vector<LocalTransform> placements;
-        std::vector<PhysicsOverlap> boxes;
+        std::variant<std::vector<PhysicsOverlap>, std::vector<PhysicsOverlap2D>> boxes;
         AssetId prototype_mesh;
         std::uint64_t mesh_token = 0;
         std::vector<bool> mask;
@@ -204,7 +262,10 @@ Json FoliageCollisionPreparation::start(std::shared_ptr<const ProjectLease> leas
     next->catalog = std::move(catalog);
     next->config = std::move(config);
     LocalTransform prototype;
-    if (next->config.profile == FoliageClearanceProfile::MeshBounds) {
+    const auto& choice = foliage_clearance_choice(next->config.profile);
+    if (choice.xy)
+        next->boxes.emplace<std::vector<PhysicsOverlap2D>>();
+    if (choice.mesh_bounds) {
         const auto effective = scene.effective_document();
         for (const auto& row : effective.at("entities"))
             if (row.at("id") == next->arguments.at("entity")) {
@@ -233,7 +294,7 @@ Json FoliageCollisionPreparation::start(std::shared_ptr<const ProjectLease> leas
         require(next->origins.size() + placements.size() <= detail::mesh_scatter_limit,
                 "limit_exceeded", "Foliage clearance allows at most 512 total candidates");
         next->dab_counts.push_back(placements.size());
-        if (next->config.profile == FoliageClearanceProfile::MeshBounds) {
+        if (choice.mesh_bounds) {
             auto candidates = detail::mesh_scatter_candidates(prototype, dab);
             for (auto& candidate : candidates) {
                 candidate.transform.translation.x += settings.center[0];
@@ -252,8 +313,9 @@ Json FoliageCollisionPreparation::start(std::shared_ptr<const ProjectLease> leas
                 settings.center[0] + placements[i].offset[0] + next->config.offset[0],
                 height + next->config.offset[1],
                 settings.center[2] + placements[i].offset[1] + next->config.offset[2]};
-            for (const auto coordinate : {origin.x, origin.y, origin.z})
-                require(std::isfinite(coordinate) && std::abs(coordinate) <= 1e9,
+            const Double3 coordinates{origin.x, origin.y, origin.z};
+            for (unsigned axis = 0; axis < (choice.xy ? 2u : 3u); ++axis)
+                require(std::isfinite(coordinates[axis]) && std::abs(coordinates[axis]) <= 1e9,
                         "invalid_arguments",
                         "Clearance candidate origins must fit physics +/-1 billion meters");
             next->origins.push_back(origin);
@@ -328,37 +390,21 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
                             state.requested_revision == state.retained_revision,
                         "invalid_template", "Mesh bounds clearance needs a ready selected Mesh");
                 const auto local = foliage_template_bounds(mesh.get());
-                work.boxes.reserve(work.placements.size());
-                for (std::size_t index = 0; index < work.placements.size(); ++index) {
-                    if (!work.mask[index]) {
-                        work.boxes.emplace_back();
-                        continue;
-                    }
-                    const auto& placement = work.placements[index];
-                    const auto bounds = transform_bounds(local, affine_transform(placement));
-                    PhysicsOverlap box;
-                    box.shape = PhysicsOverlap::Shape::Box;
-                    Double3 center;
-                    for (unsigned axis = 0; axis < 3; ++axis) {
-                        center[axis] = bounds.minimum[axis] +
-                                       (bounds.maximum[axis] - bounds.minimum[axis]) * .5;
-                        const double half = std::max(center[axis] - bounds.minimum[axis],
-                                                     bounds.maximum[axis] - center[axis]);
-                        const double size = std::max(.001, 2 * (half + work.config.padding));
-                        float rounded = float(size);
-                        if (double(rounded) < size)
-                            rounded =
-                                std::nextafter(rounded, std::numeric_limits<float>::infinity());
-                        box.dimensions[axis] = rounded;
-                        center[axis] += work.config.offset[axis];
-                        require(std::isfinite(center[axis]) && std::abs(center[axis]) <= 1e9 &&
-                                    std::isfinite(box.dimensions[axis]) &&
-                                    box.dimensions[axis] <= 10000,
-                                "invalid_arguments", "Mesh clearance bounds exceed physics limits");
-                    }
-                    box.origin = {center[0], center[1], center[2]};
-                    work.boxes.push_back(box);
-                }
+                std::visit(
+                    [&](auto& boxes) {
+                        using Query = typename std::decay_t<decltype(boxes)>::value_type;
+                        boxes.reserve(work.placements.size());
+                        for (std::size_t index = 0; index < work.placements.size(); ++index) {
+                            if (!work.mask[index]) {
+                                boxes.emplace_back();
+                                continue;
+                            }
+                            const auto bounds =
+                                transform_bounds(local, affine_transform(work.placements[index]));
+                            boxes.push_back(bounds_query<Query>(bounds, work.config));
+                        }
+                    },
+                    work.boxes);
                 work.placements.clear();
                 resources->release(work.mesh_token);
                 work.mesh_token = 0;
@@ -377,51 +423,59 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
             impl_->status["state"] = "querying";
             impl_->status["message"] = "Checking foliage clearance";
         }
-        PhysicsOverlap query;
-        query.dimensions = {work.config.radius, 0, 0};
+        const auto& choice = foliage_clearance_choice(work.config.profile);
         const PhysicsQueryFilter filter{work.config.mask, work.config.include_sensors,
                                         work.exclusions};
-        unsigned batch = 0;
-        while (work.cursor < work.origins.size() && batch < 16) {
-            const auto index = work.cursor++;
-            if (!work.mask[index])
-                continue;
-            if (work.config.profile == FoliageClearanceProfile::MeshBounds)
-                query = work.boxes[index];
-            else
-                query.origin = work.origins[index];
-            work.mask[index] = !work.world->physics()->overlap_any(query, filter);
-            if (work.mask[index] && work.config.avoid_new_overlaps) {
-                // Earlier true mask entries are the already admitted candidates.
-                // Reuse that ordered subset; excluded candidates never block one.
-                for (unsigned previous = 0; previous < index; ++previous) {
-                    if (!work.mask[previous])
+        std::visit(
+            [&](const auto& boxes) {
+                using Query = typename std::decay_t<decltype(boxes)>::value_type;
+                constexpr bool xy = std::is_same_v<Query, PhysicsOverlap2D>;
+                Query query;
+                query.dimensions[0] = work.config.radius;
+                unsigned batch = 0;
+                while (work.cursor < work.origins.size() && batch < 16) {
+                    const auto index = work.cursor++;
+                    if (!work.mask[index])
                         continue;
-                    bool overlaps;
-                    if (work.config.profile == FoliageClearanceProfile::MeshBounds) {
-                        const auto& other = work.boxes[previous];
-                        overlaps = std::abs(query.origin.x - other.origin.x) <
-                                       .5 * (query.dimensions[0] + other.dimensions[0]) &&
-                                   std::abs(query.origin.y - other.origin.y) <
-                                       .5 * (query.dimensions[1] + other.dimensions[1]) &&
-                                   std::abs(query.origin.z - other.origin.z) <
-                                       .5 * (query.dimensions[2] + other.dimensions[2]);
-                    } else {
-                        const auto& origin = work.origins[previous];
-                        overlaps = std::hypot(query.origin.x - origin.x, query.origin.y - origin.y,
-                                              query.origin.z - origin.z) < 2 * work.config.radius;
+                    const auto& origin = work.origins[index];
+                    if (choice.mesh_bounds)
+                        query = boxes[index];
+                    else if constexpr (xy)
+                        query.origin = {origin.x, origin.y};
+                    else
+                        query.origin = origin;
+                    if constexpr (xy)
+                        work.mask[index] = !work.world->physics()->overlap_any_2d(query, filter);
+                    else
+                        work.mask[index] = !work.world->physics()->overlap_any(query, filter);
+                    if (work.mask[index] && work.config.avoid_new_overlaps) {
+                        // Earlier true entries are the retained ordered subset, across dabs.
+                        for (unsigned previous = 0; previous < index; ++previous) {
+                            if (!work.mask[previous])
+                                continue;
+                            bool overlaps;
+                            if (choice.mesh_bounds)
+                                overlaps = boxes_overlap(query, boxes[previous]);
+                            else {
+                                const auto& other = work.origins[previous];
+                                const auto x = origin.x - other.x, y = origin.y - other.y;
+                                const double distance =
+                                    xy ? std::hypot(x, y) : std::hypot(x, y, origin.z - other.z);
+                                overlaps = distance < 2 * work.config.radius;
+                            }
+                            if (overlaps) {
+                                work.mask[index] = false;
+                                ++work.new_overlaps;
+                                break;
+                            }
+                        }
                     }
-                    if (overlaps) {
-                        work.mask[index] = false;
-                        ++work.new_overlaps;
-                        break;
-                    }
+                    work.retained += work.mask[index];
+                    ++work.queried;
+                    ++batch;
                 }
-            }
-            work.retained += work.mask[index];
-            ++work.queried;
-            ++batch;
-        }
+            },
+            work.boxes);
         impl_->status["checked_count"] = work.queried;
         impl_->status["retained_count"] = work.retained;
         impl_->status["new_overlap_count"] = work.new_overlaps;

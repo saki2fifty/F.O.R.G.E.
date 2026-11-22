@@ -9,6 +9,7 @@
 #include <cmath>
 #include <forge/assets.hpp>
 #include <forge/project.hpp>
+#include <forge/runtime_world.hpp>
 #include <iostream>
 #include <limits>
 #include <string_view>
@@ -73,6 +74,190 @@ Json settled(FoliageCollisionPreparation& task, const Scene& scene,
     }
     return task.state();
 }
+void xy_clearance(const std::filesystem::path& base) {
+    const auto root = std::filesystem::absolute(base / AssetId::generate().str());
+    std::filesystem::create_directories(root);
+    auto lease = std::make_shared<ProjectLease>(root);
+    AssetCatalog(root).save(AssetCatalog::project_index(root));
+    auto project = ProjectSettings::defaults("XY foliage clearance");
+    project["physics"]["layers"][1] = "Second query layer";
+    ProjectSettings(root).save(project);
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto create = [&] {
+        return authoring_command(scene, "entity.create", {{"recipe", "primitive.0"}})
+            .at("selected")
+            .get<std::string>();
+    };
+    const auto source = create(), obstacle = create();
+    for (const char* type : {"forge.physics_body_2d", "forge.box_collider_2d"})
+        authoring_command(scene, "component.add", {{"entity", obstacle}, {"component", type}});
+    authoring_command(scene, "transform.position",
+                      {{"entity", obstacle}, {"value", {{"x", 0}, {"y", .5}, {"z", 0}}}});
+    detail::MeshScatterSettings scatter;
+    scatter.count = 8;
+    scatter.radius = .01;
+    scatter.spacing = 0;
+    const auto arguments = detail::mesh_scatter_arguments(source, scatter, "XY plants");
+    FoliageCollisionPreparation task;
+    const auto before = scene.document();
+    task.start(lease, scene, arguments);
+    const auto legacy = settled(task, scene, root);
+    check(legacy.at("state") == "ready" && legacy.at("retained_count") == 8 &&
+              scene.document() == before,
+          "Legacy3D foliage profile unexpectedly queried XY geometry or changed intent");
+    FoliageCollisionSettings xy;
+    xy.profile = FoliageClearanceProfile::CircleXY;
+    task.start(lease, scene, arguments, xy);
+    check(settled(task, scene, root).at("state") == "failed" && scene.document() == before,
+          "XY circle failed to reject native XY occupancy atomically");
+    xy.mask = 2;
+    task.start(lease, scene, arguments, xy);
+    check(settled(task, scene, root).at("retained_count") == 8,
+          "XY circle ignored collider layer filtering");
+    xy.mask = UINT32_MAX;
+    xy.ignored = {EntityId::parse(obstacle)};
+    task.start(lease, scene, arguments, xy);
+    check(settled(task, scene, root).at("retained_count") == 8,
+          "XY circle ignored exact canonical exclusions");
+    xy.ignored.clear();
+    authoring_command(scene, "property.set",
+                      {{"entity", obstacle},
+                       {"component", "forge.physics_body_2d"},
+                       {"field", "sensor"},
+                       {"value", true}});
+    task.start(lease, scene, arguments, xy);
+    check(settled(task, scene, root).at("retained_count") == 8,
+          "XY clearance counted a sensor by default");
+    xy.include_sensors = true;
+    task.start(lease, scene, arguments, xy);
+    check(settled(task, scene, root).at("state") == "failed",
+          "XY clearance omitted an explicitly included sensor");
+    authoring_command(scene, "property.set",
+                      {{"entity", obstacle},
+                       {"component", "forge.physics_body_2d"},
+                       {"field", "sensor"},
+                       {"value", false}});
+    scatter.count = 1;
+    auto dab = detail::mesh_scatter_arguments(source, scatter, "XY stroke");
+    dab.erase("entity");
+    dab.erase("name");
+    auto distant = dab;
+    distant["center"]["z"] = 2e9;
+    Json stroke{{"entity", source}, {"name", "XY stroke"}, {"dabs", {dab, distant}}};
+    xy.mask = 0;
+    xy.avoid_new_overlaps = true;
+    for (const auto profile :
+         {FoliageClearanceProfile::CircleXY, FoliageClearanceProfile::MeshBoundsXY}) {
+        xy.profile = profile;
+        task.start(lease, scene, stroke, xy);
+        const auto state = settled(task, scene, root);
+        check(state.at("state") == "ready" && state.at("retained_count") == 1 &&
+                  state.at("new_overlap_count") == 1 &&
+                  state.at("result").at("retained_dab_indices") == Json::array({0}),
+              "XY cross-dab separation used Z or rejected unused native Z coordinates");
+    }
+    const auto stroke_before = scene.document();
+    const auto result = task.state().at("result");
+    const auto placed = authoring_command(scene, "mesh.stroke", result.at("arguments"));
+    check(placed.at("placed_count") == 1 && scene.undo() && scene.document() == stroke_before &&
+              scene.redo() && scene.undo() && scene.document() == stroke_before,
+          "XY clearance bypassed ordinary atomic placement/history");
+    RuntimeWorld world({}, ProjectSettings(root).physics(), std::nullopt, root, false);
+    world.scene.restore_snapshot(scene.snapshot());
+    const auto prepare = [&] {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+        while (!world.prepare_physics_assets()) {
+            check(std::chrono::steady_clock::now() < deadline, "XY native geometry stalled");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        world.physics()->synchronize(0);
+    };
+    prepare();
+    PhysicsOverlap2D query;
+    query.origin = {0, .5};
+    query.dimensions = {.25, 0};
+    check(world.physics()->overlap_shape_2d(query).size() == 1,
+          "Native XY obstacle counterexample lacks actual geometry");
+    auto dense = scene.document();
+    Json body;
+    for (const auto& row : dense.at("entities"))
+        if (row.at("id") == obstacle)
+            body = row;
+    std::erase_if(dense["entities"].get_ref<Json::array_t&>(),
+                  [&](const Json& row) { return row.at("id") == obstacle; });
+    for (unsigned i = 0; i < 300; ++i) {
+        auto row = body;
+        row["id"] = EntityId::generate();
+        row["components"]["forge.physics_body_2d"]["layer"] = i % 2;
+        dense["entities"].push_back(std::move(row));
+    }
+    scene.edit(dense);
+    world.scene.restore_snapshot(scene.snapshot());
+    prepare();
+    check(world.physics()->overlap_shape_2d(query, {1, false}).size() == 150 &&
+              world.physics()->overlap_shape_2d(query, {2, false}).size() == 150,
+          "Dense XY fixture has invalid native geometry or layer ownership");
+    check(world.physics()->overlap_any_2d(query, {1, false}) &&
+              world.physics()->overlap_any_2d(query, {2, false}) &&
+              !world.physics()->overlap_any_2d(query, {4, false}) &&
+              !world.physics()->overlap_any_2d(query, {0, false}),
+          "Dense XY existence query failed native early-out or layer filtering");
+    bool limited = false;
+    try {
+        (void)world.physics()->overlap_shape_2d(query);
+    } catch (const std::runtime_error&) {
+        limited = true;
+    }
+    check(limited, "Dense XY all-hit query lost its existing256unique-body limit");
+    auto current = world.physics()->overlap_shape_2d(query, {1, false});
+    const auto other = world.physics()->overlap_shape_2d(query, {2, false});
+    current.insert(current.end(), other.begin(), other.end());
+    for (const auto ref : current) {
+        const auto selected = world.engine.world().resolve(ref);
+        check(selected.state == WorldContext::ResolveState::Available,
+              "Dense XY fixture lost a canonical binding before retirement");
+        world.engine.world().world().entity(selected.entity).destruct();
+    }
+    check(!world.physics()->overlap_any_2d(query),
+          "XY existence query counted retired canonical targets before native synchronization");
+    RuntimeWorld empty({}, ProjectSettings(root).physics(), std::nullopt, root, false);
+    check(!empty.physics()->overlap_any_2d(query),
+          "Empty lazy XY world reported occupied geometry");
+    query.dimensions[0] = -1;
+    bool invalid = false;
+    try {
+        (void)empty.physics()->overlap_any_2d(query, {0, false});
+    } catch (const std::runtime_error&) {
+        invalid = true;
+    }
+    check(invalid, "Empty/masked XY existence query skipped shape validation");
+    query.dimensions[0] = .25;
+    const std::array<EntityRef, physics_query_exclusion_limit + 1> too_many{};
+    const std::array<EntityRef, 1> incomplete{};
+    for (const auto exclusions :
+         {std::span<const EntityRef>(too_many), std::span<const EntityRef>(incomplete)}) {
+        bool rejected = false;
+        try {
+            (void)empty.physics()->overlap_any_2d(query, {0, false, exclusions});
+        } catch (const std::runtime_error&) {
+            rejected = true;
+        }
+        check(rejected, "Empty/masked XY existence query skipped exclusion validation");
+    }
+    bool wrong_thread = false;
+    std::thread other_thread([&] {
+        try {
+            (void)empty.physics()->overlap_any_2d(query);
+        } catch (const std::runtime_error&) {
+            wrong_thread = true;
+        }
+    });
+    other_thread.join();
+    check(wrong_thread, "XY existence query bypassed its owner-thread guard");
+    std::cout << "Native XY baseline:3D foliage retains8 despite XY occupancy; "
+                 "300valid native bodies exceed the bounded all-hit query\n";
+}
 void template_geometry_admission() {
     const auto original = asset_detail::engine_mesh_resource(engine_primitive(0));
     auto lods = original;
@@ -124,7 +309,7 @@ void template_geometry_admission() {
     }
     refused(skin);
 }
-void mesh_bounds_clearance(const std::filesystem::path& base) {
+void mesh_bounds_clearance(const std::filesystem::path& base, bool xy = false) {
     const auto root = std::filesystem::absolute(base / AssetId::generate().str());
     std::filesystem::create_directories(root);
     auto lease = std::make_shared<ProjectLease>(root);
@@ -138,11 +323,12 @@ void mesh_bounds_clearance(const std::filesystem::path& base) {
             .get<std::string>();
     };
     const auto source = create(), obstacle = create();
-    for (const char* type : {"forge.physics_body", "forge.box_collider"})
+    for (const char* type : {xy ? "forge.physics_body_2d" : "forge.physics_body",
+                             xy ? "forge.box_collider_2d" : "forge.box_collider"})
         authoring_command(scene, "component.add", {{"entity", obstacle}, {"component", type}});
     authoring_command(scene, "property.set",
                       {{"entity", obstacle},
-                       {"component", "forge.physics_body"},
+                       {"component", xy ? "forge.physics_body_2d" : "forge.physics_body"},
                        {"field", "motion"},
                        {"value", 0}});
     const auto place_obstacle = [&](double x, double y) {
@@ -169,6 +355,8 @@ void mesh_bounds_clearance(const std::filesystem::path& base) {
     FoliageCollisionSettings settings;
     settings.radius = .1;
     settings.offset = {};
+    settings.profile =
+        xy ? FoliageClearanceProfile::CircleXY : FoliageClearanceProfile::WorldSphere;
     FoliageCollisionPreparation task;
     const auto query = [&] {
         const auto before = scene.document();
@@ -182,11 +370,12 @@ void mesh_bounds_clearance(const std::filesystem::path& base) {
     };
     check(query().at("retained_count") == 2,
           "The root-sphere counterexample unexpectedly contacted its distant obstacle");
-    settings.profile = FoliageClearanceProfile::MeshBounds;
+    settings.profile =
+        xy ? FoliageClearanceProfile::MeshBoundsXY : FoliageClearanceProfile::MeshBounds;
     auto result = query();
     check(result.at("retained_count") == 1 &&
               result.at("arguments").at("placement_mask") == Json::array({false, true}) &&
-              result.at("settings").at("profile") == "mesh-bounds-v1",
+              result.at("settings").at("profile") == (xy ? "mesh-bounds-xy-v1" : "mesh-bounds-v1"),
           "Mesh bounds failed to reject the canopy while preserving the raised candidate");
     arguments["yaw_min"] = arguments["yaw_max"] = 90;
     check(query().at("retained_count") == 2, "Mesh bounds ignored seeded placement yaw");
@@ -759,6 +948,11 @@ void resource_and_state(const std::filesystem::path& base) {
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 3 && std::string_view(argv[2]) == "--xy-clearance") {
+            xy_clearance(std::filesystem::u8path(argv[1]));
+            mesh_bounds_clearance(std::filesystem::u8path(argv[1]), true);
+            return 0;
+        }
         check(argc == 2 || ((argc == 3 || argc == 4) &&
                             std::string_view(argv[2]) == "--candidate-workload" &&
                             (argc == 3 || std::string_view(argv[3]) == "--separate")),

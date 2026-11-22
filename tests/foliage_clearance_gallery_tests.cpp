@@ -19,8 +19,9 @@ constexpr auto path = "Scenes/156-foliage-clearance.scene.json";
 constexpr auto separated_path = "Scenes/256-foliage-candidate-clearance.scene.json";
 constexpr auto stroke_path = "Scenes/257-foliage-brush-clearance.scene.json";
 constexpr auto bounds_path = "Scenes/267-foliage-mesh-bounds.scene.json";
+constexpr auto xy_path = "Scenes/268-foliage-xy-clearance.scene.json";
 constexpr double separated_radius = .4;
-enum class Gallery { Sphere, Separated, Stroke, MeshBounds };
+enum class Gallery { Sphere, Separated, Stroke, MeshBounds, XY };
 void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
@@ -30,13 +31,16 @@ Json read(const std::filesystem::path& file) {
     std::ifstream(file) >> result;
     return result;
 }
-void author(const std::filesystem::path& root, Gallery mode = Gallery::Sphere) {
+void author(const std::filesystem::path& project, Gallery mode = Gallery::Sphere) {
+    const auto root = std::filesystem::absolute(project);
     const bool separate = mode != Gallery::Sphere, stroke = mode == Gallery::Stroke,
-               mesh_bounds = mode == Gallery::MeshBounds;
-    const auto destination = mesh_bounds ? bounds_path
-                             : stroke    ? stroke_path
-                             : separate  ? separated_path
-                                         : path;
+               mesh_bounds = mode == Gallery::MeshBounds || mode == Gallery::XY,
+               xy = mode == Gallery::XY;
+    const auto destination = xy            ? xy_path
+                             : mesh_bounds ? bounds_path
+                             : stroke      ? stroke_path
+                             : separate    ? separated_path
+                                           : path;
     check(!std::filesystem::exists(root / destination), "Clearance Gallery already exists");
     auto lease = std::make_shared<ProjectLease>(root);
     EngineContext engine;
@@ -70,11 +74,12 @@ void author(const std::filesystem::path& root, Gallery mode = Gallery::Sphere) {
                       {{"entity", obstacle}, {"value", {{"x", 0}, {"y", 4}, {"z", 0}}}});
     authoring_command(scene, "transform.scale",
                       {{"entity", obstacle}, {"value", {{"x", 2}, {"y", 8}, {"z", 12}}}});
-    for (auto component : {"forge.physics_body", "forge.box_collider"})
+    for (auto component : {xy ? "forge.physics_body_2d" : "forge.physics_body",
+                           xy ? "forge.box_collider_2d" : "forge.box_collider"})
         authoring_command(scene, "component.add", {{"entity", obstacle}, {"component", component}});
     authoring_command(scene, "property.set",
                       {{"entity", obstacle},
-                       {"component", "forge.physics_body"},
+                       {"component", xy ? "forge.physics_body_2d" : "forge.physics_body"},
                        {"field", "motion"},
                        {"value", 0}});
     detail::MeshScatterSettings settings;
@@ -91,7 +96,8 @@ void author(const std::filesystem::path& root, Gallery mode = Gallery::Sphere) {
             settings.radius = 2.75;
             settings.spacing = .1;
         }
-        const auto* name = mesh_bounds ? (patch ? "Mesh bounds meadow" : "Root sphere meadow")
+        const auto* name = xy            ? (patch ? "XY Mesh bounds meadow" : "XY circle meadow")
+                           : mesh_bounds ? (patch ? "Mesh bounds meadow" : "Root sphere meadow")
                            : stroke
                                ? (patch ? "Brush plant separation" : "Brush collider clearance")
                            : !separate ? "Cleared meadow"
@@ -126,8 +132,11 @@ void author(const std::filesystem::path& root, Gallery mode = Gallery::Sphere) {
         if (mesh_bounds) {
             config.avoid_new_overlaps = true;
             config.radius = .15;
+            if (xy)
+                config.profile = FoliageClearanceProfile::CircleXY;
             if (patch) {
-                config.profile = FoliageClearanceProfile::MeshBounds;
+                config.profile = xy ? FoliageClearanceProfile::MeshBoundsXY
+                                    : FoliageClearanceProfile::MeshBounds;
                 config.padding = .05;
                 config.offset = {};
             }
@@ -165,7 +174,8 @@ void author(const std::filesystem::path& root, Gallery mode = Gallery::Sphere) {
 }
 void exercise(const std::filesystem::path& root, AssetId id, Gallery mode = Gallery::Sphere) {
     const bool separate = mode != Gallery::Sphere, stroke = mode == Gallery::Stroke,
-               mesh_bounds = mode == Gallery::MeshBounds;
+               mesh_bounds = mode == Gallery::MeshBounds || mode == Gallery::XY,
+               xy = mode == Gallery::XY;
     RuntimeWorld world({}, {}, std::nullopt, root, false);
     world.scene.restore_snapshot(load_game_scene(root, {id}));
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
@@ -200,13 +210,15 @@ void exercise(const std::filesystem::path& root, AssetId id, Gallery mode = Gall
         if (name.starts_with("Clearance obstacle"))
             ++obstacles;
         const bool separated_plant =
-            separate && name.starts_with(mesh_bounds ? "Mesh bounds meadow "
-                                         : stroke    ? "Brush plant separation "
-                                                     : "Separated meadow ");
+            separate && name.starts_with(xy            ? "XY Mesh bounds meadow "
+                                         : mesh_bounds ? "Mesh bounds meadow "
+                                         : stroke      ? "Brush plant separation "
+                                                       : "Separated meadow ");
         const bool unseparated_plant =
-            separate && name.starts_with(mesh_bounds ? "Root sphere meadow "
-                                         : stroke    ? "Brush collider clearance "
-                                                     : "Unseparated meadow ");
+            separate && name.starts_with(xy            ? "XY circle meadow "
+                                         : mesh_bounds ? "Root sphere meadow "
+                                         : stroke      ? "Brush collider clearance "
+                                                       : "Unseparated meadow ");
         if (!separated_plant && !unseparated_plant && !name.starts_with("Cleared meadow "))
             continue;
         if (!row.at("components").contains("forge.mesh_renderer"))
@@ -227,7 +239,13 @@ void exercise(const std::filesystem::path& root, AssetId id, Gallery mode = Gall
             for (unsigned axis = 0; axis < 3; ++axis)
                 query.dimensions[axis] = std::max(.001, box.maximum[axis] - box.minimum[axis] + .1);
         }
-        check(!world.physics()->overlap_any(query, {UINT32_MAX, false}),
+        PhysicsOverlap2D xy_query;
+        xy_query.origin = {query.origin.x, query.origin.y};
+        xy_query.dimensions = {query.dimensions[0], query.dimensions[1]};
+        if (query.shape == PhysicsOverlap::Shape::Box)
+            xy_query.shape = PhysicsOverlap2D::Shape::Box;
+        check(!(xy ? world.physics()->overlap_any_2d(xy_query, {UINT32_MAX, false})
+                   : world.physics()->overlap_any(query, {UINT32_MAX, false})),
               "Saved Gallery plant overlaps the actual native collider");
         ++plants;
         unseparated += unseparated_plant;
@@ -238,8 +256,8 @@ void exercise(const std::filesystem::path& root, AssetId id, Gallery mode = Gall
                                   .5 * (query.dimensions[0] + earlier.dimensions[0]) ||
                               std::abs(query.origin.y - earlier.origin.y) >=
                                   .5 * (query.dimensions[1] + earlier.dimensions[1]) ||
-                              std::abs(query.origin.z - earlier.origin.z) >=
-                                  .5 * (query.dimensions[2] + earlier.dimensions[2]),
+                              (!xy && std::abs(query.origin.z - earlier.origin.z) >=
+                                          .5 * (query.dimensions[2] + earlier.dimensions[2])),
                           "Saved Gallery Mesh bounds overlap another retained plant");
                 separated_boxes.push_back(query);
             } else
@@ -253,6 +271,12 @@ void exercise(const std::filesystem::path& root, AssetId id, Gallery mode = Gall
     check(plants > 0 && plants < (separate ? 192u : 96u) && obstacles == 1 &&
               world.physics()->status().at("tick") == 0,
           "Clearance Gallery lacks ordinary saved plants/collider or progressed physics");
+    if (xy) {
+        PhysicsOverlap2D occupied;
+        occupied.origin = {0, 4};
+        check(world.physics()->overlap_any_2d(occupied),
+              "XY Gallery lacks an actual native obstacle");
+    }
     if (separate)
         check(!separated.empty() && separated.size() < unseparated,
               "Separated Gallery lacks its visible dense/sparse comparison");
@@ -281,20 +305,27 @@ int main(int argc, char** argv) {
             author(argv[2], Gallery::MeshBounds);
             return 0;
         }
+        if (argc == 3 && std::string_view(argv[1]) == "--author-xy") {
+            author(argv[2], Gallery::XY);
+            return 0;
+        }
+        const bool xy_only = argc == 4 && std::string_view(argv[3]) == "--xy";
         const bool bounds_only = argc == 4 && std::string_view(argv[3]) == "--bounds";
-        check(argc == 3 || bounds_only, "Need Gallery and scratch paths");
+        check(argc == 3 || bounds_only || xy_only, "Need Gallery and scratch paths");
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "Gallery";
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
-        if (bounds_only) {
-            const auto id = read(root / bounds_path).at("asset_id").get<AssetId>();
-            exercise(root, id, Gallery::MeshBounds);
+        if (bounds_only || xy_only) {
+            const auto mode = xy_only ? Gallery::XY : Gallery::MeshBounds;
+            const auto id =
+                read(root / (xy_only ? xy_path : bounds_path)).at("asset_id").get<AssetId>();
+            exercise(root, id, mode);
             const std::array roots{id};
             package_runtime_content(root, scratch / "Content", roots, {"windows", "d3d12"});
             std::filesystem::rename(scratch / "Content", scratch / "Relocated");
             std::filesystem::rename(root, scratch / "SourcesOffline");
-            exercise(scratch / "Relocated", id, Gallery::MeshBounds);
+            exercise(scratch / "Relocated", id, mode);
             return 0;
         }
         const auto id = read(root / path).at("asset_id").get<AssetId>();

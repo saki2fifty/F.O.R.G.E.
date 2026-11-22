@@ -213,6 +213,22 @@ def exercise(client, evidence, manifest, process):
     control('forge_play_step')
     wait_for(lambda: read('forge_play_status'),
              lambda r: r['paused'] and r['control_ready'] and r['timing']['tick'] == tick + 1)
+    control('forge_play_profile_refresh')
+    wait_for(lambda: read('forge_play_profile')['value'],
+             lambda r: r.get('native_systems_available'))
+    control('forge_play_profile_control', enabled=True, clear=True, native_systems=True)
+    for _ in range(4):
+        control('forge_play_step')
+    control('forge_play_profile_refresh')
+    wait_for(lambda: read('forge_play_profile')['value'],
+             lambda r: r.get('native_systems') and any(
+                 'start_seconds' in sample for sample in r.get('samples', [])))
+    profile = read('forge_play_profile_trace')
+    spans = [event for event in profile['trace']['traceEvents'] if event['ph'] == 'X']
+    assert spans and any(event['cat'] == 'ecs.system' for event in spans), profile
+    assert profile['trace']['otherData']['source']['native_systems_dropped'] == '0', profile
+    (evidence / 'live-profile.json').write_text(json.dumps(profile, indent=2), encoding='utf-8')
+    control('forge_play_profile_control', enabled=False, native_systems=False)
     control('forge_play_tune', entity=cube, component='project.rotator', property='speed', value=-180.0)
     tune = wait_for(lambda: read('forge_play_status'),
                     lambda r: not r['tune_pending'] and r['tune_ack'] is not None)
@@ -280,7 +296,8 @@ def exercise(client, evidence, manifest, process):
     (evidence / 'export-manifest.json').write_text(json.dumps(package, indent=2), encoding='utf-8')
     return dict(complete=True, source_commit=manifest['source_commit'], build_id=manifest['build_id'],
                 project_created=True, reusable_asset=True, cpp_compiled=True, isolated_inspection=True,
-                actual_editor_play=True, fixed_step=True, live_cpp_tuning=True, keep_undo_redo=True,
+                actual_editor_play=True, fixed_step=True, live_profiler=True,
+                live_cpp_tuning=True, keep_undo_redo=True,
                 gpu_game_capture=True, mcp_image_block=True, native_export=True,
                 shipped_game_executed=True, exported_cpp_observed=True,
                 exported_startup_verified=True,

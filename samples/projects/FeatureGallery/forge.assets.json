@@ -9355,6 +9355,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "64bc6c0a-490e-4784-9172-401d8fde8c2c",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/268-foliage-xy-clearance.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "65ecaf43-33c6-4db6-8df9-fee538c58553",
       "metadata": {},
       "schema_version": 3,

@@ -3,12 +3,23 @@
 #include <forge/physics_service.hpp>
 #include <forge/project_lease.hpp>
 #include <memory>
+#include <span>
+#include <string_view>
 namespace forge {
 struct MeshBounds;
 struct MeshResourceData;
 // Static published-geometry admission shared by bounds preparation and its consumers.
 MeshBounds foliage_template_bounds(const MeshResourceData&);
-enum class FoliageClearanceProfile { WorldSphere, MeshBounds };
+enum class FoliageClearanceProfile { WorldSphere, MeshBounds, CircleXY, MeshBoundsXY };
+struct FoliageClearanceChoice {
+    FoliageClearanceProfile profile;
+    const char* key;
+    const char* label;
+    bool mesh_bounds, xy;
+};
+std::span<const FoliageClearanceChoice> foliage_clearance_choices();
+const FoliageClearanceChoice& foliage_clearance_choice(FoliageClearanceProfile);
+FoliageClearanceProfile foliage_clearance_profile(std::string_view);
 struct FoliageCollisionSettings {
     double radius = .25;
     Double3 offset{0, .5, 0};

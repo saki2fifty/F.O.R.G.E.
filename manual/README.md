@@ -37,7 +37,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Importing and placing models, including FBX](editor/models.md)
 - [Editable Meshes, flat 2D outlines, holes, curves and UVs](editor/editable-meshes.md)
 - [Shape terrain with height layers](editor/terrain.md)
-- [Paint and place foliage with slope alignment, sphere or Mesh bounds clearance, and wind](editor/foliage.md)
+- [Paint and place foliage with slope alignment, 3D/XY clearance, Mesh bounds, and wind](editor/foliage.md)
 - [Importing textures, exporting stored/block samples, signed PNG16, BC6 HDR and image inspection](editor/textures.md)
 - [Materials](editor/materials.md)
 - [Paint textures on a canvas or Mesh, copy images and publish for Materials](editor/texture-painting.md)

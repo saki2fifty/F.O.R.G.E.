@@ -1053,7 +1053,17 @@ directory, verifies every manifest hash, runs the reference game and installed
 SDK, imports through packaged workers with a restricted PATH, and executes the
 real editor SDK workflow. The editor fixture EXE is copied beside
 bin/forge_editor.exe and uses only shipped DLLs/resources. A failed acceptance
-gate prevents ZIP upload. The test-only fixture/project/private user-data
+gate prevents ZIP upload. The production MCP package fixture also enables native-system profiling during
+paused Play, advances bounded fixed steps, refreshes the existing profile and
+exports a nonempty trace containing actual ECS system spans. It requires zero
+dropped native-system records, writes `mcp/live-profile.json` and reports
+`live_profiler:true` in `mcp/acceptance.json` only after these checks succeed.
+Profiling is disabled before the remaining tuning/export workflow. This checks
+the packaged native Play path; it does not establish physical timing performance.
+A delivery verifier must retain the exact-source trace artifact and acceptance
+field when claiming this workflow's production-package acceptance.
+
+The test-only fixture/project/private user-data
 directory are not shipped. WARP validation does not claim physical GPU or
 audio acceptance.
 

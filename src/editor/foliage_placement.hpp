@@ -359,15 +359,30 @@ class FoliagePlacement {
             ImGui::EndDisabled();
             if (collision_enabled_) {
                 ImGui::TextWrapped(
-                    "Check a clearance volume against authored 3D colliders. "
+                    "Check a clearance volume against authored colliders in the selected domain. "
                     "The template and projection surface are ignored. No simulation runs. "
                     "Separate new plants also compares the selected volumes between retained "
                     "candidates. Mesh bounds conservatively include empty space.");
                 int profile = int(collision_settings_.profile);
-                if (ImGui::Combo("Clearance shape", &profile,
-                                 "World sphere\0Template Mesh bounds\0"))
-                    collision_settings_.profile = FoliageClearanceProfile(profile);
+                const auto choices = foliage_clearance_choices();
+                if (ImGui::Combo(
+                        "Clearance shape", &profile,
+                        [](void*, int index) -> const char* {
+                            const auto values = foliage_clearance_choices();
+                            if (index < 0 || std::size_t(index) >= values.size())
+                                return nullptr;
+                            return values[index].label;
+                        },
+                        nullptr, int(choices.size())))
+                    collision_settings_.profile = choices[profile].profile;
                 FORGE_UI_PROBE("foliage:clearance_profile");
+                const auto& choice = foliage_clearance_choice(collision_settings_.profile);
+                if (choice.xy)
+                    ImGui::TextWrapped(
+                        "XY clearance checks XY physics bodies and ignores Z, including new-plant "
+                        "separation. Mesh bounds project to a world-axis XY rectangle. Placement "
+                        "still uses the existing XZ disk and world heights; this is not a Sprite "
+                        "or XY placement tool.");
                 help("Template Mesh bounds follow saved template rotation, signed scale, seeded "
                      "variation and slope alignment. A world-axis box encloses every static LOD. "
                      "Wind, skin and morph deformation are unavailable. Up to 8 MiB of Mesh "
@@ -377,11 +392,12 @@ class FoliagePlacement {
                 FORGE_UI_PROBE("foliage:separate_new");
                 help(
                     "Keep the first clear candidate, then skip new candidates with overlapping "
-                    "clearance volumes. Uses the same sphere or Mesh box and resolved heights; "
+                    "clearance volumes. Uses the selected shape and domain; "
                     "touching volumes are allowed. No resampling or fixed retained-count promise.");
-                if (collision_settings_.profile == FoliageClearanceProfile::WorldSphere)
+                if (!choice.mesh_bounds)
                     field("Clearance radius (m)", "clearance_radius", collision_settings_.radius,
-                          "Sphere radius, 0.001 to 100 m. This does not scale with the template.");
+                          "Sphere or XY circle radius, 0.001 to 100 m. Independent of template "
+                          "scale.");
                 else
                     field("Bounds padding (m)", "clearance_padding", collision_settings_.padding,
                           "Add 0 to 100 m on every side of the transformed Mesh bounds.");
@@ -390,8 +406,10 @@ class FoliagePlacement {
                 field("Clearance offset Y (m)", "clearance_y", collision_settings_.offset[1],
                       "World-space offset, +/-1000 m. Use 0 on every axis to test the unshifted "
                       "Mesh bounds. The sphere default raises its center by 0.5 m.");
+                ImGui::BeginDisabled(choice.xy);
                 field("Clearance offset Z (m)", "clearance_z", collision_settings_.offset[2],
                       "World-space offset from each candidate origin, +/-1000 m.");
+                ImGui::EndDisabled();
                 ImGui::TextUnformatted("Collision layer mask");
                 ImGui::SetNextItemWidth(-1);
                 ImGui::InputScalar("##clearance-mask", ImGuiDataType_U32,

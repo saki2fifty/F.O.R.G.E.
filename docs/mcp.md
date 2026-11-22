@@ -124,13 +124,22 @@ by terrain/surface preparation, or full existing `mesh.stroke` arguments from
 `forge_foliage_stroke_prepare`. The argument schema preserves the exact scatter
 and stroke alternatives. Optional settings: radius 0.001..100(default 0.25), offset
 as `{x,y,z}` in world meters(each+/-1000, default 0,0.5,0), uint32 mask(default all),
-include_sensors(default false), avoid_new_overlaps(default false), surface(entityID) and ignored(up to14 distinct
-entityIDs). The template and surface are excluded automatically. It tests existing
-authored 3D colliders without running project code or simulation, using one private
-native/resource owner. It does not query live Play poses or full plant Mesh bounds.
-With avoid_new_overlaps enabled, retain clear candidates in original order and
-reject spheres overlapping an earlier retained sphere. The same world radius,
-offsets and resolved heights apply; touching spheres are allowed. Excluded
+include_sensors(default false), avoid_new_overlaps(default false), surface(entityID),
+ignored(up to14 distinct entityIDs), profile(default world-sphere-v1) and
+padding0..100m(default0). The template and surface are excluded automatically. It tests existing
+authored colliders without running project code or simulation, using one private
+native/resource owner. Profiles world-sphere-v1 and mesh-bounds-v1 select 3D sphere
+or conservative transformed static Mesh boxes; world-circle-xy-v1 and
+mesh-bounds-xy-v1 select native XY circles or projected Mesh rectangles. All-LOD
+bounds follow the saved template/seeded rotation, signed scale and slope alignment.
+Padding expands each queried box side; radius applies only to sphere/circle.
+Wind, skin/morph deformation and exact triangle clearance are unsupported.
+XY queries and new-candidate separation ignore Z and offset.z. Ordinary XZ-disk
+Mesh placement and world heights remain unchanged; this is not a Sprite/XY
+placement tool. No profile samples live Play poses. With avoid_new_overlaps
+enabled, retain clear candidates in original order and reject volumes overlapping
+an earlier retained volume in the selected domain. Offsets and resolved heights
+apply; touching candidate volumes are allowed. Excluded
 candidates never block later ones. This filter remains active with mask0 and
 reports `new_overlap_count`, without resampling or adding native colliders.
 Stroke inputs admit 1–16 dabs and 512 total original candidates. Both collider

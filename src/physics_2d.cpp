@@ -2086,6 +2086,8 @@ struct Native2D::Impl {
         std::size_t work = 0, count = 0;
         bool failed = false;
         std::array<EntityRef, physics_overlap_limit> refs{};
+        bool first_only = false;
+        std::span<const EntityRef> retired{};
     };
     static bool overlap_hit(b2ShapeId shape, void* pointer) noexcept {
         auto& query = *static_cast<OverlapQuery*>(pointer);
@@ -2099,7 +2101,8 @@ struct Native2D::Impl {
             return false;
         }
         if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
-            query_excludes(query.filter, body->admitted.ref))
+            query_excludes(query.filter, body->admitted.ref) ||
+            std::binary_search(query.retired.begin(), query.retired.end(), body->admitted.ref))
             return true;
         const auto end = query.refs.begin() + query.count;
         if (std::find(query.refs.begin(), end, body->admitted.ref) != end)
@@ -2109,7 +2112,24 @@ struct Native2D::Impl {
             return false;
         }
         query.refs[query.count++] = body->admitted.ref;
-        return true;
+        return !query.first_only;
+    }
+    OverlapQuery overlap_query(const PhysicsOverlap2D& request, PhysicsQueryFilter filter,
+                               bool first_only = false,
+                               std::span<const EntityRef> retired = {}) const {
+        check();
+        validate_query_filter(filter);
+        const auto proxy = overlap_proxy(request);
+        OverlapQuery query{this, filter};
+        query.first_only = first_only;
+        query.retired = retired;
+        if (B2_IS_NON_NULL(world) && filter.mask)
+            b2World_OverlapShape(world, {request.origin[0], request.origin[1]}, &proxy,
+                                 query_filter(filter), overlap_hit, &query);
+        if (query.failed)
+            throw std::runtime_error(
+                "2D overlap query exceeded its work/body limit or hit an invalid native binding");
+        return query;
     }
     std::optional<PhysicsHit2D> cast_mover(const PhysicsSweep2D&, PhysicsQueryFilter,
                                            std::size_t& work,
@@ -3177,20 +3197,27 @@ std::vector<PhysicsHit2D> Native2D::raycast_all(Double2 origin, Double2 displace
 std::vector<EntityRef> Native2D::overlap(const PhysicsOverlap2D& request,
                                          PhysicsQueryFilter filter) const {
     const auto& self = *impl_;
-    self.check();
-    validate_query_filter(filter);
-    const auto proxy = overlap_proxy(request);
-    if (!realized() || !filter.mask)
-        return {};
-    Impl::OverlapQuery query{&self, filter};
-    b2World_OverlapShape(self.world, {request.origin[0], request.origin[1]}, &proxy,
-                         query_filter(filter), Impl::overlap_hit, &query);
-    if (query.failed)
-        throw std::runtime_error(
-            "2D overlap query exceeded its work/body limit or hit an invalid native binding");
+    const auto query = self.overlap_query(request, filter);
     std::vector<EntityRef> result(query.refs.begin(), query.refs.begin() + query.count);
     std::sort(result.begin(), result.end());
     return result;
+}
+std::optional<EntityRef>
+Native2D::overlap_any(const PhysicsOverlap2D& request, PhysicsQueryFilter filter,
+                      const std::function<bool(std::uint64_t, EntityRef)>& current) const {
+    const auto& self = *impl_;
+    self.check();
+    if (!current)
+        throw std::runtime_error("XY overlap existence requires canonical owner resolution");
+    // The owner-thread lookup finishes before entering the read-only native
+    // callback; no ECS access, allocation or exception occurs inside that callback.
+    std::vector<EntityRef> retired;
+    for (const auto& [entity, body] : self.bodies)
+        if (!current(entity, body.admitted.ref))
+            retired.push_back(body.admitted.ref);
+    std::sort(retired.begin(), retired.end());
+    const auto query = self.overlap_query(request, filter, true, retired);
+    return query.count ? std::optional<EntityRef>{query.refs[0]} : std::nullopt;
 }
 std::optional<PhysicsHit2D> Native2D::shape_cast(const PhysicsSweep2D& request,
                                                  PhysicsQueryFilter filter) const {

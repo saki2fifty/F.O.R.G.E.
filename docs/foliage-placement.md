@@ -162,6 +162,9 @@ still delegated to the existing authoring command.
 `FoliageCollisionPreparation` owns one transient clearance request. Its default
 `world-sphere-v1` profile retains the explicit world-radius behavior; the optional
 `mesh-bounds-v1` profile derives a conservative world box from the static template.
+Appended `world-circle-xy-v1` and `mesh-bounds-xy-v1` profiles select native XY
+circles or projected static Mesh rectangles. One canonical choice table owns
+profile keys, UI labels and domain/geometry flags for settings, UI and MCP.
 It
 captures the project lease, source snapshot/revision, published AssetCatalog and
 ProjectSettings, then composes the existing private RuntimeWorld/resource/physics
@@ -172,14 +175,14 @@ intent; project C++ code is not executed. Missing or invalid required resources
 fail preparation. Polling stays on the owning thread; existing loaders perform
 asset IO asynchronously. This is derived query state, not a collider database.
 
-The sphere radius is 0.001..100 meters, with an explicit world-axis offset up to
-+/-1000 meters per axis (default 0,0.5,0). Each resulting query origin must be finite
+The sphere/circle radius is 0.001..100 meters, with an explicit world-axis offset up to
++/-1000 meters per axis (default 0,0.5,0). Each queried origin coordinate must be finite
 and within+/-1e9 meters. Radius does not inherit template scale or rotation. A
 uint32 layer mask defaults all; sensors default excluded. Canonical references
 exclude the template, optional surface and at most 14 distinct additional entities
 (up to 16 total). Exclusions name exact objects, not subtrees. Existing native
 query layer/sensor/retirement/generation validation remains authoritative.
-The host-only nonvirtual `PhysicsRuntime::overlap_any` uses native early-out
+The host-only nonvirtual `PhysicsRuntime::overlap_any` and typed `overlap_any_2d` use native early-out
 existence queries, sharing the ordinary shape/settings/filter owners. All-hit
 query limits/semantics, PhysicsService virtual layout, SDK structs and ABI remain
 unchanged. Dense valid overlap is an occupied candidate, not an all-hit-list error.
@@ -225,6 +228,27 @@ Earlier excluded/rejected candidates never block later ones. Radius remains an
 inactive retained sphere setting. The canonical profile/padding join the existing
 fingerprint, status and ready-result settings. This is conservative static bounds
 clearance, not exact triangle collision, XY placement or deformed Mesh support.
+
+The XY profiles preserve the ordinary XZ scatter/stroke layout, world heights,
+yaw/template rotation, signed scale and slope alignment. They change only query
+and candidate-separation domains. Circle origins project to X/Y; Mesh boxes reuse
+the same transformed all-LOD enclosure and outward rounding on X/Y only. Z and
+offset.z are retained session choices but unused by native XY queries or pair
+separation. Native origin/dimension limits apply only to queried axes; ordinary
+placement validation still applies to the full saved transform. No Sprite
+template or separate XY placement workflow is implied. A typed transient variant
+holds only the selected domain's prepared box sequence. The existing mask remains
+the sole retained-set owner. Sphere/circle pair distances and box/rectangle
+interiors use their corresponding domain, including comparisons across dabs.
+
+The typed host-only XY existence adapter shares the subordinate native proxy,
+filter and owned-binding callback with the bounded all-hit collector. It copies
+retired canonical references using owner-thread resolution before entering the
+native callback; callbacks perform no ECS access, allocation or exception. The
+first valid native overlap stops traversal. The old all-hit 256-body and query
+work bounds remain unchanged; empty or mask-zero requests still validate shape
+and filters without realizing an unused XY world. No PhysicsService virtual or
+installed SDK table/struct change is introduced.
 
 The same task additionally admits existing `mesh.stroke` arguments. Original dab
 layouts flatten into one bounded origin/mask sequence, retaining only derived

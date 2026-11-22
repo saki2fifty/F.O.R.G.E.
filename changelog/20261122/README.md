@@ -1,12 +1,26 @@
 # 2026-11-22
 
+Foliage clearance now offers explicit native XY circle and static Mesh-rectangle
+profiles alongside the existing 3D sphere and box choices. Queries and ordered
+new-plant separation ignore Z in XY mode, while ordinary saved XZ-disk Mesh
+placement retains its transforms, heights and Scene history. Shared metadata drives
+native controls and automation/MCP discovery. Dense XY occupancy uses a checked
+host existence query without changing the complete all-hit query limits or SDK.
+Gallery268 compares 29 circle-clear and 5 Mesh-rectangle-clear plants from the same
+96-candidate layouts; both use new-plant separation. Source-hidden exports and
+native query checks cover the saved scene. Sprite/XY placement, deformed Mesh and
+exact triangle clearance remain unsupported.
+
+The production-editor MCP package fixture also checks native live-profiler control
+and trace output. Its Windows execution is part of final package acceptance.
+
 Foliage clearance can use the template's static Mesh bounds instead of a fixed
 world-space sphere. The shared placement owner supplies template rotation, signed
 scale, seeded variation and slope alignment; the existing resource and physics
 owners prepare conservative world-axis boxes. Optional padding, normal collider
 filters, ordered new-plant separation and the ordinary task/history rules apply.
 
-Native controls and the existing automation/MCP preparation tool expose both
+Native controls and the existing automation/MCP preparation tool expose the 3D sphere and bounds
 profiles. Earlier sphere requests retain their defaults. Gallery267 compares
 root-sphere and Mesh-bounds placement using ordinary saved objects. Exact triangle
 clearance, deformed Meshes and XY placement remain outside this bounded profile.

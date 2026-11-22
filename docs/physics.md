@@ -226,6 +226,15 @@ budget rejects the query, without partial results. Resolution uses existing
 body/character owner maps after synchronous native callbacks, with no persistent
 overlap owner or hidden result lifetime.
 
+Host authoring also uses nonvirtual `PhysicsRuntime::overlap_any` and typed
+`overlap_any_2d` existence queries. They share native geometry/filter validation
+and stop at the first current canonical target. XY canonical retirement is
+resolved on the owner thread before entering native callbacks; the callback only
+reads copied references and existing native binding state. Dense occupied worlds
+do not require an all-hit list. The all-hit body/work limits and SDK interfaces
+remain unchanged. Empty or zero-mask existence requests still validate inputs;
+an unused XY backend remains unrealized.
+
 The matching SDK tail `physics_overlap_shape` requires Physics capability, owner
 thread and fixed scope. `ForgeSdkOverlapV1` and every output reference need exact
 sizes. Caller capacity is1..256. Success returns the complete count; -2 means

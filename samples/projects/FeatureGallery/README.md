@@ -3473,3 +3473,27 @@ C++ module is needed. Stop Play before editing the Effect or animation; save and
 publish both before export with the packaged runtime kit. Angular sweeps and
 two-way rigid-body impulses are unsupported. See the
 [linear Scene motion workflow and limits](../../../manual/editor/particles.md#linear-scene-motion).
+
+
+## XY foliage clearance
+
+Open `Scenes/268-foliage-xy-clearance.scene.json` to compare saved Mesh foliage
+checked against the same XY Physics Body. The left patch keeps 29 of 96 plants
+with **World circle (XY)**; the right keeps 5 with **Template Mesh bounds (XY)**.
+Both use **Separate new plants**. The mirrored static blade, seeded variation
+and terrain slope alignment contribute to the projected Mesh rectangle.
+
+Select the blade template, open **Foliage placement** and enable **Reject
+collisions** to try either XY choice under **Clearance shape**. XY clearance
+ignores Z, including separation between plants on different Z positions; its Z
+offset is disabled. Placement still uses the XZ disk and resolved terrain heights.
+It creates ordinary Mesh objects and does not provide an XY drawing plane or
+Sprite templates. The camera and light are saved, so the scene can be played and
+exported with the packaged runtime kit without project C++ code. See the
+[clearance controls and limits](../../../manual/editor/foliage.md#keep-clear-of-colliders).
+
+
+![Saved foliage patches using XY circle and projected Mesh-bounds clearance](../../../manual/images/foliage-xy-clearance-game.png)
+
+The camera shows the denser circle-clear patch on the left and the more
+conservative Mesh-rectangle patch on the right.

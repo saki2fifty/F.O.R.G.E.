@@ -1,0 +1,2892 @@
+{
+  "asset_id": "64bc6c0a-490e-4784-9172-401d8fde8c2c",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -16.0,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "32685545-b5d2-4e86-a1ad-00e8198accd0",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.12999999523162842,
+          "g": 0.5799999833106995,
+          "r": 0.2199999988079071
+        }
+      },
+      "id": "cf593d4f-cba4-4fbe-8735-607adc14b3c8",
+      "name": "Layered terrain - open source in Content",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9612487554550171,
+          "x": 0.2756825089454651,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 16.0,
+          "z": -24.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d115fa3c-17d0-46d9-becd-b18f6968ac91",
+      "name": "Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.8659851551055908,
+          "x": 0.45080333948135376,
+          "y": -0.19198428094387054,
+          "z": 0.0999406948685646
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 12.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "63d99312-5961-4568-888e-aa255efd4f9e",
+      "name": "Directional light",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": -2.0,
+          "y": 1.399999976158142,
+          "z": 2.0
+        },
+        "forge.local_translation": {
+          "x": -7.005270889494568,
+          "y": 0.4223737683464075,
+          "z": -4.002614586525596
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b0bd715b-b00c-46e6-b98a-fb0fd6232029",
+      "name": "Blade template - select for terrain placement",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 1.0,
+          "y": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 8.0,
+          "z": 12.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.0,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6000000238418579,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "one_way": false,
+          "one_way_margin": 0.019999999552965164,
+          "restitution": 0.0,
+          "sensor": false
+        }
+      },
+      "id": "b139c6cd-4bbd-431d-8f9a-323ea167717d",
+      "name": "Clearance obstacle - ignore to compare",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "name": "XY circle meadow",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9147155284881592,
+          "x": 0.0826621949672699,
+          "y": 0.10493216663599014,
+          "z": 0.3813812732696533
+        },
+        "forge.local_scale": {
+          "x": -1.4279865026474,
+          "y": 0.9995905756950378,
+          "z": 1.4279865026474
+        },
+        "forge.local_translation": {
+          "x": -1.2576561595778912,
+          "y": 3.2482832261961905,
+          "z": 0.17935246124397963
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "242093f1-9785-450f-a339-16a0366a0278",
+      "name": "XY circle meadow 1",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9576138257980347,
+          "x": 0.11321064084768295,
+          "y": 0.02995911054313183,
+          "z": 0.26317599415779114
+        },
+        "forge.local_scale": {
+          "x": -1.868095874786377,
+          "y": 1.3076671361923218,
+          "z": 1.868095874786377
+        },
+        "forge.local_translation": {
+          "x": -2.57121244748123,
+          "y": 2.0237338047703917,
+          "z": 0.8992301564430818
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "32d687e1-48f9-423d-baa6-0fed47eef88a",
+      "name": "XY circle meadow 2",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9615699648857117,
+          "x": 0.11544475704431534,
+          "y": 0.16929373145103455,
+          "z": -0.1827440708875656
+        },
+        "forge.local_scale": {
+          "x": -1.3857594728469849,
+          "y": 0.9700316190719604,
+          "z": 1.3857594728469849
+        },
+        "forge.local_translation": {
+          "x": 1.6547038371209055,
+          "y": 1.3168482061234925,
+          "z": 1.7028575259028003
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "272c7673-18de-4819-9467-a65a170c2bc3",
+      "name": "XY circle meadow 3",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9160211086273193,
+          "x": -0.0131271593272686,
+          "y": -0.20651984214782715,
+          "z": -0.343631386756897
+        },
+        "forge.local_scale": {
+          "x": -2.084477186203003,
+          "y": 1.4591339826583862,
+          "z": 2.084477186203003
+        },
+        "forge.local_translation": {
+          "x": 0.045108787482604384,
+          "y": 2.6253763812415487,
+          "z": 0.0028583327075466514
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "02220526-1782-47a2-9802-abc789c2a541",
+      "name": "XY circle meadow 4",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.4533167779445648,
+          "x": 0.3110177218914032,
+          "y": 0.8352682590484619,
+          "z": 0.009940817952156067
+        },
+        "forge.local_scale": {
+          "x": -1.8551818132400513,
+          "y": 1.298627257347107,
+          "z": 1.8551818132400513
+        },
+        "forge.local_translation": {
+          "x": 0.7962140992749482,
+          "y": 1.8739860376938782,
+          "z": 1.071969483862631
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "4ea6cd9f-f4d2-41e9-9ef2-b92cce8a960a",
+      "name": "XY circle meadow 5",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.712219774723053,
+          "x": 0.09033653885126114,
+          "y": -0.6171382069587708,
+          "z": -0.32206016778945923
+        },
+        "forge.local_scale": {
+          "x": -1.691487431526184,
+          "y": 1.184041142463684,
+          "z": 1.691487431526184
+        },
+        "forge.local_translation": {
+          "x": -0.4742616501171142,
+          "y": 2.296376811830641,
+          "z": 1.4252126611536369
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "700825c9-01a4-46cc-a6f6-c20679f1d965",
+      "name": "XY circle meadow 6",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8468037843704224,
+          "x": -0.3551728427410126,
+          "y": 0.39290717244148254,
+          "z": 0.04898524284362793
+        },
+        "forge.local_scale": {
+          "x": -2.115039587020874,
+          "y": 1.4805277585983276,
+          "z": 2.115039587020874
+        },
+        "forge.local_translation": {
+          "x": -1.926535407314077,
+          "y": 2.2499948919612307,
+          "z": -1.0504856134066358
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "8d82e415-5ee1-4376-bfcd-8da1703d0e92",
+      "name": "XY circle meadow 8",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.924391508102417,
+          "x": 0.16126516461372375,
+          "y": -0.3068956136703491,
+          "z": -0.15908798575401306
+        },
+        "forge.local_scale": {
+          "x": -2.0352582931518555,
+          "y": 1.4246807098388672,
+          "z": 2.0352582931518555
+        },
+        "forge.local_translation": {
+          "x": 0.3178031637798995,
+          "y": 1.4741525508884148,
+          "z": 2.6095645878231153
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "7f162a39-96b1-4d87-b8c5-d3296892a2bf",
+      "name": "XY circle meadow 10",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7827751636505127,
+          "x": 0.21180149912834167,
+          "y": 0.5490880012512207,
+          "z": 0.20225118100643158
+        },
+        "forge.local_scale": {
+          "x": -2.141132354736328,
+          "y": 1.4987926483154297,
+          "z": 2.141132354736328
+        },
+        "forge.local_translation": {
+          "x": -1.3790365697350353,
+          "y": 1.966873601680531,
+          "z": 1.9521356410114095
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "a8d0fc27-3d08-4679-9c49-3fa95cba3141",
+      "name": "XY circle meadow 14",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.790995717048645,
+          "x": 0.35787433385849,
+          "y": 0.4879157841205597,
+          "z": -0.09049838781356812
+        },
+        "forge.local_scale": {
+          "x": -1.9104293584823608,
+          "y": 1.3373005390167236,
+          "z": 1.9104293584823608
+        },
+        "forge.local_translation": {
+          "x": -0.4736308343708515,
+          "y": 2.621773197965358,
+          "z": 0.9337927090236917
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "9032c544-3a12-4c4a-a43d-a0d967c74eec",
+      "name": "XY circle meadow 16",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8847582340240479,
+          "x": 0.05509703606367111,
+          "y": 0.3343566358089447,
+          "z": -0.31995752453804016
+        },
+        "forge.local_scale": {
+          "x": -1.5876531600952148,
+          "y": 1.1113572120666504,
+          "z": 1.5876531600952148
+        },
+        "forge.local_translation": {
+          "x": 0.5258763609454036,
+          "y": 2.1757922524308877,
+          "z": -0.35192350146826357
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "4a943078-0a13-4d61-9a65-70ba5ff261cd",
+      "name": "XY circle meadow 18",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8430371284484863,
+          "x": -0.23933559656143188,
+          "y": -0.4794577956199646,
+          "z": -0.04612080752849579
+        },
+        "forge.local_scale": {
+          "x": -2.038909673690796,
+          "y": 1.427236795425415,
+          "z": 2.038909673690796
+        },
+        "forge.local_translation": {
+          "x": 0.942348875105381,
+          "y": 1.1970541811961901,
+          "z": -2.4402913650264964
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "c5fac3db-c49a-4c32-869d-d97e0cfa8027",
+      "name": "XY circle meadow 24",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.49550294876098633,
+          "x": -0.14395391941070557,
+          "y": 0.7985971570014954,
+          "z": -0.3098333775997162
+        },
+        "forge.local_scale": {
+          "x": -1.6502567529678345,
+          "y": 1.155179738998413,
+          "z": 1.6502567529678345
+        },
+        "forge.local_translation": {
+          "x": -0.836881116963923,
+          "y": 2.3849594037529465,
+          "z": -1.2428405232494697
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "3fa5bacd-6b3f-4a33-b524-a4bad98db221",
+      "name": "XY circle meadow 26",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.4085405468940735,
+          "x": -0.12431499361991882,
+          "y": -0.8919519186019897,
+          "z": -0.14853356778621674
+        },
+        "forge.local_scale": {
+          "x": -2.180880308151245,
+          "y": 1.5266162157058716,
+          "z": 2.180880308151245
+        },
+        "forge.local_translation": {
+          "x": 1.1919972102623433,
+          "y": 1.4532477321355786,
+          "z": 1.9547857776051387
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "498311c8-fdf0-4b79-b193-ac867117dcea",
+      "name": "XY circle meadow 28",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9142467379570007,
+          "x": -0.25093865394592285,
+          "y": -0.2625075578689575,
+          "z": -0.17964552342891693
+        },
+        "forge.local_scale": {
+          "x": -1.7448102235794067,
+          "y": 1.2213671207427979,
+          "z": 1.7448102235794067
+        },
+        "forge.local_translation": {
+          "x": 0.06128907576203346,
+          "y": 2.256350993844847,
+          "z": -1.0027933506062254
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "904c385a-739d-49c9-8973-531b314cfc45",
+      "name": "XY circle meadow 30",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.4922340214252472,
+          "x": -0.23179316520690918,
+          "y": 0.8105339407920837,
+          "z": 0.21682335436344147
+        },
+        "forge.local_scale": {
+          "x": -2.080228090286255,
+          "y": 1.4561595916748047,
+          "z": 2.080228090286255
+        },
+        "forge.local_translation": {
+          "x": -2.033192385919392,
+          "y": 2.561445145155065,
+          "z": 0.24220137449447066
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "661d1189-ef01-48a5-b983-7102cf64381b",
+      "name": "XY circle meadow 32",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.877709686756134,
+          "x": 0.2832189202308655,
+          "y": -0.3792892396450043,
+          "z": -0.07451477646827698
+        },
+        "forge.local_scale": {
+          "x": -1.3689250946044922,
+          "y": 0.9582476019859314,
+          "z": 1.3689250946044922
+        },
+        "forge.local_translation": {
+          "x": -1.0194289232604206,
+          "y": 2.0583234660958794,
+          "z": 1.8698837991105393
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "37c4bcab-0245-423b-a2ea-5b262b4059ce",
+      "name": "XY circle meadow 36",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8564515113830566,
+          "x": -0.26285114884376526,
+          "y": -0.4323073625564575,
+          "z": 0.10252021253108978
+        },
+        "forge.local_scale": {
+          "x": -1.5619885921478271,
+          "y": 1.093392014503479,
+          "z": 1.5619885921478271
+        },
+        "forge.local_translation": {
+          "x": -0.6936061861924827,
+          "y": 1.7697066398051815,
+          "z": -2.0386981916381046
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "5ff6a83b-7df1-42e2-ad39-fc12f419e7ea",
+      "name": "XY circle meadow 43",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8896390795707703,
+          "x": 0.22616204619407654,
+          "y": 0.2774631381034851,
+          "z": -0.28356170654296875
+        },
+        "forge.local_scale": {
+          "x": -1.6608445644378662,
+          "y": 1.1625912189483643,
+          "z": 1.6608445644378662
+        },
+        "forge.local_translation": {
+          "x": -0.41445881500840187,
+          "y": 2.9381097314939106,
+          "z": 0.23932199052069336
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "bdf5d74a-7972-45e3-8a0f-f35256acc44e",
+      "name": "XY circle meadow 44",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.040505826473236084,
+          "x": 0.21169769763946533,
+          "y": -0.9409513473510742,
+          "z": -0.26106300950050354
+        },
+        "forge.local_scale": {
+          "x": -1.3070652484893799,
+          "y": 0.914945662021637,
+          "z": 1.3070652484893799
+        },
+        "forge.local_translation": {
+          "x": -1.6431918409653008,
+          "y": 2.572497814938849,
+          "z": 0.8992910833330825
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "07246539-068f-4805-a757-776987f6852f",
+      "name": "XY circle meadow 45",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.3715796172618866,
+          "x": -0.18220847845077515,
+          "y": -0.8878144025802612,
+          "z": 0.20128147304058075
+        },
+        "forge.local_scale": {
+          "x": -1.6638169288635254,
+          "y": 1.164671778678894,
+          "z": 1.6638169288635254
+        },
+        "forge.local_translation": {
+          "x": -0.10591640276834369,
+          "y": 1.5854793437554504,
+          "z": -2.2019441266311333
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "23252870-96e0-459a-87fe-66828b53c1b5",
+      "name": "XY circle meadow 50",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9321328997612,
+          "x": -0.2878277003765106,
+          "y": 0.17020313441753387,
+          "z": 0.1389762908220291
+        },
+        "forge.local_scale": {
+          "x": -1.322481393814087,
+          "y": 0.9257369637489319,
+          "z": 1.322481393814087
+        },
+        "forge.local_translation": {
+          "x": -2.0137448268942535,
+          "y": 1.7515035158134353,
+          "z": -1.8096123066497967
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "a1d6fe84-e5f8-4012-b809-2936e9529e00",
+      "name": "XY circle meadow 58",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7596030831336975,
+          "x": 0.2879892587661743,
+          "y": -0.5658463835716248,
+          "z": -0.1410079449415207
+        },
+        "forge.local_scale": {
+          "x": -2.2282357215881348,
+          "y": 1.5597649812698364,
+          "z": 2.2282357215881348
+        },
+        "forge.local_translation": {
+          "x": -1.207817487185821,
+          "y": 2.3568157976533315,
+          "z": 1.3955158720491454
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "409ffd2c-f480-4bae-a536-b84de9b348d0",
+      "name": "XY circle meadow 65",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.528464138507843,
+          "x": -0.15308871865272522,
+          "y": -0.8097785711288452,
+          "z": 0.2038336992263794
+        },
+        "forge.local_scale": {
+          "x": -2.1720447540283203,
+          "y": 1.520431399345398,
+          "z": 2.1720447540283203
+        },
+        "forge.local_translation": {
+          "x": -0.7310634690802544,
+          "y": 1.4015268500732638,
+          "z": -2.62249695986975
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "6ca76e3c-1240-4a19-9a57-57b84d473fb7",
+      "name": "XY circle meadow 76",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5820367336273193,
+          "x": -0.301135390996933,
+          "y": -0.7405839562416077,
+          "z": 0.14861419796943665
+        },
+        "forge.local_scale": {
+          "x": -1.8680728673934937,
+          "y": 1.3076509237289429,
+          "z": 1.8680728673934937
+        },
+        "forge.local_translation": {
+          "x": -0.714560792548582,
+          "y": 2.9566339235060832,
+          "z": -0.5048430777387694
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "ede8c171-495d-42ab-9f13-874289611092",
+      "name": "XY circle meadow 80",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9282271265983582,
+          "x": -0.2630766034126282,
+          "y": -0.24179627001285553,
+          "z": 0.10353574901819229
+        },
+        "forge.local_scale": {
+          "x": -2.0832009315490723,
+          "y": 1.4582407474517822,
+          "z": 2.0832009315490723
+        },
+        "forge.local_translation": {
+          "x": -1.3163312005344778,
+          "y": 1.5248165460972922,
+          "z": -2.3931958010653034
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "cca3279f-8bbc-42ee-9f2b-17ddc543999f",
+      "name": "XY circle meadow 86",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.21477465331554413,
+          "x": -0.03594121336936951,
+          "y": -0.9422268867492676,
+          "z": -0.2545359432697296
+        },
+        "forge.local_scale": {
+          "x": -2.16062593460083,
+          "y": 1.5124380588531494,
+          "z": 2.16062593460083
+        },
+        "forge.local_translation": {
+          "x": -0.23760143527761102,
+          "y": 2.0124723604090526,
+          "z": 1.769318385166116
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "d35e5e6e-3b60-4402-a565-009c7e823829",
+      "name": "XY circle meadow 88",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9200326800346375,
+          "x": 0.2716268002986908,
+          "y": 0.26107165217399597,
+          "z": -0.10770489275455475
+        },
+        "forge.local_scale": {
+          "x": -1.8695906400680542,
+          "y": 1.308713436126709,
+          "z": 1.8695906400680542
+        },
+        "forge.local_translation": {
+          "x": 0.08398105250671506,
+          "y": 1.8811608288854835,
+          "z": 1.8597975905286148
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "4ec818cd-2e4d-43fb-85db-b46f737a4ebe",
+      "name": "XY circle meadow 90",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.16378134489059448,
+          "x": 0.05118653178215027,
+          "y": 0.9596328735351563,
+          "z": -0.22284600138664246
+        },
+        "forge.local_scale": {
+          "x": -1.7771140336990356,
+          "y": 1.243979811668396,
+          "z": 1.7771140336990356
+        },
+        "forge.local_translation": {
+          "x": 0.6112633035518229,
+          "y": 1.1921543682762759,
+          "z": -2.651281551341526
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "97f4dee1-eff4-4979-92cc-5205d7ee8969",
+      "name": "XY circle meadow 93",
+      "parent": "3252cacc-9f36-4bba-a699-e7a22962e80f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f1387a46-9a52-4bc7-a508-8a9a1fa7445d",
+      "name": "XY Mesh bounds meadow",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9932817220687866,
+          "x": -0.01778019405901432,
+          "y": 0.11394494026899338,
+          "z": -0.00958422664552927
+        },
+        "forge.local_scale": {
+          "x": -1.4279865026474,
+          "y": 0.9995905756950378,
+          "z": 1.4279865026474
+        },
+        "forge.local_translation": {
+          "x": -1.2576561595778912,
+          "y": 0.6905970670989331,
+          "z": 0.17935246124397963
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "50d60e3b-a816-42a7-91c9-62623abdd37f",
+      "name": "XY Mesh bounds meadow 1",
+      "parent": "f1387a46-9a52-4bc7-a508-8a9a1fa7445d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9846068620681763,
+          "x": -0.02141491323709488,
+          "y": 0.17334961891174316,
+          "z": 0.006375884637236595
+        },
+        "forge.local_scale": {
+          "x": -1.3857594728469849,
+          "y": 0.9700316190719604,
+          "z": 1.3857594728469849
+        },
+        "forge.local_translation": {
+          "x": 1.6547038371209055,
+          "y": 0.8012083885470602,
+          "z": 1.7028575259028003
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "263fdb08-ade6-4898-ad4c-261e993eb546",
+      "name": "XY Mesh bounds meadow 3",
+      "parent": "f1387a46-9a52-4bc7-a508-8a9a1fa7445d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.975271463394165,
+          "x": -0.017298046499490738,
+          "y": -0.21987801790237427,
+          "z": 0.014143208041787148
+        },
+        "forge.local_scale": {
+          "x": -2.084477186203003,
+          "y": 1.4591339826583862,
+          "z": 2.084477186203003
+        },
+        "forge.local_translation": {
+          "x": 0.045108787482604384,
+          "y": 0.7010164965083462,
+          "z": 0.0028583327075466514
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "177f10ef-762f-42ff-87e4-8d993978331f",
+      "name": "XY Mesh bounds meadow 4",
+      "parent": "f1387a46-9a52-4bc7-a508-8a9a1fa7445d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.47687965631484985,
+          "x": -0.01831527054309845,
+          "y": 0.8786845207214355,
+          "z": -0.012798488140106201
+        },
+        "forge.local_scale": {
+          "x": -1.8551818132400513,
+          "y": 1.298627257347107,
+          "z": 1.8551818132400513
+        },
+        "forge.local_translation": {
+          "x": 0.7962140992749482,
+          "y": 0.7588030529447507,
+          "z": 1.071969483862631
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "bc1fc84a-9268-4d2c-b578-8f17ff89c152",
+      "name": "XY Mesh bounds meadow 5",
+      "parent": "f1387a46-9a52-4bc7-a508-8a9a1fa7445d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.07796595990657806,
+          "x": -0.011520671658217907,
+          "y": 0.9967055916786194,
+          "z": -0.019144922494888306
+        },
+        "forge.local_scale": {
+          "x": -1.968140959739685,
+          "y": 1.3776986598968506,
+          "z": 1.968140959739685
+        },
+        "forge.local_translation": {
+          "x": 2.563280716072768,
+          "y": 0.716557404914767,
+          "z": -0.8677051252452657
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        }
+      },
+      "id": "f9d4e417-2b9f-47b4-9c00-1e3a1ecc4768",
+      "name": "XY Mesh bounds meadow 25",
+      "parent": "f1387a46-9a52-4bc7-a508-8a9a1fa7445d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 5
+}

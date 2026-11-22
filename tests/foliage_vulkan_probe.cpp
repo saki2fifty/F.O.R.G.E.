@@ -330,8 +330,11 @@ int main(int argc, char** argv) {
         const bool terrain = argc >= 4, slopes = argc == 5;
         const bool wind =
             terrain && std::string_view(argv[3]) == "Scenes/157-foliage-wind.scene.json";
+        const bool xy_clearance =
+            terrain && std::string_view(argv[3]) == "Scenes/268-foliage-xy-clearance.scene.json";
         const bool mesh_bounds =
-            terrain && std::string_view(argv[3]) == "Scenes/267-foliage-mesh-bounds.scene.json";
+            xy_clearance ||
+            (terrain && std::string_view(argv[3]) == "Scenes/267-foliage-mesh-bounds.scene.json");
         const bool collisions = slopes && std::string_view(argv[4]) == "--collision-placement";
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "Gallery";
@@ -359,9 +362,11 @@ int main(int argc, char** argv) {
             unsigned plants = 0;
             for (const auto& row : source.at("entities")) {
                 const auto name = row.at("name").get<std::string>();
-                plants += mesh_bounds ? name.starts_with("Root sphere meadow ") ||
-                                            name.starts_with("Mesh bounds meadow ")
-                                      : name.starts_with("Cleared meadow ");
+                plants += xy_clearance  ? name.starts_with("XY circle meadow ") ||
+                                              name.starts_with("XY Mesh bounds meadow ")
+                          : mesh_bounds ? name.starts_with("Root sphere meadow ") ||
+                                              name.starts_with("Mesh bounds meadow ")
+                                        : name.starts_with("Cleared meadow ");
             }
             test_gallery_capture::check(plants > 0 && plants < (mesh_bounds ? 192u : 96u),
                                         "Saved clearance Gallery plant count invalid");

@@ -519,6 +519,15 @@ whole read, with no partial success. The exact SDK callback/client use existing
 The table extension changes the exact SDK fingerprint; rebuild matching modules.
 No authored identity, native ABI 1 prefix or private checkpoint version changes.
 
+Host preparation can use nonvirtual `PhysicsRuntime::overlap_any_2d` to test
+occupied native XY geometry without collecting a complete hit list. It shares
+shape/filter/binding checks with `overlap_shape_2d`. Canonical retired references
+are resolved and copied before native callbacks; callbacks stop on the first
+eligible hit and do no ECS access, allocation or exception. Existing all-hit
+256-body/16384-callback bounds remain unchanged. Invalid requests reject even in
+an empty or zero-mask world, and unused native worlds remain unrealized. This
+host-only addition changes no SDK callback, value layout or authored format.
+
 Spatial queries also accept up to 16 canonical exclusions through the shared input
 filter, including every part of a painted Map or the controller's physical body.
 Exclusions combine with the single-ignore field of `PhysicsSweep2D`. They do not
