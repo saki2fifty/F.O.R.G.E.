@@ -815,6 +815,23 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
                 !test::ui_targets.at("particles:preview_play").enabled,
             "Native resting response lost trail, notification or Play prerequisites");
     const auto resting_trails = editor.document()->source().document;
+    click("particles:scene-motion");
+    frame();
+    require(editor.document()->source().compiled().version == 96 &&
+                editor.document()->source().document.at("version").get<unsigned>() == 22 &&
+                editor.document()->source().document.at("scene_motion_enabled").get<bool>() &&
+                !test::ui_targets.at("particles:preview_play").enabled,
+            "Native Scene motion lost rest, notification, trail or Play prerequisites");
+    const auto motion_trails = editor.document()->source().document;
+    click("particles:scene-motion");
+    require(editor.document()->source().compiled().version == 72,
+            "Disabling Scene motion changed earlier immutable geometry or response");
+    editor.undo();
+    require(editor.document()->source().document == motion_trails,
+            "Scene motion Undo lost the retained active source");
+    editor.undo();
+    require(editor.document()->source().document == resting_trails,
+            "Scene motion Undo failed to restore the exact older source");
     click("particles:scene-impacts");
     require(editor.document()->source().compiled().version == 66,
             "Disabling notifications disabled resting response");

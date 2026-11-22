@@ -250,6 +250,14 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                 "XY Scene particle collision requires the runtime kit packaged "
                                 "with this editor");
                     }
+                    if (particle_uses_scene_motion(particle)) {
+                        const auto motion = engine.find("runtime_particle_scene_motion");
+                        require(motion != engine.end() && motion->is_number_integer() &&
+                                    motion->get<std::uint64_t>() ==
+                                        particle_scene_motion_profile_version,
+                                "Linear Scene motion particles require the runtime kit packaged "
+                                "with this editor");
+                    }
                     if (particle_uses_scene_resting(particle)) {
                         const auto resting = engine.find("runtime_particle_scene_resting");
                         require(resting != engine.end() && resting->is_number_integer() &&

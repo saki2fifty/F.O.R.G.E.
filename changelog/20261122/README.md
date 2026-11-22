@@ -1,5 +1,20 @@
 # 2026-11-22
 
+CPU Scene particles can opt into linear moving-surface queries through the
+existing native physics and particle history owners. Source22/value74–97 compose
+3D/XY Mesh, camera-plane and World ribbons with resting and impact notifications.
+Relative response maps the actual particle playback span to the adopted physics
+interval. Paused particles freeze; late asset admission waits for observed motion,
+and stale or mismatched intervals reject before particle-state adoption.
+
+The native **Linear Scene motion (CPU)** control and shared automation/MCP edit
+use ordinary source sessions, revisions, Undo/Redo, save and publication. Export
+requires the packaged runtime kit's explicit linear Scene-motion capability.
+Gallery265/266 share an editable kinematic surface animation and require no
+project C++ code. The manual includes authentic source-hidden Game captures.
+Native angular motion, curved surface trajectories and two-way rigid-body impulses
+remain outside this bounded feature; native work and lifetime limits still apply.
+
 CPU World ribbon trails retain historical birth motion through the running Scene's
 3D or XY collision world. Moving/scaling an emitter preserves older points and
 birth widths; tails shrink after contact death or lifetime expiry. Bounded history

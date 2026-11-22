@@ -37,6 +37,60 @@ ParticleEffectData effect() {
 const ParticleSceneQuery clear = [](const auto&, const auto&, double) -> std::optional<PhysicsHit> {
     return {};
 };
+void timed_query_adapter() {
+    const auto data = effect();
+    std::vector<ParticleSceneSweep> queries;
+    const ParticleSceneMotionQuery record = [&](const ParticleSceneSweep& query) {
+        queries.push_back(query);
+        return ParticleSceneQueryResult{{}, 2};
+    };
+    ParticleSceneWork work;
+    const auto first = advance_particle_scene_history({}, data, 17, 0, 1, {}, clear, work, record);
+    check(queries.size() == 4 && work.queries == 8,
+          "Timed Scene adapter lost births or native operation counts");
+    for (std::size_t i = 0; i < queries.size(); ++i)
+        check(queries[i].start_seconds == .25 * (i + 1) && queries[i].end_seconds == 1 &&
+                  queries[i].query_budget == particle_scene_birth_query_limit &&
+                  first.traces[i].step.queries == 2,
+              "Birth-local query times were not mapped into the containing fixed interval");
+    ParticleSceneWork legacy_work;
+    const auto legacy = advance_particle_scene_history({}, data, 17, 0, 1, {}, clear, legacy_work);
+    check(sample_particle_scene_history(first, data, 0, 1, 1) ==
+              sample_particle_scene_history(legacy, data, 0, 1, 1),
+          "A clear timed query changed the existing emission/motion owner");
+    queries.clear();
+    work = {};
+    const auto second =
+        advance_particle_scene_history(first, data, 17, 1, 1.25, {}, clear, work, record);
+    check(queries.size() == 4 && work.queries == 8 && second.initialized,
+          "Timed query adapter lost the next interval's live/new membership");
+    for (std::size_t i = 0; i < queries.size(); ++i)
+        check(queries[i].start_seconds == (i == 3 ? .25 : 0) && queries[i].end_seconds == .25,
+              "Timed query adapter replayed absolute age or omitted a zero-duration birth");
+    auto burst = data;
+    burst.emission = ParticleEmission::Burst;
+    burst.capacity = burst.burst_count = 1;
+    const ParticleSceneMotionQuery last = [](const ParticleSceneSweep& query) {
+        check(query.query_budget == 1, "World remainder was not passed to the native query");
+        return ParticleSceneQueryResult{{}, 1};
+    };
+    work = {particle_scene_query_limit - 1, 0};
+    const auto admitted =
+        advance_particle_scene_history({}, burst, 17, 0, .1, {}, clear, work, last);
+    check(work.queries == particle_scene_query_limit && admitted.live.size() == 1,
+          "Last available native operation was dropped or incorrectly charged");
+    for (unsigned invalid : {0u, 2u}) {
+        work = {particle_scene_query_limit - 1, 0};
+        reject([&] {
+            (void)advance_particle_scene_history({}, burst, 17, 0, .1, {}, clear, work,
+                                                 [invalid](const ParticleSceneSweep&) {
+                                                     return ParticleSceneQueryResult{{}, invalid};
+                                                 });
+        });
+        check(work.queries == particle_scene_query_limit - 1,
+              "Invalid native operation counts partially changed the World ledger");
+    }
+}
 void intervals_and_frames() {
     const auto data = effect();
     ParticleSceneWork work;
@@ -421,6 +475,7 @@ void world_trails() {
 int main() {
     try {
         intervals_and_frames();
+        timed_query_adapter();
         contact_death_and_failure();
         large_clock_and_budgets();
         capture_codec();

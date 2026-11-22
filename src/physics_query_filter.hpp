@@ -1,9 +1,16 @@
 #pragma once
 #include <algorithm>
+#include <cmath>
 #include <forge/physics_service.hpp>
 #include <stdexcept>
 
 namespace forge::physics_detail {
+inline void validate_query_slice(const PhysicsQuerySlice& slice) {
+    if (!std::isfinite(slice.from) || !std::isfinite(slice.to) || slice.from < 0 ||
+        slice.from > slice.to || slice.to > 1 || !slice.query_budget ||
+        slice.query_budget > physics_motion_query_limit)
+        throw std::runtime_error("Physics motion query needs an ordered unit interval and budget");
+}
 inline void validate_query_filter(const PhysicsQueryFilter& filter) {
     if (filter.exclusions.size() > physics_query_exclusion_limit)
         throw std::runtime_error("Physics query exclusion count exceeds the supported limit");

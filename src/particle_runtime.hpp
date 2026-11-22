@@ -31,6 +31,7 @@ class ParticleRuntime : public ParticleRuntimeAccess {
         ResourceLease<ParticleEffectAsset> effect;
         double previous = 0, current = 0;
         ParticleSceneHistory scene;
+        std::optional<std::uint64_t> motion_tick;
     };
     void check() const;
     WorldContext& world_;

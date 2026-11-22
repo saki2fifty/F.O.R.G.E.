@@ -339,8 +339,23 @@ class ParticleEffectEditor {
                          "to 0 and allow at least one rebound. Tangent velocity/friction/drag "
                          "remain active; lost support releases gravity. Probes share the existing "
                          "query budgets. Sliding support checks are bounded to 1/120 s and a "
-                         "quarter radius of travel. Geometry uses its current fixed snapshot; "
-                         "moving-surface continuous collision is unavailable.");
+                         "quarter radius of travel. Moving surfaces require the separate linear "
+                         "Scene motion option.");
+                bool motion = document_->source().document.value("scene_motion_enabled", false);
+                if (ImGui::Checkbox("Linear Scene motion (CPU)", &motion))
+                    mutate("Set particle Scene motion", [&](auto& value) {
+                        ParticleEffectSource candidate{value};
+                        candidate.set_scene_motion(motion);
+                        value = std::move(candidate.document);
+                    });
+                FORGE_UI_PROBE("particles:scene-motion");
+                ui::help("Query translating Scene surfaces across the adopted fixed interval. "
+                         "Selects CPU Scene collision; supports World 3D/XY, Mesh, camera-plane "
+                         "and World trails, optional resting and notifications. Playback speed "
+                         "scales particle age; paused particles stay frozen. A newly loaded effect "
+                         "may wait one fixed step for observation. Potentially intersecting "
+                         "rotating geometry rejects the interval. No angular sweep, curved "
+                         "surface trajectory or two-way rigid-body impulses. Play is required.");
                 int scene_space =
                     document_->source().document.value("scene_collision_2d", false) ? 1 : 0;
                 if (ImGui::Combo("Scene query space", &scene_space, "World 3D\0World XY\0"))

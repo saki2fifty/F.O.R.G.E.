@@ -410,6 +410,95 @@ void rest_profiles() {
                 reject([&] { (void)parse(wrong_version); });
             }
 }
+void motion_profiles() {
+    for (bool resting : {false, true})
+        for (bool impacts : {false, true})
+            for (bool planar : {false, true})
+                for (unsigned geometry = 0; geometry < 3; ++geometry) {
+                    auto source = ParticleEffectSource::create(AssetId::generate());
+                    source.document["extensions"] = {{"scene_motion_enabled", "opaque"}};
+                    const auto original = source.document;
+                    source.set_scene_motion(false);
+                    check(source.document == original,
+                          "Inactive Scene motion upgraded legacy source");
+                    source.set_scene_collision(true);
+                    source.set_scene_collision_space(planar);
+                    if (geometry == 1)
+                        source.enable_billboards(true);
+                    if (geometry == 2)
+                        source.set_world_trails(true, ParticleTrailSettings{.5, 4});
+                    if (impacts)
+                        source.set_scene_impacts(true);
+                    if (resting)
+                        source.set_scene_resting(true);
+                    const auto old_values = source.compiled();
+                    source.set_scene_motion(true);
+                    const auto active = source.document;
+                    const auto geometry_index =
+                        geometry == 2 ? 4u + planar : geometry + 2u * planar;
+                    const auto expected = 74u + 12u * resting + 6u * impacts + geometry_index;
+                    check(active.at("version").get<unsigned>() == 22 &&
+                              source.compiled().version == expected &&
+                              particle_uses_scene_motion(source.compiled()) &&
+                              particle_uses_scene_resting(source.compiled()) == resting &&
+                              particle_uses_scene_impacts(source.compiled()) == impacts &&
+                              active.at("asset_id") == original.at("asset_id") &&
+                              active.at("extensions") == original.at("extensions") &&
+                              parse(active).document == active &&
+                              decode_cooked_particle_effect(source.cook(), source.asset(), 3) ==
+                                  source.compiled(),
+                          "Scene motion lost explicit profile, intent, source or cooked identity");
+                    source.set_scene_motion(true);
+                    check(source.document == active,
+                          "Repeated Scene motion selection changed source");
+                    for (auto backend : {ParticleEvaluation::Cpu, ParticleEvaluation::Gpu}) {
+                        source.set_evaluation(backend);
+                        check(
+                            !particle_uses_scene_motion(source.compiled()) &&
+                                source.document.at("scene_motion_enabled").get<bool>(),
+                            "Inactive Scene motion intent leaked into another backend or was lost");
+                        source.set_evaluation(ParticleEvaluation::CpuAlpha);
+                        check(source.document == active,
+                              "Scene motion backend round trip lost source");
+                    }
+                    source.set_scene_motion(false);
+                    check(source.compiled() == old_values,
+                          "Disabling Scene motion changed earlier immutable values");
+                    source.set_scene_motion(true);
+                    source.set_scene_resting(!resting);
+                    source.set_scene_impacts(!impacts);
+                    source.set_scene_collision_space(!planar);
+                    check(particle_uses_scene_motion(source.compiled()) &&
+                              particle_uses_scene_resting(source.compiled()) == !resting &&
+                              particle_uses_scene_impacts(source.compiled()) == !impacts &&
+                              particle_uses_scene_collision_2d(source.compiled()) == !planar,
+                          "Scene motion was discarded by composed source controls");
+                    source.set_scene_resting(resting);
+                    source.set_scene_impacts(impacts);
+                    source.set_scene_collision_space(planar);
+                    check(source.document == active,
+                          "Scene motion settings round trip lost identity");
+                    for (const auto& invalid :
+                         {nlohmann::json(), nlohmann::json(1), nlohmann::json("true")}) {
+                        auto wrong = active;
+                        wrong["scene_motion_enabled"] = invalid;
+                        reject([&] { (void)parse(wrong); });
+                    }
+                    auto wrong = active;
+                    wrong["version"] = 21;
+                    reject([&] { (void)parse(wrong); });
+                    wrong = active;
+                    wrong.erase("scene_resting_enabled");
+                    reject([&] { (void)parse(wrong); });
+                    wrong = active;
+                    wrong["scene_motion_enabled"] = false;
+                    reject([&] { (void)parse(wrong); });
+                }
+    auto legacy = ParticleEffectSource::create(AssetId::generate());
+    legacy.set_scene_motion(true);
+    check(legacy.compiled().version == 74 && !particle_uses_scene_resting(legacy.compiled()),
+          "Direct legacy promotion omitted required inherited source fields");
+}
 } // namespace
 int main() {
     try {
@@ -418,6 +507,7 @@ int main() {
         world_trail_profiles();
         impact_profiles();
         rest_profiles();
+        motion_profiles();
         std::cout << "Scene particle source profiles passed\n";
         return 0;
     } catch (const std::exception& error) {

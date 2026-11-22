@@ -39,12 +39,10 @@ double particle_scene_trace_start_age(const ParticleEffectData& data,
     const auto phase = double(trace.birth.ordinal + 1);
     return (std::max(previous * data.spawn_rate, phase) - phase) / data.spawn_rate;
 }
-ParticleSceneHistory advance_particle_scene_history(const ParticleSceneHistory& original,
-                                                    const ParticleEffectData& effect,
-                                                    std::uint32_t seed, double previous,
-                                                    double current, const AffineTransform& frame,
-                                                    const ParticleSceneQuery& query,
-                                                    ParticleSceneWork& work) {
+ParticleSceneHistory advance_particle_scene_history(
+    const ParticleSceneHistory& original, const ParticleEffectData& effect, std::uint32_t seed,
+    double previous, double current, const AffineTransform& frame, const ParticleSceneQuery& query,
+    ParticleSceneWork& work, const ParticleSceneMotionQuery& motion_query) {
     validate_particle_effect(effect);
     require(particle_uses_scene_collision(effect), "Particle Scene history needs Scene values");
     interval(previous, current);
@@ -78,6 +76,22 @@ ParticleSceneHistory advance_particle_scene_history(const ParticleSceneHistory& 
         const auto duration =
             std::max(0., std::min(phase_after - start_phase, lifetime - elapsed_phase)) / rate;
         ParticleSceneTrace trace{value.birth, value.basis, (start_phase - phase_before) / rate, {}};
+        ParticleSceneMotionQuery timed_query;
+        if (motion_query)
+            timed_query = [&](const ParticleSceneSweep& sweep) {
+                require(work.queries < particle_scene_query_limit,
+                        "Particle Scene motion exceeds 8192 native queries per fixed update");
+                auto request = sweep;
+                request.start_seconds += trace.begin;
+                request.end_seconds += trace.begin;
+                request.query_budget = unsigned(std::min<std::size_t>(
+                    request.query_budget, particle_scene_query_limit - work.queries));
+                auto observed = motion_query(request);
+                require(observed.queries > 0 && observed.queries <= request.query_budget,
+                        "Particle Scene motion returned invalid World query work");
+                work.queries += observed.queries;
+                return observed;
+            };
         trace.step = advance_particle_scene_motion(
             value.state, value.acceleration, effect.drag, duration, *effect.scene_collision,
             [&](const Double3& origin, const Double3& delta, double radius) {
@@ -90,7 +104,7 @@ ParticleSceneHistory advance_particle_scene_history(const ParticleSceneHistory& 
                 return query(origin, delta, radius);
             },
             born, particle_uses_scene_collision_2d(effect), particle_uses_scene_impacts(effect),
-            particle_uses_scene_resting(effect));
+            particle_uses_scene_resting(effect), timed_query);
         value.state = trace.step.state;
         if (value.state.alive && live_age(effect, window_after, current, ordinal)) {
             require(next.live.size() < effect.capacity,

@@ -590,6 +590,405 @@ void resting_mock() {
               "A sloped support changed identity, drifted or invented extra bounces");
     }
 }
+void moving_surface_coordinates() {
+    for (bool planar : {false, true})
+        for (double offset : {0., 900000., -900000.})
+            for (double direction : {-1., 1.}) {
+                EngineContext engine{WorldRole::Runtime, false, {physics_module()}};
+                Scene scene(engine.world());
+                auto physics =
+                    std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
+                auto wall = box("wall", offset - direction, 0, 2, 0, false);
+                auto& components = wall["components"];
+                if (planar) {
+                    components.erase("forge.physics_body");
+                    components.erase("forge.box_collider");
+                    components["forge.physics_body_2d"] = {{"motion", 1}, {"gravity_factor", 0}};
+                    components["forge.box_collider_2d"] = {{"x", .05}, {"y", 2}};
+                } else {
+                    components["forge.physics_body"]["motion"] = 1;
+                    components["forge.box_collider"] = {{"x", .05}, {"y", 2}, {"z", 2}};
+                }
+                scene.restore_snapshot({{"version", 1}, {"entities", Json::array({wall})}});
+                physics->synchronize(0);
+                physics->enable_motion_queries();
+                scene.entity("wall").set<LocalTranslation>({offset + direction, 0, 0});
+                physics->synchronize(.1f);
+                physics->step(.1f);
+                physics->adopt();
+                const auto expected = *engine.world().reference(scene.entity("wall").id());
+                const auto inspect = [&](const auto& result) {
+                    check(result.hit && result.queries == (planar ? 2u : 1u) &&
+                              result.hit->contact.entity == expected &&
+                              std::abs(result.hit->contact.fraction - .4625) < 1e-5 &&
+                              std::abs(result.hit->contact.position[0] -
+                                       (offset - direction * .05)) < 2e-5 &&
+                              result.hit->contact.normal[0] == direction &&
+                              std::abs(result.hit->surface_velocity[0] - direction * 20) < 1e-5,
+                          "Native moving-surface query lost direction, large-origin precision or "
+                          "provenance");
+                };
+                if (planar) {
+                    PhysicsSweep2D sweep;
+                    sweep.origin = {offset, 0};
+                    sweep.dimensions = {.05, 0};
+                    inspect(physics->shape_cast_motion_2d(sweep, {}, {}));
+                } else {
+                    PhysicsSweep sweep;
+                    sweep.origin = {offset, 0, 0};
+                    sweep.dimensions = {.05, 0, 0};
+                    inspect(physics->shape_cast_motion(sweep, {}, {}));
+                }
+            }
+}
+void moving_surface_baseline() {
+    for (bool planar : {false, true}) {
+        EngineContext engine{WorldRole::Runtime, false, {physics_module()}};
+        Scene scene(engine.world());
+        auto physics = std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
+        auto wall = box("moving-wall", -1, 0, 2, 0, false);
+        auto& components = wall["components"];
+        if (planar) {
+            components.erase("forge.physics_body");
+            components.erase("forge.box_collider");
+            components["forge.physics_body_2d"] = {{"motion", 1}, {"gravity_factor", 0}};
+            components["forge.box_collider_2d"] = {{"x", .05}, {"y", 2}};
+        } else {
+            components["forge.physics_body"]["motion"] = 1;
+            components["forge.box_collider"] = {{"x", .05}, {"y", 2}, {"z", 2}};
+        }
+        scene.restore_snapshot({{"version", 1}, {"entities", Json::array({wall})}});
+        physics->synchronize(0);
+        physics->enable_motion_queries();
+        const ParticleSceneQuery query = [&](const Double3& origin, const Double3& delta,
+                                             double radius) -> std::optional<PhysicsHit> {
+            if (planar) {
+                PhysicsSweep2D sweep;
+                sweep.origin = {origin[0], origin[1]};
+                sweep.displacement = {delta[0], delta[1]};
+                sweep.dimensions = {radius, 0};
+                const auto hit = physics->shape_cast_2d(sweep, {});
+                if (!hit)
+                    return {};
+                return PhysicsHit{hit->entity,
+                                  {hit->position[0], hit->position[1], origin[2]},
+                                  {hit->normal[0], hit->normal[1], 0},
+                                  hit->fraction};
+            }
+            PhysicsSweep sweep;
+            sweep.origin = {origin[0], origin[1], origin[2]};
+            sweep.displacement = delta;
+            sweep.dimensions = {radius, 0, 0};
+            return physics->shape_cast(sweep, {});
+        };
+        check(query({-1, 0, 0}, {}, .05).has_value() && !query({}, {}, .05),
+              "Moving-wall baseline did not realize the initial native geometry");
+        scene.entity("moving-wall").set<LocalTranslation>({1, 0, 0});
+        physics->synchronize(.1f);
+        physics->step(.1f);
+        physics->adopt();
+        check(query({1, 0, 0}, {}, .05).has_value() && !query({-1, 0, 0}, {}, .05),
+              "Moving-wall baseline did not adopt the kinematic target");
+        const ParticleSceneState initial{{{0, 0, 0}, {0, 0, 0}}};
+        const auto legacy =
+            advance_particle_scene_motion(initial, {}, 0, .1, {}, query, false, planar, true);
+        check(legacy.state == initial && legacy.queries == 1 && legacy.impacts.empty(),
+              "Legacy current-snapshot response unexpectedly inferred historical wall motion");
+        const auto frame = physics->motion_frame();
+        check(frame.ready && frame.tick == 1 && std::abs(frame.dt - .1) < 1e-8,
+              "Motion query lost adopted interval provenance");
+        const auto motion = [&](PhysicsQuerySlice interval, PhysicsQueryFilter filter = {},
+                                const ParticleSceneSweep* request =
+                                    nullptr) -> PhysicsMotionResult {
+            if (planar) {
+                PhysicsSweep2D sweep;
+                sweep.dimensions = {.05, 0};
+                if (request) {
+                    sweep.origin = {request->origin[0], request->origin[1]};
+                    sweep.displacement = {request->displacement[0], request->displacement[1]};
+                    sweep.dimensions[0] = request->radius;
+                }
+                const auto observed = physics->shape_cast_motion_2d(sweep, interval, filter);
+                PhysicsMotionResult result{{}, observed.queries};
+                if (observed.hit) {
+                    const auto& hit = *observed.hit;
+                    result.hit =
+                        PhysicsMotionHit{{hit.contact.entity,
+                                          {hit.contact.position[0], hit.contact.position[1],
+                                           request ? request->origin[2] + request->displacement[2] *
+                                                                              hit.contact.fraction
+                                                   : 0},
+                                          {hit.contact.normal[0], hit.contact.normal[1], 0},
+                                          hit.contact.fraction},
+                                         {hit.surface_velocity[0], hit.surface_velocity[1], 0}};
+                }
+                return result;
+            }
+            PhysicsSweep sweep;
+            sweep.dimensions = {.05, 0, 0};
+            if (request) {
+                sweep.origin = {request->origin[0], request->origin[1], request->origin[2]};
+                sweep.displacement = request->displacement;
+                sweep.dimensions[0] = request->radius;
+            }
+            return physics->shape_cast_motion(sweep, interval, filter);
+        };
+        const double tolerance = planar ? .006 : 1e-4;
+        const auto crossed = motion({});
+        const unsigned crossing_work = planar ? 2u : 1u;
+        check(crossed.hit && crossed.queries == crossing_work &&
+                  std::abs(crossed.hit->contact.fraction - .4625) < tolerance &&
+                  std::abs(crossed.hit->contact.position[0] + .05) < tolerance &&
+                  crossed.hit->contact.normal == Double3{1, 0, 0} &&
+                  std::abs(crossed.hit->surface_velocity[0] - 20) < 1e-5,
+              "Adopted native motion query missed a stationary birth or changed its witness");
+        const auto slice = motion({.25, .75, crossing_work});
+        check(slice.hit && slice.queries == crossing_work &&
+                  std::abs(slice.hit->contact.fraction - .425) < tolerance &&
+                  std::abs(slice.hit->contact.position[0] + .05) < tolerance &&
+                  slice.hit->surface_velocity == crossed.hit->surface_velocity,
+              "Motion interval slice changed physical-time witness or surface velocity");
+        const auto late = motion({.6, 1, 1});
+        check(!late.hit && late.queries == 1,
+              "A later query slice replayed a contact from the earlier interval");
+        const auto endpoint = motion({0, crossed.hit->contact.fraction, crossing_work});
+        if (!endpoint.hit || std::abs(endpoint.hit->contact.fraction - 1) >= 1e-5)
+            std::cerr << Json{{"planar", planar},
+                              {"endpoint_hit", bool(endpoint.hit)},
+                              {"queries", endpoint.queries},
+                              {"source_fraction", crossed.hit->contact.fraction},
+                              {"fraction", endpoint.hit ? endpoint.hit->contact.fraction : -1}}
+                             .dump()
+                      << '\n';
+        check(endpoint.hit && endpoint.queries == crossing_work &&
+                  std::abs(endpoint.hit->contact.fraction - 1) < 1e-5 &&
+                  std::abs(endpoint.hit->contact.position[0] + .05) < 2e-5,
+              "Native moving-surface query lost first contact at its interval endpoint");
+        const auto rejected = [&](PhysicsQuerySlice interval, PhysicsQueryFilter filter = {}) {
+            const auto before = physics->motion_frame();
+            bool failed = false;
+            try {
+                (void)motion(interval, filter);
+            } catch (const std::exception&) {
+                failed = true;
+            }
+            const auto after = physics->motion_frame();
+            check(failed && before.tick == after.tick && before.dt == after.dt &&
+                      before.ready == after.ready,
+                  "Rejected motion query changed its accepted native interval");
+        };
+        for (const PhysicsQuerySlice interval :
+             {PhysicsQuerySlice{-.1, 1, 1}, PhysicsQuerySlice{0, 1.1, 1},
+              PhysicsQuerySlice{.8, .2, 1}, PhysicsQuerySlice{0, 1, 0},
+              PhysicsQuerySlice{0, 1, physics_motion_query_limit + 1},
+              PhysicsQuerySlice{std::numeric_limits<double>::quiet_NaN(), 1, 1},
+              PhysicsQuerySlice{0, std::numeric_limits<double>::infinity(), 1}})
+            rejected(interval);
+        const auto repeated = motion({});
+        check(repeated.hit && repeated.hit->contact.entity == crossed.hit->contact.entity &&
+                  repeated.hit->contact.fraction == crossed.hit->contact.fraction &&
+                  repeated.hit->contact.position == crossed.hit->contact.position,
+              "Repeated native motion reads consumed or changed observations");
+        const auto masked = motion({}, PhysicsQueryFilter{0, false});
+        const std::array excluded{crossed.hit->contact.entity};
+        const auto ignored = motion({}, PhysicsQueryFilter{UINT32_MAX, false, excluded});
+        check(!masked.hit && !ignored.hit && masked.queries == 1 && ignored.queries == 1,
+              "Motion queries bypassed masks/exclusions or provided a zero-cost empty call");
+        const ParticleSceneMotionQuery moving_query = [&](const ParticleSceneSweep& request) {
+            const auto observed = motion({request.start_seconds / frame.dt,
+                                          request.end_seconds / frame.dt, request.query_budget},
+                                         PhysicsQueryFilter{UINT32_MAX, false}, &request);
+            ParticleSceneQueryResult result{{}, observed.queries};
+            if (observed.hit)
+                result.hit =
+                    ParticleSceneHit{observed.hit->contact, observed.hit->surface_velocity};
+            return result;
+        };
+        const auto reacted = advance_particle_scene_motion(
+            initial, {}, 0, frame.dt, ParticleSceneCollision{.05, .5, 0, 4, UINT32_MAX}, query,
+            false, planar, true, false, moving_query);
+        check(reacted.state.alive && reacted.state.bounces == 1 && reacted.impacts.size() == 1 &&
+                  reacted.impacts.front().kind == ParticleSceneImpactKind::Bounce &&
+                  reacted.impacts.front().incoming_velocity[0] == 0 &&
+                  std::abs(reacted.impacts.front().outgoing_velocity[0] - 30) < 1e-5 &&
+                  std::abs(reacted.impacts.front().time - frame.dt * .4625) < 1e-5 &&
+                  std::abs(reacted.state.motion.position[0] - (planar ? 1.6175 : 1.612505)) <
+                      1e-4 &&
+                  initial.motion.position[0] == 0,
+              "Native moving wall lost relative response, corrected contact time or atomic input");
+        const ParticleSceneCollision resting{.05, 0, 0, 4, UINT32_MAX};
+        const ParticleSceneMotionQuery scaled_query = [&](const ParticleSceneSweep& request) {
+            auto mapped = request;
+            mapped.start_seconds = frame.dt * .45 + request.start_seconds * .05;
+            mapped.end_seconds = frame.dt * .45 + request.end_seconds * .05;
+            auto result = moving_query(mapped);
+            if (result.hit)
+                for (auto& velocity : result.hit->surface_velocity)
+                    velocity *= .05;
+            return result;
+        };
+        const auto scaled = advance_particle_scene_motion(
+            initial, {-4, 0, 0}, 0, .2, ParticleSceneCollision{.05, 0, .25, 4, UINT32_MAX}, query,
+            false, planar, true, true, scaled_query);
+        if (!scaled.state.alive) {
+            Json outcomes = Json::array();
+            for (const auto& hit : scaled.impacts)
+                outcomes.push_back({{"kind", unsigned(hit.kind)},
+                                    {"time", hit.time},
+                                    {"normal", hit.normal},
+                                    {"position", hit.position},
+                                    {"incoming", hit.incoming_velocity},
+                                    {"outgoing", hit.outgoing_velocity}});
+            throw std::runtime_error(std::string(planar ? "XY" : "3D") +
+                                     " scaled native support ended: " + outcomes.dump());
+        }
+        const auto held =
+            advance_particle_scene_motion(initial, {-4, 0, 0}, 0, frame.dt * .5, resting, query,
+                                          false, planar, true, true, moving_query);
+        check(held.state.alive && held.state.support && held.state.bounces == 1 &&
+                  std::abs(held.state.motion.velocity[0] - 20) < 1e-5 &&
+                  std::abs(held.state.motion.position[0] - (planar ? .08 : .075005)) < 2e-5 &&
+                  held.impacts.size() == 1 && held.queries <= particle_scene_birth_query_limit,
+              "Native moving support failed to retain relative normal response or bounded work");
+        const ParticleSceneMotionQuery supported_query = [&](const ParticleSceneSweep& request) {
+            auto mapped = request;
+            mapped.start_seconds += frame.dt * .5;
+            mapped.end_seconds += frame.dt * .5;
+            return moving_query(mapped);
+        };
+        const auto carried =
+            advance_particle_scene_motion(held.state, {-4, 0, 0}, 2, .002, resting, query, false,
+                                          planar, true, true, supported_query);
+        check(carried.state.alive && carried.state.support && carried.state.bounces == 1 &&
+                  std::abs(carried.state.motion.position[0] - held.state.motion.position[0] - .04) <
+                      2e-5 &&
+                  std::abs(carried.state.motion.velocity[0] - 20) < 1e-5 &&
+                  carried.impacts.size() == 1 &&
+                  carried.impacts.front().kind == ParticleSceneImpactKind::Touch,
+              "Moving native support lost constrained drag, velocity or continuing Touch outcome");
+        physics->synchronize(0);
+        check(!physics->motion_frame().ready,
+              "New native synchronization retained an adopted motion interval");
+        rejected({});
+        auto first = wall, second = wall;
+        first["id"] = first["name"] = "near-a";
+        second["id"] = second["name"] = "near-b";
+        first["components"]["forge.position"]["x"] = .05;
+        second["components"]["forge.position"]["x"] = .05;
+        first["components"][planar ? "forge.physics_body_2d" : "forge.physics_body"]["sensor"] =
+            true;
+        scene.restore_snapshot({{"version", 1}, {"entities", Json::array({first, second})}});
+        physics->synchronize(.1f);
+        physics->step(.1f);
+        physics->adopt();
+        const auto sensor = *engine.world().reference(scene.entity("near-a").id());
+        const auto solid = *engine.world().reference(scene.entity("near-b").id());
+        const auto all = motion({});
+        const auto expected =
+            std::tie(sensor.scene, sensor.entity) < std::tie(solid.scene, solid.entity) ? sensor
+                                                                                        : solid;
+        if (!all.hit || all.queries != 2 || all.hit->contact.fraction != 0 ||
+            all.hit->contact.entity != expected)
+            std::cerr << Json{{"planar", planar},
+                              {"queries", all.queries},
+                              {"hit", bool(all.hit)},
+                              {"fraction", all.hit ? all.hit->contact.fraction : -1},
+                              {"actual", all.hit ? all.hit->contact.entity.entity.str() : ""},
+                              {"expected", expected.entity.str()}}
+                             .dump()
+                      << '\n';
+        check(all.hit && all.queries == 2 && all.hit->contact.fraction == 0 &&
+                  all.hit->contact.entity == expected,
+              "Equal-time motion hits lost complete native work or canonical selection");
+        const auto solids = motion({0, 1, 1}, PhysicsQueryFilter{UINT32_MAX, false});
+        check(solids.hit && solids.queries == 1 && solids.hit->contact.entity == solid,
+              "Ignored sensors spent narrow-phase work or hid the solid motion hit");
+        rejected({0, 1, 1});
+        // Discontinuous placement is admitted before the observed step. It must
+        // never become a historical sweep through intervening particles.
+        const auto lifecycle_query = [&](const char* phase) {
+            try {
+                return motion({});
+            } catch (const std::exception& error) {
+                const auto entity = scene.entity("moving-wall");
+                std::string velocity;
+                if (!planar && entity.is_alive())
+                    if (const auto state =
+                            physics->body_state(*engine.world().reference(entity.id())))
+                        velocity = " angular_velocity=" + Json(state->angular_velocity).dump();
+                if (planar && entity.is_alive())
+                    if (const auto state =
+                            physics->body_state_2d(*engine.world().reference(entity.id())))
+                        velocity = " angular_velocity=" + Json(state->angular_velocity).dump();
+                throw std::runtime_error(std::string(planar ? "XY " : "3D ") + phase + ": " +
+                                         error.what() + velocity);
+            }
+        };
+        scene.restore_snapshot({{"version", 1}, {"entities", Json::array({wall})}});
+        physics->synchronize(0);
+        const auto wall_ref = *engine.world().reference(scene.entity("moving-wall").id());
+        if (planar)
+            physics->teleport_2d(wall_ref, {1, 0}, 0, true);
+        else
+            physics->teleport(wall_ref, {1, 0, 0}, {}, true);
+        physics->synchronize(.1f);
+        physics->step(.1f);
+        physics->adopt();
+        check(!lifecycle_query("teleport").hit && query({1, 0, 0}, {}, .05),
+              "Teleport invented a historical moving-surface sweep");
+        scene.entity("moving-wall").destruct();
+        physics->synchronize(.1f);
+        check(!physics->motion_frame().ready,
+              "Native retirement left the prior motion interval available");
+        physics->step(.1f);
+        physics->adopt();
+        check(!motion({}).hit && motion({}).queries == 1,
+              "Retired native geometry remained in the motion query");
+        auto rotating = wall;
+        rotating["components"]["forge.position"]["x"] = 0;
+        scene.restore_snapshot({{"version", 1}, {"entities", Json::array({rotating})}});
+        physics->synchronize(0);
+        scene.entity("moving-wall")
+            .set<LocalRotation>({0, 0, float(std::sin(.1)), float(std::cos(.1))});
+        physics->synchronize(.1f);
+        physics->step(.1f);
+        physics->adopt();
+        rejected({});
+        const auto rotating_ref = *engine.world().reference(scene.entity("moving-wall").id());
+        const std::array ignore_rotation{rotating_ref};
+        check(!motion({}, PhysicsQueryFilter{0, false}).hit &&
+                  !motion({}, PhysicsQueryFilter{UINT32_MAX, false, ignore_rotation}).hit,
+              "Filtered rotating geometry rejected an otherwise empty motion query");
+        // A fixed rotated pose is still a supported linear target. Only actual
+        // angular activity during the observed interval is unsupported.
+        scene.entity("moving-wall").destruct();
+        physics->synchronize(0);
+        rotating["components"]["forge.rotation"] = {
+            {"x", planar ? 0 : 17}, {"y", planar ? 0 : 23}, {"z", 25}};
+        scene.restore_snapshot({{"version", 1}, {"entities", Json::array({rotating})}});
+        physics->synchronize(0);
+        physics->synchronize(.1f);
+        physics->step(.1f);
+        physics->adopt();
+        check(lifecycle_query("fixed rotated pose").hit.has_value(),
+              "Unchanged rotated geometry was rejected");
+        const auto far_ref = *engine.world().reference(scene.entity("moving-wall").id());
+        if (planar)
+            physics->teleport_2d(far_ref, {1000, 0}, 0, true);
+        else
+            physics->teleport(far_ref, {1000, 0, 0}, {}, true);
+        physics->synchronize(.1f);
+        physics->step(.1f);
+        physics->adopt();
+        scene.entity("moving-wall")
+            .set<LocalRotation>({0, 0, float(std::sin(.2)), float(std::cos(.2))});
+        physics->synchronize(.1f);
+        physics->step(.1f);
+        physics->adopt();
+        check(!lifecycle_query("distant rotation").hit,
+              "Distant rotating geometry rejected an unrelated motion query");
+    }
+}
 void settings_codec() {
     ParticleSceneCollision settings{.025, .75, .25, 16, 0x80000001u};
     const auto encoded = encode_particle_scene_collision(settings);
@@ -640,6 +1039,8 @@ int main() {
     try {
         impact_records();
         resting_mock();
+        moving_surface_baseline();
+        moving_surface_coordinates();
         xy_compound_contacts();
         settings_codec();
         for (double offset : {0., 1e8, -1e8}) {

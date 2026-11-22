@@ -139,6 +139,8 @@ class Native2D {
     std::vector<PhysicsHit2D> raycast_all(Double2, Double2, PhysicsQueryFilter) const;
     std::vector<EntityRef> overlap(const PhysicsOverlap2D&, PhysicsQueryFilter) const;
     std::optional<PhysicsHit2D> shape_cast(const PhysicsSweep2D&, PhysicsQueryFilter) const;
+    PhysicsMotionResult2D shape_cast_motion(const PhysicsSweep2D&, PhysicsQuerySlice,
+                                            PhysicsQueryFilter) const;
     // Controller foundation only: capsule cast with native touching-surface
     // encroachment and the existing checked binding/filter/work policy. A miss
     // does not certify a clear starting pose or supply penetration recovery.
@@ -169,7 +171,7 @@ class Native2D {
     bool current(std::uint64_t, EntityRef, std::uint64_t epoch) const;
     bool contains(std::uint64_t, EntityRef) const;
     void validate_step(float dt = 0) const;
-    void step(float, std::uint64_t tick);
+    void step(float, std::uint64_t tick, bool motion_queries = false);
     std::map<std::uint64_t, LocalTransform> adopted_poses() const;
     void accept_poses(const std::map<std::uint64_t, LocalTransform>&);
     std::size_t size() const;

@@ -35,6 +35,21 @@ struct ParticleSceneStep {
 };
 using ParticleSceneQuery =
     std::function<std::optional<PhysicsHit>(const Double3&, const Double3&, double radius)>;
+// Query-local seconds use this birth step's particle time unit, including the
+// returned surface velocity. The history/runtime adapters own fixed-time mapping.
+struct ParticleSceneSweep {
+    Double3 origin{}, displacement{};
+    double radius = 0, start_seconds = 0, end_seconds = 0;
+    unsigned query_budget = 0;
+};
+struct ParticleSceneHit : PhysicsHit {
+    Double3 surface_velocity{};
+};
+struct ParticleSceneQueryResult {
+    std::optional<ParticleSceneHit> hit;
+    unsigned queries = 0;
+};
+using ParticleSceneMotionQuery = std::function<ParticleSceneQueryResult(const ParticleSceneSweep&)>;
 // The existing fixed-update owner supplies admitted world-space motion and the
 // native query. Bounded chords approximate curved paths; no World or clock lives
 // here. The input remains unchanged on failure. Times are relative to this step.
@@ -43,7 +58,8 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState&,
                                                 const ParticleSceneCollision&,
                                                 const ParticleSceneQuery&,
                                                 bool initial_probe = false, bool planar_2d = false,
-                                                bool capture_impacts = false, bool resting = false);
+                                                bool capture_impacts = false, bool resting = false,
+                                                const ParticleSceneMotionQuery& motion_query = {});
 std::optional<ParticleMotionState>
 sample_particle_scene_motion(const ParticleSceneStep&, double time, bool include_death = false);
 } // namespace forge

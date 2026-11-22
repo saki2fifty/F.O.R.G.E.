@@ -1,8 +1,10 @@
 #include "particle_runtime.hpp"
 #include "builtins.hpp"
 #include "runtime_property_tune.hpp"
+#include <algorithm>
 #include <cmath>
 #include <forge/application_state_activation.hpp>
+#include <limits>
 #include <set>
 namespace forge {
 namespace {
@@ -91,6 +93,8 @@ void ParticleRuntime::synchronize() {
                             particle_scene_collision_capacity - scene_capacity,
                         "Scene collision particles exceed the 1024 reserved-birth World budget");
                 scene_capacity += entry.effect->capacity;
+                if (particle_uses_scene_motion(entry.effect.get()))
+                    world_.services().physics()->enable_motion_queries();
             }
         } else {
             const auto state = entry.ticket.inspect();
@@ -117,49 +121,121 @@ void ParticleRuntime::tick(float dt, std::uint64_t fixed_tick) {
         if (entry.effect)
             require(entry.current + double(dt) * entry.config.playback_speed <= 1e9,
                     "Particle visual time exceeds the supported range");
-    std::map<flecs::entity_t, ParticleSceneHistory> candidates;
+    struct Candidate {
+        ParticleSceneHistory history;
+        std::optional<std::uint64_t> motion_tick;
+    };
+    std::map<flecs::entity_t, Candidate> candidates;
     ParticleSceneWork work;
     for (const auto& [id, entry] : entries_) {
         if (!entry.effect || !particle_uses_scene_collision(entry.effect.get()))
             continue;
+        const double next_age = entry.current + double(dt) * entry.config.playback_speed;
+        const double span = next_age - entry.current;
+        const auto physics = world_.services().physics();
+        ParticleSceneMotionQuery motion_query;
+        std::optional<std::uint64_t> motion_tick;
+        if (particle_uses_scene_motion(entry.effect.get()) && span > 0) {
+            const auto frame = physics->motion_frame();
+            // An asynchronously admitted effect may miss observation activation
+            // for this step. Its first visual interval begins at the next one;
+            // other emitters keep their existing progression.
+            if (!frame.ready)
+                continue;
+            require(frame.dt == double(dt) &&
+                        (!entry.motion_tick || frame.tick > *entry.motion_tick),
+                    "Scene motion particles require a fresh matching adopted physics interval");
+            motion_tick = frame.tick;
+            motion_query = [&, frame, span](const ParticleSceneSweep& request) {
+                const auto normalized = [&](double seconds) {
+                    const double value = seconds / span;
+                    constexpr double tolerance = 64 * std::numeric_limits<double>::epsilon();
+                    require(std::isfinite(value) && value >= -tolerance && value <= 1 + tolerance,
+                            "Particle motion time lies outside the adopted physics interval");
+                    return std::clamp(value, 0., 1.);
+                };
+                const PhysicsQuerySlice slice{normalized(request.start_seconds),
+                                              normalized(request.end_seconds),
+                                              request.query_budget};
+                const PhysicsQueryFilter filter{entry.effect->scene_collision->mask, false};
+                ParticleSceneQueryResult result;
+                ParticleSceneHit contact;
+                if (particle_uses_scene_collision_2d(entry.effect.get())) {
+                    PhysicsSweep2D sweep;
+                    sweep.origin = {request.origin[0], request.origin[1]};
+                    sweep.dimensions = {request.radius, 0};
+                    sweep.displacement = {request.displacement[0], request.displacement[1]};
+                    const auto observed = physics->shape_cast_motion_2d(sweep, slice, filter);
+                    result.queries = observed.queries;
+                    if (!observed.hit)
+                        return result;
+                    const auto& hit = observed.hit->contact;
+                    static_cast<PhysicsHit&>(contact) = {
+                        hit.entity,
+                        {hit.position[0], hit.position[1],
+                         request.origin[2] + request.displacement[2] * hit.fraction},
+                        {hit.normal[0], hit.normal[1], 0},
+                        hit.fraction};
+                    contact.surface_velocity = {observed.hit->surface_velocity[0],
+                                                observed.hit->surface_velocity[1], 0};
+                } else {
+                    PhysicsSweep sweep;
+                    sweep.origin = {request.origin[0], request.origin[1], request.origin[2]};
+                    sweep.dimensions = {request.radius, 0, 0};
+                    sweep.displacement = request.displacement;
+                    const auto observed = physics->shape_cast_motion(sweep, slice, filter);
+                    result.queries = observed.queries;
+                    if (!observed.hit)
+                        return result;
+                    static_cast<PhysicsHit&>(contact) = observed.hit->contact;
+                    contact.surface_velocity = observed.hit->surface_velocity;
+                }
+                // Response uses particle age seconds, which may run at a
+                // different rate from the real fixed-step interval.
+                for (auto& velocity : contact.surface_velocity)
+                    velocity *= frame.dt / span;
+                result.hit = contact;
+                return result;
+            };
+        }
         if (candidates.empty())
             world_.evaluate_world_transforms();
         const auto entity = world_.world().entity(id);
         require(entity.has<WorldTransform>() && entity.get<WorldTransform>().resolved,
                 "Scene collision particles require a resolved birth transform");
-        const auto physics = world_.services().physics();
         const PhysicsQueryFilter filter{entry.effect->scene_collision->mask, false};
-        candidates.emplace(id,
-                           advance_particle_scene_history(
-                               entry.scene, entry.effect.get(), entry.config.seed, entry.current,
-                               entry.current + double(dt) * entry.config.playback_speed,
-                               entity.get<WorldTransform>().affine,
-                               [&](const Double3& origin, const Double3& delta, double radius) {
-                                   if (particle_uses_scene_collision_2d(entry.effect.get())) {
-                                       PhysicsSweep2D sweep;
-                                       sweep.origin = {origin[0], origin[1]};
-                                       sweep.dimensions = {radius, 0};
-                                       sweep.displacement = {delta[0], delta[1]};
-                                       const auto hit = physics->shape_cast_2d(sweep, filter);
-                                       if (!hit)
-                                           return std::optional<PhysicsHit>{};
-                                       return std::optional<PhysicsHit>{
-                                           PhysicsHit{hit->entity,
-                                                      {hit->position[0], hit->position[1],
-                                                       origin[2] + delta[2] * hit->fraction},
-                                                      {hit->normal[0], hit->normal[1], 0},
-                                                      hit->fraction}};
-                                   }
-                                   PhysicsSweep sweep;
-                                   sweep.origin = {origin[0], origin[1], origin[2]};
-                                   sweep.dimensions = {radius, 0, 0};
-                                   sweep.displacement = delta;
-                                   return physics->shape_cast(sweep, filter);
-                               },
-                               work));
+        candidates.emplace(
+            id, Candidate{advance_particle_scene_history(
+                              entry.scene, entry.effect.get(), entry.config.seed, entry.current,
+                              next_age, entity.get<WorldTransform>().affine,
+                              [&](const Double3& origin, const Double3& delta, double radius) {
+                                  if (particle_uses_scene_collision_2d(entry.effect.get())) {
+                                      PhysicsSweep2D sweep;
+                                      sweep.origin = {origin[0], origin[1]};
+                                      sweep.dimensions = {radius, 0};
+                                      sweep.displacement = {delta[0], delta[1]};
+                                      const auto hit = physics->shape_cast_2d(sweep, filter);
+                                      if (!hit)
+                                          return std::optional<PhysicsHit>{};
+                                      return std::optional<PhysicsHit>{
+                                          PhysicsHit{hit->entity,
+                                                     {hit->position[0], hit->position[1],
+                                                      origin[2] + delta[2] * hit->fraction},
+                                                     {hit->normal[0], hit->normal[1], 0},
+                                                     hit->fraction}};
+                                  }
+                                  PhysicsSweep sweep;
+                                  sweep.origin = {origin[0], origin[1], origin[2]};
+                                  sweep.dimensions = {radius, 0, 0};
+                                  sweep.displacement = delta;
+                                  return physics->shape_cast(sweep, filter);
+                              },
+                              work, motion_query),
+                          motion_tick});
     }
     std::vector<ParticleImpactRecord> impacts;
-    for (auto& [id, history] : candidates) {
+    for (auto& [id, candidate] : candidates) {
+        auto& history = candidate.history;
         const auto& entry = entries_.at(id);
         if (!particle_uses_scene_impacts(entry.effect.get()))
             continue;
@@ -185,10 +261,15 @@ void ParticleRuntime::tick(float dt, std::uint64_t fixed_tick) {
     // leaves every entry's emission interval and contact history unchanged.
     for (auto& [id, entry] : entries_) {
         entry.previous = entry.current;
-        if (entry.effect)
+        const auto found = candidates.find(id);
+        if (entry.effect &&
+            (!particle_uses_scene_collision(entry.effect.get()) || found != candidates.end()))
             entry.current += double(dt) * entry.config.playback_speed;
-        if (const auto found = candidates.find(id); found != candidates.end())
-            entry.scene = std::move(found->second);
+        if (found != candidates.end()) {
+            entry.scene = std::move(found->second.history);
+            if (found->second.motion_tick)
+                entry.motion_tick = found->second.motion_tick;
+        }
     }
     impacts_ = std::move(impacts);
     impacts_tick_ = fixed_tick;
@@ -227,6 +308,7 @@ void ParticleRuntime::reset() {
     for (auto& [entity, entry] : entries_) {
         entry.previous = entry.current = 0;
         entry.scene = {};
+        entry.motion_tick.reset();
     }
     effects_.collect();
     impacts_.clear();

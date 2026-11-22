@@ -256,4 +256,43 @@ def check_particle_scene(read, mutate, edit, status, content, failed, root, tool
     assert edit('forge_asset_document_close', owner)['ok']
     assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
     assert content(owner) == resting
+    motion_name = 'forge_asset_document_particle_scene_motion'
+    motion_tool = next(item for item in tools if item['name'] == motion_name)
+    schema = motion_tool['inputSchema']['properties']
+    assert schema['editor']['const'] == owner and schema['enabled']['type'] == 'boolean'
+    assert not motion_tool['annotations']['readOnlyHint']
+    assert 'runtime_particle_scene_motion1' in catalog['scene_motion']
+    before = status(owner)
+    assert edit(motion_name, owner, enabled=False)['ok']
+    assert content(owner) == resting and status(owner)['revision'] == before['revision']
+    assert edit(motion_name, owner, enabled=True)['ok']
+    moving = content(owner)
+    assert moving['version'] == 22 and moving['profile'] == 'cpu_scene_motion_rest_impact_trail_2d1'
+    assert moving['scene_motion_enabled'] and moving['scene_resting_enabled'] and moving['scene_impacts_enabled']
+    for key in ('asset_id', 'size_curve', 'extensions', 'trail', 'scene_collision'):
+        assert moving[key] == resting[key]
+    failed(mutate(motion_name, editor=owner, enabled=False,
+                  document_session=before['session'], document_revision=before['revision']), 'stale_document')
+    current = status(owner)
+    failed(mutate(motion_name, editor=owner, enabled=False,
+                  document_session=current['session'] + 1000,
+                  document_revision=current['revision']), 'wrong_document')
+    for invalid in (None, 1, 'true'):
+        assert not edit(motion_name, owner, enabled=invalid)['ok']
+        assert content(owner) == moving and status(owner)['revision'] == current['revision']
+    assert edit(motion_name, owner, enabled=True)['ok']
+    assert status(owner)['revision'] == current['revision']
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == resting
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == moving
+    save(97)
+    assert edit('forge_asset_document_particle_evaluation', owner, evaluation='gpu')['ok']
+    assert content(owner)['profile'] == 'gpu_mesh1' and content(owner)['scene_motion_enabled']
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == moving
+    assert edit(motion_name, owner, enabled=False)['ok']
+    assert content(owner)['profile'] == 'cpu_scene_rest_impact_trail_2d1'
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == moving
+    save(97)
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
+    assert content(owner) == moving
     assert edit('forge_asset_document_close', owner)['ok']

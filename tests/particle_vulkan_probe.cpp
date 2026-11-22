@@ -890,6 +890,8 @@ int main(int argc, char** argv) {
                            std::string_view(argv[2]) == "--gpu-material-gallery" ||
                            std::string_view(argv[2]) == "--scene-collision-gallery" ||
                            std::string_view(argv[2]) == "--xy-scene-collision-gallery" ||
+                           std::string_view(argv[2]) == "--scene-motion-gallery" ||
+                           std::string_view(argv[2]) == "--xy-scene-motion-gallery" ||
                            std::string_view(argv[2]) == "--resting-gallery" ||
                            std::string_view(argv[2]) == "--xy-resting-gallery" ||
                            std::string_view(argv[2]) == "--scene-impact-gallery" ||
@@ -920,8 +922,15 @@ int main(int argc, char** argv) {
             else if (argc == 4 && std::string_view(argv[2]) == "--gpu-sorted-countercases")
                 particle_sorted_content_test::execute(presentation, context,
                                                       std::filesystem::absolute(argv[3]));
-            else if (argc == 4 && (std::string_view(argv[2]) == "--resting-gallery" ||
-                                   std::string_view(argv[2]) == "--xy-resting-gallery")) {
+            else if (argc == 4 && (std::string_view(argv[2]) == "--scene-motion-gallery" ||
+                                   std::string_view(argv[2]) == "--xy-scene-motion-gallery")) {
+                const bool xy = std::string_view(argv[2]) == "--xy-scene-motion-gallery";
+                test_particle_alpha::gallery(presentation, context,
+                                             std::filesystem::absolute(argv[3]), argv[1], true, xy,
+                                             false, false, false, false, false, false, false, true,
+                                             xy, false, true, true, true);
+            } else if (argc == 4 && (std::string_view(argv[2]) == "--resting-gallery" ||
+                                     std::string_view(argv[2]) == "--xy-resting-gallery")) {
                 const bool xy = std::string_view(argv[2]) == "--xy-resting-gallery";
                 test_particle_alpha::gallery(
                     presentation, context, std::filesystem::absolute(argv[3]), argv[1], true, xy,

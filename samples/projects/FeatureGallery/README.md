@@ -3436,3 +3436,18 @@ their lifetime still applies. **Scene impact notifications (CPU)** is enabled fo
 optional project-code observations; the Scenes run without a C++ module. Use the
 packaged runtime kit when exporting. See the
 [resting workflow and limits](../../../manual/editor/particles.md#rest-on-scene-surfaces).
+
+### Linear Scene motion
+
+- **265 — Linear Scene particles:** CPU Mesh heads contact a translating kinematic incline using 3D queries.
+- **266 — XY linear Scene particles:** camera-aligned heads use the same surface animation through native XY queries.
+
+Open either Scene and press Play. Each includes a floor, incline, camera and light.
+The incline uses the editable **SurfaceLift** Transform Animation and keeps a fixed
+orientation. The Effects enable **Linear Scene motion (CPU)**, resting and copied
+impact notifications. Particles respond relative to the surface while their own
+playback controls retain the usual time scaling and pause behavior. No project
+C++ module is needed. Stop Play before editing the Effect or animation; save and
+publish both before export with the packaged runtime kit. Angular sweeps and
+two-way rigid-body impulses are unsupported. See the
+[linear Scene motion workflow and limits](../../../manual/editor/particles.md#linear-scene-motion).

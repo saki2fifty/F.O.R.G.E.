@@ -4151,3 +4151,20 @@ acceptance also exports263/264 using the shipped SDK/runtime kit, removes source
 projects and verifies real player startup plus supported heads in GameHostFixture.
 Windows-only package witness compilation/execution is established by CI, never by
 local Linux checks. Physical review remains a distinct acceptance step.
+
+Linear Scene motion adds `particle_scene_motion_gallery` and
+`particle_xy_scene_motion_gallery`, their source-hidden `_export` checks and
+native `_gallery_game`/local `_gallery_game_vulkan` rendering paths. Native
+motion/source/state/runtime checks cover both query domains, playback mapping,
+moving support/drag, filtering, work limits, teleport/retirement, orientation
+equivalence and explicit angular-motion refusal. `mcp_particle_scene_stdio`
+includes the shared Source22 edit, typed schema/catalog, grants, revision/history
+and publication/reopen checks in both supported protocol formats.
+
+`native_sdk_particle_motion_process` runs the original shared contact System in
+the source-hidden production CLI for both Scenes265/266. Combined Windows package
+acceptance exports those Scenes using the shipped SDK/runtime kit, removes source
+projects and checks real player startup, supported heads, code response and copied
+contacts with a moving native animated surface. The package witness requires
+`runtime_particle_scene_motion:1`. Windows-only compilation/execution and physical
+review remain separate from local native and software-rendering evidence.

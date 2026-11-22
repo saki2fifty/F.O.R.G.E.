@@ -45,6 +45,10 @@ class PhysicsRuntime : public PhysicsService {
     std::optional<PhysicsHit> raycast_filtered(Double3, Double3, PhysicsQueryFilter) const override;
     std::vector<PhysicsHit> raycast_all(Double3, Double3, PhysicsQueryFilter = {}) const override;
     std::optional<PhysicsHit> shape_cast(const PhysicsSweep&, PhysicsQueryFilter) const override;
+    void enable_motion_queries() override;
+    PhysicsMotionFrame motion_frame() const override;
+    PhysicsMotionResult shape_cast_motion(const PhysicsSweep&, PhysicsQuerySlice,
+                                          PhysicsQueryFilter) const override;
     std::uint64_t request_collision_asset(AssetId) override;
     RuntimeResourceStatus inspect_collision_asset(std::uint64_t) const override;
     bool release_collision_asset(std::uint64_t) override;
@@ -85,6 +89,8 @@ class PhysicsRuntime : public PhysicsService {
                                             PhysicsQueryFilter = {}) const override;
     std::optional<PhysicsHit2D> shape_cast_2d(const PhysicsSweep2D&,
                                               PhysicsQueryFilter = {}) const override;
+    PhysicsMotionResult2D shape_cast_motion_2d(const PhysicsSweep2D&, PhysicsQuerySlice,
+                                               PhysicsQueryFilter) const override;
     std::size_t contact_count_2d() const override;
     std::optional<PhysicsContact2D> contact_event_2d(std::size_t) const override;
     CharacterState character(EntityRef) const override;

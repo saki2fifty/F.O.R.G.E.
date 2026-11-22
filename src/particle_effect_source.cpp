@@ -21,6 +21,8 @@ const char* cpu_alpha_profile(const nlohmann::json& document) {
             flags |= particle_detail::SceneImpact;
         if (version >= 21 && document.value("scene_resting_enabled", false))
             flags |= particle_detail::SceneRest;
+        if (version >= 22 && document.value("scene_motion_enabled", false))
+            flags |= particle_detail::SceneMotion;
         for (const auto& profile : particle_detail::value_profiles)
             if (profile.flags == flags)
                 return profile.name;
@@ -152,20 +154,25 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             stop.erase("id");
         }
     }
-    if (version > 21)
+    if (version > 22)
         throw std::runtime_error("Unknown Particle Effect source version");
     if (version < 4)
         return decode_particle_effect(values);
-    // Source4–21 retain settings while another evaluation backend is active.
+    // Source4–22 retain settings while another evaluation backend is active.
     // Only the active backend contributes runtime values and dependency edges.
     const auto profile = values.at("profile").get<std::string>();
     const auto* selected = particle_detail::value_profile(std::string_view(profile));
     // Source formats introduce contiguous immutable value-profile ranges.
-    constexpr std::array maximum_values{0u,  0u,  0u,  0u,  4u,  5u,  6u,  7u,  9u,  10u, 11u,
-                                        15u, 19u, 22u, 25u, 37u, 39u, 51u, 53u, 55u, 61u, 73u};
+    constexpr std::array maximum_values{0u,  0u,  0u,  0u,  4u,  5u,  6u,  7u,  9u,  10u, 11u, 15u,
+                                        19u, 22u, 25u, 37u, 39u, 51u, 53u, 55u, 61u, 73u, 97u};
     if (!selected || selected->version < 2 || selected->version > maximum_values.at(version))
         throw std::runtime_error("Unknown Particle Effect evaluation profile " + profile +
                                  " for source version " + std::to_string(version));
+    if (version >= 22) {
+        if (!values.at("scene_motion_enabled").is_boolean())
+            throw std::runtime_error("Scene motion activation must be a boolean");
+        values.erase("scene_motion_enabled");
+    }
     if (version >= 21) {
         if (!values.at("scene_resting_enabled").is_boolean())
             throw std::runtime_error("Scene resting activation must be a boolean");
@@ -594,6 +601,23 @@ void ParticleEffectSource::set_scene_resting(bool enabled) {
     const auto previous = candidate.document.at("profile").get<std::string>();
     candidate.document["version"] = std::max(21u, candidate.document.at("version").get<unsigned>());
     candidate.document["scene_resting_enabled"] = enabled;
+    if (enabled || cpu_alpha_profile(std::string_view(previous)))
+        candidate.document["profile"] = cpu_alpha_profile(candidate.document);
+    candidate.validate();
+    document = std::move(candidate.document);
+}
+void ParticleEffectSource::set_scene_motion(bool enabled) {
+    if (!enabled && !document.contains("scene_motion_enabled")) {
+        validate();
+        return;
+    }
+    auto candidate = *this;
+    normalize_scene_extensions(candidate, enabled);
+    const auto previous = candidate.document.at("profile").get<std::string>();
+    if (!candidate.document.contains("scene_resting_enabled"))
+        candidate.document["scene_resting_enabled"] = false;
+    candidate.document["version"] = std::max(22u, candidate.document.at("version").get<unsigned>());
+    candidate.document["scene_motion_enabled"] = enabled;
     if (enabled || cpu_alpha_profile(std::string_view(previous)))
         candidate.document["profile"] = cpu_alpha_profile(candidate.document);
     candidate.validate();

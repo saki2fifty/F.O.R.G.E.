@@ -22,8 +22,8 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
                                                 const Double3& acceleration, double drag, double dt,
                                                 const ParticleSceneCollision& settings,
                                                 const ParticleSceneQuery& query, bool initial_probe,
-                                                bool planar_2d, bool capture_impacts,
-                                                bool resting) {
+                                                bool planar_2d, bool capture_impacts, bool resting,
+                                                const ParticleSceneMotionQuery& motion_query) {
     range(dt, 0, 30);
     range(drag, 0, 64);
     if (planar_2d)
@@ -57,14 +57,30 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
     }
     double elapsed = 0;
     bool support_observed = false;
-    const auto cast = [&](const Double3& origin, const Double3& displacement) {
-        if (++result.queries > particle_scene_birth_query_limit)
+    const auto cast = [&](const Double3& origin, const Double3& displacement,
+                          double duration = 0) -> std::optional<ParticleSceneHit> {
+        if (result.queries == particle_scene_birth_query_limit)
             throw std::runtime_error(
                 planar_2d
                     ? "Particle Scene motion exceeds 256 circle queries per birth and fixed update"
                     : "Particle Scene motion exceeds 256 sphere queries per birth and fixed "
                       "update");
-        return query(origin, displacement, settings.radius);
+        if (motion_query) {
+            const auto remaining = particle_scene_birth_query_limit - result.queries;
+            auto observed = motion_query(
+                {origin, displacement, settings.radius, elapsed, elapsed + duration, remaining});
+            if (!observed.queries || observed.queries > remaining)
+                throw std::runtime_error("Particle motion query returned invalid native work");
+            result.queries += observed.queries;
+            if (observed.hit)
+                for (double value : observed.hit->surface_velocity)
+                    range(value, -1e10, 1e10);
+            return observed.hit;
+        }
+        ++result.queries;
+        if (const auto hit = query(origin, displacement, settings.radius))
+            return ParticleSceneHit{*hit, {}};
+        return {};
     };
     bool pending_probe = initial_probe && dt == 0;
     while (elapsed < dt || pending_probe) {
@@ -81,12 +97,19 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
                                       32 * std::numeric_limits<double>::epsilon() * magnitude,
                                       planar_2d ? .005 : 0.});
         auto active_acceleration = acceleration;
-        const auto support_drive = [&](const Double3& normal) -> std::optional<Double3> {
-            const auto pressure = dot(acceleration, normal);
-            const auto speed = std::hypot(state.motion.velocity[0], state.motion.velocity[1],
-                                          planar_2d ? 0 : state.motion.velocity[2]);
+        const auto normal_pressure = [&](const Double3& normal) {
+            return dot(acceleration, normal) -
+                   (motion_query ? drag * dot(state.motion.velocity, normal) : 0);
+        };
+        const auto support_drive = [&](const Double3& normal,
+                                       const Double3& surface = {}) -> std::optional<Double3> {
+            const auto pressure = normal_pressure(normal);
+            Double3 relative;
+            for (unsigned axis = 0; axis < 3; ++axis)
+                relative[axis] = state.motion.velocity[axis] - surface[axis];
+            const auto speed = std::hypot(relative[0], relative[1], planar_2d ? 0 : relative[2]);
             if (!(pressure < 0) ||
-                std::abs(dot(state.motion.velocity, normal)) >
+                std::abs(dot(relative, normal)) >
                     64 * std::numeric_limits<double>::epsilon() * std::max(1., speed))
                 return {};
             auto drive = acceleration;
@@ -95,7 +118,7 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
             return drive;
         };
         const auto probe_support = [&](const ParticleSceneSupport& supported,
-                                       const Double3& position) -> std::optional<PhysicsHit> {
+                                       const Double3& position) -> std::optional<ParticleSceneHit> {
             Double3 down;
             const auto distance = std::max(2 * bias, planar_2d ? .01 : .002);
             for (unsigned axis = 0; axis < 3; ++axis)
@@ -125,10 +148,13 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
         bool constrained = false;
         if (state.support) {
             const auto supported = *state.support;
-            const auto drive = support_drive(supported.normal);
-            const auto hit = drive ? probe_support(supported, state.motion.position)
-                                   : std::optional<PhysicsHit>{};
-            if (hit) {
+            auto drive = support_drive(supported.normal);
+            const auto hit = (drive || motion_query)
+                                 ? probe_support(supported, state.motion.position)
+                                 : std::optional<ParticleSceneHit>{};
+            if (hit && motion_query)
+                drive = support_drive(supported.normal, hit->surface_velocity);
+            if (hit && drive) {
                 if (capture_impacts && !support_observed) {
                     auto center = hit->position;
                     for (unsigned axis = 0; axis < 3; ++axis)
@@ -139,7 +165,10 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
                     support_observed = true;
                 }
                 active_acceleration = *drive;
-                const auto normal_speed = dot(state.motion.velocity, supported.normal);
+                Double3 relative;
+                for (unsigned axis = 0; axis < 3; ++axis)
+                    relative[axis] = state.motion.velocity[axis] - hit->surface_velocity[axis];
+                const auto normal_speed = dot(relative, supported.normal);
                 bool stationary = true;
                 for (unsigned axis = 0; axis < (planar_2d ? 2u : 3u); ++axis) {
                     state.motion.velocity[axis] -= normal_speed * supported.normal[axis];
@@ -190,7 +219,7 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
         Double3 displacement;
         for (unsigned axis = 0; axis < 3; ++axis)
             displacement[axis] = endpoint.position[axis] - start.position[axis];
-        const auto hit = cast(start.position, displacement);
+        const auto hit = cast(start.position, displacement, interval);
         if (!hit) {
             state.motion = endpoint;
             elapsed = interval == dt - elapsed ? dt : elapsed + interval;
@@ -248,8 +277,15 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
             // Native contact tolerance can place the reported cast center inside
             // the circle radius. Clip to the target witness's supporting plane
             // before response; keep the original chord and its time correspondence.
-            const double gap = dot(relative, normal) - settings.radius;
-            const double approach = dot(displacement, normal);
+            Double3 frozen = relative, approach_motion = displacement;
+            if (motion_query)
+                for (unsigned axis = 0; axis < 2; ++axis) {
+                    const auto surface_travel = hit->surface_velocity[axis] * interval;
+                    frozen[axis] += surface_travel * hit->fraction;
+                    approach_motion[axis] -= surface_travel;
+                }
+            const double gap = dot(frozen, normal) - settings.radius;
+            const double approach = dot(approach_motion, normal);
             if (gap >= 0 && approach < 0)
                 fraction = std::min(fraction, gap / -approach);
         }
@@ -260,10 +296,13 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
         elapsed = travel_time == dt - elapsed ? dt : elapsed + travel_time;
         result.knots.push_back({elapsed, state.motion});
         const auto incoming_velocity = state.motion.velocity;
-        const auto incoming = dot(state.motion.velocity, normal);
+        Double3 relative_velocity;
+        for (unsigned axis = 0; axis < 3; ++axis)
+            relative_velocity[axis] = state.motion.velocity[axis] - hit->surface_velocity[axis];
+        const auto incoming = dot(relative_velocity, normal);
         const auto settle = [&](ParticleSceneImpactKind kind) {
             if (!resting || settings.restitution != 0 || settings.bounce_limit == 0 ||
-                !support_drive(normal))
+                !support_drive(normal, hit->surface_velocity))
                 return false;
             if (!hit->entity.scene || !hit->entity.entity)
                 throw std::runtime_error("Particle support needs a canonical collider");
@@ -276,10 +315,9 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
             result.knots.push_back({elapsed, state.motion});
             return true;
         };
-        if (incoming == 0 && dot(acceleration, normal) < 0 &&
-            settle(ParticleSceneImpactKind::Touch))
+        if (incoming == 0 && normal_pressure(normal) < 0 && settle(ParticleSceneImpactKind::Touch))
             continue;
-        if ((incoming == 0 && dot(acceleration, normal) < 0) ||
+        if ((incoming == 0 && normal_pressure(normal) < 0) ||
             (incoming < 0 && state.bounces == settings.bounce_limit)) {
             state.alive = false;
             state.support.reset();
@@ -290,11 +328,11 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
         if (incoming < 0) {
             for (unsigned axis = 0; axis < (planar_2d ? 2u : 3u); ++axis)
                 state.motion.velocity[axis] =
-                    (state.motion.velocity[axis] - incoming * normal[axis]) *
-                        (1 - settings.friction) -
+                    hit->surface_velocity[axis] +
+                    (relative_velocity[axis] - incoming * normal[axis]) * (1 - settings.friction) -
                     incoming * settings.restitution * normal[axis];
             ++state.bounces;
-            if (settings.restitution == 0 && dot(acceleration, normal) < 0) {
+            if (settings.restitution == 0 && normal_pressure(normal) < 0) {
                 if (settle(ParticleSceneImpactKind::Bounce))
                     continue;
                 state.alive = false;

@@ -19,6 +19,7 @@
 #include <Jolt/Physics/Body/BodyFilter.h>
 #include <Jolt/Physics/Body/BodyLock.h>
 #include <Jolt/Physics/Body/BodyLockMulti.h>
+#include <Jolt/Physics/Collision/BroadPhase/BroadPhaseQuery.h>
 #include <Jolt/Physics/Collision/CastResult.h>
 #include <Jolt/Physics/Collision/CollideShape.h>
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
@@ -614,6 +615,32 @@ struct PhysicsRuntime::Impl {
         LocalTransform last;
     };
     std::map<std::uint64_t, Body> bodies;
+    // Derived observations of this owner's native step, never recovery state or
+    // another geometry registry. Native shapes remain immutable shared values.
+    struct MotionBody {
+        EntityRef ref;
+        JPH::TransformedShape start, finish;
+        double radius = 0;
+        bool rotated = false;
+    };
+    std::map<std::uint32_t, MotionBody> motion_bodies;
+    bool motion_requested = false;
+    PhysicsMotionFrame motion_info;
+    Double3 motion_expansion{};
+    double motion_rotation_expansion = 0;
+    static bool same_rotation(JPH::QuatArg first, JPH::QuatArg second) {
+        return equivalent(
+            LocalRotation{first.GetX(), first.GetY(), first.GetZ(), first.GetW()},
+            LocalRotation{second.GetX(), second.GetY(), second.GetZ(), second.GetW()});
+    }
+    static double motion_radius(const JPH::TransformedShape& shape) {
+        const auto bounds = shape.mShape->GetLocalBounds();
+        const auto radius = (bounds.GetCenter().Length() + bounds.GetExtent().Length()) *
+                            shape.GetShapeScale().Abs().ReduceMax();
+        if (!std::isfinite(radius))
+            throw std::runtime_error("Native motion geometry has invalid bounds");
+        return radius;
+    }
     // Same owner and fixed phases; the subordinate XY backend stays lazy.
     std::unique_ptr<physics_detail::Native2D> native_2d;
     physics_detail::Desired2D
@@ -1182,9 +1209,11 @@ struct PhysicsRuntime::Impl {
             native_2d->check();
     }
     std::optional<EntityRef> native_reference(JPH::BodyID native) const {
+        return native_reference(native, system.GetBodyInterface().GetUserData(native));
+    }
+    std::optional<EntityRef> native_reference(JPH::BodyID native, std::uint64_t entity) const {
         // Native metadata is only a lookup hint. The existing records and full
         // native generation still admit the copied canonical reference.
-        const auto entity = system.GetBodyInterface().GetUserData(native);
         if (const auto found = bodies.find(entity);
             found != bodies.end() && found->second.id == native)
             return found->second.ref;
@@ -2169,6 +2198,10 @@ void PhysicsRuntime::synchronize(float dt) {
     s.adopt_joint_collision_pairs(std::move(excluded_pairs));
     s.synchronize_characters();
     s.state_activation_pending = false;
+    s.motion_info = {};
+    s.motion_bodies.clear();
+    s.motion_expansion = {};
+    s.motion_rotation_expansion = 0;
 }
 void PhysicsRuntime::step(float dt) {
     auto& s = *impl_;
@@ -2177,6 +2210,25 @@ void PhysicsRuntime::step(float dt) {
         throw std::runtime_error("Physics needs a positive fixed dt");
     if (s.native_2d)
         s.native_2d->validate_step(dt);
+    std::map<std::uint32_t, Impl::MotionBody> motion;
+    const auto observe = [&](JPH::BodyID id, EntityRef ref) {
+        auto shape = s.system.GetBodyInterface().GetTransformedShape(id);
+        const auto radius = Impl::motion_radius(shape);
+        JPH::BodyLockRead lock(s.system.GetBodyLockInterface(), id);
+        if (!lock.Succeeded())
+            throw std::runtime_error("Native motion body disappeared before its step");
+        const auto& body = lock.GetBody();
+        const bool rotating = !body.IsStatic() && body.GetAngularVelocity().LengthSq() != 0;
+        motion.emplace(id.GetIndexAndSequenceNumber(),
+                       Impl::MotionBody{ref, shape, shape, radius, rotating});
+    };
+    if (s.motion_requested) {
+        for (const auto& [entity, body] : s.bodies)
+            observe(body.id, body.ref);
+        for (const auto& [entity, character] : s.characters)
+            observe(character.owner->native().GetInnerBodyID(), character.ref);
+    }
+    s.motion_info.ready = false;
     auto error = JPH::EPhysicsUpdateError::None;
     {
         auto profile = s.context.services().profile("physics", "JoltUpdate", s.tick + 1);
@@ -2194,9 +2246,30 @@ void PhysicsRuntime::step(float dt) {
     }
     if (s.native_2d) {
         auto planar_profile = s.context.services().profile("physics", "Box2DUpdate", s.tick + 1);
-        s.native_2d->step(dt, s.tick + 1);
+        s.native_2d->step(dt, s.tick + 1, s.motion_requested);
     }
     ++s.tick;
+    Double3 expansion{};
+    double rotation_expansion = 0;
+    for (auto& [token, body] : motion) {
+        body.finish = s.system.GetBodyInterface().GetTransformedShape(body.start.mBodyID);
+        JPH::BodyLockRead lock(s.system.GetBodyLockInterface(), body.start.mBodyID);
+        if (!lock.Succeeded())
+            throw std::runtime_error("Native motion body disappeared during its step");
+        const auto& native = lock.GetBody();
+        body.rotated |= (!native.IsStatic() && native.GetAngularVelocity().LengthSq() != 0) ||
+                        !Impl::same_rotation(body.start.mShapeRotation, body.finish.mShapeRotation);
+        const auto displacement = body.finish.mShapePositionCOM - body.start.mShapePositionCOM;
+        const Double3 values{displacement.GetX(), displacement.GetY(), displacement.GetZ()};
+        for (unsigned axis = 0; axis < 3; ++axis)
+            expansion[axis] = std::max(expansion[axis], std::abs(values[axis]));
+        if (body.rotated)
+            rotation_expansion = std::max(rotation_expansion, 2 * body.radius);
+    }
+    s.motion_bodies = std::move(motion);
+    s.motion_expansion = expansion;
+    s.motion_rotation_expansion = rotation_expansion;
+    s.motion_info = {s.tick, s.motion_requested ? dt : 0, false};
 }
 void PhysicsRuntime::adopt() {
     auto& s = *impl_;
@@ -2252,6 +2325,8 @@ void PhysicsRuntime::adopt() {
             s.context.world().entity(id).set<LocalTranslation>(position);
         c.last.translation = position;
     }
+    if (s.motion_info.tick == s.tick && s.motion_info.dt > 0)
+        s.motion_info.ready = true;
 }
 std::vector<std::uint64_t> PhysicsRuntime::take_discontinuities() {
     impl_->check();
@@ -2395,6 +2470,143 @@ std::vector<PhysicsHit> PhysicsRuntime::raycast_all(Double3 origin, Double3 disp
     });
     return result;
 }
+namespace {
+JPH::ShapeCastSettings native_shape_cast_settings() {
+    JPH::ShapeCastSettings settings;
+    settings.mReturnDeepestPoint = true;
+    settings.mBackFaceModeConvex = JPH::EBackFaceMode::CollideWithBackFaces;
+    return settings;
+}
+} // namespace
+void PhysicsRuntime::enable_motion_queries() {
+    impl_->check();
+    impl_->motion_requested = true;
+}
+PhysicsMotionFrame PhysicsRuntime::motion_frame() const {
+    impl_->check();
+    return impl_->motion_info;
+}
+PhysicsMotionResult PhysicsRuntime::shape_cast_motion(const PhysicsSweep& request,
+                                                      PhysicsQuerySlice slice,
+                                                      PhysicsQueryFilter filter) const {
+    auto& s = *impl_;
+    s.check();
+    physics_detail::validate_query_slice(slice);
+    const auto body_filter = s.query_filter(filter);
+    valid_position(request.origin);
+    valid_position({request.displacement[0], request.displacement[1], request.displacement[2]});
+    const auto shape = query_shape(request.shape, request.dimensions);
+    const auto orientation = rotation(request.rotation);
+    if (!s.motion_info.ready)
+        throw std::runtime_error("Physics motion query requires an adopted fixed interval");
+    PhysicsMotionResult result;
+    if (!filter.mask)
+        return {{}, 1};
+    const auto local_bounds = shape->GetLocalBounds();
+    const double radius = local_bounds.GetCenter().Length() + local_bounds.GetExtent().Length();
+    const Double3 origin{request.origin.x, request.origin.y, request.origin.z};
+    Double3 minimum, maximum;
+    std::array<float, 3> lower{}, upper{};
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        minimum[axis] = std::min(origin[axis], origin[axis] + request.displacement[axis]) - radius;
+        maximum[axis] = std::max(origin[axis], origin[axis] + request.displacement[axis]) + radius;
+        const auto expansion =
+            s.motion_expansion[axis] * (1 - slice.from) + s.motion_rotation_expansion;
+        lower[axis] = std::nextafter(float(minimum[axis] - expansion),
+                                     -std::numeric_limits<float>::infinity());
+        upper[axis] = std::nextafter(float(maximum[axis] + expansion),
+                                     std::numeric_limits<float>::infinity());
+    }
+    struct Candidates final : JPH::CollideShapeBodyCollector {
+        std::array<JPH::BodyID, max_bodies> ids;
+        std::size_t count = 0;
+        bool overflow = false;
+        void AddHit(const JPH::BodyID& id) override {
+            if (count == ids.size()) {
+                overflow = true;
+                ForceEarlyOut();
+            } else
+                ids[count++] = id;
+        }
+    } candidates;
+    const JPH::AABox bounds{JPH::Vec3(lower[0], lower[1], lower[2]),
+                            JPH::Vec3(upper[0], upper[1], upper[2])};
+    s.system.GetBroadPhaseQuery().CollideAABox(bounds, candidates);
+    if (candidates.overflow)
+        throw std::runtime_error("Physics motion query exceeds native body capacity");
+    for (std::size_t index = 0; index < candidates.count; ++index) {
+        const auto id = candidates.ids[index];
+        if (!body_filter.ShouldCollide(id))
+            continue;
+        JPH::BodyLockRead lock(s.system.GetBodyLockInterface(), id);
+        if (!lock.Succeeded() || !body_filter.ShouldCollideLocked(lock.GetBody()))
+            continue;
+        const auto found = s.motion_bodies.find(id.GetIndexAndSequenceNumber());
+        if (found == s.motion_bodies.end())
+            throw std::runtime_error("Physics motion query encountered an unobserved body");
+        const auto& body = found->second;
+        if (s.native_reference(id, lock.GetBody().GetUserData()) != body.ref)
+            throw std::runtime_error("Physics motion query encountered a changed native binding");
+        const auto delta = body.finish.mShapePositionCOM - body.start.mShapePositionCOM;
+        const Double3 displacement{delta.GetX(), delta.GetY(), delta.GetZ()};
+        const Double3 start{body.start.mShapePositionCOM.GetX(),
+                            body.start.mShapePositionCOM.GetY(),
+                            body.start.mShapePositionCOM.GetZ()};
+        bool nearby = true;
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            const auto first = start[axis] + displacement[axis] * slice.from;
+            const auto last = start[axis] + displacement[axis] * slice.to;
+            nearby &= maximum[axis] >= std::min(first, last) - body.radius &&
+                      minimum[axis] <= std::max(first, last) + body.radius;
+        }
+        if (!nearby)
+            continue;
+        if (body.rotated || body.start.mShape != body.finish.mShape ||
+            body.start.GetShapeScale() != body.finish.GetShapeScale())
+            throw std::runtime_error(
+                "Linear physics motion query cannot cover rotating or changing geometry");
+        if (result.queries == slice.query_budget)
+            throw std::runtime_error("Physics motion query exceeds its native query budget");
+        ++result.queries;
+        auto target = body.start;
+        target.mShapePositionCOM += delta * slice.from;
+        Double3 relative, surface;
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            relative[axis] =
+                request.displacement[axis] - displacement[axis] * (slice.to - slice.from);
+            surface[axis] = displacement[axis] / s.motion_info.dt;
+        }
+        valid_position({relative[0], relative[1], relative[2]});
+        const JPH::RVec3 base(origin[0], origin[1], origin[2]);
+        const auto cast = JPH::RShapeCast::sFromWorldTransform(
+            shape, JPH::Vec3::sOne(), JPH::RMat44::sRotationTranslation(orientation, base),
+            {float(relative[0]), float(relative[1]), float(relative[2])});
+        const auto settings = native_shape_cast_settings();
+        JPH::ClosestHitCollisionCollector<JPH::CastShapeCollector> collector;
+        target.CastShape(cast, settings, base, collector);
+        if (!collector.HadHit())
+            continue;
+        const auto& hit = collector.mHit;
+        if (!std::isfinite(hit.mFraction) || hit.mFraction < 0 || hit.mFraction > 1)
+            throw std::runtime_error("Native motion query returned an invalid fraction");
+        const auto point =
+            base + hit.mContactPointOn2 + delta * ((slice.to - slice.from) * hit.mFraction);
+        const auto normal = -hit.mPenetrationAxis.NormalizedOr(JPH::Vec3::sAxisY());
+        PhysicsMotionHit candidate{{body.ref,
+                                    {point.GetX(), point.GetY(), point.GetZ()},
+                                    {normal.GetX(), normal.GetY(), normal.GetZ()},
+                                    hit.mFraction},
+                                   surface};
+        if (!result.hit ||
+            std::tie(candidate.contact.fraction, candidate.contact.entity.scene,
+                     candidate.contact.entity.entity) < std::tie(result.hit->contact.fraction,
+                                                                 result.hit->contact.entity.scene,
+                                                                 result.hit->contact.entity.entity))
+            result.hit = std::move(candidate);
+    }
+    result.queries = std::max(1u, result.queries);
+    return result;
+}
 std::optional<PhysicsHit> PhysicsRuntime::shape_cast(const PhysicsSweep& request,
                                                      PhysicsQueryFilter filter) const {
     auto& s = *impl_;
@@ -2408,9 +2620,7 @@ std::optional<PhysicsHit> PhysicsRuntime::shape_cast(const PhysicsSweep& request
         geometry, JPH::Vec3::sOne(), JPH::RMat44::sRotationTranslation(q, origin),
         JPH::Vec3(float(request.displacement[0]), float(request.displacement[1]),
                   float(request.displacement[2])));
-    JPH::ShapeCastSettings settings;
-    settings.mReturnDeepestPoint = true;
-    settings.mBackFaceModeConvex = JPH::EBackFaceMode::CollideWithBackFaces;
+    const auto settings = native_shape_cast_settings();
     JPH::ClosestHitCollisionCollector<JPH::CastShapeCollector> collector;
     s.system.GetNarrowPhaseQuery().CastShape(cast, settings, origin, collector, {}, {},
                                              s.query_filter(filter));
@@ -2730,6 +2940,19 @@ std::optional<PhysicsHit2D> PhysicsRuntime::shape_cast_2d(const PhysicsSweep2D& 
         return {};
     }
     return self.native_2d->shape_cast(query, filter);
+}
+PhysicsMotionResult2D PhysicsRuntime::shape_cast_motion_2d(const PhysicsSweep2D& query,
+                                                           PhysicsQuerySlice slice,
+                                                           PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    physics_detail::validate_query_slice(slice);
+    physics_detail::validate_query_filter(filter);
+    physics_detail::validate_sweep_2d(query);
+    if (!self.motion_info.ready)
+        throw std::runtime_error("XY motion query requires an adopted fixed interval");
+    return self.native_2d ? self.native_2d->shape_cast_motion(query, slice, filter)
+                          : PhysicsMotionResult2D{{}, 1};
 }
 std::size_t PhysicsRuntime::contact_count_2d() const {
     impl_->check();

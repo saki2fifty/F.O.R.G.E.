@@ -13560,6 +13560,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "8cc976b5-7b16-4dc7-b80c-07d2f0324870",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Collision/XYMovingCloud.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "8ce743c7-17e5-4148-9404-e69b23a3b961",
       "metadata": {
         "forge.import": {
@@ -14779,6 +14789,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "9c2e533d-f3f7-47b7-845f-0a9394908db1",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/266-xy-linear-scene-particles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "9c91c46a-2d17-4e81-a7d3-18343e332d1d",
       "metadata": {},
       "schema_version": 3,
@@ -15326,6 +15346,16 @@
       "source": "Assets/Sprites/TrimMarker.png",
       "source_dependencies": [],
       "type": "texture"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a2f3498a-af53-4086-bc84-c744a12c4088",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Collision/MovingCloud.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],
@@ -16141,6 +16171,16 @@
       "source": "Assets/AnimationTiming/ParticleAppearance.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "ab8467f6-a707-4778-bfd8-e5b5204203ef",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/265-linear-scene-particles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -20632,6 +20672,16 @@
       "source": "Scenes/241-particle-opacity.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e51e6cb4-8543-4a67-84b7-37b735892eb4",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Collision/SurfaceLift.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
     },
     {
       "dependencies": [],

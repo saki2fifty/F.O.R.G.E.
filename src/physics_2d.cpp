@@ -824,6 +824,8 @@ struct Native2D::Impl {
         bool mover_crouched = false, mover_shape_blocked = false;
         b2ShapeProxy response_proxy{}; // Derived admitted primitive, never another geometry owner.
         std::optional<SideSample> last_start{}, preceding_start{};
+        std::optional<SideSample> motion_start{};
+        bool motion_rotating = false;
         // Borrowed only across one rigid step; never checkpointed or retained
         // across synchronization, body replacement or command application.
         std::optional<CarryStart> carry_start{};
@@ -1508,6 +1510,9 @@ struct Native2D::Impl {
     std::vector<PhysicsContact2D> events;
     std::size_t pending_end_bound = 0;
     std::uint64_t last_step_tick = 0, last_event_tick = 0;
+    double motion_dt = 0;
+    Double2 motion_expansion{};
+    double motion_rotation_expansion = 0;
     void retire(const Body& body) {
         pending_end_bound += std::size_t(b2Body_GetContactCapacity(body.id));
         for (const auto shape : body.shapes) {
@@ -1554,6 +1559,23 @@ struct Native2D::Impl {
         std::array<PhysicsHit2D, physics_ray_hit_limit>* all = nullptr;
         std::size_t count = 0;
     };
+    static const Body* query_hit_body(b2ShapeId shape, b2Pos point, b2Vec2 normal, float fraction,
+                                      RayQuery& query) noexcept {
+        const auto* body = query.self->owned(shape);
+        if (!body || !std::isfinite(point.x) || !std::isfinite(point.y) ||
+            !std::isfinite(normal.x) || !std::isfinite(normal.y) || !std::isfinite(fraction) ||
+            fraction < 0 || fraction > 1) {
+            query.failed = true;
+            return nullptr;
+        }
+        if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
+            (query.ignore && body->admitted.ref == *query.ignore) ||
+            query_excludes(query.filter, body->admitted.ref) ||
+            (query.ignore_initial_overlap && fraction == 0) ||
+            !physical_response(*body, shape, query.response, &normal))
+            return nullptr;
+        return body;
+    }
     static float ray_hit(b2ShapeId shape, b2Pos point, b2Vec2 normal, float fraction,
                          void* pointer) noexcept {
         auto& query = *static_cast<RayQuery*>(pointer);
@@ -1561,19 +1583,9 @@ struct Native2D::Impl {
             query.failed = true;
             return 0;
         }
-        const auto* body = query.self->owned(shape);
-        if (!body || !std::isfinite(point.x) || !std::isfinite(point.y) ||
-            !std::isfinite(normal.x) || !std::isfinite(normal.y) || !std::isfinite(fraction) ||
-            fraction < 0 || fraction > 1) {
-            query.failed = true;
-            return 0;
-        }
-        if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
-            (query.ignore && body->admitted.ref == *query.ignore) ||
-            query_excludes(query.filter, body->admitted.ref) ||
-            (query.ignore_initial_overlap && fraction == 0) ||
-            !physical_response(*body, shape, query.response, &normal))
-            return -1;
+        const auto* body = query_hit_body(shape, point, normal, fraction, query);
+        if (!body)
+            return query.failed ? 0 : -1;
         if (query.all) {
             const PhysicsHit2D hit{
                 body->admitted.ref, {point.x, point.y}, {normal.x, normal.y}, fraction};
@@ -1603,6 +1615,157 @@ struct Native2D::Impl {
         b2Pos origin;
         b2Vec2 displacement;
     };
+    static std::optional<b2ShapeProxy> native_proxy(b2ShapeId shape) noexcept {
+        switch (b2Shape_GetType(shape)) {
+        case b2_polygonShape: {
+            const auto value = b2Shape_GetPolygon(shape);
+            return b2MakeProxy(value.vertices, value.count, value.radius);
+        }
+        case b2_circleShape: {
+            const auto value = b2Shape_GetCircle(shape);
+            return b2MakeProxy(&value.center, 1, value.radius);
+        }
+        case b2_capsuleShape: {
+            const auto value = b2Shape_GetCapsule(shape);
+            const b2Vec2 points[]{value.center1, value.center2};
+            return b2MakeProxy(points, 2, value.radius);
+        }
+        default:
+            return {};
+        }
+    }
+    struct MotionQuery {
+        RayQuery query;
+        PhysicsQuerySlice slice;
+        b2ShapeProxy mover;
+        Double2 origin, displacement;
+        Double2 minimum, maximum;
+        PhysicsMotionResult2D result;
+        bool unsupported = false, exhausted = false;
+    };
+    static bool motion_candidate(b2ShapeId shape, void* pointer) noexcept {
+        auto& motion = *static_cast<MotionQuery*>(pointer);
+        auto& query = motion.query;
+        if (!charge_query_work(query.work)) {
+            query.failed = true;
+            return false;
+        }
+        const auto* body = query.self->owned(shape);
+        if (!body || !body->motion_start) {
+            query.failed = true;
+            return false;
+        }
+        if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
+            (query.ignore && body->admitted.ref == *query.ignore) ||
+            query_excludes(query.filter, body->admitted.ref))
+            return true;
+        const auto proxy = native_proxy(shape);
+        if (!proxy) {
+            query.failed = true;
+            return false;
+        }
+        const auto start = *body->motion_start;
+        const auto finish = sample(*body);
+        const Double2 delta{finish.position.x - start.position.x,
+                            finish.position.y - start.position.y};
+        double radius = proxy->radius;
+        for (int i = 0; i < proxy->count; ++i)
+            radius = std::max(radius,
+                              std::hypot(double(proxy->points[i].x), double(proxy->points[i].y)) +
+                                  proxy->radius);
+        const Double2 position{start.position.x + delta[0] * motion.slice.from,
+                               start.position.y + delta[1] * motion.slice.from};
+        const Double2 end{start.position.x + delta[0] * motion.slice.to,
+                          start.position.y + delta[1] * motion.slice.to};
+        for (unsigned axis = 0; axis < 2; ++axis)
+            if (motion.maximum[axis] < std::min(position[axis], end[axis]) - radius ||
+                motion.minimum[axis] > std::max(position[axis], end[axis]) + radius)
+                return true;
+        if (body->motion_rotating) {
+            motion.unsupported = true;
+            return false;
+        }
+        if (motion.result.queries == motion.slice.query_budget) {
+            motion.exhausted = true;
+            return false;
+        }
+        ++motion.result.queries;
+        const b2Vec2 relative{float(motion.origin[0] - position[0]),
+                              float(motion.origin[1] - position[1])};
+        const b2Vec2 translation{
+            float(motion.displacement[0] - delta[0] * (motion.slice.to - motion.slice.from)),
+            float(motion.displacement[1] - delta[1] * (motion.slice.to - motion.slice.from))};
+        const b2ShapeCastPairInput input{*proxy,
+                                         motion.mover,
+                                         {b2InvRotateVector(start.rotation, relative),
+                                          b2InvMulRot(start.rotation, b2Rot_identity)},
+                                         b2InvRotateVector(start.rotation, translation),
+                                         1,
+                                         true};
+        // The low-level cast omits deeply overlapping starts. Observe the
+        // initial native distance and retain the public XY zero-normal sentinel.
+        const b2DistanceInput initial{input.proxyA, input.proxyB, input.transform, true};
+        b2SimplexCache cache{};
+        const auto distance = b2ComputeShapeDistance(&initial, &cache, nullptr, 0);
+        if (!std::isfinite(distance.distance) || distance.distance < 0 || distance.iterations < 0 ||
+            distance.iterations >= 20) {
+            query.failed = true;
+            return false;
+        }
+        b2CastOutput hit{};
+        if (distance.distance == 0) {
+            hit.hit = true;
+            hit.point = distance.pointA;
+        } else {
+            if (motion.result.queries == motion.slice.query_budget) {
+                motion.exhausted = true;
+                return false;
+            }
+            ++motion.result.queries;
+            // Scene motion needs first contact: native encroachment can miss a
+            // short chord and leave its next start inside the physical radius.
+            // Compensate the native skin only for this cast; the independent
+            // initial-distance check above retains the actual query geometry.
+            auto first_touch = input;
+            first_touch.proxyB.radius += B2_LINEAR_SLOP;
+            first_touch.maxFraction = std::nextafter(1.f, std::numeric_limits<float>::infinity());
+            first_touch.canEncroach = false;
+            hit = b2CastShape(&first_touch);
+            if (hit.hit && hit.fraction == 0 && hit.normal.x == 0 && hit.normal.y == 0) {
+                // Positive actual distance has a valid native witness/normal.
+                // A padded native contact band is not an initial penetration.
+                hit.point = distance.pointA;
+                hit.normal = distance.normal;
+            }
+            if (hit.hit && (!std::isfinite(hit.fraction) || hit.fraction < 0 ||
+                            hit.fraction > first_touch.maxFraction)) {
+                query.failed = true;
+                return false;
+            }
+            hit.fraction = std::min(hit.fraction, 1.f);
+        }
+        if (!hit.hit)
+            return true;
+        const auto point = b2RotateVector(start.rotation, hit.point);
+        const auto normal = b2RotateVector(start.rotation, hit.normal);
+        const b2Pos witness{position[0] + point.x +
+                                delta[0] * (motion.slice.to - motion.slice.from) * hit.fraction,
+                            position[1] + point.y +
+                                delta[1] * (motion.slice.to - motion.slice.from) * hit.fraction};
+        if (!query_hit_body(shape, witness, normal, hit.fraction, query))
+            return !query.failed;
+        PhysicsMotionHit2D candidate{
+            {body->admitted.ref, {witness.x, witness.y}, {normal.x, normal.y}, hit.fraction},
+            {delta[0] / query.self->motion_dt, delta[1] / query.self->motion_dt}};
+        if (!motion.result.hit ||
+            std::tie(candidate.contact.fraction, candidate.contact.entity.scene,
+                     candidate.contact.entity.entity) <
+                std::tie(motion.result.hit->contact.fraction,
+                         motion.result.hit->contact.entity.scene,
+                         motion.result.hit->contact.entity.entity))
+            motion.result.hit = candidate;
+        return true;
+    }
     static bool mover_candidate(b2ShapeId shape, void* pointer) noexcept {
         auto& result = *static_cast<MoverQuery*>(pointer);
         auto& query = result.query;
@@ -1621,25 +1784,8 @@ struct Native2D::Impl {
             (query.ignore && body->admitted.ref == *query.ignore) ||
             query_excludes(query.filter, body->admitted.ref))
             return true;
-        b2ShapeProxy obstacle{};
-        switch (b2Shape_GetType(shape)) {
-        case b2_polygonShape: {
-            const auto value = b2Shape_GetPolygon(shape);
-            obstacle = b2MakeProxy(value.vertices, value.count, value.radius);
-            break;
-        }
-        case b2_circleShape: {
-            const auto value = b2Shape_GetCircle(shape);
-            obstacle = b2MakeProxy(&value.center, 1, value.radius);
-            break;
-        }
-        case b2_capsuleShape: {
-            const auto value = b2Shape_GetCapsule(shape);
-            const b2Vec2 points[]{value.center1, value.center2};
-            obstacle = b2MakeProxy(points, 2, value.radius);
-            break;
-        }
-        default:
+        const auto obstacle = native_proxy(shape);
+        if (!obstacle) {
             query.failed = true;
             return false;
         }
@@ -1651,7 +1797,7 @@ struct Native2D::Impl {
         const b2Vec2 relative{float(result.origin.x - position.x),
                               float(result.origin.y - position.y)};
         const b2ShapeCastPairInput cast{
-            obstacle,
+            *obstacle,
             result.mover,
             {b2InvRotateVector(rotation, relative), b2InvMulRot(rotation, b2Rot_identity)},
             b2InvRotateVector(rotation, result.displacement),
@@ -3063,6 +3209,63 @@ std::optional<PhysicsHit2D> Native2D::shape_cast(const PhysicsSweep2D& request,
             "2D sweep exceeded its work limit or hit an invalid native binding");
     return query.hit;
 }
+PhysicsMotionResult2D Native2D::shape_cast_motion(const PhysicsSweep2D& request,
+                                                  PhysicsQuerySlice slice,
+                                                  PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    validate_query_filter(filter);
+    validate_query_slice(slice);
+    const auto proxy = sweep_proxy(request);
+    if (!realized() || !filter.mask)
+        return {{}, 1};
+    if (!(self.motion_dt > 0))
+        throw std::runtime_error("XY motion query requires an observed native interval");
+    Double2 minimum{}, maximum{};
+    for (int i = 0; i < proxy.count; ++i) {
+        const Double2 point{proxy.points[i].x, proxy.points[i].y};
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            minimum[axis] =
+                std::min({minimum[axis], point[axis], point[axis] + request.displacement[axis]});
+            maximum[axis] =
+                std::max({maximum[axis], point[axis], point[axis] + request.displacement[axis]});
+        }
+    }
+    std::array<float, 2> lower{}, upper{};
+    for (unsigned axis = 0; axis < 2; ++axis) {
+        minimum[axis] -= proxy.radius;
+        maximum[axis] += proxy.radius;
+        const auto expansion =
+            self.motion_expansion[axis] * (1 - slice.from) + self.motion_rotation_expansion;
+        lower[axis] = std::nextafter(float(minimum[axis] - expansion),
+                                     -std::numeric_limits<float>::infinity());
+        upper[axis] = std::nextafter(float(maximum[axis] + expansion),
+                                     std::numeric_limits<float>::infinity());
+    }
+    const b2AABB bounds{{lower[0], lower[1]}, {upper[0], upper[1]}};
+    Impl::MotionQuery candidates{{&self, filter, request.ignore, request.ignore_initial_overlap},
+                                 slice,
+                                 proxy,
+                                 request.origin,
+                                 request.displacement,
+                                 minimum,
+                                 maximum,
+                                 {}};
+    for (unsigned axis = 0; axis < 2; ++axis) {
+        candidates.minimum[axis] += request.origin[axis];
+        candidates.maximum[axis] += request.origin[axis];
+    }
+    b2World_OverlapAABB(self.world, {request.origin[0], request.origin[1]}, bounds,
+                        query_filter(filter), Impl::motion_candidate, &candidates);
+    if (candidates.exhausted)
+        throw std::runtime_error("XY motion query exceeds its native query budget");
+    if (candidates.unsupported)
+        throw std::runtime_error("Linear XY motion query cannot cover rotating geometry");
+    if (candidates.query.failed)
+        throw std::runtime_error("XY motion query exceeds native work or geometry/binding limits");
+    candidates.result.queries = std::max(1u, candidates.result.queries);
+    return candidates.result;
+}
 std::optional<PhysicsHit2D> Native2D::Impl::cast_mover(const PhysicsSweep2D& request,
                                                        PhysicsQueryFilter filter, std::size_t& work,
                                                        std::uint64_t category,
@@ -3492,7 +3695,7 @@ void Native2D::adopt_events(std::uint64_t tick) {
         throw;
     }
 }
-void Native2D::step(float dt, std::uint64_t tick) {
+void Native2D::step(float dt, std::uint64_t tick, bool motion_queries) {
     auto& self = *impl_;
     self.check();
     if (!std::isfinite(dt) || dt <= 0)
@@ -3500,6 +3703,14 @@ void Native2D::step(float dt, std::uint64_t tick) {
     validate_step(dt);
     if (!realized())
         return;
+    self.motion_dt = 0;
+    self.motion_expansion = {};
+    self.motion_rotation_expansion = 0;
+    if (motion_queries)
+        for (auto& [id, body] : self.bodies) {
+            body.motion_start = Impl::sample(body);
+            body.motion_rotating = b2Body_GetAngularVelocity(body.id) != 0;
+        }
     // Capture previous support before rigid motion and charge it to the same
     // fixed-step budget as movement/final observations. Commands and native
     // binding creation do not perform hidden support queries.
@@ -3569,6 +3780,36 @@ void Native2D::step(float dt, std::uint64_t tick) {
                                         : 0};
             body.mover_movement_once = false;
         }
+    }
+    if (motion_queries) {
+        for (auto& [id, body] : self.bodies) {
+            const auto start = *body.motion_start;
+            const auto finish = Impl::sample(body);
+            self.motion_expansion[0] =
+                std::max(self.motion_expansion[0], std::abs(finish.position.x - start.position.x));
+            self.motion_expansion[1] =
+                std::max(self.motion_expansion[1], std::abs(finish.position.y - start.position.y));
+            // Native normalization can change rotation components with zero
+            // angular velocity. Use the existing orientation equivalence owner;
+            // nonzero angular activity still rejects regardless of net angle.
+            body.motion_rotating |=
+                b2Body_GetAngularVelocity(body.id) != 0 ||
+                !equivalent(copied_rotation(start.rotation), copied_rotation(finish.rotation));
+            if (body.motion_rotating)
+                for (const auto shape : body.shapes) {
+                    const auto proxy = Impl::native_proxy(shape);
+                    if (!proxy)
+                        throw std::runtime_error("Rotating XY motion geometry is unsupported");
+                    for (int point = 0; point < proxy->count; ++point) {
+                        const auto radius = std::hypot(double(proxy->points[point].x),
+                                                       double(proxy->points[point].y)) +
+                                            proxy->radius;
+                        self.motion_rotation_expansion =
+                            std::max(self.motion_rotation_expansion, 2 * radius);
+                    }
+                }
+        }
+        self.motion_dt = dt;
     }
     self.last_step_tick = tick;
 }

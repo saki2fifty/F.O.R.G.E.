@@ -845,9 +845,9 @@ Radius is0.001–1000 world meters, coefficients0–1, rebounds0–16 and mask a
 PhysicsService owns sphere sweeps against realized3D geometry after physics adoption;
 sensors are ignored. Particle radius and response do not inherit visual size or
 mix Scene-body contact materials. The original profiles have no resting response
-or ribbon history; explicit extensions below add those options. There are no
-two-way impulses, rigid-body resting solver, continuous moving-surface dynamics,
-GPU Scene queries or synchronous callbacks.
+or ribbon history; explicit extensions below add those options and bounded linear
+surface queries. There are no two-way impulses, rigid-body resting solver,
+unrestricted moving-surface dynamics, GPU Scene queries or synchronous callbacks.
 Explicit source18/values52/53 extend the same owner to native XY geometry as
 described below; they do not change the original3D profiles.
 At birth the adopted fixed-update affine transforms position, velocity and
@@ -920,9 +920,10 @@ at that time. Native casts return a target surface witness and may report a cent
 inside the geometric radius due to contact tolerance. The particle response clips
 the incoming chord fraction to that witness supporting plane at the actual radius
 and leaves at least0.005m departure clearance. Original3D contact/bias semantics are
-unchanged. Explicit resting and World-ribbon profiles are described below. There
-is no rigid-body solver, moving-surface continuous response, synchronous callback,
-body impulse or GPU Scene query.
+unchanged. Explicit resting, World-ribbon and linear Scene-motion profiles are
+described below. These initial XY profiles have no moving-surface continuous
+response. There is no rigid-body solver, synchronous callback, body impulse or
+GPU Scene query.
 
 Native **Scene query space** selects **World 3D** or **World XY**. Shared
 `asset.document.particle_scene_collision` and MCP
@@ -1001,7 +1002,10 @@ The motion step records only opted-in native outcomes: Touch0, Bounce1 and End2.
 Position is the contact centre before departure bias; normal and incoming/outgoing
 velocity are copied world values. XY initial overlap has zero normal and End.
 Time is relative to the fixed visual step; birth age includes emitter playback
-speed. Scene query masks and sensor exclusion retain their existing meanings.
+speed. Times use particle playback seconds, and copied velocities are World-space
+vectors per particle playback second. Convert clocks when comparing them with
+real fixed-step rigid-body velocities. Scene query masks and sensor exclusion
+retain their existing meanings.
 
 ParticleRuntime publishes at most8192 detached records after whole-candidate
 adoption. Its actual fixed tick, emitter/collider UUIDs, effect, seed, generation
@@ -1060,14 +1064,15 @@ friction removes tangent velocity once; tangent acceleration and drag continue.
 A valid support probe constrains the inward normal acceleration only. Initial
 penetration, zero-normal XY overlap and exhausted rebound limits still end the
 birth. Positive restitution retains ordinary bounce response. This is not a
-rigid-body or static/Coulomb-friction solver and does not transfer surface velocity.
+rigid-body or static/Coulomb-friction solver. These profiles do not transfer surface
+velocity; the separate linear Scene-motion profiles below provide relative response.
 
 Revalidate support through the existing filtered native query. A stationary held
 birth needs one probe per advancing interval. Sliding steps are bounded by
 1/120 s and radius/4 travel, retaining ordinary motion casts and a final endpoint
 probe. Missing or changed support releases ordinary motion; replacement geometry
-must establish a new contact identity. This is discrete current-snapshot support,
-not moving-surface continuous collision. Every support probe shares the existing
+must establish a new contact identity. These profiles use discrete current-snapshot
+support; linear Scene-motion queries are a separate opt-in. Every support probe shares the existing
 256-query birth and8192-query World limits. Failure rejects the detached candidate
 before adoption. Existing chord-knot interpolation and independent analytic XY
 depth remain authoritative.
@@ -1087,3 +1092,81 @@ effect/alpha/opacity/query/geometry/notification capabilities. Missing, malforme
 or unsupported kit fields reject before replacing accepted output. The source
 and private motion headers add no installed SDK ABI; matching-boundary evidence
 and local/native/physical acceptance are recorded separately.
+
+## Linear Scene-motion intervals
+
+[ADR079](decisions/079-linear-scene-motion-queries.md) extends the existing physics
+query and particle history owners with bounded linear surface translation.
+Source22 requires Boolean `scene_motion_enabled`, retaining all earlier required
+source fields. `ParticleEffectSource::set_scene_motion` selects CPU Scene response
+when enabled, preserves inactive intent and keeps earlier immutable profiles exact
+when disabled. Values74–97 append four six-profile groups:
+
+| Values | Resting | Notifications |
+| --- | --- | --- |
+| 74–79 | Off | Off |
+| 80–85 | Off | On |
+| 86–91 | On | Off |
+| 92–97 | On | On |
+
+Each group orders 3D Mesh, 3D camera-plane, XY Mesh, XY camera-plane, 3D World
+ribbon and XY World ribbon. The canonical value-profile table owns selection.
+No earlier profile, persisted identity, importer or cooked envelope is redefined.
+The native **Linear Scene motion (CPU)** control and
+`asset.document.particle_scene_motion` / `forge_asset_document_particle_scene_motion`
+use the same source mutation, exact session/revision, Undo/Redo and publication
+owners. Export requires typed `runtime_particle_scene_motion:1` plus the selected
+Scene, geometry, resting and notification capabilities.
+
+PhysicsRuntime owns opt-in transient pre/post-step native geometry observations.
+Native2D remains subordinate to that owner. Ordinary Worlds do not record motion
+until requested. An observation becomes ready only after successful physics
+adoption and expires at synchronization. Teleports, static placement, admission,
+retirement and rebuilt geometry do not invent a pre-admission sweep. Queries use
+native broad phases, existing canonical bindings/filtering and native shape casts;
+there is no particle-owned physics World, geometry registry, clock or solver.
+
+For unchanged shape/orientation, each query casts particle displacement relative
+to body translation against the native shape at the slice start. Contact witnesses
+are remapped to physical contact time. The copied surface velocity is body
+translation divided by real fixed duration. A potentially intersecting rotating
+or changing target rejects the interval. Unchanged rotated poses remain valid.
+This is a linear approximation between adopted poses, not an angular sweep or
+unrestricted moving-surface continuous collision implementation.
+
+XY interval queries retain an actual-radius native initial-distance check and
+compensate the native encroachment skin inside the first-contact cast. A positive
+actual-distance witness distinguishes a padded contact band from genuine initial
+overlap; only the latter keeps the zero-normal End sentinel. One float step of
+endpoint allowance is clamped back to the requested interval. Short accelerated
+chords therefore retain their first contact instead of entering the next chord
+as a penetrating start. Older current-snapshot query profiles keep their meaning.
+
+SceneHistory adds each birth's existing offset to query-local seconds. Runtime
+maps these seconds to a normalized physics slice using the actual visual age
+advance, including playback scaling and representable clock precision. Native
+surface velocity is multiplied by real duration / visual advance before relative
+normal/tangent response. Paused playback keeps existing freeze semantics. Runtime
+opts into observation during preparation without waiting for a step; a motion
+emitter admitted too late defers its first visual advance until an observed step.
+Other emitters continue. Replayed or mismatched adopted intervals reject before
+candidate adoption. Visual reset clears consumed-frame provenance with history.
+
+All native casts and XY initial-distance checks, including misses and support
+probes, count toward the existing256-birth/8192-World query limits. Empty queries
+still cost one operation. Native candidate collection is bounded; exhaustion
+rejects the complete detached interval. Resting, historical World ribbons,
+independent XY depth and optional copied impact notifications retain their
+existing owners. Response affects particles only; no two-way rigid-body impulse,
+historical emitter-pose reconstruction or stopped-preview physics is introduced.
+
+The canonical `manual/images/linear-scene-particles.png` and
+`manual/images/xy-linear-scene-particles.png` show the shipped Gallery265/266 at
+three seconds through the actual source-hidden GameFrameRenderer. The local
+`particle_scene_motion_gallery_game_vulkan` and
+`particle_xy_scene_motion_gallery_game_vulkan` checks publish and relocate the
+content, exercise the native translating surface, require supported living heads
+and compare the particle-visible image against the removed-particle view. Original
+640×360 captures use software Vulkan/lavapipe and are copied without retouching.
+They establish that rendering path, not physical GPU or Windows acceptance. The
+corresponding Windows `_gallery_game` paths use the existing native viewport host.

@@ -534,6 +534,74 @@ void impact_sdk(const std::filesystem::path& root, AssetId effect, bool planar,
     check(rows.size() == 3 && rows.back().at("value").at("count").get<int>() == (denied ? -1 : 0),
           "SDK replayed a consumed visual interval on a later fixed tick");
 }
+void moving_surface_runtime(const std::filesystem::path& root, AssetId effect, bool planar,
+                            double playback, AssetId analytic, bool impacts, bool resting,
+                            bool trails) {
+    auto source = scene(effect, planar);
+    auto& entities = source["entities"];
+    entities.erase(2);
+    entities[0]["components"]["forge.position"] = {{"x", 0}, {"y", 0}, {"z", 0}};
+    entities[0]["components"]["forge.particle_emitter"]["playback_speed"] = playback;
+    auto& wall = entities[1]["components"];
+    wall["forge.position"] = {{"x", -.1}, {"y", 0}, {"z", 0}};
+    if (planar) {
+        wall["forge.physics_body_2d"]["motion"] = 1;
+        wall["forge.physics_body_2d"]["gravity_factor"] = 0;
+        wall["forge.box_collider_2d"] = {{"x", .05}, {"y", 2}};
+    } else {
+        wall["forge.physics_body"]["motion"] = 1;
+        wall["forge.box_collider"] = {{"x", .05}, {"y", 2}, {"z", 2}};
+    }
+    entities.push_back(emitter("ordinary", analytic));
+    Fixture live(root, source);
+    live.ready();
+    const auto physics = std::static_pointer_cast<PhysicsRuntime>(live.engine.services().physics());
+    check(!physics->motion_frame().ready,
+          "Preparing Scene motion invented a physics interval or blocked waiting for one");
+    live.particles->tick(.1f);
+    const auto deferred = live.particles->presentation(live.actor().id(), 1);
+    const auto ordinary = live.particles->presentation(live.authored.entity("ordinary").id(), 1);
+    check(deferred.at("time").get<double>() == 0 && ordinary.at("time").get<double>() > .09,
+          "Lazy motion activation advanced unobserved motion or froze unrelated emitters");
+    live.authored.entity("floor").set<LocalTranslation>({.1, 0, 0});
+    live.simulation.tick(.1f);
+    const auto sampled = live.particles->sample(live.actor().id(), 1);
+    check(sampled.size() == 4, "Moving-surface runtime lost living burst heads");
+    const double endpoint = resting ? .175 : .2625;
+    const double velocity = (resting ? 2. : 3.) / playback;
+    for (const auto& head : sampled)
+        check(std::abs(head.position[0] - endpoint - (planar ? .005 : .000005)) < 3e-5 &&
+                  std::abs(head.velocity[0] - velocity) < 2e-5 && head.position[1] == 0 &&
+                  head.position[2] == 0,
+              "Native moving wall tunneled or mixed real and particle playback velocity units");
+    const auto before = live.particles->presentation(live.actor().id(), 1);
+    if (trails) {
+        const auto paths = decode_particle_world_paths(before.at("world_paths"));
+        check(paths.paths.paths.size() == sampled.size() &&
+                  paths.paths.points.size() >= 2 * sampled.size(),
+              "Moving-surface World ribbon lost living paths or actual historical points");
+    }
+    const auto impact = live.particles->impact_at(0);
+    check(live.particles->impact_frame().count == (impacts ? 4u : 0u) &&
+              (!impacts || (impact && impact->contact.kind == ParticleSceneImpactKind::Bounce &&
+                            impact->contact.time > 0 && impact->contact.time < .1 * playback &&
+                            (resting || std::abs(impact->contact.time - .0125 * playback) < 2e-6) &&
+                            std::abs(impact->contact.outgoing_velocity[0] - velocity) < 2e-5)),
+          "Moving-surface impact publication lost physical contact time or playback units");
+    reject([&] { live.particles->tick(.1f); });
+    reject([&] { live.particles->tick(.2f); });
+    check(live.particles->sample(live.actor().id(), 1) == sampled &&
+              live.particles->presentation(live.actor().id(), 1) == before,
+          "Replayed or mismatched physics interval partially adopted particle state");
+    auto emitter_value = live.actor().get<ParticleEmitter>();
+    emitter_value.playback_speed = 0;
+    live.actor().set<ParticleEmitter>(emitter_value);
+    live.authored.entity("floor").set<LocalTranslation>({.2, 0, 0});
+    live.simulation.tick(.1f);
+    check(live.particles->sample(live.actor().id(), 1) == sampled &&
+              live.particles->impact_frame().count == 0,
+          "Paused particle playback moved with a surface or repeated its impact");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -546,7 +614,7 @@ int main(int argc, char** argv) {
                                    {"linux", "none", "cpu"});
         auto publish = [&](const char* name, bool heavy, bool analytic, bool planar_2d = false,
                            bool world_trails = false, bool impacts = false, bool billboards = false,
-                           bool resting = false) {
+                           bool resting = false, bool motion = false) {
             auto document = ParticleEffectDocument::create(lease, name);
             document->edit(document->revision(), "Scene particle fixture", [&](auto& value) {
                 ParticleEffectSource source{value};
@@ -577,6 +645,12 @@ int main(int argc, char** argv) {
                         source.document["acceleration"] = {0, -9.81, 0};
                         source.set_scene_collision(true, ParticleSceneCollision{.05, 0, .25, 4, 1});
                         source.set_scene_resting(true);
+                    }
+                    if (motion) {
+                        source.document["speed_min"] = source.document["speed_max"] = 0;
+                        source.document["acceleration"] = {resting ? -4 : 0, 0, 0};
+                        source.document["lifetime"] = 2;
+                        source.set_scene_motion(true);
                     }
                 }
                 value = std::move(source.document);
@@ -613,6 +687,27 @@ int main(int argc, char** argv) {
         historical_trails(root, world_trails, false);
         historical_trails(root, world_trails_xy, true);
         historical_reservation(root, heavy_trails);
+        for (bool resting : {false, true})
+            for (bool impacts : {false, true})
+                for (bool planar : {false, true})
+                    for (unsigned geometry = 0; geometry < 3; ++geometry) {
+                        const auto name = "Assets/Motion" + std::to_string(geometry) +
+                                          (planar ? "XY" : "3D") + (resting ? "Rest" : "") +
+                                          (impacts ? "Impact" : "") + ".particles.json";
+                        const auto motion =
+                            publish(name.c_str(), false, false, planar, geometry == 2, impacts,
+                                    geometry == 1, resting, true);
+                        for (double playback : {.5, 1., 2.}) {
+                            try {
+                                moving_surface_runtime(root, motion, planar, playback, analytic,
+                                                       impacts, resting, geometry == 2);
+                            } catch (const std::exception& error) {
+                                throw std::runtime_error(name +
+                                                         " playback=" + std::to_string(playback) +
+                                                         ": " + error.what());
+                            }
+                        }
+                    }
         for (bool impacts : {false, true})
             for (bool planar : {false, true})
                 for (unsigned geometry = 0; geometry < 3; ++geometry) {

@@ -15,6 +15,8 @@ parser.add_argument('--collision', action='store_true')
 parser.add_argument('--scene-collision', action='store_true')
 parser.add_argument('--resting', action='store_true')
 parser.add_argument('--xy-resting', action='store_true')
+parser.add_argument('--scene-motion', action='store_true')
+parser.add_argument('--xy-scene-motion', action='store_true')
 parser.add_argument('--scene-impacts', action='store_true')
 parser.add_argument('--xy-scene-impacts', action='store_true')
 parser.add_argument('--xy-scene-collision', action='store_true')
@@ -42,8 +44,11 @@ with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as tempo
     billboards = (arguments.billboards or arguments.gpu_billboards or arguments.gpu_graph_billboards
                   or arguments.weighted or arguments.weighted_graph
                   or arguments.gpu_opacity or arguments.gpu_graph_opacity or arguments.gpu_sorted
-                  or arguments.scene_collision or arguments.xy_scene_collision or arguments.xy_resting)
-    action = ('--verify-export-resting' if arguments.resting else
+                  or arguments.scene_collision or arguments.xy_scene_collision
+                  or arguments.xy_resting or arguments.xy_scene_motion)
+    action = ('--verify-export-scene-motion' if arguments.scene_motion else
+              '--verify-export-xy-scene-motion' if arguments.xy_scene_motion else
+              '--verify-export-resting' if arguments.resting else
               '--verify-export-xy-resting' if arguments.xy_resting else
               '--verify-export-xy-scene-impacts' if arguments.xy_scene_impacts else
               '--verify-export-scene-impacts' if arguments.scene_impacts else
@@ -81,7 +86,11 @@ with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as tempo
     assert len(content) == 1, content
     mode = (('--opacity-gallery' if arguments.opacity else '--alpha-gallery') if arguments.vulkan
             else ('particle-opacity-gallery' if arguments.opacity else 'particle-alpha-gallery'))
-    if arguments.resting:
+    if arguments.scene_motion:
+        mode = '--scene-motion-gallery' if arguments.vulkan else 'particle-scene-motion-gallery'
+    elif arguments.xy_scene_motion:
+        mode = '--xy-scene-motion-gallery' if arguments.vulkan else 'particle-xy-scene-motion-gallery'
+    elif arguments.resting:
         mode = '--resting-gallery' if arguments.vulkan else 'particle-resting-gallery'
     elif arguments.xy_resting:
         mode = '--xy-resting-gallery' if arguments.vulkan else 'particle-xy-resting-gallery'

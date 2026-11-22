@@ -43,6 +43,7 @@ struct Example {
     bool world_trails = false;
     bool impacts = false;
     bool resting = false;
+    bool scene_motion = false;
 };
 constexpr Example alpha{"Scenes/240-sorted-alpha-particles.scene.json",
                         "Assets/Particles/Alpha/GlassCloud.particles.json", false};
@@ -152,6 +153,7 @@ constexpr Example xy_scene_colliding{.scene = "Scenes/258-xy-scene-particle-coll
                                      .scene_collision_2d = true};
 constexpr const char* alpha_material = "Assets/Particles/Alpha/Glass.material.json";
 constexpr const char* trail_animation = "Assets/Particles/Trails/EmitterSweep.animation.json";
+constexpr const char* surface_animation = "Assets/Particles/Collision/SurfaceLift.animation.json";
 constexpr Example world_ribbons{.scene = "Scenes/259-world-particle-trails.scene.json",
                                 .effect = "Assets/Particles/Trails/WorldFlow.particles.json",
                                 .opacity = true,
@@ -194,6 +196,23 @@ constexpr const char* quad_material = "Assets/Particles/Billboards/SoftCloud.mat
 constexpr const char* quad_texture = "Assets/Particles/Billboards/SoftCloud.paint-texture.json";
 constexpr const char* gpu_quad_material = "Assets/Particles/Billboards/DeviceCloud.material.json";
 constexpr const char* graph_effect = "Assets/Particles/Graphs/OrbitFountain.particles.json";
+constexpr Example scene_motion{.scene = "Scenes/265-linear-scene-particles.scene.json",
+                               .effect = "Assets/Particles/Collision/MovingCloud.particles.json",
+                               .opacity = true,
+                               .scene_collision = true,
+                               .impacts = true,
+                               .resting = true,
+                               .scene_motion = true};
+constexpr Example xy_scene_motion{.scene = "Scenes/266-xy-linear-scene-particles.scene.json",
+                                  .effect =
+                                      "Assets/Particles/Collision/XYMovingCloud.particles.json",
+                                  .opacity = true,
+                                  .billboards = true,
+                                  .scene_collision = true,
+                                  .scene_collision_2d = true,
+                                  .impacts = true,
+                                  .resting = true,
+                                  .scene_motion = true};
 const char* material_source(const Example& example) {
     return example.collision                          ? alpha_material
            : (example.trails || example.world_trails) ? trail_material
@@ -203,6 +222,11 @@ const char* material_source(const Example& example) {
                                                       : alpha_material;
 }
 unsigned value_version(const Example& example) {
+    if (example.scene_motion)
+        return 74u + 12u * example.resting + 6u * example.impacts +
+               (example.world_trails
+                    ? 4u + example.scene_collision_2d
+                    : unsigned(example.billboards) + 2u * example.scene_collision_2d);
     if (example.resting)
         return example.scene_collision_2d ? 71u : 68u;
     if (example.impacts)
@@ -392,6 +416,8 @@ void author(const std::filesystem::path& root, const Example& example) {
         effect.set_scene_collision(true, ParticleSceneCollision{.06, 0, 1, 8, UINT32_MAX});
         effect.set_scene_resting(true);
     }
+    if (example.scene_motion)
+        effect.set_scene_motion(true);
     write(root / example.effect, effect.document);
     auto catalog = AssetCatalog::open_project(root);
     if (!reuse_material)
@@ -402,12 +428,11 @@ void author(const std::filesystem::path& root, const Example& example) {
         catalog.add({texture.asset(), TextureAsset::type, quad_texture, 1, {}});
     }
     catalog.add({effect.asset(), ParticleEffectAsset::type, example.effect, 1, {}});
-    AssetId motion;
-    if (example.world_trails) {
+    const auto author_animation = [&](const char* path, Double3 first, Double3 middle) {
         TransformAnimationSource clip;
-        if (std::filesystem::exists(root / trail_animation))
+        if (std::filesystem::exists(root / path))
             clip = TransformAnimationSource::parse(
-                asset_detail::read_bytes(root / trail_animation, transform_animation_byte_limit));
+                asset_detail::read_bytes(root / path, transform_animation_byte_limit));
         else {
             clip = TransformAnimationSource::create(AssetId::generate());
             clip.document["duration_us"] = 4000000;
@@ -416,16 +441,22 @@ void author(const std::filesystem::path& root, const Example& example) {
             for (unsigned i = 0; i < 3; ++i)
                 clip.document["keys"].push_back({{"id", AssetId::generate()},
                                                  {"time_us", i * 2000000},
-                                                 {"translation", {i == 1 ? 2 : -2, 2.5, .5}},
+                                                 {"translation", i == 1 ? middle : first},
                                                  {"rotation", {0, 0, 0, 1}},
                                                  {"scale", {1, 1, 1}},
                                                  {"interpolation", "linear"}});
             clip.validate();
-            write(root / trail_animation, clip.document);
-            catalog.add({clip.asset(), TransformAnimationAsset::type, trail_animation, 1, {}});
+            write(root / path, clip.document);
+            catalog.add({clip.asset(), TransformAnimationAsset::type, path, 1, {}});
         }
-        motion = clip.asset();
-    }
+        return clip.asset();
+    };
+    const auto motion = example.world_trails
+                            ? author_animation(trail_animation, {-2, 2.5, .5}, {2, 2.5, .5})
+                            : AssetId{};
+    const auto surface_motion = example.scene_motion
+                                    ? author_animation(surface_animation, {0, .5, 0}, {0, 1.5, 0})
+                                    : AssetId{};
     catalog.save(AssetCatalog::project_index(root));
     EngineContext engine;
     Scene scene(engine.world());
@@ -503,6 +534,20 @@ void author(const std::filesystem::path& root, const Example& example) {
             obstacle.set<PhysicsBody>({});
             obstacle.set<BoxCollider>({1, 1, 1});
         }
+        if (example.scene_motion) {
+            TransformAnimator animator;
+            animator.clip = {surface_motion};
+            obstacle.set<TransformAnimator>(animator);
+            if (example.scene_collision_2d) {
+                auto body = obstacle.get<PhysicsBody2D>();
+                body.motion = 1;
+                obstacle.set<PhysicsBody2D>(body);
+            } else {
+                auto body = obstacle.get<PhysicsBody>();
+                body.motion = 1;
+                obstacle.set<PhysicsBody>(body);
+            }
+        }
     }
     auto camera = actor("Game Camera");
     camera.set<Camera>({});
@@ -565,7 +610,8 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
               render.cameras.size() == 1 && render.lights.size() == 1,
           "Sorted-alpha example lost its native Scene consumers");
     if (example.scene_collision) {
-        check(effect.document.at("version").get<unsigned>() == (example.resting        ? 21u
+        check(effect.document.at("version").get<unsigned>() == (example.scene_motion   ? 22u
+                                                                : example.resting      ? 21u
                                                                 : example.impacts      ? 20u
                                                                 : example.world_trails ? 19
                                                                 : example.scene_collision_2d
@@ -612,6 +658,14 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
               catalog.records().at(scene.asset_id()).source == example.scene,
           "Sorted-alpha example identity/catalog mismatch");
     std::vector<AssetId> ids{scene.asset_id(), effect.asset(), material.asset()};
+    if (example.scene_motion) {
+        const auto clip = TransformAnimationSource::parse(
+            asset_detail::read_bytes(root / surface_animation, transform_animation_byte_limit));
+        check(catalog.records().at(clip.asset()).source == surface_animation &&
+                  particle_uses_scene_motion(effect.compiled()),
+              "Linear Scene Gallery lost explicit motion intent or surface animation");
+        ids.push_back(clip.asset());
+    }
     if (example.world_trails) {
         const auto clip = TransformAnimationSource::parse(
             asset_detail::read_bytes(root / trail_animation, transform_animation_byte_limit));
@@ -664,6 +718,11 @@ void prepare(const std::filesystem::path& root, const Example& example,
         test::publish_gallery_asset(materials, material_path, prepare_material_publication);
     AssetImportService particles(lease, particle_effect_import_registry(), import);
     test::publish_gallery_asset(particles, example.effect, prepare_particle_effect_publication);
+    if (example.scene_motion) {
+        AssetImportService animations(lease, transform_animation_import_registry(), import);
+        test::publish_gallery_asset(animations, surface_animation,
+                                    prepare_transform_animation_publication);
+    }
     if (example.world_trails) {
         AssetImportService animations(lease, transform_animation_import_registry(), import);
         test::publish_gallery_asset(animations, trail_animation,
@@ -802,7 +861,7 @@ void verify_export(const std::filesystem::path& root, const Example& example,
                   (example.gpu && !example.weighted && !example.sorted),
           "Relocated source-free particle Material has different values");
     std::vector<EngineModule> modules{particle_module(relocated)};
-    if (example.world_trails)
+    if (example.world_trails || example.scene_motion)
         modules.push_back(animation_module(relocated));
     if (example.scene_collision)
         modules.push_back(physics_module());
@@ -811,7 +870,7 @@ void verify_export(const std::filesystem::path& root, const Example& example,
     scene.load(relocated / catalog.records().at(ids[0]).source);
     const auto saved = scene.document();
     RuntimeSimulation simulation(runtime.world(), scene);
-    if (example.world_trails) {
+    if (example.world_trails || example.scene_motion) {
         const auto animation = animation_runtime(runtime.world());
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
         while (!animation->prepare_initial_pose()) {
@@ -828,18 +887,31 @@ void verify_export(const std::filesystem::path& root, const Example& example,
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     simulation.reset_presentation();
-    for (unsigned i = 0; i < 12; ++i)
+    bool moving_contact = false;
+    for (unsigned i = 0; i < 12; ++i) {
         simulation.tick(.25f);
+        if (example.scene_motion)
+            for (std::size_t slot = 0; slot < particles->impact_frame().count; ++slot)
+                if (const auto hit = particles->impact_at(slot)) {
+                    const auto actor = runtime.world().resolve(hit->contact.collider);
+                    moving_contact |=
+                        actor.state == WorldContext::ResolveState::Available &&
+                        runtime.world().world().entity(actor.entity).has<TransformAnimator>();
+                }
+    }
+    check(!example.scene_motion || moving_contact,
+          "Source-hidden linear Scene Gallery never contacted its translating native surface");
     const auto render = extract_render_scene(simulation.presentation(1));
     auto observed = scene.document();
-    if (example.world_trails) {
+    if (example.world_trails || example.scene_motion) {
         for (std::size_t i = 0; i < observed.at("entities").size(); ++i) {
             auto& components = observed["entities"][i]["components"];
             if (components.contains("forge.transform_animator")) {
                 const auto& position = components.at("forge.local_translation");
                 check(std::abs(position.at("x").get<double>()) < 1e-5 &&
-                          position.at("y").get<double>() == 2.5 &&
-                          position.at("z").get<double>() == .5,
+                          std::abs(position.at("y").get<double>() -
+                                   (example.scene_motion ? 1. : 2.5)) < 1e-5 &&
+                          position.at("z").get<double>() == (example.scene_motion ? 0 : .5),
                       "Source-hidden World trail emitter lost its authored looping translation");
                 components["forge.local_translation"] =
                     saved.at("entities").at(i).at("components").at("forge.local_translation");
@@ -943,7 +1015,17 @@ int main(int argc, char** argv) {
         check(argc >= 3, "Need sorted-alpha Gallery action and project root");
         const auto root = std::filesystem::absolute(argv[2]);
         const std::string_view action = argv[1];
-        if (action == "--author-resting" || action == "--author-xy-resting")
+        if (action == "--author-scene-motion" || action == "--author-xy-scene-motion")
+            author(root, action == "--author-scene-motion" ? scene_motion : xy_scene_motion);
+        else if (action == "--inspect-scene-motion" || action == "--inspect-xy-scene-motion")
+            (void)inspect(root,
+                          action == "--inspect-scene-motion" ? scene_motion : xy_scene_motion);
+        else if (action == "--prepare-scene-motion")
+            prepare(root, scene_motion);
+        else if (action == "--prepare-xy-scene-motion") {
+            check(argc == 4, "Need the texture publication worker");
+            prepare(root, xy_scene_motion, true, std::filesystem::absolute(argv[3]));
+        } else if (action == "--author-resting" || action == "--author-xy-resting")
             author(root, action == "--author-resting" ? scene_resting : xy_scene_resting);
         else if (action == "--inspect-resting" || action == "--inspect-xy-resting")
             (void)inspect(root, action == "--inspect-resting" ? scene_resting : xy_scene_resting);
@@ -1117,6 +1199,8 @@ int main(int argc, char** argv) {
                    action == "--verify-export-scene-impacts" ||
                    action == "--verify-export-xy-scene-impacts" ||
                    action == "--verify-export-resting" || action == "--verify-export-xy-resting" ||
+                   action == "--verify-export-scene-motion" ||
+                   action == "--verify-export-xy-scene-motion" ||
                    action == "--verify-export-world-trails" ||
                    action == "--verify-export-xy-world-trails") {
             const bool gpu = action == "--verify-export-gpu-sorted" ||
@@ -1127,6 +1211,7 @@ int main(int argc, char** argv) {
                              action == "--verify-export-gpu-billboards" ||
                              action == "--verify-export-gpu-graph-billboards";
             const bool billboards = action == "--verify-export-billboards" ||
+                                    action == "--verify-export-xy-scene-motion" ||
                                     action == "--verify-export-xy-resting" ||
                                     action == "--verify-export-scene-collision" ||
                                     action == "--verify-export-xy-scene-collision" || gpu;
@@ -1137,7 +1222,9 @@ int main(int argc, char** argv) {
             std::filesystem::create_directories(copy.parent_path());
             std::filesystem::copy(root, copy, std::filesystem::copy_options::recursive);
             verify_export(copy,
-                          action == "--verify-export-resting"                ? scene_resting
+                          action == "--verify-export-scene-motion"           ? scene_motion
+                          : action == "--verify-export-xy-scene-motion"      ? xy_scene_motion
+                          : action == "--verify-export-resting"              ? scene_resting
                           : action == "--verify-export-xy-resting"           ? xy_scene_resting
                           : action == "--verify-export-scene-impacts"        ? scene_impacts
                           : action == "--verify-export-xy-scene-impacts"     ? xy_scene_impacts

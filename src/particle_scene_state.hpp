@@ -55,7 +55,8 @@ ParticleSceneHistory advance_particle_scene_history(const ParticleSceneHistory&,
                                                     const ParticleEffectData&, std::uint32_t seed,
                                                     double previous, double current,
                                                     const AffineTransform& birth_frame,
-                                                    const ParticleSceneQuery&, ParticleSceneWork&);
+                                                    const ParticleSceneQuery&, ParticleSceneWork&,
+                                                    const ParticleSceneMotionQuery& = {});
 std::vector<ParticleWorldSample> sample_particle_scene_history(const ParticleSceneHistory&,
                                                                const ParticleEffectData&,
                                                                double previous, double current,

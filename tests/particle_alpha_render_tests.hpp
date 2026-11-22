@@ -8,6 +8,7 @@
 #include "sprite_draw_render_tests.hpp"
 #include "view_image.hpp"
 #include <chrono>
+#include <forge/animation_components.hpp>
 #include <forge/game_content.hpp>
 #include <forge/runtime_world.hpp>
 #include <thread>
@@ -302,7 +303,8 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
                     bool graph = false, bool trails = false, bool collision = false,
                     bool weighted = false, bool gpu_opacity = false, bool sorted = false,
                     bool scene_collision = false, bool scene_collision_2d = false,
-                    bool world_trails = false, bool impacts = false, bool resting = false) {
+                    bool world_trails = false, bool impacts = false, bool resting = false,
+                    bool scene_motion = false) {
     using test_bloom::check;
 #ifdef _WIN32
     const RuntimePackageTarget target{"windows", "d3d12"};
@@ -318,10 +320,11 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
         if (record.type == ParticleEffectAsset::type)
             effect = id;
     }
-    check(catalog->records().size() == (world_trails ? 4u
-                                        : graph      ? 5u
-                                        : billboards ? 4u
-                                                     : 3u) &&
+    check(catalog->records().size() == (scene_motion   ? 4u + billboards
+                                        : world_trails ? 4u
+                                        : graph        ? 5u
+                                        : billboards   ? 4u
+                                                       : 3u) &&
               scene && effect,
           "Sorted-alpha content closure differs from Scene, Effect and Material");
     ResourcePool<ParticleEffectAsset> effects;
@@ -329,9 +332,10 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     check(effects.wait(ticket, std::chrono::seconds(15)), "Source-free alpha Effect load stalled");
     const auto selected = effects.acquire(ticket);
     check(selected &&
-              selected->version == (resting   ? (scene_collision_2d ? 71u : 68u)
-                                    : impacts ? (world_trails ? (scene_collision_2d ? 61u : 60u)
-                                                              : (scene_collision_2d ? 58u : 56u))
+              selected->version == (scene_motion ? (scene_collision_2d ? 95u : 92u)
+                                    : resting    ? (scene_collision_2d ? 71u : 68u)
+                                    : impacts    ? (world_trails ? (scene_collision_2d ? 61u : 60u)
+                                                                 : (scene_collision_2d ? 58u : 56u))
                                     : world_trails       ? (scene_collision_2d ? 55u : 54u)
                                     : scene_collision_2d ? 53u
                                     : scene_collision    ? 39u
@@ -368,10 +372,21 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     bool impacts_seen = false;
+    bool moving_contact = false;
     for (unsigned i = 0; i < 12; ++i) {
         world.simulation.tick(.25f);
         impacts_seen |= particles->impact_frame().count > 0;
+        if (scene_motion)
+            for (std::size_t slot = 0; slot < particles->impact_frame().count; ++slot)
+                if (const auto hit = particles->impact_at(slot)) {
+                    const auto actor = world.engine.world().resolve(hit->contact.collider);
+                    moving_contact |=
+                        actor.state == WorldContext::ResolveState::Available &&
+                        world.engine.world().world().entity(actor.entity).has<TransformAnimator>();
+                }
     }
+    check(!scene_motion || moving_contact,
+          "Source-hidden linear Scene Game never contacted its translating native surface");
     check(!impacts || impacts_seen, "Source-hidden impact Game did not publish native contacts");
     auto snapshot = extract_render_scene(world.simulation.presentation(1));
     check(snapshot.diagnostics.empty() && snapshot.particles.size() == 2 &&
@@ -451,7 +466,9 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     }
     std::filesystem::create_directories(images);
     save_view_png(
-        images / (resting              ? (scene_collision_2d ? "xy-resting-scene-particles.png"
+        images / (scene_motion         ? (scene_collision_2d ? "xy-linear-scene-particles.png"
+                                                             : "linear-scene-particles.png")
+                  : resting            ? (scene_collision_2d ? "xy-resting-scene-particles.png"
                                                              : "resting-scene-particles.png")
                   : impacts            ? (scene_collision_2d ? "xy-particle-impact-trails.png"
                                                              : "scene-particle-impacts.png")

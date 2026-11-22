@@ -6,6 +6,7 @@
 #include <forge/transform.hpp>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <vector>
 namespace forge {
 inline constexpr std::size_t physics_query_exclusion_limit = 16;
@@ -92,6 +93,35 @@ struct PhysicsContact2D {
     bool begin{}, sensor{}, first_available{}, second_available{};
     bool operator==(const PhysicsContact2D&) const = default;
 };
+// Host-only observations of one successfully adopted positive physics step.
+// Slices are normalized to that step; velocity uses metres per real second.
+inline constexpr std::uint32_t physics_motion_query_limit = 256;
+struct PhysicsQuerySlice {
+    double from = 0, to = 1;
+    // Native narrow-phase operations, including XY initial-distance checks.
+    std::uint32_t query_budget = physics_motion_query_limit;
+};
+struct PhysicsMotionFrame {
+    std::uint64_t tick = 0;
+    double dt = 0;
+    bool ready = false;
+};
+struct PhysicsMotionHit {
+    PhysicsHit contact;
+    Double3 surface_velocity{};
+};
+struct PhysicsMotionHit2D {
+    PhysicsHit2D contact;
+    Double2 surface_velocity{};
+};
+struct PhysicsMotionResult {
+    std::optional<PhysicsMotionHit> hit;
+    std::uint32_t queries = 0;
+};
+struct PhysicsMotionResult2D {
+    std::optional<PhysicsMotionHit2D> hit;
+    std::uint32_t queries = 0;
+};
 // Owner-thread only; valid while this Runtime world's physics module is alive.
 class PhysicsService : public CharacterService {
   public:
@@ -171,5 +201,19 @@ class PhysicsService : public CharacterService {
     virtual void jump_character_once(EntityRef, Double3 planar_velocity, float speed) = 0;
     virtual void jump_character_2d_once(EntityRef, double horizontal_velocity, float speed) = 0;
     virtual Double3 gravity() const = 0;
+    // Separate from instantaneous queries; backends explicitly opt into this
+    // host-only interface. Existing service implementations retain their contract.
+    virtual void enable_motion_queries() {
+        throw std::runtime_error("Physics motion observation is unavailable");
+    }
+    virtual PhysicsMotionFrame motion_frame() const { return {}; }
+    virtual PhysicsMotionResult shape_cast_motion(const PhysicsSweep&, PhysicsQuerySlice,
+                                                  PhysicsQueryFilter) const {
+        throw std::runtime_error("Linear physics motion queries are unavailable");
+    }
+    virtual PhysicsMotionResult2D shape_cast_motion_2d(const PhysicsSweep2D&, PhysicsQuerySlice,
+                                                       PhysicsQueryFilter) const {
+        throw std::runtime_error("Linear XY physics motion queries are unavailable");
+    }
 };
 } // namespace forge

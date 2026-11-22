@@ -10,6 +10,7 @@ trails follow each particle's local path. Built-in CPU and GPU Mesh particles ca
 bounce against an emitter-local plane. CPU Scene collision responds to realized
 3D or XY Scene colliders and keeps existing particles in world space as emitters move.
 CPU World ribbon trails retain those historical paths and surviving tails.
+CPU Scene particles can opt into resting contacts and bounded linear moving-surface queries.
 
 ## Try the Gallery
 
@@ -493,7 +494,7 @@ Scene collision supports CPU Mesh, camera-plane particles and the historical
 ribbon workflow below. It does not combine with GPU evaluation, local analytic
 ribbons or the local-plane response. Queries use bounded
 straight sphere or circle sweeps to approximate curved paths against the current physics
-snapshot; this is not continuous moving-surface collision. Resting contacts require
+snapshot unless **Linear Scene motion (CPU)** is enabled. Resting contacts require
 the separate control below. There are no synchronous collision callbacks or two-way
 rigid-body impulses. Enable
 **Scene impact notifications (CPU)** to let project code read copied contacts in
@@ -539,12 +540,13 @@ The XY resting Gallery in Game at three seconds.
 Initially penetrating births and zero-normal XY overlaps still end, as do contacts
 that exceed the permitted bounce count. **Scene permitted bounces** set to 0 still
 ends a particle at its first incoming contact. Positive restitution keeps ordinary
-rebounds. Support does not transfer a body's movement or apply impulses to it.
+rebounds. Ordinary support uses the current snapshot. Moving surfaces require
+**Linear Scene motion (CPU)**; neither mode applies impulses to Scene bodies.
 
 Stationary support needs one native probe per advancing fixed interval. Sliding
 checks intervals up to 1/120 second and radius/4 travel against the current physics
-snapshot. Edge release follows that bounded approximation; fast moving surfaces
-have no continuous collision guarantee. All probes share the existing 256 queries
+snapshot unless linear Scene motion is enabled. Edge release follows that bounded
+approximation. All probes share the existing 256 queries
 per birth and 8,192 per Scene update. Large or fast sliding populations can exceed
 those limits; the update reports an error rather than skipping support checks.
 
@@ -555,6 +557,45 @@ clears on restart and is not simulated in stopped Scene or isolated Effect views
 With notifications enabled, landing reports Bounce and ongoing support reports
 Touch at most once per birth in each advancing interval. Project code reads those
 copied observations in the next fixed tick.
+
+## Linear Scene motion
+
+Open **Scenes/265-linear-scene-particles.scene.json** in FeatureGallery for Mesh
+particles against a translating inclined surface. Open
+**Scenes/266-xy-linear-scene-particles.scene.json** for the XY camera-plane variant.
+Press **Play**. Both scenes include a camera, light and an editable Transform
+Animation on the kinematic incline; they require no project C++ code.
+
+![Teal and amber Mesh particles around the elevated inclined surface and floor](../images/linear-scene-particles.png)
+
+The 3D Gallery in Game at three seconds, with the incline midway through its return.
+
+![Camera-aligned teal and amber particles around the translating XY incline](../images/xy-linear-scene-particles.png)
+
+The XY Gallery at the same point in its surface animation.
+
+Use this option when a translating Scene collider can cross a particle between
+fixed updates. It checks the surface's linear translation over the adopted
+physics interval, using the same Scene collision settings and query space.
+
+1. Stop Play and open the Particle Effect from Content. Enable **Linear Scene motion (CPU)**. This also selects CPU Scene collision.
+2. Choose **Scene query space**, radius, restitution, friction, permitted bounces and collision layers as usual. Mesh, camera-plane particles and historical World ribbons are supported. Resting and impact notifications remain separate choices.
+3. Animate or control the Scene collider's translation using its existing physics workflow. Keep its orientation unchanged during the interval. Teleports and static repositioning place the collider directly and do not sweep the space between positions.
+4. Choose **Save / Publish**, save the Scene and press **Play**. Particle response uses velocity relative to the moving surface. Playback speed changes particle time; speed 0 freezes the particles while physics can continue. A newly loaded effect may wait one fixed update for motion observation to become available.
+5. Export through **Export Game** with the runtime kit packaged with this editor. A kit without linear Scene motion support is rejected before replacing accepted output.
+
+This option covers linear surface translation. It does not simulate an angular
+sweep, curved surface trajectory, historical emitter transforms or two-way
+rigid-body impulses. A potentially intersecting rotating collider reports an
+unsupported-motion error for the interval. Exclude irrelevant geometry using
+collision layers when appropriate. Rotated colliders whose orientation remains
+unchanged are supported.
+
+Native casts, XY initial-overlap checks and support probes share the existing
+256-query birth and 8,192-query Scene budgets. Large populations, many nearby
+colliders, high playback speeds or very small radii can exceed those limits. A
+failed interval preserves the preceding particle state. Stopped Scene and isolated
+Effect previews do not simulate Scene physics; test the saved effect during Play.
 
 ## Historical World ribbon trails
 
@@ -736,4 +777,5 @@ inside collision detection. At most8,192 slots are retained for one completed
 interval, subject to the existing Scene collision budgets. A later empty interval,
 Stop or visual reset does not replay old contacts. These transient observations
 are not saved or recovered. Resting response uses the separate opt-in control above. Notifications do not add
-two-way impulses, GPU collision readback or continuous moving-surface collision.
+two-way impulses or GPU collision readback. Linear moving-surface queries use the
+separate **Linear Scene motion (CPU)** control above.

@@ -504,7 +504,7 @@ struct AssetDocumentAutomation {
                     action == "particle_collision" || action == "particle_gpu_weighted" ||
                     action == "particle_gpu_sorted" || action == "particle_gpu_material_palette" ||
                     action == "particle_scene_collision" || action == "particle_scene_impacts" ||
-                    action == "particle_scene_resting") {
+                    action == "particle_scene_resting" || action == "particle_scene_motion") {
                     if constexpr (std::is_same_v<Source, ParticleEffectSource>) {
                         const auto previous = doc.revision();
                         const bool opacity = action == "particle_opacity";
@@ -517,9 +517,10 @@ struct AssetDocumentAutomation {
                         const bool scene_collision = action == "particle_scene_collision";
                         const bool scene_impacts = action == "particle_scene_impacts";
                         const bool scene_resting = action == "particle_scene_resting";
+                        const bool scene_motion = action == "particle_scene_motion";
                         const bool toggle = opacity || billboards || trails || collision ||
                                             weighted || sorted || palette || scene_collision ||
-                                            scene_impacts || scene_resting;
+                                            scene_impacts || scene_resting || scene_motion;
                         const auto backend = opacity || billboards || trails || collision
                                                  ? request.value("backend", std::string("cpu"))
                                                  : std::string{};
@@ -535,7 +536,8 @@ struct AssetDocumentAutomation {
                                                  "Choose cpu, cpu_alpha, gpu or graph evaluation");
                         doc.edit_source(
                             previous,
-                            scene_resting     ? "Set particle Scene resting"
+                            scene_motion      ? "Set particle Scene motion"
+                            : scene_resting   ? "Set particle Scene resting"
                             : scene_impacts   ? "Set particle Scene impact notifications"
                             : scene_collision ? "Set particle Scene collision"
                             : palette         ? "Set GPU compatible Materials"
@@ -547,7 +549,9 @@ struct AssetDocumentAutomation {
                             : opacity         ? "Toggle particle opacity"
                                               : "Set particle evaluation",
                             [&](Source& source) {
-                                if (scene_resting)
+                                if (scene_motion)
+                                    source.set_scene_motion(request.at("enabled").get<bool>());
+                                else if (scene_resting)
                                     source.set_scene_resting(request.at("enabled").get<bool>());
                                 else if (scene_impacts)
                                     source.set_scene_impacts(request.at("enabled").get<bool>());

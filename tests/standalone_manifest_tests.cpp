@@ -175,20 +175,30 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            for (unsigned values : {38u, 39u, 52u, 53u, 54u, 55u, 56u, 57u, 58u, 59u, 60u, 61u,
-                                    62u, 63u, 64u, 65u, 66u, 67u, 68u, 69u, 70u, 71u, 72u, 73u}) {
+            for (unsigned values :
+                 {38u, 39u, 52u, 53u, 54u, 55u, 56u, 57u, 58u, 59u, 60u, 61u, 62u, 63u, 64u, 65u,
+                  66u, 67u, 68u, 69u, 70u, 71u, 72u, 73u, 74u, 75u, 76u, 77u, 78u, 79u, 80u, 81u,
+                  82u, 83u, 84u, 85u, 86u, 87u, 88u, 89u, 90u, 91u, 92u, 93u, 94u, 95u, 96u, 97u}) {
                 effect.metadata["forge.particle_effect"]["value_version"] = values;
                 particles.replace(effect);
-                const bool xy = values == 52 || values == 53 || values == 55 || values == 58 ||
-                                values == 59 || values == 61 || values == 64 || values == 65 ||
-                                values == 67 || values == 70 || values == 71 || values == 73;
-                const bool billboard = values == 39 || values == 53 || values == 57 ||
-                                       values == 59 || values == 63 || values == 65 ||
-                                       values == 69 || values == 71;
-                const bool trail = values == 54 || values == 55 || values == 60 || values == 61 ||
-                                   values == 66 || values == 67 || values == 72 || values == 73;
-                const bool impacts = (values >= 56 && values <= 61) || values >= 68;
-                const bool resting = values >= 62;
+                const bool motion = values >= 74;
+                const auto motion_geometry = motion ? (values - 74) % 6 : 0;
+                const bool xy =
+                    motion ? motion_geometry == 2 || motion_geometry == 3 || motion_geometry == 5
+                           : values == 52 || values == 53 || values == 55 || values == 58 ||
+                                 values == 59 || values == 61 || values == 64 || values == 65 ||
+                                 values == 67 || values == 70 || values == 71 || values == 73;
+                const bool billboard = motion ? motion_geometry == 1 || motion_geometry == 3
+                                              : values == 39 || values == 53 || values == 57 ||
+                                                    values == 59 || values == 63 || values == 65 ||
+                                                    values == 69 || values == 71;
+                const bool trail = motion ? motion_geometry >= 4
+                                          : values == 54 || values == 55 || values == 60 ||
+                                                values == 61 || values == 66 || values == 67 ||
+                                                values == 72 || values == 73;
+                const bool impacts = motion ? ((values - 74) / 6) % 2 == 1
+                                            : (values >= 56 && values <= 61) || values >= 68;
+                const bool resting = motion ? values >= 86 : values >= 62;
                 std::vector<std::pair<const char*, unsigned>> capabilities{
                     {"runtime_particle_effect", particle_effect_cooked_version},
                     {"runtime_particle_alpha", particle_alpha_profile_version},
@@ -212,6 +222,9 @@ int main(int argc, char** argv) {
                 if (resting)
                     capabilities.emplace_back("runtime_particle_scene_resting",
                                               particle_scene_resting_profile_version);
+                if (motion)
+                    capabilities.emplace_back("runtime_particle_scene_motion",
+                                              particle_scene_motion_profile_version);
                 Json scene_kit = Json::object();
                 for (const auto& [name, version] : capabilities) {
                     reject([&] { validate_runtime_compatibility(particles, scene_kit); });

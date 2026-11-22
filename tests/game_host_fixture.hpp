@@ -3,6 +3,7 @@
 #include "game_host_source.hpp"
 #include "material_graph_game_fixture.hpp"
 #include "movement_2d_game_fixture.hpp"
+#include "particle_runtime_access.hpp"
 #include "reference_game_workflow.hpp"
 #include <algorithm>
 #include <cmath>
@@ -24,7 +25,8 @@ struct GameHostFixture {
          expect_module = false, loads = false, velocity = false, contacts = false, volumes = false,
          movement_2d = false, slider = false, motors = false, position_drive = false,
          connected = false, swing_twist = false, distance_springs = false, animation_exits = false,
-         particle_impacts = false, particle_resting = false;
+         particle_impacts = false, particle_resting = false, particle_motion = false,
+         moving_surface_contact = false;
     std::map<std::string, unsigned> exit_states;
     std::array<double, 2> swing_maximum{}, swing_minimum{180, 180};
     std::array<double, 2> spring_minimum{100, 100}, spring_maximum{};
@@ -88,7 +90,9 @@ struct GameHostFixture {
         loads = argc == 3 && std::string_view(argv[1]) == "--packaged-loads";
         velocity = argc == 3 && std::string_view(argv[1]) == "--packaged-velocity";
         contacts = argc == 3 && std::string_view(argv[1]) == "--packaged-contacts";
-        particle_resting = argc == 3 && std::string_view(argv[1]) == "--packaged-particle-resting";
+        particle_motion = argc == 3 && std::string_view(argv[1]) == "--packaged-particle-motion";
+        particle_resting = particle_motion || (argc == 3 && std::string_view(argv[1]) ==
+                                                                "--packaged-particle-resting");
         particle_impacts = particle_resting || (argc == 3 && std::string_view(argv[1]) ==
                                                                  "--packaged-particle-impacts");
         volumes = argc == 3 && std::string_view(argv[1]) == "--packaged-volumes";
@@ -521,9 +525,35 @@ struct GameHostFixture {
             return;
         }
         if (particle_impacts) {
+            if (particle_motion) {
+                auto& world = game.active().engine.world();
+                const auto access = particle_runtime_access(world);
+                check(bool(access), "Exported linear Scene Gallery lost its particle bridge");
+                const auto physics = game.active().physics();
+                for (std::size_t slot = 0; slot < access->impact_frame().count; ++slot)
+                    if (const auto hit = access->impact_at(slot)) {
+                        const auto selected = world.resolve(hit->contact.collider);
+                        if (selected.state != WorldContext::ResolveState::Available)
+                            continue;
+                        const auto actor = world.world().entity(selected.entity);
+                        if (!actor.has<TransformAnimator>())
+                            continue;
+                        if (actor.has<PhysicsBody2D>()) {
+                            const auto body = physics->body_state_2d(hit->contact.collider);
+                            moving_surface_contact |=
+                                body && std::abs(body->linear_velocity[1]) > .25;
+                        } else {
+                            const auto body = physics->body_state(hit->contact.collider);
+                            moving_surface_contact |=
+                                body && std::abs(body->linear_velocity[1]) > .25;
+                        }
+                    }
+            }
             const auto tick = game.status().at("clock").at("tick").get<unsigned>();
             if (tick < 180)
                 return;
+            check(!particle_motion || moving_surface_contact,
+                  "Exported linear Scene Gallery never contacted its moving native surface");
             Json emitters = Json::array();
             std::map<std::string, unsigned> supported;
             if (particle_resting) {
@@ -559,7 +589,10 @@ struct GameHostFixture {
             }
             check(emitters.size() == 2, "Exported impact Gallery lost its two emitters");
             atomic_write(output / "particle-impacts-result.json",
-                         Json{{"tick", tick}, {"emitters", emitters}}.dump(2));
+                         Json{{"tick", tick},
+                              {"emitters", emitters},
+                              {"moving_surface_contact", moving_surface_contact}}
+                             .dump(2));
             capture("particle-impacts-running.ppm", image, device, context);
             running = false;
             return;
