@@ -168,4 +168,38 @@ def check_particle_scene(read, mutate, edit, status, content, failed, root, tool
     assert edit('forge_asset_document_close', owner)['ok']
     assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
     assert content(owner) == historical
+    impact_name = 'forge_asset_document_particle_scene_impacts'
+    impact_tool = next(item for item in tools if item['name'] == impact_name)
+    assert impact_tool['inputSchema']['properties']['editor']['const'] == owner
+    assert impact_tool['inputSchema']['properties']['enabled']['type'] == 'boolean'
+    assert not impact_tool['annotations']['readOnlyHint']
+    assert 'runtime_particle_scene_impacts1' in catalog['scene_impacts']
+    before = status(owner)
+    assert edit(impact_name, owner, enabled=False)['ok']
+    assert content(owner) == historical and status(owner)['revision'] == before['revision']
+    assert edit(impact_name, owner, enabled=True)['ok']
+    impacts = content(owner)
+    assert impacts['version'] == 20 and impacts['profile'] == 'cpu_scene_impact_trail_2d1'
+    assert impacts['scene_impacts_enabled'] and impacts['trail'] == historical['trail']
+    failed(mutate(impact_name, editor=owner, enabled=False,
+                  document_session=before['session'], document_revision=before['revision']), 'stale_document')
+    current = status(owner)
+    failed(mutate(impact_name, editor=owner, enabled=False,
+                  document_session=current['session'] + 1000,
+                  document_revision=current['revision']), 'wrong_document')
+    for invalid in (None, 1, 'true'):
+        assert not edit(impact_name, owner, enabled=invalid)['ok']
+        assert content(owner) == impacts and status(owner)['revision'] == current['revision']
+    assert edit(impact_name, owner, enabled=True)['ok']
+    assert status(owner)['revision'] == current['revision']
+    save(61)
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == historical
+    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == impacts
+    assert edit(impact_name, owner, enabled=False)['ok']
+    assert content(owner)['profile'] == 'cpu_scene_trail_2d1'
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == impacts
+    save(61)
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
+    assert content(owner) == impacts
     assert edit('forge_asset_document_close', owner)['ok']

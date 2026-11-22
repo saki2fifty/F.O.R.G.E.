@@ -19,3 +19,20 @@ fixed heap or reducing particle counts. Existing CPU alpha, local ribbon and
 3D/XY Scene captures retain byte-exact canonical pixels on the local software
 renderer. Local functional/visual checks, native Windows execution and physical
 GPU acceptance remain separate.
+
+
+CPU Scene particles can opt into copied impact observations for project code.
+Mesh, camera-plane and historical World ribbons support both3D andXY contacts.
+Records carry emitter/collider identity, effect/birth/seed/generation, completed
+tick, age, contact centre/normal and incoming/outgoing velocities. The existing
+particle owner publishes bounded results after successful candidate adoption;
+project systems read the previous completed interval on the next fixed tick.
+Reads do not consume records and retired references leave unavailable slots.
+
+The exact SDK appends a copied POD and two host callbacks, preserves native ABI1
+and prior offsets, and deliberately changes its fingerprint/table size. Rebuild
+modules with the matching SDK. Native/MCP source controls share history and
+publication, and export checks an explicit typed impact capability. Gallery261/262
+and the original ParticleImpactTint System demonstrate the optional runtime colour
+response. Manual steps and authentic Game captures describe timing and limits.
+Local integration evidence and platform/physical acceptance remain separate.

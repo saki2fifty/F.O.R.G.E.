@@ -313,6 +313,20 @@ class ParticleEffectEditor {
                          "Enabling selects CPU sorted alpha and deactivates local plane/ribbons, "
                          "retaining their settings. Camera alignment and lifetime appearance are "
                          "supported.");
+                bool scene_impacts =
+                    document_->source().document.value("scene_impacts_enabled", false);
+                if (ImGui::Checkbox("Scene impact notifications (CPU)", &scene_impacts))
+                    mutate("Set particle Scene impact notifications", [&](auto& value) {
+                        ParticleEffectSource candidate{value};
+                        candidate.set_scene_impacts(scene_impacts);
+                        value = std::move(candidate.document);
+                    });
+                FORGE_UI_PROBE("particles:scene-impacts");
+                ui::help("Enable copied impact observations for project code. This selects CPU "
+                         "Scene collision. Project systems read the previous completed interval "
+                         "during the next fixed tick through the matching SDK, with Physics "
+                         "permission. Reads do not consume events. Supports World 3D/XY and "
+                         "historical World trails. Settings remain while inactive.");
                 int scene_space =
                     document_->source().document.value("scene_collision_2d", false) ? 1 : 0;
                 if (ImGui::Combo("Scene query space", &scene_space, "World 3D\0World XY\0"))

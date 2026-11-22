@@ -4481,3 +4481,25 @@ Source baseline `2866ee25037c14073eda9aea0e994c2115edd1ef`; affected build input
 Capture tests: `particle_world_trail_gallery_game_vulkan` and
 `particle_xy_world_trail_gallery_game_vulkan`; coherent local capture gate247.
 Canonical SHA-256: `42895325a3159c46a2cd16f0d173da8aa4e92ab3041386cf1383917ffd97a74b`.
+
+
+## Scene particle impact Gallery captures
+
+Canonical manual images `manual/images/scene-particle-impacts.png` and
+`manual/images/xy-particle-impact-trails.png` are unretouched640×360 Game output
+at three seconds, captured2026-11-22 through Vulkan/llvmpipe software graphics.
+Tests `particle_scene_impacts_gallery_game_vulkan` and
+`particle_xy_scene_impacts_gallery_game_vulkan` publish and relocate runtime
+content, hide authoring sources and verify actual opted-in native observations,
+geometry, proxy invariance and stopped-view behavior. Local capture gate270
+passed both; source build input digest
+`c3fe172199f2ba0afbd62345957566d3438f6b8fd1b472f59f353d472caf3cdf`.
+Baseline source `6bc6b457604d2e63148b89b615b72b9f828a809e` plus its attributed impact
+batch. The optional SDK colour-response System is not loaded in these captures;
+its native execution has separate tests. These are not editor-control captures,
+Windows execution or physical GPU acceptance.
+
+Canonical SHA-256 values:
+
+- `manual/images/scene-particle-impacts.png`: `506bb18e60ede1d0a824979d16da0dc7b5ca6e699ac3dce4be320df5502ff213`.
+- `manual/images/xy-particle-impact-trails.png`: `e0257a1572290a87cd46a849cfc2a35c57ab37c7d41d63dce15c2f5dfa75f2da`.

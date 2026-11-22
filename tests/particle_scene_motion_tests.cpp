@@ -306,6 +306,92 @@ void force_cases(PhysicsService& physics, double offset) {
     }
 }
 
+void impact_records() {
+    const EntityRef target{AssetId::generate(), EntityId::generate()};
+    const ParticleSceneQuery wall = [&](const Double3& origin, const Double3& delta,
+                                        double radius) -> std::optional<PhysicsHit> {
+        const auto distance = .45 - radius - origin[0];
+        if (delta[0] <= 0 || distance < 0 || distance > delta[0])
+            return {};
+        const auto fraction = distance / delta[0];
+        return PhysicsHit{target,
+                          {.45, origin[1] + delta[1] * fraction, origin[2] + delta[2] * fraction},
+                          {-1, 0, 0},
+                          fraction};
+    };
+    for (bool planar : {false, true}) {
+        ParticleSceneCollision settings{.05, .5, .25, 4, UINT32_MAX};
+        const ParticleSceneState initial{{{0, 0, 7}, {2, .5, 3}}};
+        const auto old =
+            advance_particle_scene_motion(initial, {}, 0, .4, settings, wall, false, planar);
+        const auto captured =
+            advance_particle_scene_motion(initial, {}, 0, .4, settings, wall, false, planar, true);
+        check(old.impacts.empty() && captured.state == old.state &&
+                  captured.queries == old.queries && captured.knots.size() == old.knots.size() &&
+                  captured.impacts.size() == 1,
+              "Impact collection changed legacy motion, work or trace membership");
+        for (std::size_t i = 0; i < old.knots.size(); ++i)
+            check(captured.knots[i].time == old.knots[i].time &&
+                      captured.knots[i].motion == old.knots[i].motion,
+                  "Impact collection changed legacy presentation knots");
+        const auto& contact = captured.impacts.front();
+        check(contact.collider == target && contact.kind == ParticleSceneImpactKind::Bounce &&
+                  std::abs(contact.time - .2) < 1e-12 &&
+                  std::abs(contact.position[0] - .4) < 1e-12 &&
+                  contact.normal == Double3{-1, 0, 0} &&
+                  contact.incoming_velocity == initial.motion.velocity &&
+                  contact.outgoing_velocity == Double3{-1, .375, planar ? 3. : 2.25},
+              "Impact record lost native identity, contact center, time or planar response");
+        settings.bounce_limit = 0;
+        const auto ended =
+            advance_particle_scene_motion(initial, {}, 0, .4, settings, wall, false, planar, true);
+        check(!ended.state.alive && ended.impacts.size() == 1 &&
+                  ended.impacts.front().kind == ParticleSceneImpactKind::End &&
+                  ended.impacts.front().time == *ended.death &&
+                  ended.impacts.front().incoming_velocity ==
+                      ended.impacts.front().outgoing_velocity,
+              "Contact death omitted its terminal impact or invented a rebound");
+        const ParticleSceneQuery invalid = [&](const auto& origin, const auto& delta,
+                                               double radius) {
+            auto hit = wall(origin, delta, radius);
+            if (hit)
+                hit->entity = {};
+            return hit;
+        };
+        bool refused = false;
+        try {
+            (void)advance_particle_scene_motion(initial, {}, 0, .4, settings, invalid, false,
+                                                planar, true);
+        } catch (const std::exception&) {
+            refused = true;
+        }
+        check(refused, "Impact collection admitted an unbound collider identity");
+    }
+    const ParticleSceneState touching{{{0, 0, 7}, {2, .5, 3}}};
+    const ParticleSceneQuery overlap = [&](const Double3& position, const auto&,
+                                           double) -> std::optional<PhysicsHit> {
+        return PhysicsHit{target, position, {}, 0};
+    };
+    const auto ended =
+        advance_particle_scene_motion(touching, {}, 0, 0, {}, overlap, true, true, true);
+    check(!ended.state.alive && ended.impacts.size() == 1 && ended.impacts.front().time == 0 &&
+              ended.impacts.front().position == touching.motion.position &&
+              ended.impacts.front().normal == Double3{} &&
+              ended.impacts.front().kind == ParticleSceneImpactKind::End,
+          "Defined XY initial overlap lost its zero-normal terminal observation");
+    const ParticleSceneState departing{{{.4, 0, 7}, {-2, 0, 0}}};
+    const ParticleSceneQuery touch = [&](const auto&, const auto&,
+                                         double) -> std::optional<PhysicsHit> {
+        return PhysicsHit{target, {.45, 0, 7}, {-1, 0, 0}, 0};
+    };
+    const auto touched =
+        advance_particle_scene_motion(departing, {}, 0, 0, {}, touch, true, false, true);
+    check(touched.state.alive && touched.state.bounces == 0 && touched.impacts.size() == 1 &&
+              touched.impacts.front().kind == ParticleSceneImpactKind::Touch &&
+              touched.impacts.front().incoming_velocity ==
+                  touched.impacts.front().outgoing_velocity,
+          "A departing contact was misreported as a rebound or death");
+}
 void settings_codec() {
     ParticleSceneCollision settings{.025, .75, .25, 16, 0x80000001u};
     const auto encoded = encode_particle_scene_collision(settings);
@@ -354,6 +440,7 @@ void settings_codec() {
 } // namespace
 int main() {
     try {
+        impact_records();
         xy_compound_contacts();
         settings_codec();
         for (double offset : {0., 1e8, -1e8}) {

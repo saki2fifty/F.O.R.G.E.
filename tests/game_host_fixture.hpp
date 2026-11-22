@@ -22,7 +22,8 @@ struct GameHostFixture {
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
          expect_module = false, loads = false, velocity = false, contacts = false, volumes = false,
          movement_2d = false, slider = false, motors = false, position_drive = false,
-         connected = false, swing_twist = false, distance_springs = false, animation_exits = false;
+         connected = false, swing_twist = false, distance_springs = false, animation_exits = false,
+         particle_impacts = false;
     std::map<std::string, unsigned> exit_states;
     std::array<double, 2> swing_maximum{}, swing_minimum{180, 180};
     std::array<double, 2> spring_minimum{100, 100}, spring_maximum{};
@@ -86,6 +87,7 @@ struct GameHostFixture {
         loads = argc == 3 && std::string_view(argv[1]) == "--packaged-loads";
         velocity = argc == 3 && std::string_view(argv[1]) == "--packaged-velocity";
         contacts = argc == 3 && std::string_view(argv[1]) == "--packaged-contacts";
+        particle_impacts = argc == 3 && std::string_view(argv[1]) == "--packaged-particle-impacts";
         volumes = argc == 3 && std::string_view(argv[1]) == "--packaged-volumes";
         movement_2d = argc == 3 && std::string_view(argv[1]) == "--packaged-movement-2d";
         slider = argc == 3 && std::string_view(argv[1]) == "--packaged-slider";
@@ -95,9 +97,9 @@ struct GameHostFixture {
         swing_twist = argc == 3 && std::string_view(argv[1]) == "--packaged-swing";
         distance_springs = argc == 3 && std::string_view(argv[1]) == "--packaged-springs";
         animation_exits = argc == 3 && std::string_view(argv[1]) == "--packaged-exits";
-        packaged = reference || mixed || loads || velocity || contacts || volumes || movement_2d ||
-                   slider || motors || position_drive || connected || swing_twist ||
-                   distance_springs || animation_exits ||
+        packaged = reference || mixed || loads || velocity || contacts || particle_impacts ||
+                   volumes || movement_2d || slider || motors || position_drive || connected ||
+                   swing_twist || distance_springs || animation_exits ||
                    (argc == 3 && (std::string_view(argv[1]) == "--packaged" ||
                                   std::string_view(argv[1]) == "--packaged-frame-statistics"));
         packaged =
@@ -209,9 +211,9 @@ struct GameHostFixture {
         }
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
-        if (!reference && !loads && !velocity && !contacts && !volumes && !movement_2d && !slider &&
-            !motors && !position_drive && !connected && !swing_twist && !distance_springs &&
-            !animation_exits)
+        if (!reference && !loads && !velocity && !contacts && !particle_impacts && !volumes &&
+            !movement_2d && !slider && !motors && !position_drive && !connected && !swing_twist &&
+            !distance_springs && !animation_exits)
             check(contrast > 30, "Standalone cube is not distinguishable from the background");
         if (loads || velocity || slider || motors || position_drive || connected || swing_twist ||
             distance_springs) {
@@ -512,6 +514,30 @@ struct GameHostFixture {
             }
             check(actors == 1, "Exported volume example actor count changed");
             capture("physics-volumes-running.ppm", image, device, context);
+            running = false;
+            return;
+        }
+        if (particle_impacts) {
+            const auto tick = game.status().at("clock").at("tick").get<unsigned>();
+            if (tick < 180)
+                return;
+            Json emitters = Json::array();
+            const auto scene = game.active().scene.snapshot();
+            for (const auto& entity : scene.at("entities")) {
+                const auto& components = entity.at("components");
+                if (!components.contains("forge.particle_emitter"))
+                    continue;
+                const auto& emitter = components.at("forge.particle_emitter");
+                check(emitter.at("tint_r").get<float>() == 1 &&
+                          emitter.at("tint_g").get<float>() == .15f &&
+                          emitter.at("tint_b").get<float>() == .5f,
+                      "Exported Gallery code did not react to Scene-particle impacts");
+                emitters.push_back({{"entity", entity.at("id")}, {"value", emitter}});
+            }
+            check(emitters.size() == 2, "Exported impact Gallery lost its two emitters");
+            atomic_write(output / "particle-impacts-result.json",
+                         Json{{"tick", tick}, {"emitters", emitters}}.dump(2));
+            capture("particle-impacts-running.ppm", image, device, context);
             running = false;
             return;
         }

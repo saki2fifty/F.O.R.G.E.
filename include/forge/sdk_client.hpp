@@ -400,6 +400,18 @@ class Client {
                    ? host_->physics_contact_event_2d(host_->context, index, &out)
                    : -1;
     }
+    int32_t particle_impact_count() const {
+        return callable(Capability::Physics) && host_->particle_impact_count
+                   ? host_->particle_impact_count(host_->context)
+                   : -1;
+    }
+    int32_t particle_impact_event(uint32_t index, ForgeSdkParticleImpactV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::Physics) && host_->particle_impact_event
+                   ? host_->particle_impact_event(host_->context, index, &out)
+                   : -1;
+    }
     bool navigation(const char* asset, uint32_t operation, const double start[3],
                     const double end[3], ForgeSdkNavResultV1& out) const {
         out.count = 0;

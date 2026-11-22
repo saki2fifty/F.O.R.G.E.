@@ -6,9 +6,6 @@
 #include <set>
 namespace forge {
 namespace {
-struct ParticleBridge {
-    std::weak_ptr<ParticleRuntime> runtime;
-};
 void require(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
@@ -110,7 +107,8 @@ bool ParticleRuntime::prepare() {
             return false;
     return true;
 }
-void ParticleRuntime::tick(float dt) {
+void ParticleRuntime::tick(float dt) { tick(dt, 0); }
+void ParticleRuntime::tick(float dt, std::uint64_t fixed_tick) {
     check();
     require(std::isfinite(dt) && dt > 0, "Particles need a positive fixed delta");
     synchronize();
@@ -160,6 +158,29 @@ void ParticleRuntime::tick(float dt) {
                                },
                                work));
     }
+    std::vector<ParticleImpactRecord> impacts;
+    for (auto& [id, history] : candidates) {
+        const auto& entry = entries_.at(id);
+        if (!particle_uses_scene_impacts(entry.effect.get()))
+            continue;
+        const auto emitter = world_.reference(id);
+        require(emitter.has_value(), "Scene impacts require a canonical emitter identity");
+        const auto generation = entry.ticket.inspect().source_generation;
+        for (auto& trace : history.traces) {
+            const auto start =
+                particle_scene_trace_start_age(entry.effect.get(), trace, entry.current);
+            for (const auto& contact : trace.step.impacts) {
+                require(impacts.size() < particle_scene_query_limit,
+                        "Scene impacts exceed the 8192-query World budget");
+                impacts.push_back({*emitter, entry.config.effect.id, entry.config.seed, generation,
+                                   trace.birth.ordinal, start + contact.time, contact,
+                                   particle_uses_scene_collision_2d(entry.effect.get())});
+            }
+            // The published broadcast owns these outcomes; presentation traces
+            // retain their original motion knots without a second event copy.
+            std::vector<ParticleSceneImpact>{}.swap(trace.step.impacts);
+        }
+    }
     // All queries and bounded candidate allocations succeeded. A failure above
     // leaves every entry's emission interval and contact history unchanged.
     for (auto& [id, entry] : entries_) {
@@ -169,6 +190,34 @@ void ParticleRuntime::tick(float dt) {
         if (const auto found = candidates.find(id); found != candidates.end())
             entry.scene = std::move(found->second);
     }
+    impacts_ = std::move(impacts);
+    impacts_tick_ = fixed_tick;
+}
+ParticleImpactFrame ParticleRuntime::impact_frame() const {
+    check();
+    return {impacts_tick_, impacts_.size()};
+}
+std::optional<ParticleImpactRecord> ParticleRuntime::impact_at(std::size_t index) const {
+    check();
+    if (index >= impacts_.size())
+        return {};
+    const auto& value = impacts_[index];
+    const auto emitter = world_.resolve(value.emitter);
+    if (emitter.state != WorldContext::ResolveState::Available ||
+        world_.resolve(value.contact.collider).state != WorldContext::ResolveState::Available)
+        return {};
+    const auto selected = entries_.find(emitter.entity);
+    if (selected == entries_.end() || !selected->second.effect ||
+        !particle_uses_scene_impacts(selected->second.effect.get()) ||
+        selected->second.ticket.inspect().source_generation != value.source_generation)
+        return {};
+    const auto entity = world_.world().entity(emitter.entity);
+    if (!entity.has<ParticleEmitter>())
+        return {};
+    const auto& config = entity.get<ParticleEmitter>();
+    if (!config.enabled || config.seed != value.seed || config.effect.id != value.effect)
+        return {};
+    return value;
 }
 void ParticleRuntime::reset() {
     check();
@@ -180,6 +229,8 @@ void ParticleRuntime::reset() {
         entry.scene = {};
     }
     effects_.collect();
+    impacts_.clear();
+    impacts_tick_ = 0;
 }
 Json ParticleRuntime::presentation(flecs::entity_t entity, double alpha) const {
     check();
@@ -247,6 +298,8 @@ Json ParticleRuntime::tune_appearance(EntityRef ref, const std::string& property
 void ParticleRuntime::shutdown() {
     check();
     entries_.clear();
+    impacts_.clear();
+    impacts_tick_ = 0;
     effects_.close();
     alive_ = false;
 }
@@ -269,7 +322,6 @@ EngineModule particle_module(std::filesystem::path project) {
     return module;
 }
 std::shared_ptr<ParticleRuntime> particle_runtime(WorldContext& world) {
-    return world.world().has<ParticleBridge>() ? world.world().get<ParticleBridge>().runtime.lock()
-                                               : nullptr;
+    return std::dynamic_pointer_cast<ParticleRuntime>(particle_runtime_access(world));
 }
 } // namespace forge

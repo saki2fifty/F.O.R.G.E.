@@ -172,7 +172,7 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            for (unsigned values : {38u, 39u, 52u, 53u, 54u, 55u}) {
+            for (unsigned values : {38u, 39u, 52u, 53u, 54u, 55u, 56u, 57u, 58u, 59u, 60u, 61u}) {
                 effect.metadata["forge.particle_effect"]["value_version"] = values;
                 particles.replace(effect);
                 Json scene_kit{
@@ -180,35 +180,47 @@ int main(int argc, char** argv) {
                     {"runtime_particle_alpha", particle_alpha_profile_version},
                     {"runtime_particle_opacity", particle_opacity_profile_version},
                     {"runtime_particle_scene_collision", particle_scene_collision_profile_version}};
-                if (values == 52 || values == 53 || values == 55) {
+                if (values == 52 || values == 53 || values == 55 || values == 58 || values == 59 ||
+                    values == 61) {
                     reject([&] { validate_runtime_compatibility(particles, scene_kit); });
                     scene_kit["runtime_particle_scene_collision_2d"] =
                         particle_scene_collision_2d_profile_version;
                 }
-                if (values == 39 || values == 53) {
+                if (values == 39 || values == 53 || values == 57 || values == 59) {
                     reject([&] { validate_runtime_compatibility(particles, scene_kit); });
                     scene_kit["runtime_particle_billboard"] = particle_billboard_profile_version;
                 }
-                if (values == 54 || values == 55) {
+                if (values == 54 || values == 55 || values == 60 || values == 61) {
                     reject([&] { validate_runtime_compatibility(particles, scene_kit); });
                     scene_kit["runtime_particle_trail"] = particle_trail_profile_version;
                     reject([&] { validate_runtime_compatibility(particles, scene_kit); });
                     scene_kit["runtime_particle_scene_trail"] =
                         particle_scene_trail_profile_version;
                 }
+                if (values >= 56) {
+                    reject([&] { validate_runtime_compatibility(particles, scene_kit); });
+                    scene_kit["runtime_particle_scene_impacts"] =
+                        particle_scene_impacts_profile_version;
+                }
                 validate_runtime_compatibility(particles, scene_kit);
                 for (const Json& invalid :
                      {Json(), Json(true), Json(-1), Json(0), Json(1.), Json("1"), Json(2),
                       Json((std::uint64_t{1} << 32) + 1)}) {
                     auto wrong = scene_kit;
+                    if (values >= 56) {
+                        wrong["runtime_particle_scene_impacts"] = invalid;
+                        reject([&] { validate_runtime_compatibility(particles, wrong); });
+                        wrong = scene_kit;
+                    }
                     wrong["runtime_particle_scene_collision"] = invalid;
                     reject([&] { validate_runtime_compatibility(particles, wrong); });
-                    if (values == 52 || values == 53 || values == 55) {
+                    if (values == 52 || values == 53 || values == 55 || values == 58 ||
+                        values == 59 || values == 61) {
                         wrong = scene_kit;
                         wrong["runtime_particle_scene_collision_2d"] = invalid;
                         reject([&] { validate_runtime_compatibility(particles, wrong); });
                     }
-                    if (values == 54 || values == 55)
+                    if (values == 54 || values == 55 || values == 60 || values == 61)
                         for (const auto* capability :
                              {"runtime_particle_trail", "runtime_particle_scene_trail"}) {
                             wrong = scene_kit;
@@ -220,7 +232,8 @@ int main(int argc, char** argv) {
                      {"runtime_particle_effect", "runtime_particle_alpha",
                       "runtime_particle_opacity", "runtime_particle_scene_collision",
                       "runtime_particle_billboard", "runtime_particle_scene_collision_2d",
-                      "runtime_particle_trail", "runtime_particle_scene_trail"}) {
+                      "runtime_particle_trail", "runtime_particle_scene_trail",
+                      "runtime_particle_scene_impacts"}) {
                     if (!scene_kit.contains(missing))
                         continue;
                     auto wrong = scene_kit;

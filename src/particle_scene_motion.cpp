@@ -22,7 +22,7 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
                                                 const Double3& acceleration, double drag, double dt,
                                                 const ParticleSceneCollision& settings,
                                                 const ParticleSceneQuery& query, bool initial_probe,
-                                                bool planar_2d) {
+                                                bool planar_2d, bool capture_impacts) {
     range(dt, 0, 30);
     range(drag, 0, 64);
     if (planar_2d)
@@ -89,6 +89,17 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
             continue;
         }
         range(hit->fraction, 0, 1);
+        const auto impact = [&](ParticleSceneImpactKind kind, const Double3& normal,
+                                const Double3& incoming) {
+            if (!capture_impacts)
+                return;
+            if (!hit->entity.scene || !hit->entity.entity ||
+                result.impacts.size() >= particle_scene_birth_query_limit)
+                throw std::runtime_error(
+                    "Particle Scene impact has an invalid collider or exceeds its query budget");
+            result.impacts.push_back({elapsed, hit->entity, state.motion.position, normal, incoming,
+                                      state.motion.velocity, kind});
+        };
         const auto length = std::hypot(hit->normal[0], hit->normal[1], hit->normal[2]);
         if (planar_2d && hit->normal[2] != 0)
             throw std::runtime_error("XY Scene query returned a nonplanar contact normal");
@@ -99,6 +110,7 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
                 range(value, -1e10, 1e10);
             state.alive = false;
             result.death = elapsed;
+            impact(ParticleSceneImpactKind::End, {}, state.motion.velocity);
             return result;
         }
         if (!std::isfinite(length) || length <= 0)
@@ -117,6 +129,7 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
         if (hit->fraction == 0 && dot(relative, normal) - settings.radius < -2 * bias) {
             state.alive = false;
             result.death = elapsed;
+            impact(ParticleSceneImpactKind::End, normal, state.motion.velocity);
             return result;
         }
         double fraction = hit->fraction;
@@ -135,11 +148,13 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
             state.motion.position[axis] = start.position[axis] + displacement[axis] * fraction;
         elapsed = travel_time == dt - elapsed ? dt : elapsed + travel_time;
         result.knots.push_back({elapsed, state.motion});
+        const auto incoming_velocity = state.motion.velocity;
         const auto incoming = dot(state.motion.velocity, normal);
         if ((incoming == 0 && dot(acceleration, normal) < 0) ||
             (incoming < 0 && state.bounces == settings.bounce_limit)) {
             state.alive = false;
             result.death = elapsed;
+            impact(ParticleSceneImpactKind::End, normal, incoming_velocity);
             return result;
         }
         if (incoming < 0) {
@@ -152,9 +167,12 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
             if (settings.restitution == 0 && dot(acceleration, normal) < 0) {
                 state.alive = false;
                 result.death = elapsed;
+                impact(ParticleSceneImpactKind::End, normal, incoming_velocity);
                 return result;
             }
         }
+        impact(incoming < 0 ? ParticleSceneImpactKind::Bounce : ParticleSceneImpactKind::Touch,
+               normal, incoming_velocity);
         // Keep the body in the next query: one compound/concave body can contain
         // another surface. Only a small positional departure bias is introduced.
         for (unsigned axis = 0; axis < 3; ++axis)

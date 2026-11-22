@@ -13,6 +13,8 @@ parser.add_argument('--opacity', action='store_true')
 parser.add_argument('--trails', action='store_true')
 parser.add_argument('--collision', action='store_true')
 parser.add_argument('--scene-collision', action='store_true')
+parser.add_argument('--scene-impacts', action='store_true')
+parser.add_argument('--xy-scene-impacts', action='store_true')
 parser.add_argument('--xy-scene-collision', action='store_true')
 parser.add_argument('--world-trails', action='store_true')
 parser.add_argument('--xy-world-trails', action='store_true')
@@ -39,7 +41,9 @@ with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as tempo
                   or arguments.weighted or arguments.weighted_graph
                   or arguments.gpu_opacity or arguments.gpu_graph_opacity or arguments.gpu_sorted
                   or arguments.scene_collision or arguments.xy_scene_collision)
-    action = ('--verify-export-xy-world-trails' if arguments.xy_world_trails else
+    action = ('--verify-export-xy-scene-impacts' if arguments.xy_scene_impacts else
+              '--verify-export-scene-impacts' if arguments.scene_impacts else
+              '--verify-export-xy-world-trails' if arguments.xy_world_trails else
               '--verify-export-world-trails' if arguments.world_trails else
               '--verify-export-xy-scene-collision' if arguments.xy_scene_collision else
               '--verify-export-scene-collision' if arguments.scene_collision else
@@ -73,7 +77,11 @@ with tempfile.TemporaryDirectory(prefix='particle-alpha-', dir=scratch) as tempo
     assert len(content) == 1, content
     mode = (('--opacity-gallery' if arguments.opacity else '--alpha-gallery') if arguments.vulkan
             else ('particle-opacity-gallery' if arguments.opacity else 'particle-alpha-gallery'))
-    if arguments.xy_world_trails:
+    if arguments.xy_scene_impacts:
+        mode = '--xy-scene-impact-gallery' if arguments.vulkan else 'particle-xy-scene-impact-gallery'
+    elif arguments.scene_impacts:
+        mode = '--scene-impact-gallery' if arguments.vulkan else 'particle-scene-impact-gallery'
+    elif arguments.xy_world_trails:
         mode = '--xy-world-trail-gallery' if arguments.vulkan else 'particle-xy-world-trail-gallery'
     elif arguments.world_trails:
         mode = '--world-trail-gallery' if arguments.vulkan else 'particle-world-trail-gallery'

@@ -302,7 +302,7 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
                     bool graph = false, bool trails = false, bool collision = false,
                     bool weighted = false, bool gpu_opacity = false, bool sorted = false,
                     bool scene_collision = false, bool scene_collision_2d = false,
-                    bool world_trails = false) {
+                    bool world_trails = false, bool impacts = false) {
     using test_bloom::check;
 #ifdef _WIN32
     const RuntimePackageTarget target{"windows", "d3d12"};
@@ -329,7 +329,9 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     check(effects.wait(ticket, std::chrono::seconds(15)), "Source-free alpha Effect load stalled");
     const auto selected = effects.acquire(ticket);
     check(selected &&
-              selected->version == (world_trails         ? (scene_collision_2d ? 55u : 54u)
+              selected->version == (impacts ? (world_trails ? (scene_collision_2d ? 61u : 60u)
+                                                            : (scene_collision_2d ? 58u : 56u))
+                                    : world_trails       ? (scene_collision_2d ? 55u : 54u)
                                     : scene_collision_2d ? 53u
                                     : scene_collision    ? 39u
                                     : sorted             ? 34u
@@ -364,8 +366,12 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
         check(std::chrono::steady_clock::now() < deadline, "Alpha fixed-clock preparation stalled");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    for (unsigned i = 0; i < 12; ++i)
+    bool impacts_seen = false;
+    for (unsigned i = 0; i < 12; ++i) {
         world.simulation.tick(.25f);
+        impacts_seen |= particles->impact_frame().count > 0;
+    }
+    check(!impacts || impacts_seen, "Source-hidden impact Game did not publish native contacts");
     auto snapshot = extract_render_scene(world.simulation.presentation(1));
     check(snapshot.diagnostics.empty() && snapshot.particles.size() == 2 &&
               snapshot.cameras.size() == 1 && snapshot.meshes.size() == (scene_collision ? 2u : 1u),
@@ -435,7 +441,9 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     }
     std::filesystem::create_directories(images);
     save_view_png(
-        images / (world_trails         ? (scene_collision_2d ? "xy-world-particle-trails.png"
+        images / (impacts              ? (scene_collision_2d ? "xy-particle-impact-trails.png"
+                                                             : "scene-particle-impacts.png")
+                  : world_trails       ? (scene_collision_2d ? "xy-world-particle-trails.png"
                                                              : "world-particle-trails.png")
                   : scene_collision_2d ? "xy-scene-particle-collision.png"
                   : scene_collision    ? "scene-particle-collision.png"

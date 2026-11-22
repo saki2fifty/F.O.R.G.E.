@@ -3408,3 +3408,16 @@ or **XYWorldFlow** under **Assets/Particles/Trails**, the shared **Ribbon** Mate
 and **EmitterSweep.animation.json** in Timeline. Save / Publish assets and save
 the Scene before export. Use the packaged runtime kit. Increase trail segments
 or reduce contacts/duration if the complete update reports a corner-budget error.
+
+
+### Scene particle impact notifications
+
+- **261 — Scene particle impacts:** CPU Mesh particles collide with the floor and
+  obstacle, with copied contacts available to Project Code.
+- **262 — XY particle impact trails:** historical World ribbons use XY collision
+  and expose the same bounded contact observations.
+
+Both Scenes run their saved motion without optional code. Add the original
+`CodeExamples/ParticleImpactTint.cpp` System with the matching SDK and Physics
+permission to turn an emitter pink after its first contact. Stop restores authored
+colours. See [setup, timing and export](../../../manual/editor/particles.md#scene-impact-notifications).

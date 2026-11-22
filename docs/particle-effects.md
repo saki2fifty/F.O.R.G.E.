@@ -33,6 +33,8 @@ Source18 retains Boolean `scene_collision_2d` and explicitly selects CPU XY valu
 `cpu_scene_collision_2d1` or53/`cpu_scene_collision_2d_billboard1`.
 Source19 retains `world_trail_enabled` and selects historical Scene ribbon values54/
 `cpu_scene_trail1` or55/`cpu_scene_trail_2d1`.
+Source20 retains Boolean `scene_impacts_enabled` and selects copied Scene-impact
+values56–61 for 3D/XY Mesh, camera-plane particles and historical World trails.
 Sorted and weighted GPU transport selections
 are mutually exclusive; inactive shape, opacity, Graph, plane and trail settings
 remain retained across transport changes.
@@ -58,7 +60,8 @@ New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope contai
 or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph camera-plane9/
 analytic-trail CPU10/plane-collision CPU11/explicit weighted GPU12–15/GPU opacity16–19/
 GPU plane20–22/GPU ribbon23–25/ordered GPU26–37/CPU Scene collision38–39/
-GPU Material palettes40–51/CPU XY Scene collision52–53/historical Scene trails54–55;
+GPU Material palettes40–51/CPU XY Scene collision52–53/historical Scene trails54–55/
+CPU Scene-impact observations56–61;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -973,3 +976,59 @@ Missing/malformed/unsupported capabilities reject before output replacement. No
 installed SDK/POD/vtable/fingerprint change. Gallery259/260 share an original
 translation clip and existing Ribbon Material. Local/rendered/native Windows and
 physical acceptance remain separate evidence claims.
+
+
+## Scene impact observations
+
+[ADR077](decisions/077-scene-particle-impact-notifications.md) defines opt-in copied
+CPU impact observations. Source20 requires Boolean `scene_impacts_enabled`;
+values56/57 are 3D Mesh/camera-plane,58/59 XY Mesh/camera-plane,60/61 historical
+World ribbons in3D/XY. Enable selects CPU sorted alpha and Scene collision through
+`ParticleEffectSource::set_scene_impacts`; inactive intent and other settings
+survive backend changes. False on an older absent field is an exact no-op.
+
+Native **Scene impact notifications (CPU)** and
+`asset.document.particle_scene_impacts` / `forge_asset_document_particle_scene_impacts`
+share this source operation. Their existing asset.write grant, document session,
+revision, Undo/Redo, publication and save/reopen contracts apply. MCP may author
+and build project code, run Play and read existing runtime snapshots/diagnostics;
+there is no additional MCP tool claiming a separate particle-event database.
+
+The motion step records only opted-in native outcomes: Touch0, Bounce1 and End2.
+Position is the contact centre before departure bias; normal and incoming/outgoing
+velocity are copied world values. XY initial overlap has zero normal and End.
+Time is relative to the fixed visual step; birth age includes emitter playback
+speed. Scene query masks and sensor exclusion retain their existing meanings.
+
+ParticleRuntime publishes at most8192 detached records after whole-candidate
+adoption. Its actual fixed tick, emitter/collider UUIDs, effect, seed, generation
+and birth identify the observation. Reset/shutdown clear it. Empty next intervals
+publish no observations. Failed updates do not partially replace the broadcast.
+Reads filter removed references or a changed emitter binding and preserve sparse
+slot indexes; repeated reads do not consume them. This state is transient and is
+not part of Scene persistence, export content or runtime recovery.
+
+Exact-SDK `particle_impact_count` returns0..8192 slots or-1 for invalid context.
+`particle_impact_event` returns1 for a copied record,0 for a missing/index/retired
+slot, and-1 for invalid context or arguments. Null or incorrectly sized output
+rejects without writing; valid-sized output clears on miss/failure. C++ Client
+helpers initialize output and preserve these statuses. Reads require the Runtime
+owner thread, an active fixed tick and Physics permission. The published tick
+must be exactly current fixed tick minus one: visual integration occurs after
+fixed ECS execution, so project systems observe the previous completed interval.
+Neither a control callback nor an arbitrary worker can read the broadcast.
+
+ForgeSdkParticleImpactV1 and two appended host callbacks deliberately change the
+exact SDK fingerprint/table size. Native ABI1 and old callback offsets remain;
+rebuild against the matching SDK and runtime kit. The private read-only interface
+uses the existing weak particle bridge, is not installed, and owns no runtime.
+Export additionally requires typed `runtime_particle_scene_impacts:1`, plus all
+capabilities selected by the Scene-query space and geometry. Old kits reject.
+
+Gallery261 demonstrates Mesh impacts; Gallery262 combines XY impacts and World
+ribbons. `CodeExamples/ParticleImpactTint.cpp` is the original shared managed
+System. Installed sample `particle_impact_gallery_gameplay` compiles that same
+source with its standalone matching-SDK descriptor. It changes runtime emitter
+colour on a copied contact; unmodified Gallery scenes still simulate without
+optional code. No native contact causes a synchronous project callback, resting
+constraint, collider impulse or device-particle readback.

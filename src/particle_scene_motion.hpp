@@ -1,5 +1,6 @@
 #pragma once
 #include "particle_motion.hpp"
+#include "particle_scene_impact.hpp"
 #include <forge/physics_service.hpp>
 #include <functional>
 
@@ -24,6 +25,7 @@ struct ParticleSceneStep {
     Double3 acceleration{};
     double drag = 0;
     bool planar_2d = false;
+    std::vector<ParticleSceneImpact> impacts{};
 };
 using ParticleSceneQuery =
     std::function<std::optional<PhysicsHit>(const Double3&, const Double3&, double radius)>;
@@ -34,7 +36,8 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState&,
                                                 const Double3& acceleration, double drag, double dt,
                                                 const ParticleSceneCollision&,
                                                 const ParticleSceneQuery&,
-                                                bool initial_probe = false, bool planar_2d = false);
+                                                bool initial_probe = false, bool planar_2d = false,
+                                                bool capture_impacts = false);
 std::optional<ParticleMotionState>
 sample_particle_scene_motion(const ParticleSceneStep&, double time, bool include_death = false);
 } // namespace forge

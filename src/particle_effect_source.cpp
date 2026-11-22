@@ -7,19 +7,25 @@
 namespace forge {
 namespace {
 const char* cpu_alpha_profile(const nlohmann::json& document) {
+    const bool impacts = document.at("version").get<unsigned>() >= 20 &&
+                         document.value("scene_impacts_enabled", false);
     if (document.at("version").get<unsigned>() >= 19 &&
         document.value("world_trail_enabled", false) &&
         document.value("scene_collision_enabled", false))
-        return document.value("scene_collision_2d", false) ? "cpu_scene_trail_2d1"
-                                                           : "cpu_scene_trail1";
+        return document.value("scene_collision_2d", false)
+                   ? (impacts ? "cpu_scene_impact_trail_2d1" : "cpu_scene_trail_2d1")
+                   : (impacts ? "cpu_scene_impact_trail1" : "cpu_scene_trail1");
     if (document.at("version").get<unsigned>() >= 18 &&
         document.value("scene_collision_2d", false) &&
         document.value("scene_collision_enabled", false))
-        return document.value("billboard_enabled", false) ? "cpu_scene_collision_2d_billboard1"
-                                                          : "cpu_scene_collision_2d1";
+        return document.value("billboard_enabled", false)
+                   ? (impacts ? "cpu_scene_impact_2d_billboard1"
+                              : "cpu_scene_collision_2d_billboard1")
+                   : (impacts ? "cpu_scene_impact_2d1" : "cpu_scene_collision_2d1");
     if (document.value("scene_collision_enabled", false))
-        return document.value("billboard_enabled", false) ? "cpu_scene_collision_billboard1"
-                                                          : "cpu_scene_collision1";
+        return document.value("billboard_enabled", false)
+                   ? (impacts ? "cpu_scene_impact_billboard1" : "cpu_scene_collision_billboard1")
+                   : (impacts ? "cpu_scene_impact1" : "cpu_scene_collision1");
     return document.value("collision_enabled", false)   ? "cpu_collision1"
            : document.value("trail_enabled", false)     ? "cpu_trail1"
            : document.value("billboard_enabled", false) ? "cpu_billboard1"
@@ -132,20 +138,25 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             stop.erase("id");
         }
     }
-    if (version > 19)
+    if (version > 20)
         throw std::runtime_error("Unknown Particle Effect source version");
     if (version < 4)
         return decode_particle_effect(values);
-    // Source4–19 retain settings while another evaluation backend is active.
+    // Source4–20 retain settings while another evaluation backend is active.
     // Only the active backend contributes runtime values and dependency edges.
     const auto profile = values.at("profile").get<std::string>();
     const auto* selected = particle_detail::value_profile(std::string_view(profile));
     // Source formats introduce contiguous immutable value-profile ranges.
-    constexpr std::array maximum_values{0u,  0u,  0u,  0u,  4u,  5u,  6u,  7u,  9u,  10u,
-                                        11u, 15u, 19u, 22u, 25u, 37u, 39u, 51u, 53u, 55u};
+    constexpr std::array maximum_values{0u,  0u,  0u,  0u,  4u,  5u,  6u,  7u,  9u,  10u, 11u,
+                                        15u, 19u, 22u, 25u, 37u, 39u, 51u, 53u, 55u, 61u};
     if (!selected || selected->version < 2 || selected->version > maximum_values.at(version))
         throw std::runtime_error("Unknown Particle Effect evaluation profile " + profile +
                                  " for source version " + std::to_string(version));
+    if (version >= 20) {
+        if (!values.at("scene_impacts_enabled").is_boolean())
+            throw std::runtime_error("Scene impact activation must be a boolean");
+        values.erase("scene_impacts_enabled");
+    }
     if (version >= 19) {
         if (!values.at("world_trail_enabled").is_boolean())
             throw std::runtime_error("World trail activation must be a boolean");
@@ -531,9 +542,32 @@ void ParticleEffectSource::set_world_trails(bool enabled,
         candidate.document["gpu_material_palette_enabled"] = false;
     if (candidate.document.at("version").get<unsigned>() < 18)
         candidate.document["scene_collision_2d"] = false;
-    candidate.document["version"] = 19;
+    candidate.document["version"] = std::max(19u, candidate.document.at("version").get<unsigned>());
     candidate.document["world_trail_enabled"] = enabled;
     candidate.document["trail"] = encode_particle_trail_settings(*settings);
+    if (enabled || cpu_alpha_profile(std::string_view(previous)))
+        candidate.document["profile"] = cpu_alpha_profile(candidate.document);
+    candidate.validate();
+    document = std::move(candidate.document);
+}
+void ParticleEffectSource::set_scene_impacts(bool enabled) {
+    if (!enabled && !document.contains("scene_impacts_enabled")) {
+        validate();
+        return;
+    }
+    auto candidate = *this;
+    candidate.promote();
+    if (enabled)
+        candidate.set_scene_collision(true);
+    if (candidate.document.at("version").get<unsigned>() < 19) {
+        const auto settings = candidate.document.contains("trail")
+                                  ? decode_particle_trail_settings(candidate.document.at("trail"))
+                                  : ParticleTrailSettings{};
+        candidate.set_world_trails(false, settings);
+    }
+    const auto previous = candidate.document.at("profile").get<std::string>();
+    candidate.document["version"] = std::max(20u, candidate.document.at("version").get<unsigned>());
+    candidate.document["scene_impacts_enabled"] = enabled;
     if (enabled || cpu_alpha_profile(std::string_view(previous)))
         candidate.document["profile"] = cpu_alpha_profile(candidate.document);
     candidate.validate();

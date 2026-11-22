@@ -40,6 +40,9 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
     tools = root/'bin/forge_tools.exe'
+    from particle_impacts_package_test import verify as verify_particle_impacts
+    verify_particle_impacts(root, tools, Path(sys.argv[2]).resolve(),
+                            Path(sys.argv[3]).resolve(), env)
     # Execute the delivered C++ example, then export it with the existing exact
     # shared runtime/module-kit path and a separately inventoried test observer.
     from physics_loads_example_test import verify

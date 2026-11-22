@@ -1117,3 +1117,43 @@ The matching installed `application_states_probe.cpp` sample exercises creation,
 binding, receipt inspection, release and retirement. This requires the Game service;
 legacy Play reports it unavailable and the helper returns zero. The C host table
 layout remains unchanged.
+
+
+## Copied Scene-particle impacts
+
+Enable **Scene impact notifications (CPU)** on an Effect and run it against the
+Scene's realized3D orXY colliders. A Runtime owner-thread fixed System with Physics
+permission can use the matching public SDK:
+
+```cpp
+forge::sdk::Client client(host);
+const auto count = client.particle_impact_count();
+for (int32_t index = 0; index < count; ++index) {
+    ForgeSdkParticleImpactV1 event{};
+    if (client.particle_impact_event(index, event) != 1)
+        continue;
+    // Read copied canonical references and world contact values here.
+}
+```
+
+The count is a stable slot count, at most8192. Reads do not consume records. Removed
+references or a changed emitter binding leave unavailable slots; skip return0.
+Return-1 means invalid arguments or unavailable Physics/fixed/owner context. The
+record's tick identifies the previous completed visual interval, read during the
+next fixed tick. Touch0, Bounce1 and End2 are native motion outcomes. Contact
+centre precedes departure bias; normal, velocities, birth age, effect, seed and
+source generation are copied values. End marks a terminated birth, regardless of
+its retained final velocity. XY initial overlap ends with a zero normal.
+
+Use `particle_impact_gallery.cpp` and the canonical `ParticleImpactTint.cpp` System
+in `sdk/sample` for a complete descriptor/query example. Both `forge.physics` and
+`forge.particles` are declared dependencies; the descriptor requires/allows Physics.
+The sample changes runtime tint after a contact without editing Scene/Effect
+sources. The installed sample target is `particle_impact_gallery_gameplay`; its
+Windows GameplayRuntime deployment uses the existing module-kit installer.
+
+These callbacks append to the host table and deliberately change the exact SDK
+fingerprint/size while preserving native ABI1 and prior slots. Rebuild modules with
+the matching kit. No particle instance entities, synchronous collision callbacks,
+worker/control reads, resting contacts, device readback or two-way impulses are
+provided. Stop/reset and empty subsequent intervals do not replay old contacts.

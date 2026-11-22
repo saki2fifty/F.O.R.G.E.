@@ -77,3 +77,4 @@ Phase9 authoring workflows are implemented and automatically accepted.
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS
 contracts remain unchanged. Implementation triggers are stated in each record.
+| [077](077-scene-particle-impact-notifications.md) | Copied previous-interval particle contacts use existing history, fixed owner and exact SDK |

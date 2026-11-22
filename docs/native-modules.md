@@ -603,3 +603,24 @@ ordinary/SDK hosts consume the same component. `ui_values_gameplay` is an origin
 installed sample that checks independent vector/string copying and publishes a
 separate cpp_width value from the current native width. Exact SDK matching is
 required. UI runtime/presenter/asset handles are not installed as a second owner.
+
+
+## Scene-particle impact reads
+
+The matching exact SDK exposes `sdk::Client::particle_impact_count()` and
+`particle_impact_event(index, ForgeSdkParticleImpactV1&)`. Use a Runtime owner-thread
+fixed system with Physics permission and the `forge.physics` dependency. Enable
+Scene impact notifications on the Effect. Counts describe stable slots from the
+previous completed visual interval, observed during the next fixed tick; records
+carry that earlier tick. Zero is a missing slot or an empty interval, not a
+consumption acknowledgement. A removed emitter/collider or changed effect binding
+invalidates its slot. Control frames and workers are rejected.
+
+The POD includes canonical references, effect, seed, source generation, birth,
+query space, age, step-relative contact time, centre, normal and both velocities.
+The two callbacks append to the table and deliberately change its exact size and
+fingerprint while preserving native ABI1 and all prior offsets. Rebuild project
+modules with the matching SDK. The installed `particle_impact_gallery_gameplay`
+sample uses the same editable `ParticleImpactTint.cpp` as the Gallery. See
+[particle effects](particle-effects.md#scene-impact-observations) for limits,
+publication, permissions and failure semantics.

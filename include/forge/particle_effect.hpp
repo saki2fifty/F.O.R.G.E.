@@ -110,7 +110,8 @@ enum ProfileFlag : unsigned {
     SceneCollision = 512,
     MaterialPalette = 1024,
     SceneCollision2D = 2048,
-    SceneTrail = 4096
+    SceneTrail = 4096,
+    SceneImpact = 8192
 };
 struct ValueProfile {
     unsigned version;
@@ -185,7 +186,19 @@ inline constexpr std::array value_profiles{
                  CpuAlpha | Opacity | SceneCollision | SceneCollision2D | Billboard},
     ValueProfile{54, "cpu_scene_trail1", CpuAlpha | Opacity | SceneCollision | Trail | SceneTrail},
     ValueProfile{55, "cpu_scene_trail_2d1",
-                 CpuAlpha | Opacity | SceneCollision | SceneCollision2D | Trail | SceneTrail}};
+                 CpuAlpha | Opacity | SceneCollision | SceneCollision2D | Trail | SceneTrail},
+    ValueProfile{56, "cpu_scene_impact1", CpuAlpha | Opacity | SceneCollision | SceneImpact},
+    ValueProfile{57, "cpu_scene_impact_billboard1",
+                 CpuAlpha | Opacity | SceneCollision | Billboard | SceneImpact},
+    ValueProfile{58, "cpu_scene_impact_2d1",
+                 CpuAlpha | Opacity | SceneCollision | SceneCollision2D | SceneImpact},
+    ValueProfile{59, "cpu_scene_impact_2d_billboard1",
+                 CpuAlpha | Opacity | SceneCollision | SceneCollision2D | Billboard | SceneImpact},
+    ValueProfile{60, "cpu_scene_impact_trail1",
+                 CpuAlpha | Opacity | SceneCollision | Trail | SceneTrail | SceneImpact},
+    ValueProfile{61, "cpu_scene_impact_trail_2d1",
+                 CpuAlpha | Opacity | SceneCollision | SceneCollision2D | Trail | SceneTrail |
+                     SceneImpact}};
 static_assert([] {
     for (unsigned i = 0; i < value_profiles.size(); ++i)
         if (value_profiles[i].version != i + 1)
@@ -248,6 +261,9 @@ constexpr bool particle_uses_scene_collision_2d(const ParticleEffectData& data) 
 }
 constexpr bool particle_uses_scene_trails(const ParticleEffectData& data) {
     return particle_detail::has(data, particle_detail::SceneTrail);
+}
+constexpr bool particle_uses_scene_impacts(const ParticleEffectData& data) {
+    return particle_detail::has(data, particle_detail::SceneImpact);
 }
 constexpr bool particle_uses_billboards(const ParticleEffectData& data) {
     return particle_detail::has(data, particle_detail::Billboard);

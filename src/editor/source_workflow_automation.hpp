@@ -157,6 +157,14 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "matching capabilities. GPU uses float contact times and keeps killed births "
                  "as finite zero-size rows, without readback. No Scene-collider, arbitrary "
                  "Graph-motion, ribbon or camera-plane collision combination."},
+                {"scene_impacts",
+                 "asset.document.particle_scene_impacts opts into copied impact observations. "
+                 "Source20 and values56–61 retain CPU Mesh/camera-plane/World ribbons in 3D/XY. "
+                 "Project code reads the previous completed interval in the next fixed tick "
+                 "through the matching SDK with Physics permission. Stable slots, no consumption; "
+                 "retired targets return unavailable. Requires runtime_particle_scene_impacts1 "
+                 "and the selected Scene query/geometry capabilities. At most8192 slots per "
+                 "completed interval; existing Scene trace/query budgets also apply."},
                 {"scene_collision",
                  "asset.document.particle_scene_collision selects CPU Scene response. Optional "
                  "space=world3d preserves source16/values38/39; worldxy explicitly selects "
@@ -902,6 +910,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                                "particle_trails",
                                "particle_collision",
                                "particle_scene_collision",
+                               "particle_scene_impacts",
                                "particle_gpu_weighted",
                                "particle_gpu_sorted",
                                "particle_gpu_material_palette",
@@ -1031,6 +1040,10 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  {"friction", {{"type", "number"}, {"minimum", 0}, {"maximum", 1}}},
                  {"bounce_limit", automation_integer(0, 16)}},
                 {"normal", "offset", "radius", "restitution", "friction", "bounce_limit"});
+            needed.push_back("enabled");
+        } else if (std::string_view(action) == "particle_scene_impacts") {
+            properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
+            properties["enabled"] = {{"type", "boolean"}};
             needed.push_back("enabled");
         } else if (std::string_view(action) == "particle_scene_collision") {
             properties["editor"] = {{"type", "string"}, {"const", "particle_effect"}};
@@ -1188,6 +1201,16 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "discards pending work without changing history. Poll status until settled, "
                 "refresh document_revision and inspect diagnostics. Fill uses exact byte RGBA; "
                 "pixels reads exact stored bytes." +
+                (std::string_view(action) == "particle_scene_impacts"
+                     ? " Enable bounded CPU Scene impact notifications for project code. Source20 "
+                       "retains independent intent; active values56–61 support World3D/XY Mesh, "
+                       "camera-plane and historical World ribbons. Enabling selects CPU sorted "
+                       "alpha Scene collision. The matching exact SDK exposes copied previous "
+                       "completed interval observations during the next fixed tick with Physics "
+                       "permission. Reads preserve stable slots; retired targets are unavailable. "
+                       "Requires runtime_particle_scene_impacts1 plus the selected geometry and "
+                       "Scene query capabilities. Does not execute code or simulate the preview."
+                     : "") +
                 (std::string_view(action) == "particle_scene_collision"
                      ? " Select CPU particles that sweep the Runtime World's realized colliders "
                        "during Play. Optional space chooses world3d or worldxy; omission retains "

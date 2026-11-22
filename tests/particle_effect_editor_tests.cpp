@@ -799,6 +799,23 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
     editor.undo();
     require(editor.document()->source().document == world_trails,
             "World trail Undo lost exact retained source settings");
+    click("particles:scene-impacts");
+    frame();
+    require(editor.document()->source().compiled().version == 60 &&
+                editor.document()->source().document.at("version").get<unsigned>() == 20 &&
+                editor.document()->source().document.at("scene_impacts_enabled").get<bool>() &&
+                !test::ui_targets.at("particles:preview_play").enabled,
+            "Native impact notifications lost World trail/XY motion or Play prerequisite");
+    const auto impact_trails = editor.document()->source().document;
+    click("particles:scene-impacts");
+    require(editor.document()->source().compiled().version == 54,
+            "Disabling impact notifications disabled historical trails");
+    editor.undo();
+    require(editor.document()->source().document == impact_trails,
+            "Impact notifications Undo lost exact source history");
+    editor.undo();
+    require(editor.document()->source().document == world_trails,
+            "Impact notifications Undo did not restore exact prior source");
     for (unsigned i = 0; i < 8 && editor.document()->source().document != tuned_xy; ++i)
         editor.undo();
     require(editor.document()->source().document == tuned_xy,

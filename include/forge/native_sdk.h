@@ -164,6 +164,21 @@ typedef struct ForgeSdkPhysicsContactV1 {
     char first_scene_uuid[37], first_entity_uuid[37];
     char second_scene_uuid[37], second_entity_uuid[37];
 } ForgeSdkPhysicsContactV1;
+#define FORGE_SDK_PARTICLE_IMPACT_TOUCH 0u
+#define FORGE_SDK_PARTICLE_IMPACT_BOUNCE 1u
+#define FORGE_SDK_PARTICLE_IMPACT_END 2u
+#define FORGE_SDK_PARTICLE_IMPACT_WORLD_3D 0u
+#define FORGE_SDK_PARTICLE_IMPACT_WORLD_XY 1u
+#define FORGE_SDK_PARTICLE_IMPACT_LIMIT 8192u
+typedef struct ForgeSdkParticleImpactV1 {
+    uint32_t size, kind, seed, query_space;
+    uint64_t tick, birth, source_generation;
+    char emitter_scene[37], emitter_entity[37], collider_scene[37], collider_entity[37], effect[37];
+    double age_seconds, step_time_seconds;
+    /* Contact centre before departure bias. XY initial overlap ends a birth
+       with normal0; all other normals are normalized native query normals. */
+    double position[3], normal[3], incoming_velocity[3], outgoing_velocity[3];
+} ForgeSdkParticleImpactV1;
 /* Distinct XY-domain values. World metres, radians and seconds; never native IDs. */
 typedef struct ForgeSdkPhysicsHit2DV1 {
     uint32_t size;
@@ -669,6 +684,15 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* navigation_rebuild_state)(void*, uint64_t token,
                                                       ForgeSdkNavigationRebuildV1*);
     int32_t(FORGE_SDK_CALL* navigation_rebuild_cancel)(void*, uint64_t token);
+    /* Owner/fixed/Runtime/Physics. Previous completed particle interval only:
+       event.tick +1 == current fixed tick. No current-tick prediction or replay.
+       Count0..8192, -1 invalid context/permission. Stable nonconsuming slots;
+       a retired binding may make an individual slot unavailable. */
+    int32_t(FORGE_SDK_CALL* particle_impact_count)(void*);
+    /* Exact size required; correct-size output clears on failure.1 copied,
+       0 unavailable/index/retired binding,-1 invalid context/output. */
+    int32_t(FORGE_SDK_CALL* particle_impact_event)(void*, uint32_t index,
+                                                   ForgeSdkParticleImpactV1*);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

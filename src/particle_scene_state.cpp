@@ -32,6 +32,13 @@ ParticleSceneBirth birth(const ParticleEffectData& effect, const ParticleSpawnFr
     return result;
 }
 } // namespace
+double particle_scene_trace_start_age(const ParticleEffectData& data,
+                                      const ParticleSceneTrace& trace, double previous) {
+    if (data.emission == ParticleEmission::Burst)
+        return previous;
+    const auto phase = double(trace.birth.ordinal + 1);
+    return (std::max(previous * data.spawn_rate, phase) - phase) / data.spawn_rate;
+}
 ParticleSceneHistory advance_particle_scene_history(const ParticleSceneHistory& original,
                                                     const ParticleEffectData& effect,
                                                     std::uint32_t seed, double previous,
@@ -82,7 +89,7 @@ ParticleSceneHistory advance_particle_scene_history(const ParticleSceneHistory& 
                 ++work.queries;
                 return query(origin, delta, radius);
             },
-            born, particle_uses_scene_collision_2d(effect));
+            born, particle_uses_scene_collision_2d(effect), particle_uses_scene_impacts(effect));
         value.state = trace.step.state;
         if (value.state.alive && live_age(effect, window_after, current, ordinal)) {
             require(next.live.size() < effect.capacity,

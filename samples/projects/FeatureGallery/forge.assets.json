@@ -18653,6 +18653,16 @@
       "type": "tile_set"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "cda8b2e7-1a14-4585-8dae-b4e970690814",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/262-xy-particle-impact-trails.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "906431dc-89f5-4f4b-af0d-a9d7e1d6193e"
       ],
@@ -19098,6 +19108,16 @@
       "source": "Assets/Planar/CircleRing.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d46fc025-36f2-434e-815d-4d10edc15dd2",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Trails/XYImpactFlow.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],
@@ -20304,6 +20324,16 @@
       "type": "material"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e0707160-2ea8-4f7d-be45-41599194a00a",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/261-scene-particle-impacts.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "47d14aa4-eefb-4d8d-a188-12bd26627079"
       ],
@@ -20562,6 +20592,16 @@
       "source": "Scenes/241-particle-opacity.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e522a347-0188-4598-a8d8-272147ffd5c5",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Collision/SceneImpacts.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],

@@ -277,12 +277,78 @@ void profiles() {
         reject([&] { (void)parse(invalid); });
     }
 }
+void impact_profiles() {
+    for (bool planar : {false, true})
+        for (unsigned geometry = 0; geometry < 3; ++geometry) {
+            auto source = ParticleEffectSource::create(AssetId::generate());
+            source.document["extensions"] = {{"scene_impacts_enabled", "opaque"}};
+            const auto original = source.document;
+            source.set_scene_impacts(false);
+            check(source.document == original, "Inactive impacts upgraded a legacy source");
+            if (geometry == 1)
+                source.enable_billboards(true);
+            source.set_scene_collision(true);
+            source.set_scene_collision_space(planar);
+            if (geometry == 2)
+                source.set_world_trails(true, ParticleTrailSettings{.5, 4});
+            const auto prior_version = source.compiled().version;
+            source.set_scene_impacts(true);
+            const auto active = source.document;
+            const auto expected = geometry == 2 ? 60u + planar : 56u + geometry + 2u * planar;
+            check(active.at("version").get<unsigned>() == 20 &&
+                      source.compiled().version == expected &&
+                      particle_uses_scene_impacts(source.compiled()) &&
+                      active.at("asset_id") == original.at("asset_id") &&
+                      active.at("extensions") == original.at("extensions") &&
+                      parse(active).document == active &&
+                      decode_cooked_particle_effect(source.cook(), source.asset(), 3) ==
+                          source.compiled(),
+                  "Scene impacts lost explicit profile, source identities or immutable cook");
+            source.set_scene_impacts(true);
+            check(source.document == active, "Repeated impact activation changed source state");
+            for (auto backend : {ParticleEvaluation::Cpu, ParticleEvaluation::Gpu}) {
+                source.set_evaluation(backend);
+                check(!particle_uses_scene_impacts(source.compiled()) &&
+                          source.document.at("scene_impacts_enabled").get<bool>(),
+                      "Inactive impact intent leaked into another evaluation or was discarded");
+                source.set_evaluation(ParticleEvaluation::CpuAlpha);
+                check(source.document == active, "Backend switch lost retained impact source");
+            }
+            source.set_scene_impacts(false);
+            check(source.compiled().version == prior_version &&
+                      !particle_uses_scene_impacts(source.compiled()),
+                  "Disabling impacts changed the retained Scene geometry");
+            source.set_scene_impacts(true);
+            check(source.document == active, "Impact disable/enable lost exact source state");
+            source.set_scene_collision_space(!planar);
+            check(source.document.at("version").get<unsigned>() == 20 &&
+                      source.compiled().version ==
+                          (geometry == 2 ? 60u + !planar : 56u + geometry + 2u * !planar),
+                  "Impact query-space change downgraded source or discarded notifications");
+            source.set_scene_collision_space(planar);
+            check(source.document == active, "Impact query-space round trip changed source");
+            if (geometry == 2) {
+                source.set_world_trails(true, ParticleTrailSettings{.625, 8});
+                check(source.document.at("version").get<unsigned>() == 20 &&
+                          particle_uses_scene_impacts(source.compiled()) &&
+                          source.compiled().trail == ParticleTrailSettings{.625, 8},
+                      "World trail settings downgraded impact source20");
+            }
+            for (const auto& invalid :
+                 {nlohmann::json(), nlohmann::json(1), nlohmann::json("true")}) {
+                auto bad = active;
+                bad["scene_impacts_enabled"] = invalid;
+                reject([&] { (void)parse(bad); });
+            }
+        }
+}
 } // namespace
 int main() {
     try {
         profiles();
         xy_profiles();
         world_trail_profiles();
+        impact_profiles();
         std::cout << "Scene particle source profiles passed\n";
         return 0;
     } catch (const std::exception& error) {

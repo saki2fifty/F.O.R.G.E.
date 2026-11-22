@@ -1,17 +1,21 @@
 #pragma once
 #include "particle_effect_resource.hpp"
+#include "particle_runtime_access.hpp"
 #include "particle_scene_state.hpp"
 #include <forge/render_components.hpp>
 #include <forge/world.hpp>
 namespace forge {
 // World-owned visual emission age. The existing simulation supplies fixed dt;
 // presentation reads interpolate compact state and never progress another clock.
-class ParticleRuntime {
+class ParticleRuntime : public ParticleRuntimeAccess {
   public:
     ParticleRuntime(WorldContext&, std::filesystem::path);
     bool prepare();
     void synchronize();
     void tick(float);
+    void tick(float, std::uint64_t fixed_tick);
+    ParticleImpactFrame impact_frame() const override;
+    std::optional<ParticleImpactRecord> impact_at(std::size_t) const override;
     void reset();
     Json presentation(flecs::entity_t, double) const;
     // Analytic profiles return local positions; Scene profiles return copied
@@ -35,6 +39,8 @@ class ParticleRuntime {
     std::shared_ptr<const AssetCatalog> catalog_;
     ResourcePool<ParticleEffectAsset> effects_{{1, 64, 256, 128 * 1024}};
     std::map<flecs::entity_t, Entry> entries_;
+    std::vector<ParticleImpactRecord> impacts_;
+    std::uint64_t impacts_tick_ = 0;
     bool alive_ = true;
 };
 EngineModule particle_module(std::filesystem::path);

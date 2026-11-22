@@ -46,13 +46,6 @@ void validate_snapshot(const ParticleSceneTrailSnapshot& snapshot, const Particl
     require(consumed == snapshot.points.size(),
             "Particle World trail history has unowned point storage");
 }
-double trace_start_age(const ParticleEffectData& data, const ParticleSceneTrace& trace,
-                       double previous) {
-    if (data.emission == ParticleEmission::Burst)
-        return previous;
-    const auto phase = double(trace.birth.ordinal + 1);
-    return (std::max(previous * data.spawn_rate, phase) - phase) / data.spawn_rate;
-}
 struct TrailBirth {
     std::uint64_t ordinal;
     const ParticleSceneTrailRange* previous;
@@ -109,7 +102,7 @@ void visit_births(const ParticleSceneHistory& history, const ParticleEffectData&
                          retained ? retained->end_age : data.lifetime,
                          retained ? retained->width_scale : 1};
         if (active) {
-            birth.start_age = trace_start_age(data, *active, previous);
+            birth.start_age = particle_scene_trace_start_age(data, *active, previous);
             birth.width_scale = std::hypot(active->basis[0], active->basis[3], active->basis[6]);
             if (retained)
                 require(birth.width_scale == retained->width_scale,

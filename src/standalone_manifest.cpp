@@ -250,6 +250,14 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                 "XY Scene particle collision requires the runtime kit packaged "
                                 "with this editor");
                     }
+                    if (particle_uses_scene_impacts(particle)) {
+                        const auto impacts = engine.find("runtime_particle_scene_impacts");
+                        require(impacts != engine.end() && impacts->is_number_integer() &&
+                                    impacts->get<std::uint64_t>() ==
+                                        particle_scene_impacts_profile_version,
+                                "Scene particle impact notifications require the runtime kit "
+                                "packaged with this editor");
+                    }
                     if (particle_uses_scene_trails(particle)) {
                         const auto trail = engine.find("runtime_particle_scene_trail");
                         require(trail != engine.end() && trail->is_number_integer() &&

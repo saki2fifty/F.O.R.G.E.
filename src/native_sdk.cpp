@@ -2,6 +2,7 @@
 #include "bounded_json.hpp"
 #include "json_output_text.hpp"
 #include "navigation_area_value.hpp"
+#include "particle_runtime_access.hpp"
 #include "runtime_entity_creation.hpp"
 #include "runtime_tile_map.hpp"
 #include <algorithm>
@@ -31,6 +32,9 @@
 namespace forge {
 namespace {
 using Json = nlohmann::json;
+static_assert(unsigned(ParticleSceneImpactKind::Touch) == FORGE_SDK_PARTICLE_IMPACT_TOUCH &&
+              unsigned(ParticleSceneImpactKind::Bounce) == FORGE_SDK_PARTICLE_IMPACT_BOUNCE &&
+              unsigned(ParticleSceneImpactKind::End) == FORGE_SDK_PARTICLE_IMPACT_END);
 static_assert(unsigned(AudioSourceOperation::Stop) == FORGE_SDK_AUDIO_STOP &&
               unsigned(AudioSourceOperation::Restart) == FORGE_SDK_AUDIO_RESTART &&
               unsigned(AudioSourceOperation::Pause) == FORGE_SDK_AUDIO_PAUSE &&
@@ -1770,6 +1774,75 @@ struct Bridge {
                     return 0;
                 return static_cast<int32_t>(events.size());
             } catch (...) {
+                return -1;
+            }
+        };
+        host.particle_impact_count = [](void* p) -> int32_t {
+            try {
+                auto& bridge = Bridge::get(p);
+                auto& c = bridge.context;
+                if (!bridge.entities_callable() || !c.input)
+                    return -1;
+                (void)c.services.physics(); // The existing Physics permission owns access.
+                const auto particles = particle_runtime_access(*c.owner);
+                if (!particles)
+                    return 0;
+                const auto frame = particles->impact_frame();
+                if (!frame.tick || !c.input->tick || frame.tick != c.input->tick - 1)
+                    return 0;
+                if (frame.count > FORGE_SDK_PARTICLE_IMPACT_LIMIT)
+                    return -1;
+                return static_cast<int32_t>(frame.count);
+            } catch (...) {
+                return -1;
+            }
+        };
+        host.particle_impact_event = [](void* p, uint32_t index,
+                                        ForgeSdkParticleImpactV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& bridge = Bridge::get(p);
+                auto& c = bridge.context;
+                if (!bridge.entities_callable() || !c.input)
+                    return -1;
+                (void)c.services.physics();
+                const auto particles = particle_runtime_access(*c.owner);
+                if (!particles)
+                    return 0;
+                const auto frame = particles->impact_frame();
+                if (frame.count > FORGE_SDK_PARTICLE_IMPACT_LIMIT)
+                    return -1;
+                if (!frame.tick || !c.input->tick || frame.tick != c.input->tick - 1 ||
+                    index >= frame.count)
+                    return 0;
+                const auto value = particles->impact_at(index);
+                if (!value)
+                    return 0;
+                out->kind = static_cast<uint32_t>(value->contact.kind);
+                out->seed = value->seed;
+                out->query_space = value->planar_2d ? FORGE_SDK_PARTICLE_IMPACT_WORLD_XY
+                                                    : FORGE_SDK_PARTICLE_IMPACT_WORLD_3D;
+                out->tick = frame.tick;
+                out->birth = value->birth;
+                out->source_generation = value->source_generation;
+                copy_text(out->emitter_scene, value->emitter.scene.str());
+                copy_text(out->emitter_entity, value->emitter.entity.str());
+                copy_text(out->collider_scene, value->contact.collider.scene.str());
+                copy_text(out->collider_entity, value->contact.collider.entity.str());
+                copy_text(out->effect, value->effect.str());
+                out->age_seconds = value->age;
+                out->step_time_seconds = value->contact.time;
+                std::copy_n(value->contact.position.data(), 3, out->position);
+                std::copy_n(value->contact.normal.data(), 3, out->normal);
+                std::copy_n(value->contact.incoming_velocity.data(), 3, out->incoming_velocity);
+                std::copy_n(value->contact.outgoing_velocity.data(), 3, out->outgoing_velocity);
+                return 1;
+            } catch (...) {
+                *out = {};
+                out->size = sizeof(*out);
                 return -1;
             }
         };

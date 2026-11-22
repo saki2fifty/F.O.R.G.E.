@@ -416,3 +416,20 @@ Gallery93's two markers from raw acceleration/gyroscope X/Y. No orientation or
 fusion is calculated. The public `gamepad_motion_gameplay` target wraps the same
 source; it allows Game optionally and leaves markers neutral in a simulation
 profile without that service. Register both callbacks in a custom project.
+
+
+## Particle impact colour response
+
+Scenes261 and262 enable copied CPU Scene impact notifications in3D andXY. Their
+ordinary particle motion runs without optional code. Add a managed empty System
+named **ParticleImpactTint** and replace its source with `ParticleImpactTint.cpp`.
+The module needs `forge.physics` and `forge.particles` dependencies and Physics in
+its required/wanted permission masks; preserve the managed module's ID and hooks.
+The installed SDK sample descriptor `particle_impact_gallery.cpp` shows those
+fields; `particle_impact_gallery_gameplay` builds this same System source.
+
+Save/build with the matching SDK, then Play. An emitter turns pink after a native
+particle contact was completed in the previous visual interval. No source/Scene
+colour is saved by the System. Reads run on the fixed owner thread, skip retired
+slots and do not consume other systems' observations. See the complete
+[steps and export limits](../../../../manual/editor/particles.md#scene-impact-notifications).

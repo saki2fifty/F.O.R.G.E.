@@ -18,6 +18,8 @@ struct ParticleSceneTrace {
     double begin = 0;
     ParticleSceneStep step;
 };
+double particle_scene_trace_start_age(const ParticleEffectData&, const ParticleSceneTrace&,
+                                      double previous);
 struct ParticleSceneTrailPoint {
     double age = 0;
     Double3 position{};

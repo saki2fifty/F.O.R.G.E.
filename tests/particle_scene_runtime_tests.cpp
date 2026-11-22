@@ -6,6 +6,8 @@
 #include "render_values.hpp"
 #include <cmath>
 #include <forge/authoring.hpp>
+#include <forge/native_sdk.h>
+#include <forge/native_sdk.hpp>
 #include <forge/physics.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
@@ -15,6 +17,7 @@
 using namespace forge;
 using namespace std::chrono_literals;
 namespace {
+static_assert(particle_scene_query_limit == FORGE_SDK_PARTICLE_IMPACT_LIMIT);
 void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
@@ -71,10 +74,19 @@ struct Fixture {
     Scene authored;
     RuntimeSimulation simulation;
     std::shared_ptr<ParticleRuntime> particles;
-    Fixture(const std::filesystem::path& root, const Json& source, bool physics = true)
-        : engine(WorldRole::Runtime, false,
-                 physics ? std::vector<EngineModule>{physics_module(), particle_module(root)}
-                         : std::vector<EngineModule>{particle_module(root)}),
+    static std::vector<EngineModule> modules(const std::filesystem::path& root, bool physics,
+                                             const std::filesystem::path& sdk, const char* module) {
+        std::vector<EngineModule> result{particle_module(root)};
+        if (physics)
+            result.push_back(physics_module());
+        if (!sdk.empty())
+            result.push_back(load_native_sdk(sdk, module, "1"));
+        return result;
+    }
+    Fixture(const std::filesystem::path& root, const Json& source, bool physics = true,
+            const std::filesystem::path& sdk = {},
+            const char* module = "project.particle_impacts_probe")
+        : engine(WorldRole::Runtime, false, modules(root, physics, sdk, module)),
           authored(engine.world()), simulation(engine.world(), authored),
           particles(particle_runtime(engine.world())) {
         authored.restore_snapshot(source);
@@ -351,17 +363,126 @@ void historical_reservation(const std::filesystem::path& root, AssetId effect) {
     check(rejected.particles->presentation(rejected.actor().id(), 1).at("time") == 0,
           "World trail reservation failure partially advanced the accepted emitter clock");
 }
+void impact_publication(const std::filesystem::path& root, AssetId effect, bool planar) {
+    Fixture live(root, scene(effect, planar));
+    live.ready();
+    const auto view = particle_runtime_access(live.engine.world());
+    check(view && view->impact_frame() == ParticleImpactFrame{},
+          "Scene impact bridge published before its first completed interval");
+    live.simulation.tick(.1f);
+    const auto frame = view->impact_frame();
+    check(frame.tick == 1 && frame.count == 4 && !view->impact_at(4),
+          "Scene impacts lost completed-tick provenance, stable slots or native birth count");
+    const auto emitter = *live.engine.world().reference(live.actor().id());
+    const auto collider = *live.engine.world().reference(live.authored.entity("floor").id());
+    for (std::size_t i = 0; i < frame.count; ++i) {
+        const auto impact = view->impact_at(i);
+        check(impact && impact->emitter == emitter && impact->effect == effect &&
+                  impact->seed == 17 && impact->source_generation > 0 && impact->birth == i &&
+                  impact->planar_2d == planar && impact->contact.collider == collider &&
+                  impact->age > 0 && impact->age < .1 &&
+                  std::abs(impact->contact.position[1] - .05) < 1e-4 &&
+                  impact->contact.normal == Double3{0, 1, 0} &&
+                  impact->contact.incoming_velocity[1] == -120 &&
+                  impact->contact.outgoing_velocity[1] == 60 &&
+                  impact->contact.kind == ParticleSceneImpactKind::Bounce,
+              "Published native impact lost binding, time, center, response or excluded sensors");
+    }
+    const auto first = view->impact_at(0);
+    reject([&] { live.particles->tick(1e9f, 2); });
+    check(view->impact_frame() == frame && view->impact_at(0) == first,
+          "Rejected particle time partially adopted an impact broadcast");
+    auto config = live.actor().get<ParticleEmitter>();
+    const auto original = config;
+    config.seed += 1;
+    live.actor().set<ParticleEmitter>(config);
+    check(!view->impact_at(0) && view->impact_frame() == frame,
+          "An impact remained bound to a replaced seed or changed stable slot count");
+    live.actor().set<ParticleEmitter>(original);
+    check(view->impact_at(0) == first, "An unadopted field edit mutated copied impact provenance");
+    live.authored.entity("floor").destruct();
+    check(!view->impact_at(0) && view->impact_frame() == frame,
+          "A retired collider retained an available impact or shifted stable slots");
+    config = original;
+    config.playback_speed = 0;
+    live.actor().set<ParticleEmitter>(config);
+    live.simulation.tick(.01f);
+    check(view->impact_frame() == ParticleImpactFrame{2, 0} && !view->impact_at(0),
+          "A frozen next interval replayed an earlier impact");
+    live.simulation.reset_presentation();
+    check(view->impact_frame() == ParticleImpactFrame{},
+          "Visual reset retained a published impact interval");
+}
+void impact_sdk(const std::filesystem::path& root, AssetId effect, bool planar,
+                const std::filesystem::path& sdk, bool denied, bool retire) {
+    Fixture live(root, scene(effect, planar), true, sdk,
+                 denied ? "project.particle_impacts_denied" : "project.particle_impacts_probe");
+    live.ready();
+    auto observations = [&] {
+        std::vector<Json> result;
+        for (const auto& entry : live.engine.services().diagnostics()) {
+            const auto text = entry.at("text").get<std::string>();
+            if (text.starts_with("Particle impacts: "))
+                result.push_back({{"tick", entry.at("context").at("tick")},
+                                  {"value", Json::parse(text.substr(18))}});
+        }
+        return result;
+    };
+    live.simulation.tick(.1f);
+    auto rows = observations();
+    check(rows.size() == 1 && rows[0].at("tick").get<unsigned>() == 1 &&
+              rows[0].at("value").at("count").get<int>() == (denied ? -1 : 0),
+          "SDK observed impacts before completion or bypassed Physics permission");
+    if (retire)
+        live.authored.entity("floor").destruct();
+    live.simulation.tick(.01f);
+    rows = observations();
+    check(rows.size() == 2 && rows[1].at("tick").get<unsigned>() == 2,
+          "SDK did not run in the next fixed interval");
+    const auto& value = rows[1].at("value");
+    check(value.at("count").get<int>() == (denied ? -1 : 4) &&
+              value.at("events").size() == (denied || retire ? 0 : 4),
+          "SDK changed stable impact slots, exposed denied or retired references");
+    for (const auto& event : value.at("events")) {
+        const auto emitter_ref = *live.engine.world().reference(live.actor().id());
+        const auto collider_ref =
+            *live.engine.world().reference(live.authored.entity("floor").id());
+        check(event.at("tick").get<unsigned>() == 1 &&
+                  event.at("space").get<unsigned>() == unsigned(planar) &&
+                  event.at("kind").get<unsigned>() == 1 &&
+                  event.at("effect").get<std::string>() == effect.str() &&
+                  event.at("emitter_scene").get<std::string>() == emitter_ref.scene.str() &&
+                  event.at("emitter").get<std::string>() == emitter_ref.entity.str() &&
+                  event.at("collider_scene").get<std::string>() == collider_ref.scene.str() &&
+                  event.at("collider").get<std::string>() == collider_ref.entity.str() &&
+                  event.at("seed").get<unsigned>() == 17 &&
+                  std::abs(event.at("position").at(1).get<double>() - .05) < 1e-4 &&
+                  event.at("normal") == Json::array({0, 1, 0}) &&
+                  event.at("incoming").at(1).get<double>() == -120 &&
+                  event.at("outgoing").at(1).get<double>() == 60,
+              "SDK copied incorrect previous-interval particle impact provenance");
+    }
+    auto config = live.actor().get<ParticleEmitter>();
+    config.playback_speed = 0;
+    live.actor().set<ParticleEmitter>(config);
+    live.simulation.tick(.01f);
+    rows = observations();
+    check(rows.size() == 3 && rows.back().at("value").at("count").get<int>() == (denied ? -1 : 0),
+          "SDK replayed a consumed visual interval on a later fixed tick");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2, "Need Scene particle runtime scratch root");
+        check(argc == 2 || argc == 4 || argc == 5,
+              "Need scratch root and optional allowed/denied/gallery SDK modules");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);
         AssetImportService imports(lease, particle_effect_import_registry(),
                                    {"linux", "none", "cpu"});
         auto publish = [&](const char* name, bool heavy, bool analytic, bool planar_2d = false,
-                           bool world_trails = false) {
+                           bool world_trails = false, bool impacts = false,
+                           bool billboards = false) {
             auto document = ParticleEffectDocument::create(lease, name);
             document->edit(document->revision(), "Scene particle fixture", [&](auto& value) {
                 ParticleEffectSource source{value};
@@ -374,6 +495,8 @@ int main(int argc, char** argv) {
                     source.document["speed_min"] = source.document["speed_max"] = heavy ? 0 : 120;
                     source.document["acceleration"] = {0, heavy ? -10000 : 0, 0};
                     source.document["size_start"] = source.document["size_end"] = .1;
+                    if (billboards)
+                        source.enable_billboards(true);
                     source.set_scene_collision(true, ParticleSceneCollision{.05, .5, 0, 4, 1});
                     if (planar_2d)
                         source.set_scene_collision_space(true);
@@ -383,6 +506,8 @@ int main(int argc, char** argv) {
                             source.document["capacity"] = source.document["burst_count"] = 512;
                         source.set_world_trails(true, ParticleTrailSettings{.5, heavy ? 16u : 8u});
                     }
+                    if (impacts)
+                        source.set_scene_impacts(true);
                 }
                 value = std::move(source.document);
             });
@@ -418,6 +543,32 @@ int main(int argc, char** argv) {
         historical_trails(root, world_trails, false);
         historical_trails(root, world_trails_xy, true);
         historical_reservation(root, heavy_trails);
+        for (bool planar : {false, true})
+            for (unsigned geometry = 0; geometry < 3; ++geometry) {
+                const auto name = "Assets/Impact" + std::to_string(geometry) +
+                                  (planar ? "XY.particles.json" : ".particles.json");
+                const auto impact =
+                    publish(name.c_str(), false, false, planar, geometry == 2, true, geometry == 1);
+                impact_publication(root, impact, planar);
+                if (argc >= 4) {
+                    impact_sdk(root, impact, planar, argv[2], false, false);
+                    impact_sdk(root, impact, planar, argv[3], true, false);
+                    if (geometry == 0)
+                        impact_sdk(root, impact, planar, argv[2], false, true);
+                }
+                if (argc == 5) {
+                    Fixture code(root, scene(impact, planar), true, argv[4],
+                                 "project.particle_impact_gallery");
+                    code.ready();
+                    code.simulation.tick(.1f);
+                    check(code.actor().get<ParticleEmitter>().tint_g == 1,
+                          "Gallery code reacted before the impact interval completed");
+                    code.simulation.tick(.01f);
+                    const auto tinted = code.actor().get<ParticleEmitter>();
+                    check(tinted.tint_r == 1 && tinted.tint_g == .15f && tinted.tint_b == .5f,
+                          "Actual Gallery System did not react to the previous completed impact");
+                }
+            }
         auto mixed_overflow = scene(heavy);
         mixed_overflow["entities"].push_back(emitter("planar", xy));
         Fixture reserved(root, mixed_overflow);

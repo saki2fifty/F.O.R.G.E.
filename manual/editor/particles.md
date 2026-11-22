@@ -494,7 +494,9 @@ ribbon workflow below. It does not combine with GPU evaluation, local analytic
 ribbons or the local-plane response. Queries use bounded
 straight sphere or circle sweeps to approximate curved paths against the current physics
 snapshot; this is not continuous moving-surface collision. There are no resting
-contacts, collision callbacks or two-way rigid-body response.
+contacts, synchronous collision callbacks or two-way rigid-body response. Enable
+**Scene impact notifications (CPU)** to let project code read copied contacts in
+the next fixed tick, as described below.
 
 **World XY** ignores collider and particle Z positions when checking contact.
 Rebound and friction affect X/Y motion; Z keeps its authored acceleration and drag.
@@ -646,3 +648,45 @@ enabled emitters. It uses the matching Scene-collision runtime-kit capability.
 Changing the seed restarts the effect with a different pattern. C++ can adjust the
 native component; `sdk/sample/particle_probe.cpp` demonstrates seed/speed changes
 with a matching rebuilt SDK module.
+
+
+## Scene impact notifications
+
+![CPU Mesh particles above the Scene floor and obstacle](../images/scene-particle-impacts.png)
+
+Gallery261 in Game at three seconds, with impact collection enabled. The saved
+teal/amber colours are shown before adding the optional project-code response.
+
+![Historical ribbons responding to XY Scene colliders](../images/xy-particle-impact-trails.png)
+
+Gallery262 combines historical World ribbons with copied XY impact observations.
+
+Use **Scene impact notifications (CPU)** when project code should respond to a
+particle touching, bouncing from or ending at a Scene collider. The option is in
+the Particle Effect editor beside **Scene collision (CPU)**. Enabling it selects
+**CPU (sorted alpha)** and Scene collision. Mesh particles, camera-plane particles
+and historical World ribbon trails support **World 3D** and **World XY**.
+
+1. Open FeatureGallery **Scenes/261-scene-particle-impacts.scene.json** for Mesh particles or **Scenes/262-xy-particle-impact-trails.scene.json** for XY ribbons. Both include a camera, light, floor, obstacle and two emitters. Press **Play** to see the saved motion; project code is optional for this first view.
+2. Stop Play. Select an emitter and open its Effect from Content. Check **Scene impact notifications (CPU)**, choose the Scene query space and tune the normal Scene collision settings. Save and publish the Effect.
+3. To add the colour response, create a C++ System named **ParticleImpactTint** using **Component: None (empty registration)**. Replace its source with `CodeExamples/ParticleImpactTint.cpp` from FeatureGallery. Keep that registration function name. See [Project Code](native-gameplay.md) for source creation and compiler setup.
+4. In the project's `Native/gameplay.cpp` descriptor, declare `forge.physics` and `forge.particles` dependencies and request **FORGE_SDK_PHYSICS** in both the required and wanted service masks. The installed SDK's `sdk/sample/particle_impact_gallery.cpp` shows these exact descriptor fields. Keep the managed project's own module ID and generated schema/system hooks.
+5. Save all code, **Build Project Code**, then press **Play**. Each emitter turns pink after one of its particles contacts a realized Scene collider. The System reads the completed contact in the next fixed tick and changes the emitter's runtime tint. Stop returns to saved colours. The Scene keeps its authored values; the response does not rewrite the Effect.
+6. Save the Scene and project, then export with the matching runtime and module kits. Test the exported game. Rebuild Project Code whenever the installed SDK changes; an older kit cannot provide these observations.
+
+C++ can read `sdk::Client::particle_impact_count()` and
+`particle_impact_event(index, event)`. Records identify the emitter, collider,
+Effect, particle birth, seed and completed tick and provide contact position,
+normal, age and incoming/outgoing velocities. The position is the particle centre
+before its separation gap. Multiple systems may read the same records. A removed
+object leaves an unavailable slot, so skip a read returning0. A return of-1 means
+invalid arguments or unavailable permissions/context.
+
+Reads run on the Runtime owner thread during a fixed tick with Physics permission.
+They report the previous completed visual interval; they are unavailable while
+paused outside a stepped fixed tick. They do not execute a callback immediately
+inside collision detection. At most8,192 slots are retained for one completed
+interval, subject to the existing Scene collision budgets. A later empty interval,
+Stop or visual reset does not replay old contacts. These transient observations
+are not saved or recovered. They do not add resting contacts, two-way impulses,
+GPU collision readback or continuous moving-surface collision.

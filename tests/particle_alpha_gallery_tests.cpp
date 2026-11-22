@@ -41,6 +41,7 @@ struct Example {
     bool scene_collision = false;
     bool scene_collision_2d = false;
     bool world_trails = false;
+    bool impacts = false;
 };
 constexpr Example alpha{"Scenes/240-sorted-alpha-particles.scene.json",
                         "Assets/Particles/Alpha/GlassCloud.particles.json", false};
@@ -161,6 +162,18 @@ constexpr Example xy_world_ribbons{.scene = "Scenes/260-xy-world-particle-trails
                                    .scene_collision = true,
                                    .scene_collision_2d = true,
                                    .world_trails = true};
+constexpr Example scene_impacts{.scene = "Scenes/261-scene-particle-impacts.scene.json",
+                                .effect = "Assets/Particles/Collision/SceneImpacts.particles.json",
+                                .opacity = true,
+                                .scene_collision = true,
+                                .impacts = true};
+constexpr Example xy_scene_impacts{.scene = "Scenes/262-xy-particle-impact-trails.scene.json",
+                                   .effect = "Assets/Particles/Trails/XYImpactFlow.particles.json",
+                                   .opacity = true,
+                                   .scene_collision = true,
+                                   .scene_collision_2d = true,
+                                   .world_trails = true,
+                                   .impacts = true};
 constexpr const char* quad_material = "Assets/Particles/Billboards/SoftCloud.material.json";
 constexpr const char* quad_texture = "Assets/Particles/Billboards/SoftCloud.paint-texture.json";
 constexpr const char* gpu_quad_material = "Assets/Particles/Billboards/DeviceCloud.material.json";
@@ -174,6 +187,10 @@ const char* material_source(const Example& example) {
                                                       : alpha_material;
 }
 unsigned value_version(const Example& example) {
+    if (example.impacts)
+        return example.world_trails         ? (example.scene_collision_2d ? 61u : 60u)
+               : example.scene_collision_2d ? (example.billboards ? 59u : 58u)
+                                            : (example.billboards ? 57u : 56u);
     return example.world_trails               ? (example.scene_collision_2d ? 55u : 54u)
            : example.scene_collision_2d       ? 53u
            : example.scene_collision          ? 39u
@@ -350,6 +367,8 @@ void author(const std::filesystem::path& root, const Example& example) {
     effect.validate();
     if (example.world_trails)
         effect.set_world_trails(true, ParticleTrailSettings{.75, 12});
+    if (example.impacts)
+        effect.set_scene_impacts(true);
     write(root / example.effect, effect.document);
     auto catalog = AssetCatalog::open_project(root);
     if (!reuse_material)
@@ -523,9 +542,11 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
               render.cameras.size() == 1 && render.lights.size() == 1,
           "Sorted-alpha example lost its native Scene consumers");
     if (example.scene_collision) {
-        check(effect.document.at("version") == (example.world_trails         ? 19
-                                                : example.scene_collision_2d ? 18
-                                                                             : 16) &&
+        check(effect.document.at("version").get<unsigned>() == (example.impacts        ? 20u
+                                                                : example.world_trails ? 19
+                                                                : example.scene_collision_2d
+                                                                    ? 18
+                                                                    : 16) &&
                   effect.compiled().scene_collision ==
                       ParticleSceneCollision{.06, .65, .15, 2, UINT32_MAX} &&
                   !effect.compiled().collision && scene.document().at("entities").size() == 6,
@@ -890,7 +911,14 @@ int main(int argc, char** argv) {
         check(argc >= 3, "Need sorted-alpha Gallery action and project root");
         const auto root = std::filesystem::absolute(argv[2]);
         const std::string_view action = argv[1];
-        if (action == "--author-world-trails")
+        if (action == "--author-scene-impacts" || action == "--author-xy-scene-impacts")
+            author(root, action == "--author-scene-impacts" ? scene_impacts : xy_scene_impacts);
+        else if (action == "--inspect-scene-impacts" || action == "--inspect-xy-scene-impacts")
+            (void)inspect(root,
+                          action == "--inspect-scene-impacts" ? scene_impacts : xy_scene_impacts);
+        else if (action == "--prepare-scene-impacts" || action == "--prepare-xy-scene-impacts")
+            prepare(root, action == "--prepare-scene-impacts" ? scene_impacts : xy_scene_impacts);
+        else if (action == "--author-world-trails")
             author(root, world_ribbons);
         else if (action == "--author-xy-world-trails")
             author(root, xy_world_ribbons);
@@ -1045,6 +1073,8 @@ int main(int argc, char** argv) {
                    action == "--verify-export-gpu-sorted" ||
                    action == "--verify-export-scene-collision" ||
                    action == "--verify-export-xy-scene-collision" ||
+                   action == "--verify-export-scene-impacts" ||
+                   action == "--verify-export-xy-scene-impacts" ||
                    action == "--verify-export-world-trails" ||
                    action == "--verify-export-xy-world-trails") {
             const bool gpu = action == "--verify-export-gpu-sorted" ||
@@ -1064,7 +1094,9 @@ int main(int argc, char** argv) {
             std::filesystem::create_directories(copy.parent_path());
             std::filesystem::copy(root, copy, std::filesystem::copy_options::recursive);
             verify_export(copy,
-                          action == "--verify-export-world-trails"           ? world_ribbons
+                          action == "--verify-export-scene-impacts"          ? scene_impacts
+                          : action == "--verify-export-xy-scene-impacts"     ? xy_scene_impacts
+                          : action == "--verify-export-world-trails"         ? world_ribbons
                           : action == "--verify-export-xy-world-trails"      ? xy_world_ribbons
                           : action == "--verify-export-xy-scene-collision"   ? xy_scene_colliding
                           : action == "--verify-export-scene-collision"      ? scene_colliding

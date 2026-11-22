@@ -460,7 +460,7 @@ void RuntimeSimulation::tick(float dt) {
         capture_system_profile();
     if (particles_) {
         auto profile = context_.services().profile("runtime", "Particles", input_tick_);
-        particles_->tick(dt);
+        particles_->tick(dt, input_tick_);
     }
     {
         auto profile =
