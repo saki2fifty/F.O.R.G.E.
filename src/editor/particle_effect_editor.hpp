@@ -477,7 +477,23 @@ class ParticleEffectEditor {
             ui::help("The current emitter transform applies to the whole local path. Tails shrink "
                      "after a head dies. Use a double-sided Material. CPU and GPU retain "
                      "independent activation with shared duration and segment settings.");
-            if (trails && document_->source().document.contains("trail")) {
+            bool world_trails =
+                !gpu_trails && document_->source().document.value("world_trail_enabled", false);
+            if (!gpu_trails) {
+                if (ImGui::Checkbox("World ribbon trails (CPU)", &world_trails))
+                    mutate("Set particle World trails", [&](auto& value) {
+                        ParticleEffectSource candidate{value};
+                        candidate.set_world_trails(world_trails);
+                        value = std::move(candidate.document);
+                    });
+                FORGE_UI_PROBE("particles:world-trails");
+                ui::help("Retain historical birth motion through Scene collision in the selected "
+                         "World 3D or World XY query space. Earlier points and birth widths stay "
+                         "fixed when the emitter moves. Play is required. Tails shrink after "
+                         "contact death or lifetime expiry. Contact corners consume trail "
+                         "segments; insufficient segments reject the complete update.");
+            }
+            if ((trails || world_trails) && document_->source().document.contains("trail")) {
                 auto settings =
                     decode_particle_trail_settings(document_->source().document.at("trail"));
                 ImGui::BeginDisabled(!particle_uses_trails(data));
@@ -493,6 +509,8 @@ class ParticleEffectEditor {
                         ParticleEffectSource candidate{value};
                         if (gpu_trails)
                             candidate.set_gpu_trails(true, settings);
+                        else if (world_trails)
+                            candidate.set_world_trails(true, settings);
                         else
                             candidate.set_trails(true, settings);
                         value = std::move(candidate.document);

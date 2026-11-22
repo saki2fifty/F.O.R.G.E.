@@ -69,6 +69,7 @@ struct RenderParticleEmitter {
     std::string revision;
     std::uint64_t generation = 0;
     std::optional<std::vector<ParticleWorldSample>> world_samples = std::nullopt;
+    std::optional<ParticleWorldPaths> world_paths = std::nullopt;
 };
 struct RenderSprite {
     EntityId entity;

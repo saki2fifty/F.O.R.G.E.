@@ -7,6 +7,11 @@
 namespace forge {
 namespace {
 const char* cpu_alpha_profile(const nlohmann::json& document) {
+    if (document.at("version").get<unsigned>() >= 19 &&
+        document.value("world_trail_enabled", false) &&
+        document.value("scene_collision_enabled", false))
+        return document.value("scene_collision_2d", false) ? "cpu_scene_trail_2d1"
+                                                           : "cpu_scene_trail1";
     if (document.at("version").get<unsigned>() >= 18 &&
         document.value("scene_collision_2d", false) &&
         document.value("scene_collision_enabled", false))
@@ -127,20 +132,25 @@ ParticleEffectData ParticleEffectSource::compiled() const {
             stop.erase("id");
         }
     }
-    if (version > 18)
+    if (version > 19)
         throw std::runtime_error("Unknown Particle Effect source version");
     if (version < 4)
         return decode_particle_effect(values);
-    // Source4–18 retain settings while another evaluation backend is active.
+    // Source4–19 retain settings while another evaluation backend is active.
     // Only the active backend contributes runtime values and dependency edges.
     const auto profile = values.at("profile").get<std::string>();
     const auto* selected = particle_detail::value_profile(std::string_view(profile));
     // Source formats introduce contiguous immutable value-profile ranges.
-    constexpr std::array maximum_values{0u,  0u,  0u,  0u,  4u,  5u,  6u,  7u,  9u, 10u,
-                                        11u, 15u, 19u, 22u, 25u, 37u, 39u, 51u, 53u};
+    constexpr std::array maximum_values{0u,  0u,  0u,  0u,  4u,  5u,  6u,  7u,  9u,  10u,
+                                        11u, 15u, 19u, 22u, 25u, 37u, 39u, 51u, 53u, 55u};
     if (!selected || selected->version < 2 || selected->version > maximum_values.at(version))
         throw std::runtime_error("Unknown Particle Effect evaluation profile " + profile +
                                  " for source version " + std::to_string(version));
+    if (version >= 19) {
+        if (!values.at("world_trail_enabled").is_boolean())
+            throw std::runtime_error("World trail activation must be a boolean");
+        values.erase("world_trail_enabled");
+    }
     if (version >= 18) {
         if (!values.at("scene_collision_2d").is_boolean())
             throw std::runtime_error("Particle Scene collision space must be a boolean");
@@ -488,10 +498,43 @@ void ParticleEffectSource::set_trails(bool enabled, std::optional<ParticleTrailS
                        ? decode_particle_trail_settings(candidate.document.at("trail"))
                        : ParticleTrailSettings{};
     candidate.document["trail_enabled"] = enabled;
+    if (enabled && candidate.document.contains("world_trail_enabled"))
+        candidate.document["world_trail_enabled"] = false;
     if (enabled && candidate.document.contains("scene_collision_enabled"))
         candidate.document["scene_collision_enabled"] = false;
     candidate.document["trail"] = encode_particle_trail_settings(*settings);
     if (enabled || cpu_alpha_profile(std::string_view(previous_profile)))
+        candidate.document["profile"] = cpu_alpha_profile(candidate.document);
+    candidate.validate();
+    document = std::move(candidate.document);
+}
+void ParticleEffectSource::set_world_trails(bool enabled,
+                                            std::optional<ParticleTrailSettings> settings) {
+    if (settings)
+        validate_particle_trail_settings(*settings);
+    if (!enabled && !settings && !document.contains("world_trail_enabled")) {
+        validate();
+        return;
+    }
+    auto candidate = *this;
+    candidate.promote();
+    if (enabled)
+        candidate.set_scene_collision(true);
+    else if (candidate.document.at("version").get<unsigned>() < 16)
+        candidate.set_scene_collision(false, ParticleSceneCollision{});
+    const auto previous = candidate.document.at("profile").get<std::string>();
+    if (!settings)
+        settings = candidate.document.contains("trail")
+                       ? decode_particle_trail_settings(candidate.document.at("trail"))
+                       : ParticleTrailSettings{};
+    if (candidate.document.at("version").get<unsigned>() < 17)
+        candidate.document["gpu_material_palette_enabled"] = false;
+    if (candidate.document.at("version").get<unsigned>() < 18)
+        candidate.document["scene_collision_2d"] = false;
+    candidate.document["version"] = 19;
+    candidate.document["world_trail_enabled"] = enabled;
+    candidate.document["trail"] = encode_particle_trail_settings(*settings);
+    if (enabled || cpu_alpha_profile(std::string_view(previous)))
         candidate.document["profile"] = cpu_alpha_profile(candidate.document);
     candidate.validate();
     document = std::move(candidate.document);
@@ -515,6 +558,8 @@ void ParticleEffectSource::set_collision(bool enabled,
                     : ParticleCollisionPlane{};
     candidate.document["version"] = std::max(10u, candidate.document.at("version").get<unsigned>());
     candidate.document["collision_enabled"] = enabled;
+    if (enabled && candidate.document.contains("world_trail_enabled"))
+        candidate.document["world_trail_enabled"] = false;
     if (enabled && candidate.document.contains("scene_collision_enabled"))
         candidate.document["scene_collision_enabled"] = false;
     candidate.document["collision"] = encode_particle_collision_plane(*plane);
@@ -557,7 +602,8 @@ void edit_scene_collision(ParticleEffectSource& source, std::optional<bool> enab
     if (planar_2d && (*planar_2d || candidate.document.contains("scene_collision_2d"))) {
         if (candidate.document.at("version").get<unsigned>() < 17)
             candidate.document["gpu_material_palette_enabled"] = false;
-        candidate.document["version"] = 18;
+        candidate.document["version"] =
+            std::max(18u, candidate.document.at("version").get<unsigned>());
         candidate.document["scene_collision_2d"] = *planar_2d;
     }
     if (active) {

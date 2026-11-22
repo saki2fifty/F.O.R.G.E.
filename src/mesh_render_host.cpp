@@ -1314,7 +1314,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         (void)pose;
         const auto& source = particle_sources_.at(mesh.entity);
         if (particle_uses_trails(*source.data()) && !particle_uses_gpu(*source.data()))
-            ribbon_count += source.paths.segment_count();
+            ribbon_count += source.paths.paths.segment_count();
     }
     particle_view_ribbons.reserve(ribbon_count);
     const auto view_world_count = std::count_if(
@@ -1559,8 +1559,11 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             continue;
         }
         try {
-            auto segments = particle_ribbon_segments(source.paths, mesh.world, camera,
-                                                     source.trail_size, source.trail_tint);
+            auto segments = particle_uses_scene_trails(*source.data())
+                                ? particle_world_ribbon_segments(
+                                      source.paths, camera, source.trail_size, source.trail_tint)
+                                : particle_ribbon_segments(source.paths.paths, mesh.world, camera,
+                                                           source.trail_size, source.trail_tint);
             for (auto& segment : segments) {
                 particle_view_ribbons.push_back(std::move(segment));
                 append(mesh, DrawScope::Particle, &pose, &particle_view_ribbons.back());

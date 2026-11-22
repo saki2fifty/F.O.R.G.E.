@@ -115,7 +115,15 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "enabled, and "
                  "runtime_particle_gpu_billboard1 plus GPU1; graphs also need graph1."},
                 {"trails",
-                 "asset.document.particle_trails selects analytic ribbons. Optional backend=cpu "
+                 "asset.document.particle_trails selects ribbons. Optional space=local(default) "
+                 "keeps analytic emitter-local paths; space=world requires backend=cpu and "
+                 "selects source19/values54 or55 historical Scene trails. World paths retain birth "
+                 "position and width, use the retained Scene query space/collision settings, "
+                 "preserve contact corners and shrink after head death. Play is required. "
+                 "World trails require runtime_particle_scene_trail1 plus trail1, alpha1, "
+                 "opacity1, Scene collision1 and XY1 when selected. Contact corners consume the "
+                 "segment budget; overflow rejects the complete fixed update. "
+                 "For local paths, optional backend=cpu "
                  "(default) uses values10/cpu_trail1; gpu selects built-in values23/gpu_trail1, "
                  "24/gpu_weighted_trail1 or25/gpu_weighted_trail_opacity1. GPU activation disables "
                  "GPU plane and camera alignment, retaining Graph inactive. Optional "
@@ -152,7 +160,9 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 {"scene_collision",
                  "asset.document.particle_scene_collision selects CPU Scene response. Optional "
                  "space=world3d preserves source16/values38/39; worldxy explicitly selects "
-                 "source18/values52/53. Omitted space preserves the retained choice. Optional "
+                 "source18/values52/53. Active historical World trails preserve source19 and "
+                 "switch values54/55 instead. Omitted space preserves the retained choice. "
+                 "Optional "
                  "collision={radius,restitution,friction,bounce_limit,mask} replaces settings; "
                  "omission retains them. Settings and space commit atomically. World 3D uses "
                  "sphere radius0.001–1000m; World XY uses circle radius0.005–500m against the "
@@ -162,7 +172,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "ignored. Births retain adopted world motion and visual basis when the emitter "
                  "moves. Curved paths use bounded shape sweeps of the current snapshot. No "
                  "two-way impulses, resting solver, continuous moving-surface dynamics, GPU "
-                 "Scene queries or ribbon history. Local-plane/ribbon activation is disabled "
+                 "Scene queries. Historical ribbon motion uses particle_trails space=world. "
+                 "Local-plane/analytic-ribbon activation is disabled "
                  "with settings retained. Requires runtime_particle_scene_collision1, "
                  "effect3/alpha1/opacity1 and CPU billboard1 when selected. XY additionally "
                  "requires runtime_particle_scene_collision_2d1. Stopped previews require Play; "
@@ -989,6 +1000,13 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 {"default", "cpu"},
                 {"description", "CPU sorted-alpha or built-in GPU analytic ribbons. Settings "
                                 "are shared; activation choices are retained independently."}};
+            properties["space"] = {
+                {"type", "string"},
+                {"enum", {"local", "world"}},
+                {"default", "local"},
+                {"description", "local uses analytic paths transformed by the current emitter; "
+                                "world retains historical Scene motion and frozen birth widths "
+                                "during Play, using the retained Scene query space. CPU only."}};
             properties["trail"] = automation_object(
                 {{"duration", {{"type", "number"}, {"minimum", .001}, {"maximum", 30}}},
                  {"segments", automation_integer(1, 16)}},

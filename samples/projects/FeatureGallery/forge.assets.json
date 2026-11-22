@@ -2823,6 +2823,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "1aa46748-2af4-4749-a66f-225889b2ed07",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Trails/WorldFlow.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "1aee7207-cde4-48bc-9c23-cd5a32eac241",
       "metadata": {
         "forge.import": {
@@ -16498,6 +16508,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "b052a407-987f-449d-8b83-e23743fa86c8",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Trails/EmitterSweep.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "b12d967b-d650-493a-855e-b2ab0c254952",
       "metadata": {},
       "schema_version": 3,
@@ -17952,6 +17972,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "c1d34ea7-cd10-417d-8dcd-5800a3a0c078",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/260-xy-world-particle-trails.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "c1e91b21-cf9c-4e6c-8b8a-942b87ed46cd",
       "metadata": {},
       "schema_version": 3,
@@ -19346,6 +19376,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "d641f30b-2b7f-4bf5-bf57-1ba5b8bc660e",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/259-world-particle-trails.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "d67c3a6b-a5b0-44f1-954a-4f724814498f",
       "metadata": {
         "forge.import": {
@@ -20635,6 +20675,16 @@
       "source": "Scenes/147-terrain-foliage.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e6e78731-404d-4d21-8924-4370c0340ed7",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Particles/Trails/XYWorldFlow.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],

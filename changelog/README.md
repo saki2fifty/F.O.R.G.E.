@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-11-22](20261122/README.md) — Historical CPU World ribbons with 3D/XY Scene response, shared native/MCP controls, bounded contact-aware paths, paged CPU instance uploads and editable/exportable moving-emitter Gallery259–260.
+
 - [2026-11-21](20261121/README.md) — CPU particles against XY Scene geometry, shared native/MCP query-space controls, runtime-kit admission, editable/exportable Gallery258 and illustrated instructions.
 
 - [2026-11-20](20261120/README.md) — CPU analytic particle ribbons, shared native/MCP authoring, editable/exportable Gallery245, illustrated instructions and headless Gallery tooling.

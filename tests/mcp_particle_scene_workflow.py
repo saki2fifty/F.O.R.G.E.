@@ -127,4 +127,45 @@ def check_particle_scene(read, mutate, edit, status, content, failed, root, tool
     assert not content(owner)['scene_collision_2d'] and content(owner)['scene_collision'] == narrow
     assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == xy_camera
     save(53)
+    trail_name = 'forge_asset_document_particle_trails'
+    trail_tool = next(item for item in tools if item['name'] == trail_name)
+    assert trail_tool['inputSchema']['properties']['space']['enum'] == ['local', 'world']
+    assert trail_tool['inputSchema']['properties']['space']['default'] == 'local'
+    assert 'runtime_particle_scene_trail1' in catalog['trails']
+    settings = dict(duration=.625, segments=12)
+    before = status(owner)
+    assert edit(trail_name, owner, space='world', enabled=True, trail=settings)['ok']
+    historical = content(owner)
+    assert historical['version'] == 19 and historical['profile'] == 'cpu_scene_trail_2d1'
+    assert historical['world_trail_enabled'] and historical['scene_collision_2d']
+    assert historical['trail'] == settings and historical['scene_collision'] == xy_camera['scene_collision']
+    assert historical['size_curve'] == stops and historical['extensions'] == original['extensions']
+    failed(mutate(trail_name, editor=owner, space='world', enabled=False,
+                  document_session=before['session'], document_revision=before['revision']), 'stale_document')
+    current = status(owner)
+    failed(mutate(trail_name, editor=owner, space='world', enabled=False,
+                  document_session=current['session'] + 1000,
+                  document_revision=current['revision']), 'wrong_document')
+    for space in ('automatic', '', None, 1, True):
+        assert not edit(trail_name, owner, space=space, enabled=True)['ok']
+        assert content(owner) == historical and status(owner)['revision'] == current['revision']
+    assert not edit(trail_name, owner, backend='gpu', space='world', enabled=True)['ok']
+    assert content(owner) == historical and status(owner)['revision'] == current['revision']
+    assert edit(trail_name, owner, space='world', enabled=True)['ok']
+    assert status(owner)['revision'] == current['revision']
+    save(55)
+    assert edit(name, owner, enabled=True, space='world3d')['ok']
+    assert content(owner)['profile'] == 'cpu_scene_trail1' and content(owner)['version'] == 19
+    save(54)
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == historical
+    assert edit(trail_name, owner, enabled=True)['ok']
+    assert content(owner)['profile'] == 'cpu_trail1' and not content(owner)['world_trail_enabled']
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == historical
+    assert edit(trail_name, owner, space='world', enabled=False)['ok']
+    assert content(owner)['profile'] == 'cpu_scene_collision_2d_billboard1'
+    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == historical
+    save(55)
+    assert edit('forge_asset_document_close', owner)['ok']
+    assert mutate('forge_asset_document_open', editor=owner, path=path)['ok']
+    assert content(owner) == historical
     assert edit('forge_asset_document_close', owner)['ok']

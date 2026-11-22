@@ -23,6 +23,9 @@ particle_world_render_instances(const ParticleEffectData&, std::span<const Parti
                                 std::array<float, 3> tint = {1, 1, 1});
 std::optional<RenderBounds>
 particle_world_bounds(const MeshBounds&, std::span<const ParticleRenderInstance>, bool billboards);
+std::optional<RenderBounds>
+particle_world_paths_bounds(const ParticleEffectData&, const ParticleWorldPaths&, double time,
+                            std::span<const ParticleWorldSample> heads = {}, double size = 1);
 // Conservative whole-lifetime local-space trajectory envelope, transformed by
 // the emitter's full affine (including parent scale/shear). No saved AABB authority.
 RenderBounds particle_effect_bounds(const ParticleEffectData&, const MeshBounds&,

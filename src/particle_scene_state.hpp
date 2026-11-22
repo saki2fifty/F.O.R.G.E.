@@ -1,5 +1,6 @@
 #pragma once
 #include "particle_birth.hpp"
+#include "particle_path.hpp"
 #include "particle_scene_motion.hpp"
 #include <forge/transform.hpp>
 #include <map>
@@ -17,12 +18,31 @@ struct ParticleSceneTrace {
     double begin = 0;
     ParticleSceneStep step;
 };
+struct ParticleSceneTrailPoint {
+    double age = 0;
+    Double3 position{};
+    bool contact = false;
+};
+struct ParticleSceneTrailRange {
+    std::uint64_t birth = 0;
+    double width_scale = 1, end_age = 0;
+    std::size_t first = 0, count = 0;
+};
+// Flat temporal samples belong to the existing Scene history. They do not
+// advance emission, reconstruct physics or own another birth registry.
+struct ParticleSceneTrailSnapshot {
+    double time = 0;
+    std::vector<ParticleSceneTrailRange> ranges;
+    std::vector<ParticleSceneTrailPoint> points;
+};
+using ParticleScenePathSamples = ParticleWorldPaths;
 // Stored only by ParticleRuntime::Entry. Interval boundaries come from that
 // entry's existing emission clock; this value never progresses another clock.
 struct ParticleSceneHistory {
     std::map<std::uint64_t, ParticleSceneBirth> live;
     std::vector<ParticleSceneTrace> traces;
     bool initialized = false;
+    std::optional<ParticleSceneTrailSnapshot> trail_previous, trail_current;
 };
 struct ParticleSceneWork {
     std::size_t queries = 0, births = 0;
@@ -38,4 +58,9 @@ std::vector<ParticleWorldSample> sample_particle_scene_history(const ParticleSce
                                                                const ParticleEffectData&,
                                                                double previous, double current,
                                                                double seconds);
+ParticleScenePathSamples sample_particle_scene_paths(const ParticleSceneHistory&,
+                                                     const ParticleEffectData&, double previous,
+                                                     double current, double seconds);
+void retain_particle_scene_trails(ParticleSceneHistory&, const ParticleSceneHistory&,
+                                  const ParticleEffectData&, double previous, double current);
 } // namespace forge

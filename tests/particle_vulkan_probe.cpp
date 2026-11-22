@@ -890,6 +890,8 @@ int main(int argc, char** argv) {
                            std::string_view(argv[2]) == "--gpu-material-gallery" ||
                            std::string_view(argv[2]) == "--scene-collision-gallery" ||
                            std::string_view(argv[2]) == "--xy-scene-collision-gallery" ||
+                           std::string_view(argv[2]) == "--world-trail-gallery" ||
+                           std::string_view(argv[2]) == "--xy-world-trail-gallery" ||
                            std::string_view(argv[2]) == "--gpu-sorted-countercases"))) {
             RefCntAutoPtr<IRenderDevice> device;
             RefCntAutoPtr<IDeviceContext> context;
@@ -914,6 +916,12 @@ int main(int argc, char** argv) {
             else if (argc == 4 && std::string_view(argv[2]) == "--gpu-sorted-countercases")
                 particle_sorted_content_test::execute(presentation, context,
                                                       std::filesystem::absolute(argv[3]));
+            else if (argc == 4 && (std::string_view(argv[2]) == "--world-trail-gallery" ||
+                                   std::string_view(argv[2]) == "--xy-world-trail-gallery"))
+                test_particle_alpha::gallery(
+                    presentation, context, std::filesystem::absolute(argv[3]), argv[1], true, false,
+                    false, false, false, false, false, false, false, true,
+                    std::string_view(argv[2]) == "--xy-world-trail-gallery", true);
             else if (argc == 4 && (std::string_view(argv[2]) == "--scene-collision-gallery" ||
                                    std::string_view(argv[2]) == "--xy-scene-collision-gallery"))
                 test_particle_alpha::gallery(

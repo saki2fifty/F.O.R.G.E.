@@ -72,6 +72,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [064](064-camera-plane-particles.md) | CPU camera-plane quads retain simulation and share per-view geometry, bounds and source ownership |
 | [065](065-gpu-camera-plane-particles.md) | GPU camera-plane projection preserves evaluator layouts and shares device, view, source and export ownership |
 | [074](074-ordered-particle-material-palettes.md) | Bounded ordered Material palettes reuse canonical shader, draw-bundle and renderer ownership; implementation in progress |
+| [076](076-historical-world-particle-trails.md) | Bounded World particle histories reuse Scene response and ribbon geometry |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

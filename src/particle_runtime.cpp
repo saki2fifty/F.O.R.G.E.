@@ -80,9 +80,12 @@ void ParticleRuntime::synchronize() {
         if (!entry.effect)
             entry.effect = effects_.acquire(entry.ticket);
         if (entry.effect) {
-            require(entry.effect->capacity <= particle_scene_capacity - capacity,
+            const auto reserved = particle_uses_scene_trails(entry.effect.get())
+                                      ? particle_instance_capacity(entry.effect.get())
+                                      : entry.effect->capacity;
+            require(reserved <= particle_scene_capacity - capacity,
                     "Particle scene exceeds the 8192 reserved-instance budget");
-            capacity += entry.effect->capacity;
+            capacity += reserved;
             if (particle_uses_scene_collision(entry.effect.get())) {
                 require(world_.role() == WorldRole::Runtime &&
                             world_.services().available(Capability::Physics),
@@ -191,6 +194,9 @@ Json ParticleRuntime::presentation(flecs::entity_t entity, double alpha) const {
                 {"seed", entry.config.seed}};
     if (particle_uses_scene_collision(entry.effect.get()))
         result["world_samples"] = encode_particle_world_samples(sample_particle_scene_history(
+            entry.scene, entry.effect.get(), entry.previous, entry.current, seconds));
+    if (particle_uses_scene_trails(entry.effect.get()))
+        result["world_paths"] = encode_particle_world_paths(sample_particle_scene_paths(
             entry.scene, entry.effect.get(), entry.previous, entry.current, seconds));
     return result;
 }

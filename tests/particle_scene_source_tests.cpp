@@ -98,6 +98,95 @@ void xy_profiles() {
               source.document.at("scene_collision") == inactive.at("scene_collision"),
           "Space-only selection activated retained CPU collision or changed GPU evaluation");
 }
+void world_trail_profiles() {
+    auto source = ParticleEffectSource::create(AssetId::generate());
+    source.document["extensions"] = {{"world_trail_enabled", "opaque source data"}};
+    const auto original = source.document;
+    source.set_world_trails(false);
+    check(source.document == original, "Inactive World trails upgraded an older source");
+    source.enable_billboards(true);
+    source.enable_opacity(true);
+    source.enable_lifetime(ParticleLifetimeChannel::Opacity, true);
+    const auto stop = source.insert_lifetime_stop(ParticleLifetimeChannel::Opacity, .5);
+    const auto retained = source.document;
+    const ParticleTrailSettings settings{.5, 4};
+    source.set_world_trails(true, settings);
+    const auto world = source.document;
+    check(
+        world.at("version") == 19 && world.at("world_trail_enabled").get<bool>() &&
+            world.at("scene_collision_enabled").get<bool>() &&
+            !world.at("trail_enabled").get<bool>() && !world.at("collision_enabled").get<bool>() &&
+            source.compiled().version == 54 && particle_uses_scene_trails(source.compiled()) &&
+            source.compiled().mesh == engine_primitive(8) && source.compiled().trail == settings &&
+            world.at("mesh") == retained.at("mesh") &&
+            world.at("opacity_curve") == retained.at("opacity_curve") &&
+            world.at("asset_id") == original.at("asset_id") &&
+            world.at("extensions") == original.at("extensions"),
+        "World trails lost their explicit profile, retained Mesh/appearance or source identities");
+    source.set_world_trails(true, settings);
+    check(source.document == world, "Repeated World trail activation was not a no-op");
+    source.set_scene_collision_space(true);
+    const auto xy = source.document;
+    check(xy.at("version") == 19 && source.compiled().version == 55 &&
+              particle_uses_scene_collision_2d(source.compiled()) &&
+              source.compiled().trail == settings,
+          "World trail query-space change downgraded the source or lost its settings");
+    for (auto backend : {ParticleEvaluation::Cpu, ParticleEvaluation::Gpu}) {
+        source.set_evaluation(backend);
+        check(!source.compiled().trail && !source.compiled().scene_collision &&
+                  source.document.at("world_trail_enabled").get<bool>(),
+              "Inactive World trail settings leaked into another backend or were discarded");
+        source.set_evaluation(ParticleEvaluation::CpuAlpha);
+        check(source.document == xy, "Backend changes lost World trail source state or IDs");
+    }
+    check(parse(xy).document == xy &&
+              decode_cooked_particle_effect(source.cook(), source.asset(), 3) == source.compiled(),
+          "World trail source/cooked round trips changed its explicit profile or identities");
+    source.set_world_trails(false);
+    check(source.compiled().version == 53 && !source.compiled().trail &&
+              source.document.at("trail") == xy.at("trail"),
+          "World trail disable lost retained settings or camera-plane head geometry");
+    source.set_world_trails(true);
+    check(source.document == xy, "World trail disable/enable did not restore exact source state");
+    source.set_scene_collision(false);
+    check(!source.compiled().scene_collision && !source.compiled().trail &&
+              source.document.at("world_trail_enabled").get<bool>(),
+          "Scene disable did not retain inactive World trail intent");
+    source.set_scene_collision(true);
+    check(source.document == xy, "Scene disable/enable lost historical trail intent");
+    source.set_trails(true);
+    check(source.compiled().version == 10 &&
+              !source.document.at("world_trail_enabled").get<bool>() &&
+              !source.document.at("scene_collision_enabled").get<bool>(),
+          "Original local-trail operation changed its explicit activation semantics");
+    source.set_world_trails(true);
+    check(source.document == xy, "Returning from local trails lost World settings or identities");
+    source.set_collision(true);
+    check(source.compiled().version == 11 && !source.document.at("world_trail_enabled").get<bool>(),
+          "Original local-plane operation did not deactivate the World trail geometry");
+    source.set_world_trails(true);
+    source.set_scene_collision_space(false);
+    check(source.document == world, "World trail space round trip changed 3D settings or IDs");
+    for (auto invalid : {ParticleTrailSettings{.5, 17}, ParticleTrailSettings{30, 16}}) {
+        reject([&] { source.set_world_trails(true, invalid); });
+        check(source.document == world, "Rejected World trail settings partially changed source");
+    }
+    for (unsigned kind = 0; kind < 4; ++kind) {
+        auto bad = world;
+        if (kind == 0)
+            bad.erase("world_trail_enabled");
+        if (kind == 1)
+            bad["world_trail_enabled"] = 1;
+        if (kind == 2)
+            bad["world_trail_enabled"] = false;
+        if (kind == 3)
+            bad["version"] = 18;
+        reject([&] { (void)parse(bad); });
+    }
+    source.remove_lifetime_stop(ParticleLifetimeChannel::Opacity, stop);
+    check(source.document.at("opacity_curve").size() == 2,
+          "World trails lost ordinary lifetime source editing");
+}
 void profiles() {
     auto source = ParticleEffectSource::create(AssetId::generate());
     const auto original = source.document;
@@ -193,6 +282,7 @@ int main() {
     try {
         profiles();
         xy_profiles();
+        world_trail_profiles();
         std::cout << "Scene particle source profiles passed\n";
         return 0;
     } catch (const std::exception& error) {

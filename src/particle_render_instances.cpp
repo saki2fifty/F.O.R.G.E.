@@ -91,24 +91,11 @@ std::vector<ParticleRenderInstance>
 particle_world_render_instances(const ParticleEffectData& effect,
                                 std::span<const ParticleWorldSample> samples, double time,
                                 double size, std::array<float, 3> tint) {
-    validate_particle_effect(effect);
-    validate_particle_world_samples(samples);
+    validate_particle_world_samples(effect, time, samples);
     validate_particle_instance_parameters(size, tint);
-    if (!particle_uses_scene_collision(effect) || samples.size() > effect.capacity ||
-        !std::isfinite(time) || time < 0 || time > 1e9)
-        throw std::runtime_error(
-            "Particle World capture does not match its effect or time profile");
-    const auto window = particle_birth_window(effect, time);
     std::vector<ParticleSample> values;
     values.reserve(samples.size());
     for (const auto& value : samples) {
-        const auto ordinal = value.sample.birth;
-        if (effect.emission == ParticleEmission::Burst && ordinal >= effect.burst_count)
-            throw std::runtime_error("Particle World capture has a foreign burst ordinal");
-        const auto age = particle_birth_age(effect, window, time, ordinal);
-        if (!age || (effect.emission == ParticleEmission::Burst && !window.last) ||
-            *age != value.sample.age)
-            throw std::runtime_error("Particle World capture is outside its live emission phase");
         values.push_back(value.sample);
     }
     modulate_particle_samples(values, size, tint);
@@ -226,6 +213,38 @@ AffineTransform particle_billboard_world(const AffineTransform& source, const Ca
     for (const auto value : result.m)
         if (!std::isfinite(value))
             throw std::runtime_error("Camera-aligned particle transform is nonfinite");
+    return result;
+}
+std::optional<RenderBounds>
+particle_world_paths_bounds(const ParticleEffectData& data, const ParticleWorldPaths& paths,
+                            double time, std::span<const ParticleWorldSample> heads, double size) {
+    validate_particle_world_paths(data, time, paths, heads);
+    validate_particle_instance_parameters(size, {1, 1, 1});
+    if (paths.paths.points.empty())
+        return {};
+    RenderBounds result;
+    result.minimum.fill(std::numeric_limits<double>::infinity());
+    result.maximum.fill(-std::numeric_limits<double>::infinity());
+    for (std::size_t i = 0; i < paths.paths.paths.size(); ++i) {
+        const auto& path = paths.paths.paths[i];
+        for (const auto& point : std::span(paths.paths.points).subspan(path.first, path.count)) {
+            const double half_width = .5 * point.size * size * paths.width_scales[i];
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                const double padding = 8 * std::numeric_limits<float>::epsilon() *
+                                       (std::abs(point.position[axis]) + half_width);
+                const auto low = point.position[axis] - half_width - padding;
+                const auto high = point.position[axis] + half_width + padding;
+                if (!std::isfinite(low) || !std::isfinite(high))
+                    throw std::runtime_error("Particle World trail bounds are nonfinite");
+                result.minimum[axis] =
+                    std::min(result.minimum[axis],
+                             std::nextafter(low, -std::numeric_limits<double>::infinity()));
+                result.maximum[axis] =
+                    std::max(result.maximum[axis],
+                             std::nextafter(high, std::numeric_limits<double>::infinity()));
+            }
+        }
+    }
     return result;
 }
 } // namespace forge

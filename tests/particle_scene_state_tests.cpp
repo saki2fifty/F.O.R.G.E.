@@ -1,4 +1,6 @@
 #include "particle_scene_state.hpp"
+#include <algorithm>
+#include <cmath>
 #include <forge/engine_assets.hpp>
 #include <iostream>
 #include <limits>
@@ -193,6 +195,228 @@ void capture_codec() {
     value.basis[0] = std::numeric_limits<double>::quiet_NaN();
     reject([&] { validate_particle_world_samples(std::span(&value, 1)); });
 }
+void world_trails() {
+    for (unsigned profile : {54u, 55u}) {
+        auto data = effect();
+        data.version = profile;
+        data.mesh = engine_primitive(8);
+        data.emission = ParticleEmission::Burst;
+        data.capacity = data.burst_count = 1;
+        data.lifetime = 2;
+        data.trail = ParticleTrailSettings{.5, 4};
+        validate_particle_effect(data);
+        ParticleSceneWork work;
+        const auto first = advance_particle_scene_history({}, data, 17, 0, .25, {}, clear, work);
+        AffineTransform moved;
+        moved.m[0] = 3;
+        moved.m[3] = 100;
+        work = {};
+        const auto second =
+            advance_particle_scene_history(first, data, 17, .25, .75, moved, clear, work);
+        for (double time : {.25, .5, .75}) {
+            const auto path = sample_particle_scene_paths(second, data, .25, .75, time);
+            validate_particle_world_paths(data, time, path);
+            check(decode_particle_world_paths(encode_particle_world_paths(path)) == path,
+                  "World trail capture changed widths, point fields or birth ranges");
+            check(path.paths.paths.size() == 1 && path.width_scales == std::vector<double>{1},
+                  "World trail changed a retained birth width or lost a presentation interval");
+            const auto& points = path.paths.points;
+            check(points.size() >= 2 &&
+                      points.front().age == std::max(0., time - data.trail->duration) &&
+                      points.back().age == time,
+                  "World trail lost its clipped age interval");
+            for (const auto& point : points)
+                check(std::abs(point.position[0] - 2 * point.age) < 1e-12,
+                      "A moved emitter dragged historical World trail positions");
+        }
+        work = {};
+        const auto frozen =
+            advance_particle_scene_history(first, data, 17, .25, .25, moved, clear, work);
+        check(work.queries == 0 &&
+                  sample_particle_scene_paths(frozen, data, .25, .25, .25).paths.points.size() == 3,
+              "Frozen World trail playback queried physics or lost its earlier tail");
+
+        auto expired_data = data;
+        expired_data.lifetime = .5;
+        work = {};
+        const auto expired =
+            advance_particle_scene_history({}, expired_data, 17, 0, .75, {}, clear, work);
+        check(expired.live.empty() &&
+                  sample_particle_scene_history(expired, expired_data, 0, .75, .75).empty() &&
+                  sample_particle_scene_paths(expired, expired_data, 0, .75, .75)
+                          .paths.paths.size() == 1,
+              "An expired head either remained visible or erased its surviving World tail");
+        work = {};
+        const auto gone =
+            advance_particle_scene_history(expired, expired_data, 17, .75, 1, moved, clear, work);
+        const auto shrinking = sample_particle_scene_paths(gone, expired_data, .75, 1, .9);
+        check(
+            work.queries == 0 && shrinking.paths.points.size() == 2 &&
+                shrinking.paths.points.back().position[0] == 1 &&
+                sample_particle_scene_paths(gone, expired_data, .75, 1, 1).paths.points.empty(),
+            "A shrinking World tail queried physics, moved its endpoint or survived its boundary");
+
+        const ParticleSceneQuery wall = [](const Double3& origin, const Double3& delta,
+                                           double radius) -> std::optional<PhysicsHit> {
+            const auto distance = .45 - radius - origin[0];
+            if (delta[0] <= 0 || distance < 0 || distance > delta[0])
+                return {};
+            return PhysicsHit{{}, {.45, 0, 0}, {-1, 0, 0}, distance / delta[0]};
+        };
+        data.scene_collision->bounce_limit = 0;
+        work = {};
+        const auto killed = advance_particle_scene_history({}, data, 17, 0, .25, {}, wall, work);
+        const auto contact_path = sample_particle_scene_paths(killed, data, 0, .25, .25);
+        check(killed.live.empty() && contact_path.paths.paths.size() == 1 &&
+                  std::abs(contact_path.paths.points.back().age - .2) < 1e-12 &&
+                  std::abs(contact_path.paths.points.back().position[0] - .4) < 1e-12 &&
+                  sample_particle_scene_history(killed, data, 0, .25, .25).empty(),
+              "Contact death lost its exact terminal trail point or revived the head");
+        work = {};
+        const auto aftermath =
+            advance_particle_scene_history(killed, data, 17, .25, .7, moved, clear, work);
+        check(work.queries == 0 &&
+                  !sample_particle_scene_paths(aftermath, data, .25, .7, .6).paths.points.empty() &&
+                  sample_particle_scene_paths(aftermath, data, .25, .7, .7).paths.points.empty(),
+              "A contact tail vanished early, survived its exact endpoint or queried physics");
+        auto bouncing = data;
+        bouncing.scene_collision->bounce_limit = 4;
+        bouncing.scene_collision->restitution = 1;
+        work = {};
+        const auto rebound =
+            advance_particle_scene_history({}, bouncing, 17, 0, .5, {}, wall, work);
+        const auto turned = sample_particle_scene_paths(rebound, bouncing, 0, .5, .5);
+        check(std::any_of(turned.paths.points.begin(), turned.paths.points.end(),
+                          [](const auto& point) {
+                              return std::abs(point.age - .2) < 1e-12 && point.position[0] > .39;
+                          }),
+              "World trail sampling cut across a sharp native response instead of retaining its "
+              "contact corner");
+        work = {};
+        const auto continued =
+            advance_particle_scene_history(rebound, bouncing, 17, .5, .6, moved, clear, work);
+        const auto retained_turn = sample_particle_scene_paths(continued, bouncing, .5, .6, .6);
+        check(std::any_of(retained_turn.paths.points.begin(), retained_turn.paths.points.end(),
+                          [](const auto& point) { return std::abs(point.age - .2) < 1e-12; }),
+              "A retained World trail smoothed away an earlier contact corner");
+        auto insufficient = bouncing;
+        insufficient.trail->segments = 1;
+        work = {};
+        reject([&] {
+            (void)advance_particle_scene_history({}, insufficient, 17, 0, .5, {}, wall, work);
+        });
+        // The same corner must be admitted at every intermediate presentation
+        // alpha even when its complete tail has expired at the new clock.
+        insufficient.lifetime = .25;
+        work = {};
+        reject([&] {
+            (void)advance_particle_scene_history({}, insufficient, 17, 0, 1, {}, wall, work);
+        });
+        work = {};
+        const auto recovered =
+            advance_particle_scene_history({}, insufficient, 17, 0, .1, {}, wall, work);
+        check(sample_particle_scene_paths(recovered, insufficient, 0, .1, .1).paths.points.size() ==
+                  2,
+              "Rejected World contact geometry prevented a smaller valid update");
+
+        auto curved = bouncing;
+        curved.acceleration = {0, 1, .5};
+        curved.drag = .25;
+        curved.size_start = .2;
+        curved.size_end = .6;
+        curved.trail->segments = 8;
+        ParticleSceneHistory history;
+        for (unsigned step = 0; step < 6; ++step) {
+            work = {};
+            history = advance_particle_scene_history(history, curved, 17, step * .1,
+                                                     (step + 1) * .1, {}, clear, work);
+        }
+        const auto curve_path = sample_particle_scene_paths(history, curved, .5, .6, .55);
+        for (const auto& point : curve_path.paths.points) {
+            const auto expected = evaluate_particle_motion({{}, {2, 0, 0}}, curved.acceleration,
+                                                           curved.drag, point.age);
+            for (unsigned axis = 0; axis < 3; ++axis)
+                check(std::abs(point.position[axis] - expected.position[axis]) < .002,
+                      "Retained World trail force/drag motion exceeded its sampled approximation");
+            check(std::abs(point.size - std::lerp(.2, .6, point.age / curved.lifetime)) < 1e-12,
+                  "World trail appearance used extended tail life instead of original birth age");
+        }
+
+        auto continuous = data;
+        continuous.emission = ParticleEmission::Continuous;
+        continuous.capacity = 8;
+        continuous.spawn_rate = 2;
+        work = {};
+        const auto old =
+            advance_particle_scene_history({}, continuous, 17, 0, .75, {}, clear, work);
+        work = {};
+        const auto combined =
+            advance_particle_scene_history(old, continuous, 17, .75, 1.25, moved, clear, work);
+        const auto paths = sample_particle_scene_paths(combined, continuous, .75, 1.25, 1.25);
+        check(paths.paths.paths.size() == 2 && paths.width_scales == std::vector<double>({1, 3}) &&
+                  paths.paths.points[paths.paths.paths[0].first].position[0] < 2 &&
+                  paths.paths.points[paths.paths.paths[1].first].position[0] == 100,
+              "World trail births lost their independent adopted position or width");
+
+        auto long_step = data;
+        long_step.lifetime = 30;
+        long_step.trail = ParticleTrailSettings{.001, 16};
+        work = {};
+        const auto bounded =
+            advance_particle_scene_history({}, long_step, 17, 0, 30, {}, clear, work);
+        check(work.queries == 1 && bounded.trail_current->points.size() <= 19,
+              "A long fixed update retained every crossed history sample or queried extra physics");
+        const auto middle = sample_particle_scene_paths(bounded, long_step, 0, 30, 15);
+        check(middle.paths.paths.size() == 1 && middle.paths.points.size() == 17 &&
+                  middle.paths.points.back().position[0] == 30,
+              "A bounded long-step snapshot erased intermediate presentation motion");
+        auto invalid = second;
+        auto late = continuous;
+        late.trail = ParticleTrailSettings{.001, 8};
+        const double clock = 1e8 + .25;
+        ParticleSceneHistory ended;
+        ended.initialized = true;
+        ended.trail_current = ParticleSceneTrailSnapshot{clock, {}, {}};
+        work = {};
+        const auto born_late =
+            advance_particle_scene_history(ended, late, 17, clock, clock + .5, {}, clear, work);
+        const auto late_paths =
+            sample_particle_scene_paths(born_late, late, clock, clock + .5, clock + .375);
+        check(late_paths.paths.paths.size() == 1 && late_paths.paths.points.size() == 9 &&
+                  late_paths.paths.paths.front().birth == std::uint64_t(clock * late.spawn_rate) &&
+                  std::abs(late_paths.paths.points.back().position[0] - .25) < 1e-12,
+              "Large-clock World trail sampling changed emission phase or rebuilt expired births");
+        invalid.trail_previous->points.front().age = std::numeric_limits<double>::quiet_NaN();
+        reject([&] { (void)sample_particle_scene_paths(invalid, data, .25, .75, .5); });
+        const auto captured = sample_particle_scene_paths(second, data, .25, .75, .75);
+        reject([&] { validate_particle_world_paths(data, .25, captured); });
+        const auto wire = encode_particle_world_paths(captured);
+        for (unsigned kind = 0; kind < 10; ++kind) {
+            auto bad = wire;
+            if (kind == 0)
+                bad["extra"] = 0;
+            if (kind == 1)
+                bad["paths"][0][1] = 1;
+            if (kind == 2)
+                bad["paths"][0][2] = 1;
+            if (kind == 3)
+                bad["paths"][0][1] = std::numeric_limits<std::uint64_t>::max();
+            if (kind == 4)
+                bad["paths"][0][3] = -1;
+            if (kind == 5)
+                bad["points"][0][0] = true;
+            if (kind == 6)
+                bad["points"][0][4] = 0;
+            if (kind == 7)
+                bad["points"][0][5] = 1.000000001;
+            if (kind == 8)
+                bad["points"][0][8] = 2;
+            if (kind == 9)
+                bad["paths"].push_back(bad["paths"][0]);
+            reject([&] { (void)decode_particle_world_paths(bad); });
+        }
+    }
+}
 } // namespace
 int main() {
     try {
@@ -200,6 +424,7 @@ int main() {
         contact_death_and_failure();
         large_clock_and_budgets();
         capture_codec();
+        world_trails();
         std::cout << "Scene particle interval state and capture passed\n";
         return 0;
     } catch (const std::exception& error) {

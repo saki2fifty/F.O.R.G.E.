@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "particle_effect_authoring.hpp"
 #include "particle_render_instances.hpp"
+#include "particle_ribbon.hpp"
 #include "particle_runtime.hpp"
 #include "render_values.hpp"
 #include <cmath>
@@ -260,6 +261,96 @@ void mixed_worlds(const std::filesystem::path& root, AssetId spatial, AssetId pl
     check(free.size() == 4 && std::abs(free[0].position[1] + 9) < 1e-4,
           "An unrealized XY World borrowed 3D geometry or blocked analytic free flight");
 }
+void historical_trails(const std::filesystem::path& root, AssetId effect, bool planar_2d) {
+    Fixture live(root, scene(effect, planar_2d));
+    live.ready();
+    check(live.captured().world_paths && live.captured().world_paths->paths.points.empty(),
+          "World trails were reconstructed before their first fixed update");
+    live.simulation.tick(.1f);
+    const auto bounced = live.captured();
+    check(bounced.world_samples && bounced.world_paths && bounced.world_samples->size() == 4 &&
+              bounced.world_paths->paths.paths.size() == 4 &&
+              particle_world_capture_birth_count(*bounced.world_samples, &*bounced.world_paths) ==
+                  4,
+          "World trail extraction lost native heads or double-counted their birth reservation");
+    auto actor = live.actor();
+    actor.set<LocalTranslation>({5, 3, 0});
+    actor.set<LocalScale>({3, 3, 3});
+    live.simulation.tick(.05f);
+    const auto ref = *live.engine.world().reference(actor.id());
+    live.particles->tune_appearance(ref, "size_multiplier", 2);
+    live.particles->tune_appearance(ref, "tint_r", .25);
+    const auto tuned = live.captured();
+    const auto data =
+        ParticleEffectSource::parse(
+            asset_detail::read_bytes(root / (planar_2d ? "Assets/WorldXY.particles.json"
+                                                       : "Assets/World.particles.json"),
+                                     particle_effect_byte_limit))
+            .compiled();
+    validate_particle_world_paths(data, tuned.time, *tuned.world_paths);
+    check(tuned.world.m[3] == 5 && tuned.world_paths->width_scales == std::vector<double>(4, 1),
+          "Moving or scaling an emitter changed earlier World trail birth widths");
+    const auto bounds =
+        particle_world_paths_bounds(data, *tuned.world_paths, tuned.time, *tuned.world_samples, 2);
+    check(bounds && bounds->maximum[0] < 1,
+          "World trail selection bounds reapplied a moved emitter transform");
+    AffineTransform camera_frame;
+    camera_frame.m[11] = -20;
+    const auto view = camera_view(Camera{}, camera_frame, 640, 360);
+    const auto ribbons = particle_world_ribbon_segments(*tuned.world_paths, view, 2, {.25f, 1, 1});
+    check(!ribbons.empty() && ribbons.front().vertices.first[0] == 0 &&
+              ribbons.front().vertices.color[0][0] ==
+                  tuned.world_paths->paths.points.front().color[0] * .25f &&
+              tuned.world_paths->paths.points.front().size == .1,
+          "World ribbon rendering lost frozen geometry or duplicated live appearance");
+    auto corrupt = live.simulation.presentation(1);
+    for (auto& row : corrupt["entities"])
+        if (row.contains("particle_playback"))
+            row["particle_playback"]["world_paths"]["points"][0][1] = "bad";
+    check(!extract_render_scene(corrupt).diagnostics.empty(),
+          "Render extraction admitted malformed World path positions");
+    live.simulation.tick(.1f);
+    const auto tail = live.captured();
+    check(tail.world_samples->empty() && tail.world_paths->paths.paths.size() == 4,
+          "A lifetime-expired head erased its visible World trail");
+    const auto tail_bounds =
+        particle_world_paths_bounds(data, *tail.world_paths, tail.time, *tail.world_samples, 2);
+    check(tail_bounds.has_value(), "Tail-only World geometry lost its selection bounds");
+    live.simulation.tick(.6f);
+    check(live.captured().world_paths->paths.points.empty(),
+          "World trails survived their lifetime plus duration");
+    auto config = actor.get<ParticleEmitter>();
+    config.seed += 1;
+    actor.set<ParticleEmitter>(config);
+    live.ready();
+    check(live.captured().world_paths->paths.points.empty(),
+          "A new seed retained historical World trails");
+    live.simulation.tick(.01f);
+    check(live.captured().world_paths->width_scales == std::vector<double>(4, 3),
+          "Restarted World trails did not adopt the new birth scale");
+    config.enabled = false;
+    actor.set<ParticleEmitter>(config);
+    live.particles->synchronize();
+    check(live.particles->presentation(actor.id(), 1).is_null(),
+          "Disabling an emitter retained historical World trail observations");
+}
+void historical_reservation(const std::filesystem::path& root, AssetId effect) {
+    Fixture admitted(root, scene(effect));
+    admitted.ready();
+    auto over = scene(effect);
+    over["entities"].push_back(emitter("second", effect));
+    Fixture rejected(root, over);
+    // 1024 total heads fit the native World budget, but 16384 reserved
+    // segments must fail the existing 8192-instance reservation atomically.
+    reject([&] { rejected.ready(); });
+    auto second = rejected.authored.entity("second");
+    auto config = second.get<ParticleEmitter>();
+    config.enabled = false;
+    second.set<ParticleEmitter>(config);
+    rejected.ready();
+    check(rejected.particles->presentation(rejected.actor().id(), 1).at("time") == 0,
+          "World trail reservation failure partially advanced the accepted emitter clock");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -269,7 +360,8 @@ int main(int argc, char** argv) {
         auto lease = std::make_shared<ProjectLease>(root);
         AssetImportService imports(lease, particle_effect_import_registry(),
                                    {"linux", "none", "cpu"});
-        auto publish = [&](const char* name, bool heavy, bool analytic, bool planar_2d = false) {
+        auto publish = [&](const char* name, bool heavy, bool analytic, bool planar_2d = false,
+                           bool world_trails = false) {
             auto document = ParticleEffectDocument::create(lease, name);
             document->edit(document->revision(), "Scene particle fixture", [&](auto& value) {
                 ParticleEffectSource source{value};
@@ -285,6 +377,12 @@ int main(int argc, char** argv) {
                     source.set_scene_collision(true, ParticleSceneCollision{.05, .5, 0, 4, 1});
                     if (planar_2d)
                         source.set_scene_collision_space(true);
+                    if (world_trails) {
+                        source.document["lifetime"] = .2;
+                        if (heavy)
+                            source.document["capacity"] = source.document["burst_count"] = 512;
+                        source.set_world_trails(true, ParticleTrailSettings{.5, heavy ? 16u : 8u});
+                    }
                 }
                 value = std::move(source.document);
             });
@@ -306,12 +404,20 @@ int main(int argc, char** argv) {
         const auto analytic = publish("Assets/Analytic.particles.json", false, true);
         const auto xy = publish("Assets/XY.particles.json", false, false, true);
         const auto heavy_xy = publish("Assets/HeavyXY.particles.json", true, false, true);
+        const auto world_trails = publish("Assets/World.particles.json", false, false, false, true);
+        const auto world_trails_xy =
+            publish("Assets/WorldXY.particles.json", false, false, true, true);
+        const auto heavy_trails =
+            publish("Assets/HeavyWorld.particles.json", true, false, false, true);
         world_and_transport(root, scene_effect);
         world_and_transport(root, xy, true);
         mixed_worlds(root, scene_effect, xy);
         projection_ownership(root, scene_effect);
         query_budget(root, heavy, analytic);
         query_budget(root, heavy_xy, analytic, true);
+        historical_trails(root, world_trails, false);
+        historical_trails(root, world_trails_xy, true);
+        historical_reservation(root, heavy_trails);
         auto mixed_overflow = scene(heavy);
         mixed_overflow["entities"].push_back(emitter("planar", xy));
         Fixture reserved(root, mixed_overflow);

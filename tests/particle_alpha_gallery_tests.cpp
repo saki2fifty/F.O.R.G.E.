@@ -12,8 +12,10 @@
 #include "particle_runtime.hpp"
 #include "runtime_package.hpp"
 #include "texture_authoring.hpp"
+#include "transform_animation_authoring.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/animation.hpp>
 #include <forge/authoring.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/physics.hpp>
@@ -38,6 +40,7 @@ struct Example {
     bool sorted = false;
     bool scene_collision = false;
     bool scene_collision_2d = false;
+    bool world_trails = false;
 };
 constexpr Example alpha{"Scenes/240-sorted-alpha-particles.scene.json",
                         "Assets/Particles/Alpha/GlassCloud.particles.json", false};
@@ -146,20 +149,33 @@ constexpr Example xy_scene_colliding{.scene = "Scenes/258-xy-scene-particle-coll
                                      .scene_collision = true,
                                      .scene_collision_2d = true};
 constexpr const char* alpha_material = "Assets/Particles/Alpha/Glass.material.json";
+constexpr const char* trail_animation = "Assets/Particles/Trails/EmitterSweep.animation.json";
+constexpr Example world_ribbons{.scene = "Scenes/259-world-particle-trails.scene.json",
+                                .effect = "Assets/Particles/Trails/WorldFlow.particles.json",
+                                .opacity = true,
+                                .scene_collision = true,
+                                .world_trails = true};
+constexpr Example xy_world_ribbons{.scene = "Scenes/260-xy-world-particle-trails.scene.json",
+                                   .effect = "Assets/Particles/Trails/XYWorldFlow.particles.json",
+                                   .opacity = true,
+                                   .scene_collision = true,
+                                   .scene_collision_2d = true,
+                                   .world_trails = true};
 constexpr const char* quad_material = "Assets/Particles/Billboards/SoftCloud.material.json";
 constexpr const char* quad_texture = "Assets/Particles/Billboards/SoftCloud.paint-texture.json";
 constexpr const char* gpu_quad_material = "Assets/Particles/Billboards/DeviceCloud.material.json";
 constexpr const char* graph_effect = "Assets/Particles/Graphs/OrbitFountain.particles.json";
 const char* material_source(const Example& example) {
-    return example.collision                      ? alpha_material
-           : example.trails                       ? trail_material
-           : (example.weighted || example.sorted) ? quad_material
-           : example.gpu                          ? gpu_quad_material
-           : example.billboards                   ? quad_material
-                                                  : alpha_material;
+    return example.collision                          ? alpha_material
+           : (example.trails || example.world_trails) ? trail_material
+           : (example.weighted || example.sorted)     ? quad_material
+           : example.gpu                              ? gpu_quad_material
+           : example.billboards                       ? quad_material
+                                                      : alpha_material;
 }
 unsigned value_version(const Example& example) {
-    return example.scene_collision_2d         ? 53u
+    return example.world_trails               ? (example.scene_collision_2d ? 55u : 54u)
+           : example.scene_collision_2d       ? 53u
            : example.scene_collision          ? 39u
            : example.sorted                   ? 34u
            : example.gpu && example.trails    ? (example.gpu_opacity ? 25u
@@ -332,6 +348,8 @@ void author(const std::filesystem::path& root, const Example& example) {
     if (example.gpu_opacity)
         effect.enable_gpu_opacity(true);
     effect.validate();
+    if (example.world_trails)
+        effect.set_world_trails(true, ParticleTrailSettings{.75, 12});
     write(root / example.effect, effect.document);
     auto catalog = AssetCatalog::open_project(root);
     if (!reuse_material)
@@ -342,6 +360,30 @@ void author(const std::filesystem::path& root, const Example& example) {
         catalog.add({texture.asset(), TextureAsset::type, quad_texture, 1, {}});
     }
     catalog.add({effect.asset(), ParticleEffectAsset::type, example.effect, 1, {}});
+    AssetId motion;
+    if (example.world_trails) {
+        TransformAnimationSource clip;
+        if (std::filesystem::exists(root / trail_animation))
+            clip = TransformAnimationSource::parse(
+                asset_detail::read_bytes(root / trail_animation, transform_animation_byte_limit));
+        else {
+            clip = TransformAnimationSource::create(AssetId::generate());
+            clip.document["duration_us"] = 4000000;
+            clip.document["channels"] = {"forge.local_translation"};
+            clip.document["keys"] = Json::array();
+            for (unsigned i = 0; i < 3; ++i)
+                clip.document["keys"].push_back({{"id", AssetId::generate()},
+                                                 {"time_us", i * 2000000},
+                                                 {"translation", {i == 1 ? 2 : -2, 2.5, .5}},
+                                                 {"rotation", {0, 0, 0, 1}},
+                                                 {"scale", {1, 1, 1}},
+                                                 {"interpolation", "linear"}});
+            clip.validate();
+            write(root / trail_animation, clip.document);
+            catalog.add({clip.asset(), TransformAnimationAsset::type, trail_animation, 1, {}});
+        }
+        motion = clip.asset();
+    }
     catalog.save(AssetCatalog::project_index(root));
     EngineContext engine;
     Scene scene(engine.world());
@@ -365,6 +407,12 @@ void author(const std::filesystem::path& root, const Example& example) {
     emitter.tint_r = .15f;
     emitter.tint_g = .8f;
     teal.set<ParticleEmitter>(emitter);
+    if (example.world_trails) {
+        TransformAnimator animator;
+        animator.clip = {motion};
+        teal.set<TransformAnimator>(animator);
+        teal.set<LocalTranslation>({-2, 2.5, .5});
+    }
     if (example.billboards)
         teal.set<LocalScale>({1.4f, 1, 0});
     auto amber = actor(example.scene_collision ? "Amber Scene-collision particles"
@@ -475,7 +523,9 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
               render.cameras.size() == 1 && render.lights.size() == 1,
           "Sorted-alpha example lost its native Scene consumers");
     if (example.scene_collision) {
-        check(effect.document.at("version") == (example.scene_collision_2d ? 18 : 16) &&
+        check(effect.document.at("version") == (example.world_trails         ? 19
+                                                : example.scene_collision_2d ? 18
+                                                                             : 16) &&
                   effect.compiled().scene_collision ==
                       ParticleSceneCollision{.06, .65, .15, 2, UINT32_MAX} &&
                   !effect.compiled().collision && scene.document().at("entities").size() == 6,
@@ -516,6 +566,16 @@ std::vector<AssetId> inspect(const std::filesystem::path& root, const Example& e
               catalog.records().at(scene.asset_id()).source == example.scene,
           "Sorted-alpha example identity/catalog mismatch");
     std::vector<AssetId> ids{scene.asset_id(), effect.asset(), material.asset()};
+    if (example.world_trails) {
+        const auto clip = TransformAnimationSource::parse(
+            asset_detail::read_bytes(root / trail_animation, transform_animation_byte_limit));
+        check(catalog.records().at(clip.asset()).source == trail_animation &&
+                  effect.compiled().trail == ParticleTrailSettings{.75, 12} &&
+                  resolved.values.double_sided &&
+                  particle_instance_capacity(effect.compiled()) == 1536,
+              "Historical trail Gallery lost its animation, joined geometry or reservation");
+        ids.push_back(clip.asset());
+    }
     if (example.billboards) {
         const auto texture = PaintTextureSource::parse(
             asset_detail::read_bytes(root / quad_texture, paint_texture_source_byte_limit));
@@ -558,6 +618,11 @@ void prepare(const std::filesystem::path& root, const Example& example,
         test::publish_gallery_asset(materials, material_path, prepare_material_publication);
     AssetImportService particles(lease, particle_effect_import_registry(), import);
     test::publish_gallery_asset(particles, example.effect, prepare_particle_effect_publication);
+    if (example.world_trails) {
+        AssetImportService animations(lease, transform_animation_import_registry(), import);
+        test::publish_gallery_asset(animations, trail_animation,
+                                    prepare_transform_animation_publication);
+    }
     EngineContext engine;
     Scene scene(engine.world());
     scene.load(root / example.scene);
@@ -691,6 +756,8 @@ void verify_export(const std::filesystem::path& root, const Example& example,
                   (example.gpu && !example.weighted && !example.sorted),
           "Relocated source-free particle Material has different values");
     std::vector<EngineModule> modules{particle_module(relocated)};
+    if (example.world_trails)
+        modules.push_back(animation_module(relocated));
     if (example.scene_collision)
         modules.push_back(physics_module());
     EngineContext runtime(WorldRole::Runtime, false, std::move(modules));
@@ -698,6 +765,16 @@ void verify_export(const std::filesystem::path& root, const Example& example,
     scene.load(relocated / catalog.records().at(ids[0]).source);
     const auto saved = scene.document();
     RuntimeSimulation simulation(runtime.world(), scene);
+    if (example.world_trails) {
+        const auto animation = animation_runtime(runtime.world());
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+        while (!animation->prepare_initial_pose()) {
+            check(std::chrono::steady_clock::now() < deadline,
+                  "Historical trail animation adoption stalled");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        simulation.reset_presentation();
+    }
     const auto particles = particle_runtime(runtime.world());
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
     while (!particles->prepare()) {
@@ -708,7 +785,22 @@ void verify_export(const std::filesystem::path& root, const Example& example,
     for (unsigned i = 0; i < 12; ++i)
         simulation.tick(.25f);
     const auto render = extract_render_scene(simulation.presentation(1));
-    check(render.diagnostics.empty() && render.particles.size() == 2 && scene.document() == saved,
+    auto observed = scene.document();
+    if (example.world_trails) {
+        for (std::size_t i = 0; i < observed.at("entities").size(); ++i) {
+            auto& components = observed["entities"][i]["components"];
+            if (components.contains("forge.transform_animator")) {
+                const auto& position = components.at("forge.local_translation");
+                check(std::abs(position.at("x").get<double>()) < 1e-5 &&
+                          position.at("y").get<double>() == 2.5 &&
+                          position.at("z").get<double>() == .5,
+                      "Source-hidden World trail emitter lost its authored looping translation");
+                components["forge.local_translation"] =
+                    saved.at("entities").at(i).at("components").at("forge.local_translation");
+            }
+        }
+    }
+    check(render.diagnostics.empty() && render.particles.size() == 2 && observed == saved,
           "Source-free alpha World lost its compact emitters or mutated authored values");
     if (example.sorted)
         check(!render.settings.weighted_transparency &&
@@ -756,6 +848,12 @@ void verify_export(const std::filesystem::path& root, const Example& example,
         if (example.scene_collision) {
             check(emitter.world_samples && emitter.world_samples->size() == samples.size(),
                   "Source-hidden Scene effect lost its copied World observations");
+            if (example.world_trails) {
+                check(emitter.world_paths && !emitter.world_paths->paths.paths.empty(),
+                      "Source-hidden World trails lost their detached historical geometry");
+                validate_particle_world_paths(selected.get(), emitter.time, *emitter.world_paths,
+                                              *emitter.world_samples);
+            }
             for (const auto& particle : samples)
                 if (std::abs(particle.position[0]) < 5.9 && std::abs(particle.position[2]) < 4.9)
                     check(particle.position[1] >= .06 - 1e-5,
@@ -792,7 +890,15 @@ int main(int argc, char** argv) {
         check(argc >= 3, "Need sorted-alpha Gallery action and project root");
         const auto root = std::filesystem::absolute(argv[2]);
         const std::string_view action = argv[1];
-        if (action == "--author-xy-scene-collision")
+        if (action == "--author-world-trails")
+            author(root, world_ribbons);
+        else if (action == "--author-xy-world-trails")
+            author(root, xy_world_ribbons);
+        else if (action == "--inspect-world-trails")
+            (void)inspect(root, world_ribbons);
+        else if (action == "--inspect-xy-world-trails")
+            (void)inspect(root, xy_world_ribbons);
+        else if (action == "--author-xy-scene-collision")
             author(root, xy_scene_colliding);
         else if (action == "--inspect-xy-scene-collision")
             (void)inspect(root, xy_scene_colliding);
@@ -886,6 +992,9 @@ int main(int argc, char** argv) {
                 prepare(root, gpu_colliding, false);
             if (std::filesystem::exists(root / gpu_ribbons.effect))
                 prepare(root, gpu_ribbons, false);
+            for (const auto& example : {world_ribbons, xy_world_ribbons})
+                if (std::filesystem::exists(root / example.effect))
+                    prepare(root, example);
             bool texture_prepared = false;
             for (const auto& example :
                  {quads, gpu_quads, graph_quads, weighted_quads, weighted_graph_quads, gpu_fading,
@@ -935,7 +1044,9 @@ int main(int argc, char** argv) {
                    action == "--verify-export-gpu-trails" ||
                    action == "--verify-export-gpu-sorted" ||
                    action == "--verify-export-scene-collision" ||
-                   action == "--verify-export-xy-scene-collision") {
+                   action == "--verify-export-xy-scene-collision" ||
+                   action == "--verify-export-world-trails" ||
+                   action == "--verify-export-xy-world-trails") {
             const bool gpu = action == "--verify-export-gpu-sorted" ||
                              action == "--verify-export-gpu-opacity" ||
                              action == "--verify-export-gpu-graph-opacity" ||
@@ -953,7 +1064,9 @@ int main(int argc, char** argv) {
             std::filesystem::create_directories(copy.parent_path());
             std::filesystem::copy(root, copy, std::filesystem::copy_options::recursive);
             verify_export(copy,
-                          action == "--verify-export-xy-scene-collision"     ? xy_scene_colliding
+                          action == "--verify-export-world-trails"           ? world_ribbons
+                          : action == "--verify-export-xy-world-trails"      ? xy_world_ribbons
+                          : action == "--verify-export-xy-scene-collision"   ? xy_scene_colliding
                           : action == "--verify-export-scene-collision"      ? scene_colliding
                           : action == "--verify-export-gpu-sorted"           ? gpu_sorted
                           : action == "--verify-export-gpu-trails"           ? gpu_ribbons

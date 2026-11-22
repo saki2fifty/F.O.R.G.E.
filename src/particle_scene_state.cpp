@@ -106,6 +106,8 @@ ParticleSceneHistory advance_particle_scene_history(const ParticleSceneHistory& 
     const auto spawn = particle_spawn_frame(effect);
     for (auto ordinal = first; ordinal < last; ++ordinal)
         advance(birth(effect, spawn, seed, ordinal, frame), true);
+    if (particle_uses_scene_trails(effect))
+        retain_particle_scene_trails(next, original, effect, previous, current);
     return next;
 }
 std::vector<ParticleWorldSample> sample_particle_scene_history(const ParticleSceneHistory& history,

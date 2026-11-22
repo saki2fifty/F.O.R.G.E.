@@ -4122,3 +4122,17 @@ Before compilation, `tests/ci_acceptance_test.py` uses CTest's own regex selecti
 to verify that every focused shader check is also required by the full native
 editor gate. Test names come from the focused workflow selection, including names
 expanded from CMake loops; the check does not execute renderer fixtures.
+
+
+Historical World particle trails use `particle_world_trail_gallery` and
+`particle_xy_world_trail_gallery` for editable source/identity/closure inspection,
+with `_export` counterparts for source-hidden relocated native runtime checks.
+Their `_game` checks render through the Windows host; local `_game_vulkan` checks
+use software Vulkan. Shared particle history/runtime/source and native editor
+checks cover bounded corner retention, birth widths, shrinking tails, transactional
+budgets and source history. `mcp_particle_scene_stdio` covers both supported
+protocol envelopes and allows240seconds for the expanded publication/reopen
+workflow. Native child shutdown must succeed; wrapper cleanup is not acceptance.
+The focused shader selection enumerates the new tests explicitly and the complete
+editor selector includes them. Neither local software rendering nor CI replaces
+physical-device review.

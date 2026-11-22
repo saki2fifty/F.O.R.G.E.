@@ -35,6 +35,6 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState&,
                                                 const ParticleSceneCollision&,
                                                 const ParticleSceneQuery&,
                                                 bool initial_probe = false, bool planar_2d = false);
-std::optional<ParticleMotionState> sample_particle_scene_motion(const ParticleSceneStep&,
-                                                                double time);
+std::optional<ParticleMotionState>
+sample_particle_scene_motion(const ParticleSceneStep&, double time, bool include_death = false);
 } // namespace forge

@@ -165,10 +165,10 @@ ParticleSceneStep advance_particle_scene_motion(const ParticleSceneState& origin
     return result;
 }
 std::optional<ParticleMotionState> sample_particle_scene_motion(const ParticleSceneStep& step,
-                                                                double time) {
+                                                                double time, bool include_death) {
     if (step.knots.empty() || !std::isfinite(time) || time < 0 || time > step.duration)
         throw std::runtime_error("Particle Scene trace sample is outside its fixed interval");
-    if (step.death && time >= *step.death)
+    if (step.death && (time > *step.death || (time == *step.death && !include_death)))
         return {};
     auto next = std::upper_bound(step.knots.begin(), step.knots.end(), time,
                                  [](double t, const auto& knot) { return t < knot.time; });

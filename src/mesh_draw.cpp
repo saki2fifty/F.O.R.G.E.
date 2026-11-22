@@ -388,13 +388,12 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         desc.Name = "FORGE static instance transforms";
         desc.Size = instance_limit * instance_rows() * sizeof(Row);
         desc.BindFlags = BIND_VERTEX_BUFFER;
-        // A full Tile Map uses many Sprite batches in one frame. Streaming
-        // those bytes through DISCARD would retain one allocation per batch
-        // in the backend's fixed dynamic heap until submission. Ordered buffer
-        // updates use its paged upload owner instead, without enlarging that
-        // heap or changing the admitted scene profile.
-        desc.Usage = sprite_ ? USAGE_DEFAULT : USAGE_DYNAMIC;
-        desc.CPUAccessFlags = sprite_ ? CPU_ACCESS_NONE : CPU_ACCESS_WRITE;
+        // Sorted ribbons and large Tile Maps can issue many small batches.
+        // DISCARD retains a full 64-instance allocation for every batch until
+        // submission. Ordered updates share the paged upload owner and copy
+        // only the admitted rows, keeping the fixed dynamic heap bounded.
+        desc.Usage = USAGE_DEFAULT;
+        desc.CPUAccessFlags = CPU_ACCESS_NONE;
         device->CreateBuffer(desc, nullptr, &instances_);
         require(bool(instances_), "instance buffer allocation failed");
     }
@@ -1737,15 +1736,8 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                 output[10][0] = 1;
             }
         }
-        if (sprite_) {
-            context->UpdateBuffer(instances_, 0, selected.size() * rows * sizeof(Row),
-                                  copied.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        } else {
-            MapHelper<Row> mapped(context, instances_, MAP_WRITE, MAP_FLAG_DISCARD);
-            require(static_cast<Row*>(mapped) != nullptr, "instance upload allocation failed");
-            for (std::size_t i = 0; i < selected.size(); ++i)
-                std::copy_n(copied.data() + i * rows, rows, static_cast<Row*>(mapped) + i * rows);
-        }
+        context->UpdateBuffer(instances_, 0, selected.size() * rows * sizeof(Row), copied.data(),
+                              RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
     if (instances_) {
         IBuffer* selected = instances_;

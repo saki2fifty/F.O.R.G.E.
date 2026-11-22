@@ -427,7 +427,7 @@ class MeshSceneRenderer {
         ResourceLease<ShaderAsset> shader_lease;
         std::shared_ptr<const ParticleEffectData> preview;
         std::unique_ptr<ParticleGpuInstances> gpu;
-        ParticlePathSamples paths; // Detached samples for this frame, never pose history.
+        ParticleWorldPaths paths; // Detached samples for this frame, never pose history.
         double trail_size = 1;
         std::array<float, 3> trail_tint{1, 1, 1};
         std::string error;

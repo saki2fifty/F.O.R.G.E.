@@ -31,6 +31,8 @@ and CPU values38/`cpu_scene_collision1` or39/`cpu_scene_collision_billboard1`.
 Source17 retains GPU Material-palette selection with explicit values40–51.
 Source18 retains Boolean `scene_collision_2d` and explicitly selects CPU XY values52/
 `cpu_scene_collision_2d1` or53/`cpu_scene_collision_2d_billboard1`.
+Source19 retains `world_trail_enabled` and selects historical Scene ribbon values54/
+`cpu_scene_trail1` or55/`cpu_scene_trail_2d1`.
 Sorted and weighted GPU transport selections
 are mutually exclusive; inactive shape, opacity, Graph, plane and trail settings
 remain retained across transport changes.
@@ -56,7 +58,7 @@ New cooking uses `forge.particles.mesh.v3` and a version3 cooked envelope contai
 or sorted-alpha CPU5/opacity CPU6/camera-plane CPU7/GPU camera-plane8/graph camera-plane9/
 analytic-trail CPU10/plane-collision CPU11/explicit weighted GPU12–15/GPU opacity16–19/
 GPU plane20–22/GPU ribbon23–25/ordered GPU26–37/CPU Scene collision38–39/
-GPU Material palettes40–51/CPU XY Scene collision52–53;
+GPU Material palettes40–51/CPU XY Scene collision52–53/historical Scene trails54–55;
 legacy CPU1 normalizes to CPU2 without rewriting editable source. Publication
 metadata carries envelope `version:3` and the exact `value_version`. Source/stop
 UUIDs and extensions remain source-only. The persisted importer identifier remains
@@ -928,3 +930,46 @@ Scene/effect/alpha/opacity capabilities;53 also needs CPU billboard1. Kit instal
 are not part of the explicitly installed C++ SDK boundary in
 `cmake/native_sdk.cmake`. Installed headers, bridge/value support and SDK fingerprint
 remain unchanged; no component/POD layout or PhysicsService slot changes.
+
+
+## Historical world-space CPU trails
+
+[ADR076](decisions/076-historical-world-particle-trails.md) extends the existing
+SceneHistory owner with explicit source19/values54/55. Earlier immutable head-only
+and local analytic profiles retain their meanings. Native **World ribbon trails
+(CPU)** and optional `space=world` on `asset.document.particle_trails` call
+`ParticleEffectSource::set_world_trails`; omitted space remains local. CPU only;
+existing Scene query-space/settings, document sessions/revisions, grants, history
+and publication remain authoritative. Local ribbon/plane activation deactivates
+World geometry while preserving inactive settings.
+
+Previous/current flat snapshots preserve bounded birth-age grid points and exact
+response corners; the existing interval trace supplies any current presentation
+alpha. At most `2*segments+4` retained points per birth per snapshot. Generate only
+the visible grid window after long steps. At presentation, retain clipped tail/head
+and interior contact corners, then split longest temporal gaps within1–16segments.
+Before adopting a fixed update, reject any intermediate window that cannot preserve
+its mandatory geometry, even when the entire tail expires before the final clock.
+No silent truncation, presentation-time query or extra World/clock/registry is added.
+
+World positions and birth X-column width magnitudes remain frozen. Appearance uses
+original birth age/lifetime; live emitter size/tint applies once at the rendering
+boundary. Lifetime/contact-dead heads retain shrinking tails until end+duration.
+Disable, reset and seed/effect replacement discard history under existing policy.
+This remains a sampled polyline approximation, not continuous collision geometry.
+
+Derived `world_paths` uses exact-key flat tuples: ranges `[birth,first,count,width]`
+and points `[age,x,y,z,size,r,g,b,opacity]`. Strict shape/type/finite/order/time/phase
+and immutable binding checks precede extraction/rendering. Zero path velocities
+mean unspecified ribbon velocity, while head samples preserve actual motion.
+Shared head/path ordinals count once against1024World births. Existing8192instance
+and8MiBframe limits include reserved segments, detached samples and per-view
+geometry. Reuse actual ribbon joins, world bounds, camera sides and ordinary CPU
+Material/sort/draw owners. Tail-only bounds retain selection/framing.
+
+Export requires effect3/alpha1/opacity1/trail1/Scene collision1 plus typed
+`runtime_particle_scene_trail:1`; XYvalues55 additionally require the XY capability.
+Missing/malformed/unsupported capabilities reject before output replacement. No
+installed SDK/POD/vtable/fingerprint change. Gallery259/260 share an original
+translation clip and existing Ribbon Material. Local/rendered/native Windows and
+physical acceptance remain separate evidence claims.

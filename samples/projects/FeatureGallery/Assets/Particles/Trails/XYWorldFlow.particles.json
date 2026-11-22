@@ -1,0 +1,107 @@
+{
+  "acceleration": [
+    0,
+    -4,
+    0
+  ],
+  "asset_id": "e6e78731-404d-4d21-8924-4370c0340ed7",
+  "billboard_enabled": false,
+  "burst_count": 32,
+  "capacity": 128,
+  "collision": {
+    "bounce_limit": 4,
+    "friction": 0.1,
+    "normal": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "offset": -1.0,
+    "radius": 0.0,
+    "restitution": 0.5
+  },
+  "collision_enabled": false,
+  "color_end": [
+    1,
+    1,
+    1
+  ],
+  "color_gradient": [],
+  "color_start": [
+    1,
+    1,
+    1
+  ],
+  "cone_angle": 35,
+  "direction": [
+    0.0,
+    1.0,
+    0.0
+  ],
+  "drag": 0.1,
+  "emission": "continuous",
+  "format": "forge.particle_effect",
+  "gpu_billboard_enabled": false,
+  "gpu_collision_enabled": false,
+  "gpu_material_palette_enabled": false,
+  "gpu_opacity_enabled": false,
+  "gpu_sorted_enabled": false,
+  "gpu_trail_enabled": false,
+  "gpu_weighted_enabled": false,
+  "lifetime": 4,
+  "material": "cf76fa6f-73ff-419b-8543-7ad92205016d",
+  "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+  "opacity_curve": [
+    {
+      "id": "00d29c6b-00fe-40b8-949c-77495330e105",
+      "interpolation": "linear",
+      "time": 0.0,
+      "value": 0.0
+    },
+    {
+      "id": "b15240ad-a613-4c87-b240-dfe8415a9887",
+      "interpolation": "linear",
+      "time": 0.15,
+      "value": 1
+    },
+    {
+      "id": "5b334b61-eb6e-47ab-9845-8d09a6572876",
+      "interpolation": "linear",
+      "time": 1.0,
+      "value": 0.0
+    }
+  ],
+  "opacity_enabled": true,
+  "opacity_end": 0,
+  "opacity_start": 0,
+  "profile": "cpu_scene_trail_2d1",
+  "scene_collision": {
+    "bounce_limit": 2,
+    "friction": 0.15,
+    "mask": 4294967295,
+    "radius": 0.06,
+    "restitution": 0.65
+  },
+  "scene_collision_2d": true,
+  "scene_collision_enabled": true,
+  "shape": "box",
+  "shape_radius": 1.0,
+  "shape_size": [
+    2,
+    0.25,
+    1
+  ],
+  "size_curve": [],
+  "size_end": 0.06,
+  "size_start": 0.12,
+  "spawn_rate": 24,
+  "speed_max": 1.5,
+  "speed_min": 0.5,
+  "trail": {
+    "duration": 0.75,
+    "segments": 12
+  },
+  "trail_enabled": false,
+  "version": 19,
+  "world_trail_enabled": true
+}

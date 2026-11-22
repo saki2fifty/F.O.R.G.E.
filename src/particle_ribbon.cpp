@@ -25,11 +25,11 @@ void finite(Double3 value) {
         if (!std::isfinite(lane))
             throw std::runtime_error("Particle ribbon geometry is nonfinite");
 }
-} // namespace
-std::vector<ParticleRibbonSegment> particle_ribbon_segments(const ParticlePathSamples& paths,
-                                                            const AffineTransform& emitter,
-                                                            const CameraView& camera, double size,
-                                                            std::array<float, 3> tint) {
+std::vector<ParticleRibbonSegment> ribbon_segments(const ParticlePathSamples& paths,
+                                                   const AffineTransform& emitter,
+                                                   const CameraView& camera, double size,
+                                                   std::array<float, 3> tint,
+                                                   std::span<const double> width_scales) {
     validate_particle_instance_parameters(size, tint);
     for (auto lane : emitter.m)
         if (!std::isfinite(lane))
@@ -39,10 +39,13 @@ std::vector<ParticleRibbonSegment> particle_ribbon_segments(const ParticlePathSa
     if (!std::isfinite(scale) || paths.paths.size() > 1024 ||
         paths.points.size() < paths.paths.size() || paths.segment_count() > particle_scene_capacity)
         throw std::runtime_error("Particle ribbon geometry exceeds its bounded profile");
+    if (!width_scales.empty() && width_scales.size() != paths.paths.size())
+        throw std::runtime_error("Particle ribbon birth widths do not match its paths");
     std::vector<ParticleRibbonSegment> result;
     result.reserve(paths.segment_count());
     std::size_t consumed = 0;
     std::optional<std::uint64_t> previous_birth;
+    std::size_t path_index = 0;
     for (const auto& path : paths.paths) {
         if (path.first != consumed || path.count < 2 ||
             path.count > particle_path_segment_limit + 1 ||
@@ -80,7 +83,8 @@ std::vector<ParticleRibbonSegment> particle_ribbon_segments(const ParticlePathSa
             if (std::inner_product(side.begin(), side.end(), previous.begin(), 0.) < 0)
                 for (auto& lane : side)
                     lane = -lane;
-            const auto width = points[i].size * size * scale;
+            const auto width =
+                points[i].size * size * (width_scales.empty() ? scale : width_scales[path_index]);
             if (!std::isfinite(width) || width < 0)
                 throw std::runtime_error("Particle ribbon width is invalid");
             for (unsigned axis = 0; axis < 3; ++axis)
@@ -147,9 +151,24 @@ std::vector<ParticleRibbonSegment> particle_ribbon_segments(const ParticlePathSa
                                           (points[i].age - points.front().age) / age_span};
             result.push_back(segment);
         }
+        ++path_index;
     }
     if (consumed != paths.points.size())
         throw std::runtime_error("Particle ribbon points have no admitted path");
     return result;
+}
+} // namespace
+std::vector<ParticleRibbonSegment> particle_ribbon_segments(const ParticlePathSamples& paths,
+                                                            const AffineTransform& emitter,
+                                                            const CameraView& camera, double size,
+                                                            std::array<float, 3> tint) {
+    return ribbon_segments(paths, emitter, camera, size, tint, {});
+}
+std::vector<ParticleRibbonSegment> particle_world_ribbon_segments(const ParticleWorldPaths& paths,
+                                                                  const CameraView& camera,
+                                                                  double size,
+                                                                  std::array<float, 3> tint) {
+    validate_particle_world_paths(paths);
+    return ribbon_segments(paths.paths, {}, camera, size, tint, paths.width_scales);
 }
 } // namespace forge

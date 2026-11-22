@@ -4462,3 +4462,22 @@ runtime content before rendering. Captured2026-11-19 with Linux software Vulkan;
 this is visual workflow evidence, not physical GPU/Windows acceptance. The native
 Game path has a matching `particle_billboard_gallery_game` fixture. The original
 procedural alpha image belongs to the Gallery; no external image is used.
+
+
+## Historical World particle trails
+
+Canonical image: [world-particle-trails.png](../../../manual/images/world-particle-trails.png).
+The unmodified640×360 image shows Gallery259 at fixed time3seconds through the
+production Game renderer after publication, source hiding and runtime-content
+relocation. The teal emitter follows its original four-second Transform Animation
+while older trails retain birth-space positions. Captured2026-11-22 using native
+Vulkan/llvmpipe LLVM15 software graphics. Matching3D/XYGame fixtures also verify
+proxy-transform invariance, stopped-Play notices and recovery. OlderCPUalpha, local
+ribbon and3D/XYScene fixtures retain exact canonical pixels after shared instance
+upload changes. This is a Game workflow capture, not a native editor-control image,
+Windows or physical GPU acceptance.
+
+Source baseline `2866ee25037c14073eda9aea0e994c2115edd1ef`; affected build input digest `3108b239e50e4802d6870b68e5c9c9cd686973458cdbeefdbfa71145bf33b9ae`.
+Capture tests: `particle_world_trail_gallery_game_vulkan` and
+`particle_xy_world_trail_gallery_game_vulkan`; coherent local capture gate247.
+Canonical SHA-256: `42895325a3159c46a2cd16f0d173da8aa4e92ab3041386cf1383917ffd97a74b`.

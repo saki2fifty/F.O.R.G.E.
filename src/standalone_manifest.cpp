@@ -195,7 +195,7 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                 "Camera-aligned particles require the runtime kit packaged with "
                                 "this editor");
                     }
-                    if (values == 10) {
+                    if (values == 10 || particle_uses_scene_trails(particle)) {
                         const auto trail = engine.find("runtime_particle_trail");
                         require(
                             trail != engine.end() && trail->is_number_integer() &&
@@ -249,6 +249,14 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                                         particle_scene_collision_2d_profile_version,
                                 "XY Scene particle collision requires the runtime kit packaged "
                                 "with this editor");
+                    }
+                    if (particle_uses_scene_trails(particle)) {
+                        const auto trail = engine.find("runtime_particle_scene_trail");
+                        require(trail != engine.end() && trail->is_number_integer() &&
+                                    trail->get<std::uint64_t>() ==
+                                        particle_scene_trail_profile_version,
+                                "Historical World particle trails require the runtime kit "
+                                "packaged with this editor");
                     }
                     if (values == 11) {
                         const auto collision = engine.find("runtime_particle_collision");

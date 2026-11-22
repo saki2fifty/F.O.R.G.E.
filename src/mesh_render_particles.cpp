@@ -79,7 +79,7 @@ std::vector<RenderMesh> MeshSceneRenderer::prepare_particle_sources(const Render
                         "Particle runtime and presentation selections differ; restart Play");
             }
             if (particle_uses_scene_collision(*data)) {
-                if (!emitter.world_samples && emitter.revision.empty()) {
+                if (!emitter.world_samples && !emitter.world_paths && emitter.revision.empty()) {
                     Diagnostic notice{Severity::Info,
                                       "render.particles.play_required",
                                       "Scene collision particles simulate during Play; stopped "
@@ -97,6 +97,8 @@ std::vector<RenderMesh> MeshSceneRenderer::prepare_particle_sources(const Render
             } else
                 require(!emitter.world_samples,
                         "Particle World capture requires a Scene collision effect profile");
+            require(particle_uses_scene_trails(*data) == emitter.world_paths.has_value(),
+                    "Particle World paths require a matching live Scene trail profile");
             const auto reserved = particle_instance_capacity(*data);
             require(reserved <= particle_scene_capacity - capacity,
                     "Scene exceeds the 8192 reserved particle-instance budget");
@@ -166,12 +168,20 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
             const auto& mesh_bounds = prepared.mesh->mesh.lods.front().parts.front().bounds;
             if (particle_uses_scene_collision(data)) {
                 require(emitter.world_samples.has_value(), "Particle World capture is missing");
-                world_values = particle_world_render_instances(
-                    data, *emitter.world_samples, emitter.time, emitter.emitter.size_multiplier,
-                    {emitter.emitter.tint_r, emitter.emitter.tint_g, emitter.emitter.tint_b});
-                if (const auto bounds = particle_world_bounds(mesh_bounds, world_values,
-                                                              particle_uses_billboards(data)))
-                    particle_bounds_.emplace_back(emitter.entity, *bounds);
+                if (particle_uses_scene_trails(data)) {
+                    require(emitter.world_paths.has_value(), "Particle World paths are missing");
+                    if (const auto bounds = particle_world_paths_bounds(
+                            data, *emitter.world_paths, emitter.time, *emitter.world_samples,
+                            emitter.emitter.size_multiplier))
+                        particle_bounds_.emplace_back(emitter.entity, *bounds);
+                } else {
+                    world_values = particle_world_render_instances(
+                        data, *emitter.world_samples, emitter.time, emitter.emitter.size_multiplier,
+                        {emitter.emitter.tint_r, emitter.emitter.tint_g, emitter.emitter.tint_b});
+                    if (const auto bounds = particle_world_bounds(mesh_bounds, world_values,
+                                                                  particle_uses_billboards(data)))
+                        particle_bounds_.emplace_back(emitter.entity, *bounds);
+                }
             } else
                 particle_bounds_.emplace_back(
                     emitter.entity, particle_effect_bounds(data, mesh_bounds, emitter.world,
@@ -188,19 +198,25 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                 each += sizeof(AffineTransform); // Reserved view-local aligned matrix.
             if (particle_uses_trails(data) && !particle_uses_gpu(data)) {
                 const auto& trail = *data.trail;
-                auto paths = sample_particle_paths(data, emitter.time, emitter.emitter.seed,
-                                                   trail.duration, trail.segments);
+                ParticleWorldPaths captured;
+                if (particle_uses_scene_trails(data))
+                    captured = *emitter.world_paths;
+                else
+                    captured.paths = sample_particle_paths(data, emitter.time, emitter.emitter.seed,
+                                                           trail.duration, trail.segments);
+                const auto& paths = captured.paths;
                 // Charge source samples and all view-local geometry records. The
                 // existing per-instance allowance also covers composition/sort work.
                 const auto retained = paths.paths.capacity() * sizeof(ParticlePathRange) +
-                                      paths.points.capacity() * sizeof(ParticleSample);
+                                      paths.points.capacity() * sizeof(ParticleSample) +
+                                      captured.width_scales.capacity() * sizeof(double);
                 require(retained <= byte_limit - bytes,
                         "Particle paths exceed the 8 MiB frame budget");
                 each += sizeof(ParticleRibbonSegment);
                 require(paths.segment_count() <= (byte_limit - bytes - retained) / each,
                         "Particle trail segments exceed the 8 MiB frame budget");
                 bytes += retained + paths.segment_count() * each;
-                source->second.paths = std::move(paths);
+                source->second.paths = std::move(captured);
                 source->second.trail_size = emitter.emitter.size_multiplier;
                 source->second.trail_tint = {emitter.emitter.tint_r, emitter.emitter.tint_g,
                                              emitter.emitter.tint_b};

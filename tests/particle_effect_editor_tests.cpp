@@ -775,6 +775,34 @@ void exercise(const std::filesystem::path& root, float scale, bool compact) {
                 !test::ui_targets.at("particles:preview_play").enabled,
             "Native XY selection lost settings, billboard geometry or Play prerequisite");
     const auto tuned_xy = editor.document()->source().document;
+    click("particles:world-trails");
+    frame();
+    require(editor.document()->source().compiled().version == 55 &&
+                !test::ui_targets.at("particles:preview_play").enabled &&
+                !test::ui_targets.at("particles:mesh").enabled,
+            "Native World trails lost XY selection or enabled an isolated physics preview");
+    number("particles:trail-duration", ".625");
+    number("particles:trail-segments", "12");
+    require(editor.document()->source().compiled().trail == ParticleTrailSettings{.625, 12},
+            "Native World trail settings activated the local geometry owner");
+    choose("particles:scene-space", 0);
+    require(editor.document()->source().compiled().version == 54 &&
+                editor.document()->source().document.at("version") == 19,
+            "Native World trail query selection downgraded source or changed geometry");
+    const auto world_trails = editor.document()->source().document;
+    number("particles:trail-segments", "0");
+    require(editor.document()->source().document == world_trails && !editor.diagnostic().empty(),
+            "Invalid World trail segment count partially changed the document");
+    click("particles:world-trails");
+    require(editor.document()->source().compiled().version == 39,
+            "Disabling World trails did not restore retained Scene billboard geometry");
+    editor.undo();
+    require(editor.document()->source().document == world_trails,
+            "World trail Undo lost exact retained source settings");
+    for (unsigned i = 0; i < 8 && editor.document()->source().document != tuned_xy; ++i)
+        editor.undo();
+    require(editor.document()->source().document == tuned_xy,
+            "Native World trail history did not restore the exact earlier XY source");
     number("particles:scene-radius", ".001");
     require(editor.document()->source().document == tuned_xy && !editor.diagnostic().empty(),
             "Native XY radius outside the circle domain partially changed source");

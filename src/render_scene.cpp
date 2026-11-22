@@ -250,6 +250,7 @@ RenderScene extract_render_scene(const Json& source) {
     const auto rows = detail::index_json_rows(entities);
     std::map<EntityId, ModelSource> models;
     std::size_t particle_world_count = 0;
+    std::size_t particle_world_segments = 0;
     for (const auto& row : entities) {
         require(row.is_object(), "Presentation entity must be an object");
         const auto id = row.at("id").get<EntityId>();
@@ -424,13 +425,25 @@ RenderScene extract_render_scene(const Json& source) {
                 if (playback.contains("world_samples")) {
                     particle.world_samples =
                         decode_particle_world_samples(playback.at("world_samples"));
-                    require(particle.world_samples->size() <=
-                                particle_scene_collision_capacity - particle_world_count,
-                            "Particle World capture exceeds the 1024-birth Scene budget");
+                }
+                if (playback.contains("world_paths")) {
+                    particle.world_paths = decode_particle_world_paths(playback.at("world_paths"));
+                    require(particle.world_paths->paths.segment_count() <=
+                                particle_scene_capacity - particle_world_segments,
+                            "Particle World paths exceed the 8192-segment Scene budget");
                 }
             }
-            if (particle.world_samples)
-                particle_world_count += particle.world_samples->size();
+            if (particle.world_samples || particle.world_paths) {
+                const auto births = particle_world_capture_birth_count(
+                    particle.world_samples ? std::span(*particle.world_samples)
+                                           : std::span<const ParticleWorldSample>{},
+                    particle.world_paths ? &*particle.world_paths : nullptr);
+                require(births <= particle_scene_collision_capacity - particle_world_count,
+                        "Particle World capture exceeds the 1024-birth Scene budget");
+                particle_world_count += births;
+            }
+            if (particle.world_paths)
+                particle_world_segments += particle.world_paths->paths.segment_count();
             result.particles.push_back(std::move(particle));
         });
     }

@@ -18,4 +18,7 @@ std::vector<ParticleRibbonSegment> particle_ribbon_segments(const ParticlePathSa
                                                             const AffineTransform&,
                                                             const CameraView&, double size = 1,
                                                             std::array<float, 3> tint = {1, 1, 1});
+std::vector<ParticleRibbonSegment>
+particle_world_ribbon_segments(const ParticleWorldPaths&, const CameraView&, double size = 1,
+                               std::array<float, 3> tint = {1, 1, 1});
 } // namespace forge

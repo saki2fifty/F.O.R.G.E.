@@ -301,7 +301,8 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
                     bool opacity = false, bool billboards = false, bool gpu = false,
                     bool graph = false, bool trails = false, bool collision = false,
                     bool weighted = false, bool gpu_opacity = false, bool sorted = false,
-                    bool scene_collision = false, bool scene_collision_2d = false) {
+                    bool scene_collision = false, bool scene_collision_2d = false,
+                    bool world_trails = false) {
     using test_bloom::check;
 #ifdef _WIN32
     const RuntimePackageTarget target{"windows", "d3d12"};
@@ -317,7 +318,8 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
         if (record.type == ParticleEffectAsset::type)
             effect = id;
     }
-    check(catalog->records().size() == (graph        ? 5u
+    check(catalog->records().size() == (world_trails ? 4u
+                                        : graph      ? 5u
                                         : billboards ? 4u
                                                      : 3u) &&
               scene && effect,
@@ -327,24 +329,25 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     check(effects.wait(ticket, std::chrono::seconds(15)), "Source-free alpha Effect load stalled");
     const auto selected = effects.acquire(ticket);
     check(selected &&
-              selected->version == (scene_collision_2d ? 53u
-                                    : scene_collision  ? 39u
-                                    : sorted           ? 34u
-                                    : gpu && trails    ? (gpu_opacity ? 25u
-                                                          : weighted  ? 24u
-                                                                      : 23u)
-                                    : gpu && collision ? (gpu_opacity ? 22u
-                                                          : weighted  ? 21u
-                                                                      : 20u)
-                                    : gpu_opacity      ? (graph ? 19u : 18u)
-                                    : weighted         ? (graph ? 15u : 14u)
-                                    : collision        ? 11u
-                                    : trails           ? 10u
-                                    : graph            ? 9u
-                                    : gpu              ? 8u
-                                    : billboards       ? 7u
-                                    : opacity          ? 6u
-                                                       : 5u) &&
+              selected->version == (world_trails         ? (scene_collision_2d ? 55u : 54u)
+                                    : scene_collision_2d ? 53u
+                                    : scene_collision    ? 39u
+                                    : sorted             ? 34u
+                                    : gpu && trails      ? (gpu_opacity ? 25u
+                                                            : weighted  ? 24u
+                                                                        : 23u)
+                                    : gpu && collision   ? (gpu_opacity ? 22u
+                                                            : weighted  ? 21u
+                                                                        : 20u)
+                                    : gpu_opacity        ? (graph ? 19u : 18u)
+                                    : weighted           ? (graph ? 15u : 14u)
+                                    : collision          ? 11u
+                                    : trails             ? 10u
+                                    : graph              ? 9u
+                                    : gpu                ? 8u
+                                    : billboards         ? 7u
+                                    : opacity            ? 6u
+                                                         : 5u) &&
               bool(selected->program) == graph,
           "Source-free alpha content selected another evaluation profile");
     RuntimeWorld world({}, {}, std::nullopt, content, false);
@@ -403,6 +406,9 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
         for (auto& emitter : snapshot.particles) {
             check(emitter.world_samples && !emitter.world_samples->empty(),
                   "Scene Game has no copied native collision observations");
+            if (world_trails)
+                check(emitter.world_paths && !emitter.world_paths->paths.points.empty(),
+                      "Historical Game has no retained World ribbon observations");
             emitter.world.m[3] += 1000;
         }
         check(draw() == rendered,
@@ -418,6 +424,7 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
         snapshot = captured;
         for (auto& emitter : snapshot.particles) {
             emitter.world_samples.reset();
+            emitter.world_paths.reset();
             emitter.revision.clear();
             emitter.generation = 0;
         }
@@ -428,11 +435,13 @@ inline void gallery(DiligentPresentation& presentation, Diligent::IDeviceContext
     }
     std::filesystem::create_directories(images);
     save_view_png(
-        images / (scene_collision_2d ? "xy-scene-particle-collision.png"
-                  : scene_collision  ? "scene-particle-collision.png"
-                  : sorted           ? "ordered-gpu-particles.png"
-                  : gpu && trails    ? "gpu-analytic-particle-trails.png"
-                  : gpu && collision ? "gpu-particle-plane-collision.png"
+        images / (world_trails         ? (scene_collision_2d ? "xy-world-particle-trails.png"
+                                                             : "world-particle-trails.png")
+                  : scene_collision_2d ? "xy-scene-particle-collision.png"
+                  : scene_collision    ? "scene-particle-collision.png"
+                  : sorted             ? "ordered-gpu-particles.png"
+                  : gpu && trails      ? "gpu-analytic-particle-trails.png"
+                  : gpu && collision   ? "gpu-particle-plane-collision.png"
                   : gpu_opacity
                       ? (graph ? "gpu-graph-particle-opacity.png" : "gpu-particle-opacity.png")
                   : weighted

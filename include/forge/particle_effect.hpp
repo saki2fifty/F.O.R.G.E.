@@ -109,7 +109,8 @@ enum ProfileFlag : unsigned {
     Sorted = 256,
     SceneCollision = 512,
     MaterialPalette = 1024,
-    SceneCollision2D = 2048
+    SceneCollision2D = 2048,
+    SceneTrail = 4096
 };
 struct ValueProfile {
     unsigned version;
@@ -181,7 +182,10 @@ inline constexpr std::array value_profiles{
     ValueProfile{52, "cpu_scene_collision_2d1",
                  CpuAlpha | Opacity | SceneCollision | SceneCollision2D},
     ValueProfile{53, "cpu_scene_collision_2d_billboard1",
-                 CpuAlpha | Opacity | SceneCollision | SceneCollision2D | Billboard}};
+                 CpuAlpha | Opacity | SceneCollision | SceneCollision2D | Billboard},
+    ValueProfile{54, "cpu_scene_trail1", CpuAlpha | Opacity | SceneCollision | Trail | SceneTrail},
+    ValueProfile{55, "cpu_scene_trail_2d1",
+                 CpuAlpha | Opacity | SceneCollision | SceneCollision2D | Trail | SceneTrail}};
 static_assert([] {
     for (unsigned i = 0; i < value_profiles.size(); ++i)
         if (value_profiles[i].version != i + 1)
@@ -242,6 +246,9 @@ constexpr bool particle_uses_scene_collision(const ParticleEffectData& data) {
 constexpr bool particle_uses_scene_collision_2d(const ParticleEffectData& data) {
     return particle_detail::has(data, particle_detail::SceneCollision2D);
 }
+constexpr bool particle_uses_scene_trails(const ParticleEffectData& data) {
+    return particle_detail::has(data, particle_detail::SceneTrail);
+}
 constexpr bool particle_uses_billboards(const ParticleEffectData& data) {
     return particle_detail::has(data, particle_detail::Billboard);
 }
@@ -256,6 +263,25 @@ struct ParticleSample {
     double opacity = 1;
     bool operator==(const ParticleSample&) const = default;
 };
+struct ParticlePathRange {
+    std::uint64_t birth;
+    std::size_t first, count;
+    bool operator==(const ParticlePathRange&) const = default;
+};
+// Flat detached ribbon geometry; the runtime owns any historical retention.
+struct ParticlePathSamples {
+    std::vector<ParticlePathRange> paths;
+    std::vector<ParticleSample> points;
+    std::size_t segment_count() const { return points.size() - paths.size(); }
+    bool operator==(const ParticlePathSamples&) const = default;
+};
+struct ParticleWorldPaths {
+    ParticlePathSamples paths;
+    // Frozen birth X-column magnitudes, one per path. Point velocities are zero:
+    // these are visual polyline samples, not instantaneous physics observations.
+    std::vector<double> width_scales;
+    bool operator==(const ParticleWorldPaths&) const = default;
+};
 // Copied transient World observation; neither an authored value nor saved body.
 // Position/velocity are world-space. The row-major birth basis has no translation.
 struct ParticleWorldSample {
@@ -264,8 +290,18 @@ struct ParticleWorldSample {
     bool operator==(const ParticleWorldSample&) const = default;
 };
 void validate_particle_world_samples(std::span<const ParticleWorldSample>);
+void validate_particle_world_samples(const ParticleEffectData&, double time,
+                                     std::span<const ParticleWorldSample>);
 nlohmann::json encode_particle_world_samples(std::span<const ParticleWorldSample>);
 std::vector<ParticleWorldSample> decode_particle_world_samples(const nlohmann::json&);
+void validate_particle_world_paths(const ParticleWorldPaths&);
+void validate_particle_world_paths(const ParticleEffectData&, double time,
+                                   const ParticleWorldPaths&,
+                                   std::span<const ParticleWorldSample> heads = {});
+nlohmann::json encode_particle_world_paths(const ParticleWorldPaths&);
+ParticleWorldPaths decode_particle_world_paths(const nlohmann::json&);
+std::size_t particle_world_capture_birth_count(std::span<const ParticleWorldSample>,
+                                               const ParticleWorldPaths* = nullptr);
 void validate_particle_effect(const ParticleEffectData&);
 ParticleEffectData decode_particle_effect(const nlohmann::json&);
 nlohmann::json encode_particle_effect(const ParticleEffectData&);

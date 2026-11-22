@@ -9,6 +9,7 @@ a compatible group of transparent emitters in one view. CPU and GPU analytic rib
 trails follow each particle's local path. Built-in CPU and GPU Mesh particles can
 bounce against an emitter-local plane. CPU Scene collision responds to realized
 3D or XY Scene colliders and keeps existing particles in world space as emitters move.
+CPU World ribbon trails retain those historical paths and surviving tails.
 
 ## Try the Gallery
 
@@ -131,7 +132,9 @@ Undo/Redo restores the source settings. Each camera aligns its own view independ
 
 Quads stay parallel to the camera plane, including in perspective views. They do
 not rotate toward each particle's eye direction, face along velocity or support
-axis locks. Particle spin, collision and trails are unavailable.
+axis locks. Particle spin is unavailable. CPU quads can use Scene collision;
+analytic plane response uses Mesh geometry. Ribbon trails use their own connected
+Quad geometry.
 Transparent quads share the sorting and particle-count limits described above.
 
 ## GPU camera-aligned quads
@@ -347,8 +350,9 @@ changes from Step curves. Higher segment counts resolve more detail.
 Switching evaluation retains trail settings. Select **CPU (sorted alpha)** to
 apply them again. In **CPU (sorted alpha)**, disabling trails restores the retained mesh/quad settings;
 Undo/Redo restores the complete edit. GPU trails have their own activation, as
-described below. Graph trails and historical emitter motion are unavailable.
-Collision cannot be combined with ribbon trails.
+described below. This analytic mode does not record historical emitter motion or
+combine with collision. Use **World ribbon trails (CPU)** for historical Scene paths.
+Graph trails are unavailable.
 
 ## GPU analytic ribbon trails
 
@@ -485,8 +489,9 @@ playback and seeking are disabled. Stop/restart, changing seed or Effect,
 disabling/re-enabling an emitter and visual recovery restart its transient history.
 Particle histories are not saved into the Scene.
 
-Scene collision supports CPU Mesh and camera-plane particles. It does not combine
-with GPU evaluation, ribbons or the local-plane response. Queries use bounded
+Scene collision supports CPU Mesh, camera-plane particles and the historical
+ribbon workflow below. It does not combine with GPU evaluation, local analytic
+ribbons or the local-plane response. Queries use bounded
 straight sphere or circle sweeps to approximate curved paths against the current physics
 snapshot; this is not continuous moving-surface collision. There are no resting
 contacts, collision callbacks or two-way rigid-body response.
@@ -501,6 +506,43 @@ Scene collision reserves at most 1,024 births across enabled emitters, within th
 ordinary 8,192-instance Scene budget. High rates, playback speeds, small radii or
 many contacts can exceed the per-update collision work budget. Reduce these
 settings or the number/capacity of emitters when a budget error is reported.
+
+## Historical World ribbon trails
+
+Open **Scenes/259-world-particle-trails.scene.json** in FeatureGallery and press
+**Play**. The teal emitter moves sideways using an editable Transform Animation;
+the amber emitter remains fixed. Trails retain the paths of earlier births as the
+teal emitter moves and rebound from the Scene floor and obstacle. Open
+**Scenes/260-xy-world-particle-trails.scene.json** for the XY query variant. Both
+scenes include a camera and light and require no project C++ code.
+
+![Teal trails retain their earlier World paths as their emitter moves beside a fixed amber emitter](../images/world-particle-trails.png)
+
+The 3D Gallery in the Game renderer at three seconds.
+
+1. Stop Play and open a Particle Effect from Content. Select **CPU (sorted alpha)**.
+2. Enable **World ribbon trails (CPU)**. Choose **World 3D** or **World XY** under **Scene query space** and configure the Scene radius, restitution, friction, bounce limit and collision layers.
+3. Set **Trail duration (seconds)** from 0.001 to 30 and **Trail segments (1–16)**. Press Enter to commit a number. More segments describe curved motion and appearance in greater detail.
+4. Choose a double-sided built-in Material. For fades, use **Alpha → Blend**, enable **Depth test** and disable **Depth write**. The Gallery shares **Assets/Particles/Trails/Ribbon.material.json**.
+5. Choose **Save / Publish**, save the Scene and press Play. Edit the reusable effects **WorldFlow.particles.json** and **XYWorldFlow.particles.json** under **Assets/Particles/Trails**. Open **EmitterSweep.animation.json** in Timeline to adjust the teal emitter's looping translation.
+6. Export with the runtime kit packaged with this editor. An older kit without World-trail support is rejected. The player requires no compiler or compute support for CPU trails.
+
+Earlier point positions and ribbon widths keep their birth transform; later
+emitter movement and scale affect new births. Emitter size and tint controls in
+**Live gameplay** still modulate existing ribbons. After a head reaches its
+lifetime or ends at contact, its tail shrinks until the trail duration expires.
+Disabling the emitter, replacing its seed/effect or restarting Play clears history.
+History is transient and is not saved in the Scene. Stopped Scene, Timeline and
+isolated Effect views require Play rather than simulating a separate World.
+
+Paths are bounded sampled polylines. Contact corners consume segments in addition
+to the tail/head endpoints. If the selected segment count cannot preserve every
+corner in a visible window, the complete particle update reports a budget error;
+increase segments or reduce contacts/duration. Continuous capacity must cover
+`ceil(rate × (lifetime + trail duration))`; each emitter reserves
+`capacity × segments` within the Scene's 8,192-instance limit. The Scene collision
+query and birth limits also apply. World trails are CPU-only; local analytic
+trail and plane selections switch to their own geometry while retaining settings.
 
 ## Opacity over life
 
@@ -596,7 +638,8 @@ transmission and custom Shader surfaces report errors. Particles do not cast sha
 Built-in GPU Mesh particles support the emitter-local plane response. Built-in
 GPU ribbons use the separate analytic trail setting. Plane response for authored
 Graph trajectories, ribbons or camera-aligned quads is unavailable.
-CPU Scene collision is separate: it supports Mesh/camera-plane geometry, requires
+CPU Scene collision is separate: it supports Mesh/camera-plane geometry and
+historical World ribbons, requires
 the running World's matching 3D or XY physics geometry and reserves at most 1,024 births across
 enabled emitters. It uses the matching Scene-collision runtime-kit capability.
 

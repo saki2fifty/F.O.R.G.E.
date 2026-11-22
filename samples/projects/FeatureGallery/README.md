@@ -3396,3 +3396,15 @@ UV transforms and sampler choices can differ within four distinct selections,
 eight sampler states and32texture bindings. Incompatible selections omit the
 complete group and report a reason in Problems. See the Particle effects chapter
 in the packaged manual for the full admission limits.
+
+## Historical World particle trails
+
+Open **Scenes/259-world-particle-trails.scene.json** or
+**Scenes/260-xy-world-particle-trails.scene.json** and press Play. The teal emitter
+moves sideways while older ribbon points stay in world space; amber remains
+fixed. Real Scene colliders redirect motion and dying heads leave shrinking tails.
+Both include a camera and light and need no project C++ code. Edit **WorldFlow**
+or **XYWorldFlow** under **Assets/Particles/Trails**, the shared **Ribbon** Material,
+and **EmitterSweep.animation.json** in Timeline. Save / Publish assets and save
+the Scene before export. Use the packaged runtime kit. Increase trail segments
+or reduce contacts/duration if the complete update reports a corner-budget error.

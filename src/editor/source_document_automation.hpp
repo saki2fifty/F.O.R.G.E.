@@ -582,7 +582,18 @@ struct AssetDocumentAutomation {
                                     if (request.contains("trail"))
                                         settings =
                                             decode_particle_trail_settings(request.at("trail"));
-                                    if (backend == "gpu")
+                                    const auto space = request.value("space", std::string("local"));
+                                    if (space != "local" && space != "world")
+                                        throw AuthoringError("invalid_argument",
+                                                             "Choose local or world trail space");
+                                    if (space == "world" && backend != "cpu")
+                                        throw AuthoringError(
+                                            "invalid_argument",
+                                            "World trails require the cpu backend");
+                                    if (space == "world")
+                                        source.set_world_trails(request.at("enabled").get<bool>(),
+                                                                settings);
+                                    else if (backend == "gpu")
                                         source.set_gpu_trails(request.at("enabled").get<bool>(),
                                                               settings);
                                     else
