@@ -20,8 +20,9 @@ constexpr auto separated_path = "Scenes/256-foliage-candidate-clearance.scene.js
 constexpr auto stroke_path = "Scenes/257-foliage-brush-clearance.scene.json";
 constexpr auto bounds_path = "Scenes/267-foliage-mesh-bounds.scene.json";
 constexpr auto xy_path = "Scenes/268-foliage-xy-clearance.scene.json";
+constexpr auto surfaces_path = "Scenes/269-foliage-mesh-surfaces.scene.json";
 constexpr double separated_radius = .4;
-enum class Gallery { Sphere, Separated, Stroke, MeshBounds, XY };
+enum class Gallery { Sphere, Separated, Stroke, MeshBounds, XY, Surfaces };
 void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
@@ -185,6 +186,60 @@ void exercise(const std::filesystem::path& root, AssetId id, Gallery mode = Gall
     }
     world.physics()->synchronize(0);
     const auto source = world.scene.effective_document();
+    if (mode == Gallery::Surfaces) {
+        AssetId asset;
+        for (const auto& row : source.at("entities"))
+            if (row.at("name").get<std::string>().starts_with("Blade template"))
+                asset = row.at("components").at("forge.mesh_renderer").at("mesh").get<AssetId>();
+        check(bool(asset), "Surface Gallery lost its template");
+        const auto resources = world.engine.services().resources();
+        const auto token = resources->request(RuntimeResourceKind::Mesh, asset);
+        ResourceLease<MeshAsset> mesh;
+        while (!(mesh = resources->mesh(token))) {
+            resources->synchronize();
+            check(std::chrono::steady_clock::now() < deadline, "Surface Gallery Mesh stalled");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        std::vector<FoliageTriangle> triangles;
+        const auto bounds = foliage_template_bounds(mesh.get(), &triangles);
+        check(triangles.size() == 4, "Surface Gallery no longer has four separated triangles");
+        unsigned boxes = 0, surfaces = 0, empty_bounds_contacts = 0;
+        for (const auto& row : source.at("entities")) {
+            const auto name = row.at("name").get<std::string>();
+            const bool surface = name.starts_with("Surface-clear panels ");
+            if (!surface && !name.starts_with("Bounds-clear panels "))
+                continue;
+            surface ? ++surfaces : ++boxes;
+            AffineTransform frame;
+            for (unsigned i = 0; i < 12; ++i)
+                frame.m[i] = row.at("world_affine")[i].get<double>();
+            for (const auto& local : triangles) {
+                FoliageTriangle triangle;
+                for (unsigned i = 0; i < 3; ++i)
+                    triangle[i] = frame.point(local[i]);
+                check(!world.physics()->overlap_triangle_any(triangle),
+                      "Saved Surface Gallery panels contact a native obstacle");
+            }
+            const auto box = transform_bounds(bounds, frame);
+            PhysicsOverlap query;
+            query.shape = PhysicsOverlap::Shape::Box;
+            query.origin = {(box.minimum[0] + box.maximum[0]) * .5,
+                            (box.minimum[1] + box.maximum[1]) * .5,
+                            (box.minimum[2] + box.maximum[2]) * .5};
+            for (unsigned axis = 0; axis < 3; ++axis)
+                query.dimensions[axis] = std::max(.001, box.maximum[axis] - box.minimum[axis]);
+            const bool contact = world.physics()->overlap_any(query);
+            check(surface || !contact, "Saved bounds-clear panel overlaps a native obstacle");
+            empty_bounds_contacts += contact;
+        }
+        resources->release(token);
+        const auto rendered = extract_render_scene(world.simulation.presentation(1));
+        check(boxes == 1 && surfaces == 2 && empty_bounds_contacts == 1 &&
+                  rendered.meshes.size() == 6 && rendered.cameras.size() == 1 &&
+                  !rendered.lights.empty() && world.physics()->status().at("tick") == 0,
+              "Surface Gallery lost its saved comparison, camera, light or native semantics");
+        return;
+    }
     unsigned plants = 0, obstacles = 0, unseparated = 0;
     std::vector<LocalTranslation> separated;
     std::vector<PhysicsOverlap> separated_boxes;
@@ -311,15 +366,22 @@ int main(int argc, char** argv) {
         }
         const bool xy_only = argc == 4 && std::string_view(argv[3]) == "--xy";
         const bool bounds_only = argc == 4 && std::string_view(argv[3]) == "--bounds";
-        check(argc == 3 || bounds_only || xy_only, "Need Gallery and scratch paths");
+        const bool surfaces_only = argc == 4 && std::string_view(argv[3]) == "--surfaces";
+        check(argc == 3 || bounds_only || xy_only || surfaces_only,
+              "Need Gallery and scratch paths");
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "Gallery";
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
-        if (bounds_only || xy_only) {
-            const auto mode = xy_only ? Gallery::XY : Gallery::MeshBounds;
-            const auto id =
-                read(root / (xy_only ? xy_path : bounds_path)).at("asset_id").get<AssetId>();
+        if (bounds_only || xy_only || surfaces_only) {
+            const auto mode = surfaces_only ? Gallery::Surfaces
+                              : xy_only     ? Gallery::XY
+                                            : Gallery::MeshBounds;
+            const auto id = read(root / (surfaces_only ? surfaces_path
+                                         : xy_only     ? xy_path
+                                                       : bounds_path))
+                                .at("asset_id")
+                                .get<AssetId>();
             exercise(root, id, mode);
             const std::array roots{id};
             package_runtime_content(root, scratch / "Content", roots, {"windows", "d3d12"});

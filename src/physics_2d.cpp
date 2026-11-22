@@ -53,8 +53,9 @@ void one_way_arrow(PhysicsDebugGeometry& result, float x, float face, float widt
 // the existing 32 named project layers. No extra authored layer is introduced.
 constexpr std::uint64_t query_category = std::uint64_t{1} << 63;
 void valid_xy(LocalTranslation value) {
-    if (!std::isfinite(value.x) || !std::isfinite(value.y) || std::abs(value.x) > 1000000 ||
-        std::abs(value.y) > 1000000)
+    if (!std::isfinite(value.x) || !std::isfinite(value.y) ||
+        std::abs(value.x) > physics_query_limits_2d.position ||
+        std::abs(value.y) > physics_query_limits_2d.position)
         throw std::runtime_error("2D physics position exceeds supported +/-1000000 metres");
 }
 void validate_mover_pose(const LocalTransform& pose) {
@@ -351,6 +352,7 @@ void validate_mover_candidates(const Desired2D& desired, const std::vector<std::
     }
 }
 b2ShapeProxy overlap_proxy(const PhysicsOverlap2D& query) {
+    const auto& limits = physics_query_limits_2d;
     valid_xy({query.origin[0], query.origin[1], 0});
     if (!std::isfinite(query.angle) || std::abs(query.angle) > 1000000)
         throw std::runtime_error("2D overlap angle exceeds the supported radians profile");
@@ -359,12 +361,14 @@ b2ShapeProxy overlap_proxy(const PhysicsOverlap2D& query) {
     const auto rotation = native_rotation(q);
     const auto& d = query.dimensions;
     if (query.shape == PhysicsOverlap2D::Shape::Box) {
-        const float x = .5f * collider_dimension_2d(d[0], .01f, 1000),
-                    y = .5f * collider_dimension_2d(d[1], .01f, 1000);
+        const float x = .5f * collider_dimension_2d(d[0], limits.minimum_box_size,
+                                                    limits.maximum_box_size),
+                    y = .5f * collider_dimension_2d(d[1], limits.minimum_box_size,
+                                                    limits.maximum_box_size);
         const b2Vec2 points[] = {{-x, -y}, {x, -y}, {x, y}, {-x, y}};
         return b2MakeOffsetProxy(points, 4, 0, {0, 0}, rotation);
     }
-    const float radius = collider_dimension_2d(d[0], .005f, 500);
+    const float radius = collider_dimension_2d(d[0], limits.minimum_radius, limits.maximum_radius);
     if (query.shape == PhysicsOverlap2D::Shape::Circle) {
         const b2Vec2 point{0, 0};
         if (d[1] != 0)
@@ -373,11 +377,36 @@ b2ShapeProxy overlap_proxy(const PhysicsOverlap2D& query) {
     }
     if (query.shape != PhysicsOverlap2D::Shape::Capsule)
         throw std::runtime_error("Unknown 2D overlap shape kind");
-    const float height = collider_dimension_2d(d[1], .01f, 1000);
-    if (double(height) + 2 * double(radius) > 1000)
+    const float height =
+        collider_dimension_2d(d[1], limits.minimum_box_size, limits.maximum_box_size);
+    if (double(height) + 2 * double(radius) > limits.maximum_box_size)
         throw std::runtime_error("2D overlap capsule total height exceeds the profile");
     const b2Vec2 points[] = {{0, -.5f * height}, {0, .5f * height}};
     return b2MakeOffsetProxy(points, 2, radius, {0, 0}, rotation);
+}
+struct TriangleQuery2D {
+    Double2 origin;
+    b2ShapeProxy proxy;
+};
+TriangleQuery2D triangle_proxy(const std::array<Double2, 3>& vertices) {
+    Double2 low = vertices[0], high = vertices[0], center{};
+    for (const auto& vertex : vertices) {
+        valid_xy({vertex[0], vertex[1], 0});
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            low[axis] = std::min(low[axis], vertex[axis]);
+            high[axis] = std::max(high[axis], vertex[axis]);
+        }
+    }
+    for (unsigned axis = 0; axis < 2; ++axis) {
+        const auto extent = high[axis] - low[axis];
+        if (extent > physics_query_limits_2d.maximum_box_size)
+            throw std::runtime_error("XY triangle query extent exceeds the native profile");
+        center[axis] = low[axis] + extent * .5;
+    }
+    std::array<b2Vec2, 3> local;
+    for (unsigned i = 0; i < 3; ++i)
+        local[i] = {float(vertices[i][0] - center[0]), float(vertices[i][1] - center[1])};
+    return {center, b2MakeProxy(local.data(), int(local.size()), 0)};
 }
 b2ShapeProxy sweep_proxy(const PhysicsSweep2D& query) {
     if (!std::isfinite(query.displacement[0]) || !std::isfinite(query.displacement[1]))
@@ -410,6 +439,9 @@ void validate_ray_2d(Double2 origin, Double2 displacement) {
         throw std::runtime_error("2D ray displacement must be finite and nonzero");
 }
 void validate_overlap_2d(const PhysicsOverlap2D& query) { (void)overlap_proxy(query); }
+void validate_triangle_2d(const std::array<Double2, 3>& vertices) {
+    (void)triangle_proxy(vertices);
+}
 void validate_sweep_2d(const PhysicsSweep2D& query) { (void)sweep_proxy(query); }
 Body2DConfiguration inline_configuration_2d(PhysicsBody2D body, unsigned shape,
                                             std::array<float, 2> raw, LocalScale scale) {
@@ -2114,22 +2146,40 @@ struct Native2D::Impl {
         query.refs[query.count++] = body->admitted.ref;
         return !query.first_only;
     }
+    OverlapQuery overlap_proxy_query(const b2ShapeProxy& proxy, Double2 origin,
+                                     PhysicsQueryFilter filter, bool first_only,
+                                     std::span<const EntityRef> retired) const {
+        // Both request adapters validate before entering this native-only collector.
+        OverlapQuery query{this, filter};
+        query.first_only = first_only;
+        query.retired = retired;
+        if (B2_IS_NON_NULL(world) && filter.mask)
+            b2World_OverlapShape(world, {origin[0], origin[1]}, &proxy, query_filter(filter),
+                                 overlap_hit, &query);
+        if (query.failed)
+            throw std::runtime_error(
+                "2D overlap query exceeded its work/body limit or hit an invalid native binding");
+        return query;
+    }
     OverlapQuery overlap_query(const PhysicsOverlap2D& request, PhysicsQueryFilter filter,
                                bool first_only = false,
                                std::span<const EntityRef> retired = {}) const {
         check();
         validate_query_filter(filter);
         const auto proxy = overlap_proxy(request);
-        OverlapQuery query{this, filter};
-        query.first_only = first_only;
-        query.retired = retired;
-        if (B2_IS_NON_NULL(world) && filter.mask)
-            b2World_OverlapShape(world, {request.origin[0], request.origin[1]}, &proxy,
-                                 query_filter(filter), overlap_hit, &query);
-        if (query.failed)
-            throw std::runtime_error(
-                "2D overlap query exceeded its work/body limit or hit an invalid native binding");
-        return query;
+        return overlap_proxy_query(proxy, request.origin, filter, first_only, retired);
+    }
+    std::vector<EntityRef>
+    retired_query_refs(const std::function<bool(std::uint64_t, EntityRef)>& current) const {
+        if (!current)
+            throw std::runtime_error("XY overlap existence requires canonical owner resolution");
+        // Finish canonical resolution before any allocation-free native callback.
+        std::vector<EntityRef> retired;
+        for (const auto& [entity, body] : bodies)
+            if (!current(entity, body.admitted.ref))
+                retired.push_back(body.admitted.ref);
+        std::sort(retired.begin(), retired.end());
+        return retired;
     }
     std::optional<PhysicsHit2D> cast_mover(const PhysicsSweep2D&, PhysicsQueryFilter,
                                            std::size_t& work,
@@ -3207,16 +3257,20 @@ Native2D::overlap_any(const PhysicsOverlap2D& request, PhysicsQueryFilter filter
                       const std::function<bool(std::uint64_t, EntityRef)>& current) const {
     const auto& self = *impl_;
     self.check();
-    if (!current)
-        throw std::runtime_error("XY overlap existence requires canonical owner resolution");
-    // The owner-thread lookup finishes before entering the read-only native
-    // callback; no ECS access, allocation or exception occurs inside that callback.
-    std::vector<EntityRef> retired;
-    for (const auto& [entity, body] : self.bodies)
-        if (!current(entity, body.admitted.ref))
-            retired.push_back(body.admitted.ref);
-    std::sort(retired.begin(), retired.end());
+    const auto retired = self.retired_query_refs(current);
     const auto query = self.overlap_query(request, filter, true, retired);
+    return query.count ? std::optional<EntityRef>{query.refs[0]} : std::nullopt;
+}
+std::optional<EntityRef>
+Native2D::overlap_triangle(const std::array<Double2, 3>& vertices, PhysicsQueryFilter filter,
+                           const std::function<bool(std::uint64_t, EntityRef)>& current) const {
+    const auto& self = *impl_;
+    self.check();
+    const auto retired = self.retired_query_refs(current);
+    validate_query_filter(filter);
+    const auto triangle = triangle_proxy(vertices);
+    const auto query =
+        self.overlap_proxy_query(triangle.proxy, triangle.origin, filter, true, retired);
     return query.count ? std::optional<EntityRef>{query.refs[0]} : std::nullopt;
 }
 std::optional<PhysicsHit2D> Native2D::shape_cast(const PhysicsSweep2D& request,

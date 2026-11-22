@@ -255,6 +255,41 @@ void xy_clearance(const std::filesystem::path& base) {
     });
     other_thread.join();
     check(wrong_thread, "XY existence query bypassed its owner-thread guard");
+    query.dimensions[0] = .001;
+    bool tiny_native_rejected = false;
+    try {
+        (void)empty.physics()->overlap_any_2d(query, {0, false});
+    } catch (const std::runtime_error&) {
+        tiny_native_rejected = true;
+    }
+    check(tiny_native_rejected, "Native XY query no longer establishes its radius profile");
+    for (const bool tiny_radius : {true, false}) {
+        FoliageCollisionSettings limits;
+        limits.profile = FoliageClearanceProfile::CircleXY;
+        limits.mask = 0;
+        limits.radius = tiny_radius ? .001 : .25;
+        auto unsupported = arguments;
+        if (!tiny_radius)
+            unsupported["center"]["x"] = 1000001.;
+        const auto source_before = scene.document();
+        bool rejected = false;
+        try {
+            task.start(lease, scene, unsupported, limits);
+        } catch (const AuthoringError& error) {
+            rejected = error.code == "invalid_arguments";
+        }
+        check(rejected && scene.document() == source_before,
+              "XY foliage preflight accepts geometry outside its existing native profile");
+    }
+    authoring_command(scene, "transform.scale",
+                      {{"entity", source}, {"value", {{"x", .001}, {"y", 1}, {"z", 1}}}});
+    FoliageCollisionSettings flat;
+    flat.profile = FoliageClearanceProfile::MeshBoundsXY;
+    flat.mask = 0;
+    task.start(lease, scene, arguments, flat);
+    const auto flat_state = settled(task, scene, root);
+    check(flat_state.at("state") == "ready" && flat_state.at("retained_count") == 8,
+          "XY Mesh clearance minimum thickness is incompatible with its native box query");
     std::cout << "Native XY baseline:3D foliage retains8 despite XY occupancy; "
                  "300valid native bodies exceed the bounded all-hit query\n";
 }
@@ -277,14 +312,20 @@ void template_geometry_admission() {
     check(bounds.minimum[0] == original.mesh.lods[0].parts[0].bounds.minimum[0] &&
               bounds.maximum[0] == extra.parts[0].bounds.maximum[0],
           "Template bounds discarded a static LOD's geometry");
+    std::vector<FoliageTriangle> surfaces;
+    (void)foliage_template_bounds(lods, &surfaces);
+    check(surfaces.size() == 24 && surfaces[12][0][0] == surfaces[0][0][0] + 4,
+          "Surface extraction lost ordered triangles from a static LOD");
     const auto refused = [&](const MeshResourceData& value) {
-        bool rejected = false;
-        try {
-            (void)foliage_template_bounds(value);
-        } catch (const AuthoringError& error) {
-            rejected = error.code == "unsupported_template";
+        for (const bool extract : {false, true}) {
+            bool rejected = false;
+            try {
+                (void)foliage_template_bounds(value, extract ? &surfaces : nullptr);
+            } catch (const AuthoringError& error) {
+                rejected = error.code == "unsupported_template";
+            }
+            check(rejected, "Deformed Mesh was admitted as static foliage geometry");
         }
-        check(rejected, "Deformed Mesh was admitted as static foliage bounds");
     };
     auto model = original;
     model.model.emplace();
@@ -308,6 +349,31 @@ void template_geometry_admission() {
         part.streams.push_back({"WEIGHTS_0", 4, std::move(weights)});
     }
     refused(skin);
+    const auto original_surfaces = surfaces;
+    const auto refused_surface = [&](const MeshResourceData& value, const char* code) {
+        bool rejected = false;
+        try {
+            (void)foliage_template_bounds(value, &surfaces);
+        } catch (const AuthoringError& error) {
+            rejected = error.code == code;
+        }
+        check(rejected && surfaces == original_surfaces,
+              "Invalid surface admission succeeded or partially replaced caller geometry");
+    };
+    auto degenerate = original;
+    auto& indices = degenerate.mesh.lods[0].parts[0].indices;
+    indices[0] = indices[1];
+    refused_surface(degenerate, "unsupported_template");
+    auto lines = original;
+    lines.mesh.lods[0].parts[0].topology = MeshTopology::Lines;
+    refused_surface(lines, "unsupported_template");
+    auto excessive = original;
+    auto& repeated = excessive.mesh.lods[0].parts[0].indices;
+    const std::array first{repeated[0], repeated[1], repeated[2]};
+    repeated.clear();
+    for (unsigned i = 0; i <= foliage_surface_triangle_limit; ++i)
+        repeated.insert(repeated.end(), first.begin(), first.end());
+    refused_surface(excessive, "limit_exceeded");
 }
 void mesh_bounds_clearance(const std::filesystem::path& base, bool xy = false) {
     const auto root = std::filesystem::absolute(base / AssetId::generate().str());

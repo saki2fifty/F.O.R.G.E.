@@ -1,5 +1,19 @@
 # 2026-11-22
 
+Static template Mesh surface clearance checks up to4096 all-LOD triangles against
+existing native3D or XY colliders. The six shared profile choices preserve old
+defaults; native controls and automation/MCP use the same preparation owner.
+Surface modes retain inactive radius/padding, report bounded shape-query work,
+and use conservative boxes/XY rectangles for optional new-plant separation.
+Surface contact does not test closed-volume containment or deformed geometry.
+Gallery269 compares bounds1-versus-surfaces2 using an editable two-panel Mesh;
+native source-hidden export and actual software Scene/Game checks cover its
+saved objects. Two authentic reviewed captures accompany the usage guide.
+
+The private query-limit owner now supplies matching3D/XY admission to foliage,
+including the native XY5mm circle minimum and1cm flat-box thickness. Existing
+3D defaults and native query limits remain unchanged.
+
 Foliage clearance now offers explicit native XY circle and static Mesh-rectangle
 profiles alongside the existing 3D sphere and box choices. Queries and ordered
 new-plant separation ignore Z in XY mode, while ordinary saved XZ-disk Mesh
@@ -9,7 +23,7 @@ host existence query without changing the complete all-hit query limits or SDK.
 Gallery268 compares 29 circle-clear and 5 Mesh-rectangle-clear plants from the same
 96-candidate layouts; both use new-plant separation. Source-hidden exports and
 native query checks cover the saved scene. Sprite/XY placement, deformed Mesh and
-exact triangle clearance remain unsupported.
+closed-volume containment remain unsupported.
 
 The production-editor MCP package fixture also checks native live-profiler control
 and trace output. Its Windows execution is part of final package acceptance.
@@ -22,8 +36,7 @@ filters, ordered new-plant separation and the ordinary task/history rules apply.
 
 Native controls and the existing automation/MCP preparation tool expose the 3D sphere and bounds
 profiles. Earlier sphere requests retain their defaults. Gallery267 compares
-root-sphere and Mesh-bounds placement using ordinary saved objects. Exact triangle
-clearance, deformed Meshes and XY placement remain outside this bounded profile.
+root-sphere and Mesh-bounds placement using ordinary saved objects. Deformed Meshes and XY placement remain outside this bounds profile.
 
 CPU Scene particles can opt into linear moving-surface queries through the
 existing native physics and particle history owners. Source22/value74–97 compose

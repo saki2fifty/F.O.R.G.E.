@@ -133,7 +133,23 @@ or conservative transformed static Mesh boxes; world-circle-xy-v1 and
 mesh-bounds-xy-v1 select native XY circles or projected Mesh rectangles. All-LOD
 bounds follow the saved template/seeded rotation, signed scale and slope alignment.
 Padding expands each queried box side; radius applies only to sphere/circle.
-Wind, skin/morph deformation and exact triangle clearance are unsupported.
+The3D sphere radius is0.001..100m; the XY circle radius is0.005..100m.
+XY queries use +/-1e6m origins and .01..1000m full rectangle dimensions;
+3D queries retain +/-1e9m origins and .001..10000m full box dimensions.
+Profiles `mesh-surfaces-v1` and `mesh-surfaces-xy-v1` test actual static triangles
+from all LODs against native3D/XY bodies. At most4096 source triangles are admitted;
+existing Mesh byte/vertex/index/part limits remain. XY projects each triangle to
+X/Y, allowing a segment or point. Source-degenerate triangles, line/point parts,
+wind and skin/morph deformation are unsupported. This is surface contact, not
+closed-volume containment. Radius/padding remain validated retained settings but
+are inactive for these two profiles. `avoid_new_overlaps` uses conservative
+enclosing boxes/XY rectangles between new plants in surface mode.
+At most16 shape-query requests run per poll and8192 per task, including conservative
+sphere/circle envelope probes and individual triangle queries. Counts include
+zero-mask validated requests. Status exposes `shape_query_count`,
+`shape_query_limit` and `surface_triangle_count`; ready results retain both counts.
+Limit failure exposes no partial authoring result. A partial candidate resumes
+across polls. Closed-volume containment and live/deformed poses are unavailable.
 XY queries and new-candidate separation ignore Z and offset.z. Ordinary XZ-disk
 Mesh placement and world heights remain unchanged; this is not a Sprite/XY
 placement tool. No profile samples live Play poses. With avoid_new_overlaps
@@ -155,7 +171,8 @@ Start returns an operation UUID. Poll `forge_foliage_collision_read` with that
 exact `operation`; states are preparing/querying/ready/failed/cancelled. Ready
 `result` includes copied arguments with an original-order placement_mask,
 scene_revision, candidate_count/retained_count/new_overlap_count, digests, settings and physics_tick 0.
-At most512 candidates,16 native queries/poll and a 30-second deadline apply.
+At most512 candidates,16 shape-query requests/poll,8192perrequest and a
+30-second deadline apply.
 Terrain masks/heights/normals remain aligned; excluded candidates are not
 resampled. Empty retention fails. Scene/project changes cancel the operation;
 asset/settings changes invalidate preparation and explicit ready reads. Exact

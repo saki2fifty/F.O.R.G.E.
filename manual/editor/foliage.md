@@ -199,11 +199,11 @@ The left patch uses root spheres; the right uses conservative template Mesh boun
 
 1. Open a project, choose your template and set the layout. Surface projection, slope filters and slope alignment can stay enabled.
 2. Enable **Reject collisions**. Objects to avoid need enabled Physics Bodies and colliders in the selected clearance domain; a visible Mesh alone does not block placement. Save and publish any Collision asset edits first.
-3. Choose **Clearance shape**. **World sphere** uses **Clearance radius (m)** from 0.001 to 100; its size does not follow the template. **Template Mesh bounds** encloses the static Mesh at each candidate's rotation, scale and slope alignment, then adds **Bounds padding (m)** from 0 to 100 on every side. These two choices test 3D bodies. **World circle (XY)** and **Template Mesh bounds (XY)** test XY bodies using a circle or projected rectangle.
-4. Set **Clearance offset X (m)**, **Y (m)** and **Z (m)**. Each offset is -1000 to 1000 meters along world axes. The default (0, 0.5, 0) raises a sphere above the plant's base. For Mesh bounds, set all three to 0 to test the unshifted geometry; other offsets move the whole clearance box. XY profiles use only X and Y; Z stays stored but is disabled and ignored.
+3. Choose **Clearance shape**. **World sphere** uses **Clearance radius (m)** from 0.001 to 100; its size does not follow the template. **Template Mesh bounds** encloses the static Mesh at each candidate's rotation, scale and slope alignment, then adds **Bounds padding (m)** from 0 to 100 on every side. **Template Mesh surfaces** checks the actual static triangles against 3D colliders. The corresponding **(XY)** choices check XY bodies with a circle, projected rectangle or projected triangles. The XY circle radius is 0.005 to 100 meters. Surface profiles disable padding and ignore the retained radius setting.
+4. Set **Clearance offset X (m)**, **Y (m)** and **Z (m)**. Each offset is -1000 to 1000 meters along world axes. The default (0, 0.5, 0) raises a sphere above the plant's base. For Mesh bounds or surfaces, set all three to 0 to test the unshifted geometry; other offsets move the whole clearance geometry. XY profiles use only X and Y; Z stays stored but is disabled and ignored.
 5. Set **Collision layer mask** to the unsigned combination of the layer bits you want to avoid. The default 4294967295 selects every layer; 0 selects none. Enable **Include sensors** when sensor volumes should also exclude candidates.
 6. The template and selected projection surface are ignored automatically. To ignore another collider, select its object in Hierarchy and click **Ignore selected object**. Up to 14 additional objects are allowed. Children are separate objects. **Clear ignored objects** removes these additional exclusions.
-7. Enable **Separate new plants** to keep the selected clearance volumes of retained candidates from overlapping each other. The option starts off. It uses the selected shape, domain, offsets and resolved heights, independently of the collider layer mask. XY profiles ignore Z when comparing new candidates. Set that mask to 0 when you only want separation between new plants.
+7. Enable **Separate new plants** to keep retained candidates apart. Surface profiles use conservative enclosing boxes or XY rectangles between new plants; the other profiles use their selected clearance volumes. The option starts off. It uses the selected domain, offsets and resolved heights, independently of the collider layer mask. XY profiles ignore Z when comparing new candidates. Set that mask to 0 when you only want separation between new plants.
 8. Choose **Check layout**. Preparation loads the current published collision data and reports the number of candidates retained, including how many were skipped for overlapping another new plant. It changes no Scene objects. **Cancel clearance** stops pending preparation.
 9. Choose **Place foliage**. The tool prepares current clearance, then creates the retained subset in one Scene Undo step. Save the Scene.
 
@@ -228,8 +228,10 @@ are not copied into the plant.
 
 This profile supports up to 8 MiB of Mesh data, 16,384 vertices, 49,152 indices and
 32 parts. Wind, skin and morph deformation are unavailable for bounds clearance.
-Disable template wind or use a static Mesh. Box dimensions must fit 10,000 meters
-on each queried axis; a flat or collapsed axis uses at least a 1 mm thickness.
+Disable template wind or use a static Mesh. The 3D box dimensions must fit 10,000
+meters per axis, with at least 1 mm thickness for a flat or collapsed axis. XY
+rectangles use the native XY profile: up to 1,000 meters per queried axis and at
+least 1 cm thickness.
 Save and publish Mesh edits, then check again to use the updated geometry.
 
 ![Foliage placement using Template Mesh bounds, padding, zero offsets and Separate new plants](../images/foliage-mesh-bounds-controls.png)
@@ -240,7 +242,7 @@ Choose the Mesh bounds profile and check the layout before placing the retained 
 bounds (XY)** encloses the same transformed static Mesh, then projects its box
 onto world XY and adds padding on those two axes. Both profiles ignore world Z,
 even when plants lie far apart along Z. They query only XY physics bodies; the
-other profiles query only 3D bodies. Layer masks, sensors and ignored objects work
+profiles without **(XY)** query only 3D bodies. Layer masks, sensors and ignored objects work
 in the selected domain.
 
 The layout still places ordinary Mesh objects on an XZ disk, using its center Y
@@ -262,6 +264,46 @@ Choose an XY clearance shape to test XY bodies; the Z offset stays disabled.
 
 The saved comparison uses circles on the left and projected Mesh rectangles on the right.
 
+### Check the template's triangle surfaces
+
+Open **Gallery 269 — Foliage Mesh surfaces** for a saved comparison. The amber
+group retains one two-panel plant with bounds clearance; the green group
+retains two with surface clearance because their gap misses the obstacle.
+The editable Mesh is **Assets/Foliage/SurfacePanels.mesh.json**. Camera and light
+are included, and export uses the ordinary saved objects.
+
+![Game view of two green surface-clear plants, one amber bounds-clear plant and the independent template below](../images/foliage-mesh-surfaces-game.png)
+
+The green comparison keeps the lower plant because its two panels miss the cube
+in their gap. Each plant has two panels; the separate template sits below.
+
+Choose **Template Mesh surfaces** when enclosing bounds reject a gap in your
+plant's actual geometry. **Template Mesh surfaces (XY)** projects those triangles
+onto world X and Y before checking XY colliders. A projection can become a line
+or point and still touch a collider. Both modes follow the same saved rotation,
+signed scale, seeded variation and slope alignment as Mesh bounds.
+
+Every static LOD contributes, up to 4,096 triangles in total. The same 8 MiB,
+16,384-vertex, 49,152-index and 32-part Mesh limits apply. Source triangles must
+have area; line/point Mesh parts, enabled Wind, skinning and morph targets are
+unavailable. Publish Mesh edits and check the layout again to use them.
+
+These modes test contact with triangle surfaces. A collider wholly inside a
+closed plant Mesh can miss every surface. Use an enclosing bounds profile when
+you need that conservative rejection. **Separate new plants** also uses enclosing
+bounds in surface modes, so it can reject empty space between new plants.
+**Bounds padding (m)** is disabled; padding and radius stay stored for switching
+profiles but do not expand surface clearance.
+
+![Native Foliage placement controls with Template Mesh surfaces selected, disabled padding and a checked two-candidate layout](../images/foliage-mesh-surfaces-controls.png)
+
+Select the surface profile and zero offsets to test the unshifted template triangles.
+
+Preparation reports **Shape queries** as it works. Each poll checks at most 16
+shapes, including enclosing sphere/circle probes and individual triangles. A
+request stops at 8,192 queries or the 30-second deadline without placing partial
+results. Reduce Candidate count or simplify the Mesh when the limit is reached.
+
 With **Separate new plants**, the first clear candidate is kept. Each later
 candidate is kept only when its clearance volume does not overlap an earlier retained
 volume. Touching volumes are allowed. Previously excluded candidates do not
@@ -274,9 +316,11 @@ colliders to affect a later stroke's collider clearance.
 
 The 3D profiles test 3D colliders, including published Collision assets. The XY
 profiles test XY Physics Bodies and colliders. Each profile can also separate new
-plants in its own domain. Mesh bounds provide conservative clearance; exact plant
-triangle collision and future object motion are unavailable. Adjust the shape, radius or padding, offset, spacing and seed for
-your geometry. Every query origin must lie within +/-1 billion meters on each queried axis.
+plants in its own domain. Mesh bounds provide conservative clearance; Mesh surfaces
+test static contact with current colliders. Deformed geometry and future object
+motion are unavailable. Adjust the shape, radius or padding, offset, spacing and seed for
+your geometry. Query origins must fit +/-1 billion meters per axis in 3D and +/-1 million
+meters per queried axis in XY.
 Tool choices and exclusions are session-only. Later collider changes do not move
 already placed objects.
 

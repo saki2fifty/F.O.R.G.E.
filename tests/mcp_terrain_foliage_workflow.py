@@ -180,7 +180,8 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     assert collision_tool['inputSchema']['properties']['avoid_new_overlaps']['type'] == 'boolean'
     properties = collision_tool['inputSchema']['properties']
     assert properties['profile']['enum'] == ['world-sphere-v1', 'mesh-bounds-v1',
-                                             'world-circle-xy-v1', 'mesh-bounds-xy-v1']
+                                             'world-circle-xy-v1', 'mesh-bounds-xy-v1',
+                                             'mesh-surfaces-v1', 'mesh-surfaces-xy-v1']
     assert properties['padding']['minimum'] == 0 and properties['padding']['maximum'] == 100
     for key, values in (('profile', ['unavailable', 1, None]),
                         ('padding', [-1, 101, '0', None])):
@@ -189,6 +190,11 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
                                arguments=selected['arguments'], **{key: value}),
                    'invalid_arguments')
             assert read('forge_scene_read') == cleared_scene
+
+    failed(client.tool('forge_foliage_collision_start', target=discover()['result']['target'],
+                       arguments=selected['arguments'], profile='world-circle-xy-v1', radius=.001),
+           'invalid_arguments')
+    assert read('forge_scene_read') == cleared_scene
 
     bounds_arguments = dict(arguments=selected['arguments'], surface=surface,
                             profile='mesh-bounds-v1', padding=.05, mask=0,
@@ -220,6 +226,29 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == cleared_scene
     assert mutate('forge_history_redo')['ok'] and read('forge_scene_read') == bounded_scene
     assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == cleared_scene
+    surface_request = dict(arguments=selected['arguments'], surface=surface,
+                           profile='mesh-surfaces-v1', padding=100, radius=.001,
+                           offset=dict(x=0, y=0, z=0), mask=0)
+    surface_state = read('forge_foliage_collision_start', **surface_request)
+    assert read('forge_foliage_collision_start', **surface_request)['operation'] == surface_state['operation']
+    deadline = time.monotonic() + 15
+    while surface_state['state'] in ('preparing', 'querying'):
+        assert time.monotonic() < deadline, surface_state
+        surface_state = read('forge_foliage_collision_read', operation=surface_state['operation'])
+        time.sleep(.01)
+    assert surface_state['state'] == 'ready', surface_state
+    surfaces = surface_state['result']
+    assert surfaces['surface_triangle_count'] == 12 and surfaces['shape_query_count'] == sum(
+        selected['arguments']['placement_mask'])
+    assert surfaces['settings']['padding'] == 100 and surfaces['settings']['radius'] == .001
+    assert surfaces['arguments'] == bounds_result['arguments']
+    state = discover()
+    assert client.tool('forge_mesh_scatter', target=state['result']['target'],
+                       expected_revision=surfaces['scene_revision'], sequence=state['next_sequence'],
+                       arguments=surfaces['arguments'])['ok']
+    assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == cleared_scene
+    assert mutate('forge_history_redo')['ok']
+    assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == cleared_scene
     xy_obstacle = create('XY clearance obstacle')
     for component in ('forge.physics_body_2d', 'forge.box_collider_2d'):
         assert mutate('forge_component_add', arguments=dict(entity=xy_obstacle, component=component))['ok']
@@ -227,7 +256,7 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
         assert mutate('forge_property_set', arguments=dict(entity=xy_obstacle,
             component='forge.box_collider_2d', field=field, value=value))['ok']
     xy_before = read('forge_scene_read')
-    for profile in ('world-circle-xy-v1', 'mesh-bounds-xy-v1'):
+    for profile in ('world-circle-xy-v1', 'mesh-bounds-xy-v1', 'mesh-surfaces-xy-v1'):
         for ignored, expected in (([], 'failed'), ([xy_obstacle], 'ready')):
             xy = read('forge_foliage_collision_start', arguments=selected['arguments'],
                       surface=surface, profile=profile, ignored=ignored)
@@ -241,6 +270,8 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
             if expected == 'ready':
                 result = xy['result']
                 assert result['settings']['profile'] == profile
+                assert 0 < xy['shape_query_count'] <= xy['shape_query_limit'] == 8192
+                assert result['surface_triangle_count'] == (12 if 'surfaces' in profile else 0)
                 assert result['arguments']['placement_mask'] == selected['arguments']['placement_mask']
                 assert result['arguments']['world_heights'] == selected['arguments']['world_heights']
                 state = discover()

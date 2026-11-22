@@ -175,9 +175,10 @@ intent; project C++ code is not executed. Missing or invalid required resources
 fail preparation. Polling stays on the owning thread; existing loaders perform
 asset IO asynchronously. This is derived query state, not a collider database.
 
-The sphere/circle radius is 0.001..100 meters, with an explicit world-axis offset up to
-+/-1000 meters per axis (default 0,0.5,0). Each queried origin coordinate must be finite
-and within+/-1e9 meters. Radius does not inherit template scale or rotation. A
+The 3D sphere radius is0.001..100meters; the XY circle uses the native0.005..100meter
+profile. Both retain an explicit world-axis offset up to
++/-1000 meters per axis (default 0,0.5,0). Each queried origin coordinate must be finite, within+/-1e9meters in3D or
++/-1e6meters inXY. Radius does not inherit template scale or rotation. A
 uint32 layer mask defaults all; sensors default excluded. Canonical references
 exclude the template, optional surface and at most 14 distinct additional entities
 (up to 16 total). Exclusions name exact objects, not subtrees. Existing native
@@ -220,8 +221,9 @@ ordinary runtime resource memory bounds also apply while loading. Wind-enabled
 templates, skin palettes and morph targets are refused. Every staticLOD/part bounds
 contributes to one local enclosure. `transform_bounds` applies the actual candidate
 frame; padding0..100m extends every side and the existing offset shifts the box in
-world axes. Float dimensions round outward only where required; each full dimension
-is at least.001m and at most10000m. Existing +/-1e9query-origin validation remains.
+world axes. Float dimensions round outward only where required. The3Dfull
+dimensions are.001..10000meters; the XY rectangle uses native.01..1000meter
+full dimensions. Origins use the corresponding3D/XYquery limits.
 Native `overlap_any` retains geometry/filter ownership. With new-plant separation,
 the same ordered copied boxes reject intersecting interiors, allowing tangency.
 Earlier excluded/rejected candidates never block later ones. Radius remains an
@@ -229,12 +231,45 @@ inactive retained sphere setting. The canonical profile/padding join the existin
 fingerprint, status and ready-result settings. This is conservative static bounds
 clearance, not exact triangle collision, XY placement or deformed Mesh support.
 
+`mesh-surfaces-v1` and `mesh-surfaces-xy-v1` append to the same canonical profile
+table without changing the four existing ordinals/keys/defaults. The existing
+resource lease supplies ordered static float3 triangles from every LOD. Admission
+shares the same byte/vertex/index/part/deformation owner and additionally rejects
+line/point topology, source-degenerate triangles and more than4096 triangles.
+Only local triangle values and candidate affine frames are retained; no borrowed
+Mesh storage, new geometry database or extra native bodies are introduced.
+
+Per candidate, outward-rounded sphere/circle envelopes only skip impossible
+contacts. Native3DBox queries have rounded convex corners, so they are not used
+as sharp conservative enclosures. Large XY bounds use four covering circles,
+respecting the native500m radius and origin limits. A possible envelope hit
+causes individual transformed triangle queries. The typed host-only native
+adapters reuse existing collectors, filters, canonical retirement checks and
+owner-thread requirements.3D rebases vertices before float conversion and rejects
+collapsed float geometry; XY permits a projected segment or point. These methods
+do not alter the installed SDK virtual/value/table boundary.
+
+Radius/padding remain range-validated and fingerprinted but inactive in surface
+mode. Offset shifts emitted geometry. New-plant separation deliberately uses the
+existing conservative ordered box/rectangle test, not a triangle-pair kernel.
+Closed-volume containment is not tested: an obstacle wholly inside a closed
+template can miss all triangles. Wind/skin/morph sampling remains unsupported.
+
+The task charges each envelope/triangle request, including validated zero-mask
+requests, against16 per poll and8192 per request. A pending candidate retains
+envelope/triangle cursors across polls. `shape_query_count`, `shape_query_limit`
+and `surface_triangle_count` expose progress; ready results retain the counts.
+Request budget/deadline failure destroys the private world without a partial
+authoring result. Ordinary scatter/stroke remains the only Scene publication owner.
+
 The XY profiles preserve the ordinary XZ scatter/stroke layout, world heights,
 yaw/template rotation, signed scale and slope alignment. They change only query
 and candidate-separation domains. Circle origins project to X/Y; Mesh boxes reuse
 the same transformed all-LOD enclosure and outward rounding on X/Y only. Z and
 offset.z are retained session choices but unused by native XY queries or pair
-separation. Native origin/dimension limits apply only to queried axes; ordinary
+separation. Native origin/dimension limits apply only to queried axes; the existing private
+physics-query limits are shared with foliage preflight and box construction.
+The XY circle minimum and flat rectangle thickness match native admission; ordinary
 placement validation still applies to the full saved transform. No Sprite
 template or separate XY placement workflow is implied. A typed transient variant
 holds only the selected domain's prepared box sequence. The existing mask remains

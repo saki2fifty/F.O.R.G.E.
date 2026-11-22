@@ -175,26 +175,26 @@ Json scene_view(DiligentPresentation& presentation, IDeviceContext* context,
         }
     auto center = prototype_transform.point({.125, .8, 0});
     for (const auto& mesh : extract_render_scene(source).meshes)
-        if (mesh.entity.str() == prototype && mesh.renderer.wind.enabled) {
+        if (mesh.entity.str() == prototype) {
             ResourcePool<MeshAsset> pool;
             const auto ticket =
                 asset_detail::request_model_mesh(pool, root, host->catalog(), mesh.renderer.mesh);
             test_gallery_capture::check(pool.wait(ticket, std::chrono::seconds(20)),
-                                        "Wind picking oracle Mesh admission stalled");
+                                        "Template picking oracle Mesh admission stalled");
             const auto selected = pool.acquire(ticket);
-            test_gallery_capture::check(bool(selected), "Wind picking oracle Mesh expired");
+            test_gallery_capture::check(bool(selected), "Template picking oracle Mesh expired");
             const auto& part = selected->mesh.lods.front().parts.front();
             const auto& vertices = std::get<std::vector<float>>(part.find("POSITION")->values);
             const auto wind = sample_mesh_wind(mesh.renderer.wind, mesh.world, .5);
-            // The shader deforms vertices, then rasterizes linear triangles.
-            // A point on the continuous bend curve is not generally on that
-            // polygon for a coarse mesh. Use a deformed triangle's centroid.
+            // Use actual selected geometry rather than a point specific to one
+            // blade shape. Wind deforms vertices before triangle rasterization.
             center = {};
             for (unsigned corner = 0; corner < 3; ++corner) {
                 const auto index = part.indices.empty() ? corner : part.indices.at(corner);
-                const auto point =
-                    wind_point(wind, mesh.world.point({vertices[3 * index], vertices[3 * index + 1],
-                                                       vertices[3 * index + 2]}));
+                auto point = mesh.world.point(
+                    {vertices[3 * index], vertices[3 * index + 1], vertices[3 * index + 2]});
+                if (mesh.renderer.wind.enabled)
+                    point = wind_point(wind, point);
                 for (unsigned axis = 0; axis < 3; ++axis)
                     center[axis] += point[axis] / 3;
             }
@@ -332,6 +332,8 @@ int main(int argc, char** argv) {
             terrain && std::string_view(argv[3]) == "Scenes/157-foliage-wind.scene.json";
         const bool xy_clearance =
             terrain && std::string_view(argv[3]) == "Scenes/268-foliage-xy-clearance.scene.json";
+        const bool surface_clearance =
+            terrain && std::string_view(argv[3]) == "Scenes/269-foliage-mesh-surfaces.scene.json";
         const bool mesh_bounds =
             xy_clearance ||
             (terrain && std::string_view(argv[3]) == "Scenes/267-foliage-mesh-bounds.scene.json");
@@ -355,6 +357,8 @@ int main(int argc, char** argv) {
         if (slopes)
             slope_proof = prepare_slope_patch(root, argv[3], source, collisions);
         unsigned saved_clearance_instances = 0;
+        if (surface_clearance)
+            saved_clearance_instances = 6;
         if (wind)
             saved_clearance_instances = 91;
         if (mesh_bounds ||

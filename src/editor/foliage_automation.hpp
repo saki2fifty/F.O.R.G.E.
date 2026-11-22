@@ -125,11 +125,16 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
         "Profile world-sphere-v1 (default) uses the supplied radius. Profile mesh-bounds-v1 uses "
         "a conservative world-axis box enclosing the selected static template Mesh at each "
         "saved placement's rotation, signed scale, seeded variation and resolved slope. Every "
-        "LOD is enclosed; empty space can be rejected. Wind/skin/morph deformation and exact "
-        "triangle collision are unavailable. Mesh limits:8MiB data,16384vertices,49152indices, "
+        "LOD is enclosed; empty space can be rejected. Wind/skin/morph deformation is "
+        "unavailable. Mesh limits:8MiB data,16384vertices,49152indices, "
         "32parts. Optional padding0..100m expands each box side; sphere radius is inactive. "
         "Profiles world-circle-xy-v1 and mesh-bounds-xy-v1 instead check native XY bodies with "
         "a circle or the transformed Mesh bounds projected to a world-axis XY rectangle. "
+        "Profiles mesh-surfaces-v1 and mesh-surfaces-xy-v1 test up to4096 static triangles "
+        "from all LODs against native3D or XY colliders. XY drops worldZ and permits segment "
+        "or point projections. Surface contact does not test closed-volume containment; a "
+        "collider wholly inside a closed template can miss its triangles. Radius and padding "
+        "remain validated retained settings but are inactive for surfaces. "
         "XY queries and new-candidate separation ignore Z and offset.z. The existing XZ disk, "
         "world heights and saved Mesh transforms still define placement. These are clearance "
         "profiles, not an XY placement or Sprite-template workflow. "
@@ -137,10 +142,16 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
         "stroke arguments, or the result of foliage.terrain.prepare/foliage.surface.prepare/"
         "foliage.stroke.prepare; heights, normals and "
         "original-order masks are "
-        "preserved. Radius0.001..100m; world offset defaults(0,0.5,0)m for all profiles. "
+        "preserved. Sphere radius0.001..100m; XY circle radius0.005..100m. "
+        "XY query origins must fit +/-1e6m and rectangle full sizes .01..1000m; "
+        "3D retains +/-1e9m origins and .001..10000m box full sizes. "
+        "World offset defaults(0,0.5,0)m for all profiles. "
         "Use offset(0,0,0) for unshifted Mesh bounds. Layer mask defaults all; "
         "sensors default excluded. The template and optional surface are ignored automatically, "
-        "plus at most14 distinct ignored entity IDs. At most512 candidates,16 queries per poll, "
+        "plus at most14 distinct ignored entity IDs. At most512 candidates,16 shape queries per "
+        "poll,8192 per request, including conservative sphere/circle envelope probes and triangle "
+        "queries. shape_query_count and shape_query_limit report this request work; "
+        "surface_triangle_count reports the source count. "
         "30-second deadline. Exact retries reuse the operation; cancel a different pending request "
         "first. Strokes allow1..16 dabs and512total original candidates; filters also compare "
         "across dabs. Wholly blocked dabs are omitted from returned stroke arguments, with "
@@ -149,8 +160,9 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
         "forge_mesh_stroke at the returned scene_revision. Task candidate_count includes omitted "
         "dabs. Recheck before applying after published assets/settings change. "
         "Optional avoid_new_overlaps (default false) also filters overlapping new candidate "
-        "volumes in original order, keeping the first clear candidate. The selected shape and "
-        "domain apply; touching volumes are allowed. Excluded candidates never "
+        "volumes in original order, keeping the first clear candidate. Surface profiles use "
+        "conservative enclosing boxes/XY rectangles for this separation; other profiles use "
+        "their selected shape and domain. Touching volumes are allowed. Excluded candidates never "
         "block later ones, no resampling occurs, and a zero collider layer mask still permits "
         "this candidate filter. new_overlap_count reports its exclusions. No project resources "
         "are imported or changed; Mesh bounds use the captured published resource selection.",
@@ -158,8 +170,18 @@ foliage_automation_methods(Scene& scene, SceneDocument& project,
         automation_object(
             {{"arguments", {{"oneOf", Json::array({complete_scatter, complete_stroke})}}},
              {"profile", {{"type", "string"}, {"enum", clearance_profiles}}},
-             {"padding", {{"type", "number"}, {"minimum", 0}, {"maximum", 100}}},
-             {"radius", {{"type", "number"}, {"minimum", .001}, {"maximum", 100}}},
+             {"padding",
+              {{"type", "number"},
+               {"minimum", 0},
+               {"maximum", 100},
+               {"description", "Expands Mesh bounds on each side. Inactive retained "
+                               "setting for radius and Mesh surface profiles."}}},
+             {"radius",
+              {{"type", "number"},
+               {"minimum", .001},
+               {"maximum", 100},
+               {"description", "Sphere minimum0.001m; world-circle-xy-v1 minimum0.005m. "
+                               "Inactive retained setting for all Mesh profiles."}}},
              {"offset", automation_object({{"x", coordinate}, {"y", coordinate}, {"z", coordinate}},
                                           {"x", "y", "z"})},
              {"mask", automation_integer(0, UINT32_MAX)},

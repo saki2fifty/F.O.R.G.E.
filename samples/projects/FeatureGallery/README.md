@@ -3497,3 +3497,25 @@ exported with the packaged runtime kit without project C++ code. See the
 
 The camera shows the denser circle-clear patch on the left and the more
 conservative Mesh-rectangle patch on the right.
+
+## Static Mesh surface clearance
+
+Open `Scenes/269-foliage-mesh-surfaces.scene.json` and press **Play → Game**.
+The amber group retains one two-panel plant using enclosing Mesh bounds.
+The green group retains two with static Mesh surface clearance; the lower
+plant's gap clears the obstacle despite its enclosing box touching it.
+
+The source is `Assets/Foliage/SurfacePanels.mesh.json`. Stop Play, select
+**Blade template - static separated panels**, then open **Tools > Foliage
+placement...** and choose **Use selected Mesh Renderer**. Enable **Reject
+collisions**, choose **Template Mesh surfaces**, set all clearance offsets to0,
+and check the layout. **Template Mesh surfaces (XY)** checks projected triangles
+against XY bodies. Radius and padding are inactive in either surface profile.
+**Separate new plants** uses enclosing bounds between new candidates.
+
+These are surface-contact checks; an obstacle wholly inside a closed plant Mesh
+can miss its triangles. See the [clearance controls and limits](../../../manual/editor/foliage.md#check-the-templates-triangle-surfaces).
+The scene uses ordinary saved objects, camera and light and exports without
+project C++ code.
+
+![Saved panel plants using bounds and actual static Mesh surface clearance](../../../manual/images/foliage-mesh-surfaces-game.png)

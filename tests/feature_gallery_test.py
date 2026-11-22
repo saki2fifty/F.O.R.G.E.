@@ -12,6 +12,23 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+# Static surface clearance saves ordinary shared-Mesh objects and durable identities.
+surface_foliage_path = 'Scenes/269-foliage-mesh-surfaces.scene.json'
+surface_foliage = json.loads((project_root / surface_foliage_path).read_bytes())
+assert surface_foliage['asset_id'] == by_source[surface_foliage_path]['id'] == 'cfdc5779-72d4-426b-8832-cd0519b4a348'
+panel_path = 'Assets/Foliage/SurfacePanels.mesh.json'
+panels = json.loads((project_root / panel_path).read_bytes())
+assert panels['asset_id'] == by_source[panel_path]['id'] == '5f481c06-da1f-4a58-987f-0140be428a8e'
+assert len(panels['faces']) == 2 and len(panels['vertices']) == 8
+surface_nodes = surface_foliage['entities']
+assert sum('forge.camera' in row['components'] for row in surface_nodes) == 1
+assert sum('forge.light' in row['components'] for row in surface_nodes) == 1
+assert sum('forge.physics_body' in row['components'] for row in surface_nodes) == 2
+for prefix, count in (('Bounds-clear panels ', 1), ('Surface-clear panels ', 2)):
+    plants = [row for row in surface_nodes if row['name'].startswith(prefix)]
+    assert len(plants) == count
+    assert all(row['components']['forge.mesh_renderer']['mesh'] == panels['asset_id'] for row in plants)
+
 # XY clearance saves the ordinary Mesh placements used by both runtime domains.
 xy_foliage_path = 'Scenes/268-foliage-xy-clearance.scene.json'
 xy_foliage = json.loads((project_root / xy_foliage_path).read_bytes())

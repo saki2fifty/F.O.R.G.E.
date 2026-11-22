@@ -1,21 +1,38 @@
 #pragma once
+#include <array>
 #include <forge/authoring.hpp>
 #include <forge/physics_service.hpp>
 #include <forge/project_lease.hpp>
 #include <memory>
 #include <span>
 #include <string_view>
+#include <vector>
 namespace forge {
 struct MeshBounds;
 struct MeshResourceData;
 // Static published-geometry admission shared by bounds preparation and its consumers.
-MeshBounds foliage_template_bounds(const MeshResourceData&);
-enum class FoliageClearanceProfile { WorldSphere, MeshBounds, CircleXY, MeshBoundsXY };
+using FoliageTriangle = std::array<Double3, 3>;
+inline constexpr std::size_t foliage_surface_triangle_limit = 4096;
+inline constexpr unsigned foliage_shape_query_limit = 8192;
+MeshBounds foliage_template_bounds(const MeshResourceData&,
+                                   std::vector<FoliageTriangle>* surfaces = nullptr);
+enum class FoliageClearanceProfile {
+    WorldSphere,
+    MeshBounds,
+    CircleXY,
+    MeshBoundsXY,
+    MeshSurfaces,
+    MeshSurfacesXY
+};
+enum class FoliageClearanceGeometry { Radius, Bounds, Surfaces };
 struct FoliageClearanceChoice {
     FoliageClearanceProfile profile;
     const char* key;
     const char* label;
-    bool mesh_bounds, xy;
+    FoliageClearanceGeometry geometry;
+    bool xy;
+    bool uses_mesh() const { return geometry != FoliageClearanceGeometry::Radius; }
+    bool uses_surfaces() const { return geometry == FoliageClearanceGeometry::Surfaces; }
 };
 std::span<const FoliageClearanceChoice> foliage_clearance_choices();
 const FoliageClearanceChoice& foliage_clearance_choice(FoliageClearanceProfile);

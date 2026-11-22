@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <filesystem>
 #include <forge/physics_components.hpp>
 #include <forge/world.hpp>
@@ -72,6 +73,11 @@ class PhysicsRuntime : public PhysicsService {
     // collect a capped hit list or change the PhysicsService/SDK value boundary.
     bool overlap_any(const PhysicsOverlap&, PhysicsQueryFilter = {}) const;
     bool overlap_any_2d(const PhysicsOverlap2D&, PhysicsQueryFilter = {}) const;
+    // Copied world-space static triangle, through the same current native targets.
+    // Zero-area float geometry rejects; native two-sided shape tolerances apply.
+    bool overlap_triangle_any(const std::array<Double3, 3>&, PhysicsQueryFilter = {}) const;
+    // XY convex projection; a collapsed projection remains a segment or point.
+    bool overlap_triangle_any_2d(const std::array<Double2, 3>&, PhysicsQueryFilter = {}) const;
     void teleport_2d(EntityRef, Double2, double, bool) override;
     void move_kinematic_2d(EntityRef, Double2, double) override;
     void add_force_2d(EntityRef, Double2, std::optional<Double2> = {}) override;

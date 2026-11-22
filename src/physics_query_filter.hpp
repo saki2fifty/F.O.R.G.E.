@@ -5,6 +5,12 @@
 #include <stdexcept>
 
 namespace forge::physics_detail {
+struct PhysicsQueryLimits {
+    double position, minimum_radius, maximum_radius, minimum_box_size, maximum_box_size;
+};
+inline constexpr PhysicsQueryLimits physics_query_limits_3d{1e9, .001, 10000, .001, 10000};
+// Preserve the native float thresholds used by existing XY requests.
+inline constexpr PhysicsQueryLimits physics_query_limits_2d{1e6, .005f, 500, .01f, 1000};
 inline void validate_query_slice(const PhysicsQuerySlice& slice) {
     if (!std::isfinite(slice.from) || !std::isfinite(slice.to) || slice.from < 0 ||
         slice.from > slice.to || slice.to > 1 || !slice.query_budget ||

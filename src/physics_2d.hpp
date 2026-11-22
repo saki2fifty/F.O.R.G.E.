@@ -4,6 +4,7 @@
 #include "physics_collider_2d.hpp"
 #include "physics_command.hpp"
 #include "tile_set_values.hpp"
+#include <array>
 #include <forge/character_components.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/world.hpp>
@@ -115,6 +116,7 @@ Desired2D desired_bodies_2d(WorldContext&, const PhysicsConfig&,
 void validate_shape_capacity_2d(const Desired2D&);
 void validate_ray_2d(Double2, Double2);
 void validate_overlap_2d(const PhysicsOverlap2D&);
+void validate_triangle_2d(const std::array<Double2, 3>&);
 void validate_sweep_2d(const PhysicsSweep2D&);
 
 // Subordinate native state of PhysicsRuntime, never another service/world owner.
@@ -144,6 +146,9 @@ class Native2D {
     std::optional<EntityRef>
     overlap_any(const PhysicsOverlap2D&, PhysicsQueryFilter,
                 const std::function<bool(std::uint64_t, EntityRef)>& current) const;
+    std::optional<EntityRef>
+    overlap_triangle(const std::array<Double2, 3>&, PhysicsQueryFilter,
+                     const std::function<bool(std::uint64_t, EntityRef)>& current) const;
     std::optional<PhysicsHit2D> shape_cast(const PhysicsSweep2D&, PhysicsQueryFilter) const;
     PhysicsMotionResult2D shape_cast_motion(const PhysicsSweep2D&, PhysicsQuerySlice,
                                             PhysicsQueryFilter) const;

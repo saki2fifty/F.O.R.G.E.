@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**269-foliage-mesh-surfaces** compares saved placements using enclosing Mesh
+bounds in the amber group and static triangle surfaces in the green group. The
+amber group retains one two-panel plant; the green group retains two because
+their gap clears the obstacle.
+Open **Assets/Foliage/SurfacePanels.mesh.json** to edit the Mesh. Camera and light
+are included. Save the Scene and export with the matching kit; no project C++
+module is required. See [Mesh surface clearance](../editor/foliage.md).
+
 **241-particle-opacity** shows independent fade-in/fade-out across particle ages.
 Its two emitters share **Assets/Particles/Alpha/FadingCloud.particles.json** and
 the existing **Glass.material.json**. Open the effect for **Use opacity over life**,

@@ -4572,3 +4572,29 @@ Game PNG SHA256: `45233724a51ff5a657c026d35370e816ed68ac934cfc345526ea696e4bbe37
 These captures do not establish Windows, physical GPU/input/DPI or graphical
 standalone EXE acceptance. Existing 3D-profile captures remain attributable to
 their unchanged controls and documented profiles.
+
+
+## Static Mesh surface clearance controls and Game view
+
+Canonical files: `manual/images/foliage-mesh-surfaces-controls.png` (720×1700)
+and `manual/images/foliage-mesh-surfaces-game.png` (640×360). The native panel
+shows Template Mesh surfaces, disabled retained padding, zero offsets and a
+checked two-candidate layout. The Game image shows Gallery269's green surface
+comparison, amber bounds comparison and independent two-panel template below.
+
+Source: working tree based on1eece14c95778dde9fa01ee05e332d7d7b7536c8, with static
+Mesh surface clearance. Native consumer build434/capture437 produced the controls.
+Graphics build432/run435 produced the source-hidden relocated Game image through
+the production FrameRenderer on software Vulkan/lavapipe. Six instances, three
+draw calls/two batched calls, independent template picking and four exact
+authored/relocated display pairs passed. The light illuminates the panel fronts.
+The earlier fixture's blade-specific picking point was replaced with a centroid
+from the selected Mesh geometry.
+
+The original captures were personally reviewed at original dimensions without
+retouch. Game PPM-to-PNG encoding preserves exact RGB bytes. Local technical
+provenance binds the producer, executable, run, Gallery inputs and image hashes.
+Controls SHA256: `050adf18d85e648a953e5b00a54f13805f6dd533dccdcf08edb15bcd50d40ee1`.
+Game SHA256: `74fcc6784c1f22bfd9fd7f7c503e01db1b8ab3880ec77e15e5ef474a0f2a283d`.
+These images do not establish Windows, physical GPU/input/DPI or graphical
+standalone EXE acceptance.

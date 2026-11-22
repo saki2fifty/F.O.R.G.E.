@@ -24,11 +24,20 @@ void xy_controls(float scale, bool compact, const std::filesystem::path& scratch
     std::filesystem::create_directories(root / "Assets");
     SceneDocument project(scene);
     project.open_project(root, true);
-    const auto source = cube(scene), obstacle = cube(scene);
+    const auto source = cube(scene), obstacle = cube(scene), obstacle3d = cube(scene);
     for (auto type : {"forge.physics_body_2d", "forge.box_collider_2d"})
         authoring_command(scene, "component.add", {{"entity", obstacle}, {"component", type}});
     authoring_command(scene, "transform.position",
                       {{"entity", obstacle}, {"value", {{"x", 0}, {"y", .5}, {"z", 0}}}});
+    for (auto type : {"forge.physics_body", "forge.box_collider"})
+        authoring_command(scene, "component.add", {{"entity", obstacle3d}, {"component", type}});
+    authoring_command(scene, "property.set",
+                      {{"entity", obstacle3d},
+                       {"component", "forge.physics_body"},
+                       {"field", "motion"},
+                       {"value", 0}});
+    authoring_command(scene, "transform.position",
+                      {{"entity", obstacle3d}, {"value", {{"x", 0}, {"y", .5}, {"z", 0}}}});
     const auto before = scene.document();
     std::unique_ptr<ImGuiContext, decltype(&ImGui::DestroyContext)> context(ImGui::CreateContext(),
                                                                             ImGui::DestroyContext);
@@ -76,22 +85,48 @@ void xy_controls(float scale, bool compact, const std::filesystem::path& scratch
         }
         frame();
     };
-    for (unsigned profile : {2u, 3u}) {
+    for (unsigned profile : {2u, 3u, 4u, 5u}) {
+        const bool surfaces = profile >= 4, xy = profile != 4;
         input.choose("foliage:clearance_profile", profile);
-        check(!test::ui_targets.at("foliage:clearance_z").enabled,
-              "XY profile left the unused Z offset editable");
-        input.type(profile == 2 ? "foliage:clearance_radius" : "foliage:clearance_padding",
-                   profile == 2 ? ".25" : ".1");
+        if (profile == 4)
+            input.type("foliage:clearance_z", "0");
+        check(test::ui_targets.at("foliage:clearance_z").enabled == !xy,
+              "Clearance profile lost its active Z offset control state");
+        if (surfaces)
+            check(!test::ui_targets.at("foliage:clearance_padding").enabled &&
+                      !test::ui_targets.contains("foliage:clearance_radius"),
+                  "Surface profile exposed inactive radius or padding controls");
+        if (profile == 2) {
+            input.type("foliage:clearance_radius", ".001");
+            input.click("foliage:check");
+            settle();
+            check(owner.problems.size() == 1 && scene.document() == before,
+                  "Unsupported XY circle radius bypassed native UI preflight");
+            input.type("foliage:clearance_radius", ".005");
+            input.click("foliage:check");
+            settle();
+            check(owner.problems.size() == 0 &&
+                      panel.collision_task().state().at("state") == "ready" &&
+                      scene.document() == before,
+                  "Native minimum XY circle radius failed to clear the UI diagnostic");
+        }
+        if (!surfaces)
+            input.type(profile == 2 ? "foliage:clearance_radius" : "foliage:clearance_padding",
+                       profile == 2 ? ".25" : ".1");
         input.click("foliage:check");
         settle();
         const auto state = panel.collision_task().state();
         check(state.at("state") == "ready" &&
-                  state.at("profile") ==
-                      (profile == 2 ? "world-circle-xy-v1" : "mesh-bounds-xy-v1") &&
+                  state.at("profile") == foliage_clearance_choices()[profile].key &&
                   state.at("retained_count") > 0 && state.at("retained_count") < 32 &&
-                  state.at("result").at("settings").at("offset").at("z") == 25 &&
+                  state.at("result").at("settings").at("offset").at("z") ==
+                      (profile < 4 ? 25 : 0) &&
                   scene.document() == before && owner.problems.size() == 0,
               "Actual XY profile controls lost native filtering, settings or read-only intent");
+        if (surfaces)
+            check(state.at("surface_triangle_count") == 12 && state.at("shape_query_count") > 0 &&
+                      state.at("result").at("settings").at("padding") == .1,
+                  "Actual surface controls lost query progress or retained inactive padding");
         input.click("foliage:place");
         settle();
         const auto placed = scene.document();
@@ -99,6 +134,9 @@ void xy_controls(float scale, bool compact, const std::filesystem::path& scratch
                   scene.document() == placed && scene.undo() && scene.document() == before,
               "Actual XY placement lost atomic history");
     }
+    input.choose("foliage:clearance_profile", 3);
+    check(test::ui_targets.at("foliage:clearance_padding").enabled,
+          "Returning to Mesh bounds failed to restore padding editing");
     input.choose("foliage:clearance_profile", 0);
     check(test::ui_targets.at("foliage:clearance_z").enabled,
           "Returning to 3D failed to restore the Z offset control");
@@ -576,17 +614,26 @@ void exercise(float scale, bool compact, const std::filesystem::path& scratch) {
           "Scene switch retained the old foliage template");
     test::observe_ui = false;
 }
-enum class CaptureMode { Terrain, MeshSurface, SphereClearance, MeshBounds, XYBounds };
+enum class CaptureMode {
+    Terrain,
+    MeshSurface,
+    SphereClearance,
+    MeshBounds,
+    XYBounds,
+    MeshSurfaces
+};
 void capture(const std::filesystem::path& output, const std::filesystem::path& gallery = {},
              CaptureMode mode = CaptureMode::Terrain) {
-    const bool xy = mode == CaptureMode::XYBounds, bounds = mode == CaptureMode::MeshBounds || xy,
+    const bool surfaces = mode == CaptureMode::MeshSurfaces, xy = mode == CaptureMode::XYBounds,
+               bounds = mode == CaptureMode::MeshBounds || xy || surfaces,
                clearance = bounds || mode == CaptureMode::SphereClearance,
                mesh_surface = mode == CaptureMode::MeshSurface;
     std::filesystem::create_directories(output);
     if (!SDL_Init(SDL_INIT_VIDEO))
         throw std::runtime_error(SDL_GetError());
     {
-        const float height = xy          ? 2200
+        const float height = surfaces    ? 1700
+                             : xy        ? 2200
                              : clearance ? 2050
                                          : (gallery.empty() ? 1100 : (mesh_surface ? 1480 : 1420));
         test::ImGuiSoftwareCapture capture(720, unsigned(height));
@@ -603,7 +650,8 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
             std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
             project = std::make_unique<SceneDocument>(scene);
             project->open_project(root);
-            project->open_scene(xy             ? "Scenes/268-foliage-xy-clearance.scene.json"
+            project->open_scene(surfaces       ? "Scenes/269-foliage-mesh-surfaces.scene.json"
+                                : xy           ? "Scenes/268-foliage-xy-clearance.scene.json"
                                 : bounds       ? "Scenes/267-foliage-mesh-bounds.scene.json"
                                 : mesh_surface ? "Scenes/200-mesh-surface-foliage.scene.json"
                                 : clearance    ? "Scenes/156-foliage-clearance.scene.json"
@@ -616,7 +664,8 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
                 if (name.starts_with(mesh_surface ? "Mesh surface - tilted" : "Layered terrain"))
                     surface = row.at("id");
             }
-            check(!surface.empty() && !prototype.empty(), "Capture Gallery actors are missing");
+            check((surfaces || !surface.empty()) && !prototype.empty(),
+                  "Capture Gallery actors are missing");
         }
         ui::EditorUiContext owner;
         ui::ContextScope scope(owner);
@@ -642,33 +691,48 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
         capture.save(output / "foliage-placement-controls.png");
         if (project) {
             const auto before = scene.document();
-            owner.selection.select_entity(surface);
-            frame();
-            input.click("foliage:projected");
-            if (mesh_surface) {
-                auto& io = ImGui::GetIO();
-                io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-                io.ConfigInputTrickleEventQueue = false;
-                input.choose("foliage:surface_kind", 1);
+            if (surfaces) {
+                input.type("foliage:x", "2");
+                input.type("foliage:y", "0");
+                input.type("foliage:z", "0");
+                input.type("foliage:count", "2");
+                input.type("foliage:radius", ".01");
+                input.type("foliage:spacing", "0");
+                input.type("foliage:scale_min", "1");
+                input.type("foliage:scale_max", "1");
+                input.type("foliage:yaw_min", "0");
+                input.type("foliage:yaw_max", "0");
+            } else {
+                owner.selection.select_entity(surface);
+                frame();
+                input.click("foliage:projected");
+                if (mesh_surface) {
+                    auto& io = ImGui::GetIO();
+                    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+                    io.ConfigInputTrickleEventQueue = false;
+                    input.choose("foliage:surface_kind", 1);
+                }
+                input.click("foliage:terrain");
+                input.type("foliage:x", mesh_surface ? "-7" : "0");
+                input.type("foliage:y", "0");
+                input.type("foliage:z", "0");
+                input.type("foliage:count", "128");
+                if (mesh_surface)
+                    input.type("foliage:radius", "4.6");
+                input.click("foliage:align_slope");
+                input.type("foliage:seed", "91");
+                input.type("foliage:spacing", "0.55");
+                input.type("foliage:scale_min", "0.65");
+                input.type("foliage:scale_max", "1.15");
             }
-            input.click("foliage:terrain");
-            input.type("foliage:x", mesh_surface ? "-7" : "0");
-            input.type("foliage:y", "0");
-            input.type("foliage:z", "0");
-            input.type("foliage:count", "128");
-            if (mesh_surface)
-                input.type("foliage:radius", "4.6");
-            input.click("foliage:align_slope");
-            input.type("foliage:seed", "91");
-            input.type("foliage:spacing", "0.55");
-            input.type("foliage:scale_min", "0.65");
-            input.type("foliage:scale_max", "1.15");
             if (clearance) {
                 input.click("foliage:collision");
-                input.click("foliage:separate_new");
+                if (!surfaces)
+                    input.click("foliage:separate_new");
                 if (bounds) {
-                    input.choose("foliage:clearance_profile", xy ? 3 : 1);
-                    input.type("foliage:clearance_padding", ".05");
+                    input.choose("foliage:clearance_profile", surfaces ? 4 : xy ? 3 : 1);
+                    if (!surfaces)
+                        input.type("foliage:clearance_padding", ".05");
                     input.type("foliage:clearance_y", "0");
                 }
             }
@@ -684,14 +748,16 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
                 frame();
             check(scene.document() == before && owner.problems.size() == 0,
                   "Terrain capture changed authored intent or failed preparation");
-            for (const char* key : {"foliage:projected", "foliage:terrain", "foliage:height_offset",
-                                    "foliage:slope_min", "foliage:slope_max", "foliage:check",
-                                    "foliage:align_slope", "foliage:place"}) {
-                const auto& box = test::ui_targets.at(key);
-                check(box.enabled && box.minimum.y >= box.clip_minimum.y &&
-                          box.maximum.y <= box.clip_maximum.y,
-                      "Terrain capture clipped a required control");
-            }
+            if (!surfaces)
+                for (const char* key :
+                     {"foliage:projected", "foliage:terrain", "foliage:height_offset",
+                      "foliage:slope_min", "foliage:slope_max", "foliage:check",
+                      "foliage:align_slope", "foliage:place"}) {
+                    const auto& box = test::ui_targets.at(key);
+                    check(box.enabled && box.minimum.y >= box.clip_minimum.y &&
+                              box.maximum.y <= box.clip_maximum.y,
+                          "Terrain capture clipped a required control");
+                }
             if (clearance) {
                 check(panel.collision_task().state().at("state") == "ready",
                       "Clearance capture preparation failed");
@@ -702,13 +768,16 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
                       "foliage:clearance_mask", "foliage:sensors", "foliage:ignore",
                       "foliage:ignore_clear"}) {
                     const auto& box = test::ui_targets.at(key);
-                    check(box.enabled == !(xy && std::string_view(key) == "foliage:clearance_z") &&
-                              box.minimum.y >= box.clip_minimum.y &&
+                    const bool disabled =
+                        (xy && std::string_view(key) == "foliage:clearance_z") ||
+                        (surfaces && std::string_view(key) == "foliage:clearance_padding");
+                    check(box.enabled == !disabled && box.minimum.y >= box.clip_minimum.y &&
                               box.maximum.y <= box.clip_maximum.y,
                           "Clearance capture clipped a required control");
                 }
             }
-            capture.save(output / (xy             ? "foliage-xy-clearance-controls.png"
+            capture.save(output / (surfaces       ? "foliage-mesh-surfaces-controls.png"
+                                   : xy           ? "foliage-xy-clearance-controls.png"
                                    : bounds       ? "foliage-mesh-bounds-controls.png"
                                    : mesh_surface ? "mesh-foliage-controls.png"
                                    : clearance    ? "foliage-clearance-controls.png"
@@ -729,6 +798,8 @@ int main(int argc, char** argv) {
             capture(argv[3], argv[2], CaptureMode::MeshBounds);
         else if (argc == 4 && std::string_view(argv[1]) == "--capture-xy-bounds")
             capture(argv[3], argv[2], CaptureMode::XYBounds);
+        else if (argc == 4 && std::string_view(argv[1]) == "--capture-mesh-surfaces")
+            capture(argv[3], argv[2], CaptureMode::MeshSurfaces);
         else if (argc == 4 && std::string_view(argv[1]) == "--capture-mesh-gallery")
             capture(argv[3], argv[2], CaptureMode::MeshSurface);
         else if (argc == 2)

@@ -31,6 +31,7 @@
 #include <Jolt/Physics/Collision/Shape/CylinderShape.h>
 #include <Jolt/Physics/Collision/Shape/ScaledShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
+#include <Jolt/Physics/Collision/Shape/TriangleShape.h>
 #include <Jolt/Physics/Collision/ShapeCast.h>
 #include <Jolt/Physics/Collision/TransformedShape.h>
 #include <Jolt/Physics/Constraints/DistanceConstraint.h>
@@ -134,12 +135,13 @@ struct QueryBodyFilter final : JPH::BodyFilter {
 };
 void valid_position(LocalTranslation p) {
     for (double v : {p.x, p.y, p.z})
-        if (!std::isfinite(v) || std::abs(v) > 1e9)
+        if (!std::isfinite(v) || std::abs(v) > physics_detail::physics_query_limits_3d.position)
             throw std::runtime_error("Physics position exceeds supported +/-1 billion meters");
 }
 void valid_position_2d(Double2 value) {
     for (double coordinate : value)
-        if (!std::isfinite(coordinate) || std::abs(coordinate) > 1000000)
+        if (!std::isfinite(coordinate) ||
+            std::abs(coordinate) > physics_detail::physics_query_limits_2d.position)
             throw std::runtime_error(
                 "2D physics position must be finite and within +/-1000000 metres");
 }
@@ -337,9 +339,15 @@ JPH::RefConst<JPH::Shape> query_shape(PhysicsSweep::Shape kind, const Double3& d
     const unsigned count = kind == PhysicsSweep::Shape::Box      ? 3
                            : kind == PhysicsSweep::Shape::Sphere ? 1
                                                                  : 2;
+    const auto& limits = physics_detail::physics_query_limits_3d;
+    const auto minimum =
+        kind == PhysicsSweep::Shape::Box ? limits.minimum_box_size : limits.minimum_radius;
+    const auto maximum =
+        kind == PhysicsSweep::Shape::Box ? limits.maximum_box_size : limits.maximum_radius;
     for (unsigned i = 0; i < 3; ++i) {
         const auto value = dimensions[i];
-        if (!std::isfinite(value) || (i < count ? (value < .001 || value > 10000) : value != 0))
+        if (!std::isfinite(value) ||
+            (i < count ? (value < minimum || value > maximum) : value != 0))
             throw std::runtime_error("Invalid query shape dimensions");
     }
     Configuration config;
@@ -1241,6 +1249,10 @@ struct PhysicsRuntime::Impl {
         const auto found = characters.find(resolved.entity);
         return found != characters.end() && found->second.ref == ref;
     }
+    bool current_entity(std::uint64_t entity, EntityRef ref) const {
+        const auto resolved = context.resolve(ref);
+        return resolved.state == WorldContext::ResolveState::Available && resolved.entity == entity;
+    }
     QueryBodyFilter query_filter(PhysicsQueryFilter filter) const {
         physics_detail::validate_query_filter(filter);
         std::array<std::uint32_t, physics_query_exclusion_limit> ids{};
@@ -1293,6 +1305,50 @@ struct PhysicsRuntime::Impl {
         // The selected native BodyFilter is noncopyable. This prvalue constructs
         // the adapter directly and copies only our bounded plain ID values.
         return QueryBodyFilter(filter, {ids.data(), id_count});
+    }
+    bool overlap_geometry_any(const JPH::Shape* geometry, const JPH::RVec3& origin, JPH::QuatArg q,
+                              PhysicsQueryFilter filter) {
+        // Native callbacks only read copied retired tokens. Canonical target
+        // resolution remains on this owner thread, as in the all-hit query.
+        std::vector<std::uint32_t> retired;
+        for (const auto& [id, body] : bodies)
+            if (!has_realized_target(body.ref))
+                retired.push_back(body.id.GetIndexAndSequenceNumber());
+        for (const auto& [id, character] : characters)
+            if (!has_realized_target(character.ref))
+                retired.push_back(
+                    character.owner->native().GetInnerBodyID().GetIndexAndSequenceNumber());
+        std::sort(retired.begin(), retired.end());
+        struct CurrentFilter final : JPH::BodyFilter {
+            QueryBodyFilter base;
+            std::span<const std::uint32_t> retired;
+            CurrentFilter(Impl& owner, PhysicsQueryFilter value,
+                          std::span<const std::uint32_t> tokens)
+                : base(owner.query_filter(value)), retired(tokens) {}
+            bool ShouldCollide(const JPH::BodyID& id) const override {
+                return base.ShouldCollide(id) &&
+                       !std::binary_search(retired.begin(), retired.end(),
+                                           id.GetIndexAndSequenceNumber());
+            }
+            bool ShouldCollideLocked(const JPH::Body& body) const override {
+                return base.ShouldCollideLocked(body);
+            }
+        } current(*this, filter, retired);
+        JPH::AnyHitCollisionCollector<JPH::CollideShapeCollector> collector;
+        const auto settings = overlap_settings();
+        system.GetNarrowPhaseQuery().CollideShape(geometry, JPH::Vec3::sOne(),
+                                                  JPH::RMat44::sRotationTranslation(q, origin),
+                                                  settings, origin, collector, {}, {}, current);
+        if (!collector.HadHit())
+            return false;
+        const auto token = collector.mHit.mBodyID2.GetIndexAndSequenceNumber();
+        for (const auto& [id, body] : bodies)
+            if (body.id.GetIndexAndSequenceNumber() == token)
+                return has_realized_target(body.ref);
+        for (const auto& [id, character] : characters)
+            if (character.owner->native().GetInnerBodyID().GetIndexAndSequenceNumber() == token)
+                return has_realized_target(character.ref);
+        throw std::runtime_error("Physics overlap query hit an unowned native body");
     }
     void erase(std::map<std::uint64_t, Body>::iterator it) {
         // Native constraints borrow body pointers: retire them before body destruction.
@@ -2696,47 +2752,37 @@ bool PhysicsRuntime::overlap_any(const PhysicsOverlap& request, PhysicsQueryFilt
     s.check();
     valid_position(request.origin);
     const auto geometry = query_shape(request.shape, request.dimensions);
-    const auto q = rotation(request.rotation);
-    // Native callbacks only read copied retired tokens. Canonical target
-    // resolution remains on this owner thread, as in the all-hit query.
-    std::vector<std::uint32_t> retired;
-    for (const auto& [id, body] : s.bodies)
-        if (!s.has_realized_target(body.ref))
-            retired.push_back(body.id.GetIndexAndSequenceNumber());
-    for (const auto& [id, character] : s.characters)
-        if (!s.has_realized_target(character.ref))
-            retired.push_back(
-                character.owner->native().GetInnerBodyID().GetIndexAndSequenceNumber());
-    std::sort(retired.begin(), retired.end());
-    struct CurrentFilter final : JPH::BodyFilter {
-        QueryBodyFilter base;
-        std::span<const std::uint32_t> retired;
-        CurrentFilter(Impl& owner, PhysicsQueryFilter value, std::span<const std::uint32_t> tokens)
-            : base(owner.query_filter(value)), retired(tokens) {}
-        bool ShouldCollide(const JPH::BodyID& id) const override {
-            return base.ShouldCollide(id) && !std::binary_search(retired.begin(), retired.end(),
-                                                                 id.GetIndexAndSequenceNumber());
+    return s.overlap_geometry_any(geometry, {request.origin.x, request.origin.y, request.origin.z},
+                                  rotation(request.rotation), filter);
+}
+bool PhysicsRuntime::overlap_triangle_any(const std::array<Double3, 3>& vertices,
+                                          PhysicsQueryFilter filter) const {
+    auto& s = *impl_;
+    s.check();
+    Double3 low = vertices[0], high = vertices[0], center{};
+    for (const auto& vertex : vertices) {
+        valid_position({vertex[0], vertex[1], vertex[2]});
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            low[axis] = std::min(low[axis], vertex[axis]);
+            high[axis] = std::max(high[axis], vertex[axis]);
         }
-        bool ShouldCollideLocked(const JPH::Body& body) const override {
-            return base.ShouldCollideLocked(body);
-        }
-    } current(s, filter, retired);
-    JPH::AnyHitCollisionCollector<JPH::CollideShapeCollector> collector;
-    const JPH::RVec3 origin(request.origin.x, request.origin.y, request.origin.z);
-    const auto settings = overlap_settings();
-    s.system.GetNarrowPhaseQuery().CollideShape(geometry, JPH::Vec3::sOne(),
-                                                JPH::RMat44::sRotationTranslation(q, origin),
-                                                settings, origin, collector, {}, {}, current);
-    if (!collector.HadHit())
-        return false;
-    const auto token = collector.mHit.mBodyID2.GetIndexAndSequenceNumber();
-    for (const auto& [id, body] : s.bodies)
-        if (body.id.GetIndexAndSequenceNumber() == token)
-            return s.has_realized_target(body.ref);
-    for (const auto& [id, character] : s.characters)
-        if (character.owner->native().GetInnerBodyID().GetIndexAndSequenceNumber() == token)
-            return s.has_realized_target(character.ref);
-    throw std::runtime_error("Physics overlap query hit an unowned native body");
+    }
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        const auto extent = high[axis] - low[axis];
+        if (extent > physics_detail::physics_query_limits_3d.maximum_box_size)
+            throw std::runtime_error("Triangle query extent exceeds the native query profile");
+        center[axis] = low[axis] + extent * .5;
+    }
+    std::array<JPH::Vec3, 3> local;
+    for (unsigned i = 0; i < 3; ++i)
+        local[i] = {float(vertices[i][0] - center[0]), float(vertices[i][1] - center[1]),
+                    float(vertices[i][2] - center[2])};
+    const auto area = (local[1] - local[0]).Cross(local[2] - local[0]).LengthSq();
+    if (!std::isfinite(area) || area <= 0)
+        throw std::runtime_error("Triangle query requires nondegenerate native float geometry");
+    const JPH::RefConst<JPH::Shape> geometry = new JPH::TriangleShape(local[0], local[1], local[2]);
+    return s.overlap_geometry_any(geometry, {center[0], center[1], center[2]},
+                                  JPH::Quat::sIdentity(), filter);
 }
 std::uint64_t PhysicsRuntime::request_collision_asset(AssetId asset) {
     auto& s = *impl_;
@@ -2941,10 +2987,21 @@ bool PhysicsRuntime::overlap_any_2d(const PhysicsOverlap2D& query,
     }
     return bool(
         self.native_2d->overlap_any(query, filter, [&](std::uint64_t entity, EntityRef ref) {
-            const auto resolved = self.context.resolve(ref);
-            return resolved.state == WorldContext::ResolveState::Available &&
-                   resolved.entity == entity;
+            return self.current_entity(entity, ref);
         }));
+}
+bool PhysicsRuntime::overlap_triangle_any_2d(const std::array<Double2, 3>& vertices,
+                                             PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    if (!self.native_2d) {
+        physics_detail::validate_query_filter(filter);
+        physics_detail::validate_triangle_2d(vertices);
+        return false;
+    }
+    return bool(self.native_2d->overlap_triangle(
+        vertices, filter,
+        [&](std::uint64_t entity, EntityRef ref) { return self.current_entity(entity, ref); }));
 }
 std::optional<PhysicsHit2D> PhysicsRuntime::shape_cast_2d(const PhysicsSweep2D& query,
                                                           PhysicsQueryFilter filter) const {

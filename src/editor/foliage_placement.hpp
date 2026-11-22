@@ -359,10 +359,10 @@ class FoliagePlacement {
             ImGui::EndDisabled();
             if (collision_enabled_) {
                 ImGui::TextWrapped(
-                    "Check a clearance volume against authored colliders in the selected domain. "
+                    "Check clearance against authored colliders in the selected domain. "
                     "The template and projection surface are ignored. No simulation runs. "
-                    "Separate new plants also compares the selected volumes between retained "
-                    "candidates. Mesh bounds conservatively include empty space.");
+                    "Mesh bounds conservatively include empty space; Mesh surfaces test the "
+                    "template triangles. Separate new plants uses enclosing bounds for surfaces.");
                 int profile = int(collision_settings_.profile);
                 const auto choices = foliage_clearance_choices();
                 if (ImGui::Combo(
@@ -383,29 +383,40 @@ class FoliagePlacement {
                         "separation. Mesh bounds project to a world-axis XY rectangle. Placement "
                         "still uses the existing XZ disk and world heights; this is not a Sprite "
                         "or XY placement tool.");
-                help("Template Mesh bounds follow saved template rotation, signed scale, seeded "
-                     "variation and slope alignment. A world-axis box encloses every static LOD. "
+                help("Template Mesh clearance follows saved template rotation, signed scale, "
+                     "seeded variation and slope alignment. Every static LOD is included. "
                      "Wind, skin and morph deformation are unavailable. Up to 8 MiB of Mesh "
-                     "data, 16384 vertices, 49152 indices and 32 parts. This is a conservative "
-                     "bounds check, rather than triangle-against-triangle collision.");
+                     "data, 16384 vertices, 49152 indices and 32 parts.");
+                if (choice.uses_surfaces())
+                    ImGui::TextWrapped(
+                        "Surface contact: up to 4096 static triangles against native colliders. "
+                        "An obstacle wholly inside a closed Mesh can miss its surfaces. Radius "
+                        "and padding are inactive. Separate new plants uses enclosing bounds, "
+                        "which can reject empty space. Up to 8192 shape queries per request.");
                 ImGui::Checkbox("Separate new plants", &collision_settings_.avoid_new_overlaps);
                 FORGE_UI_PROBE("foliage:separate_new");
                 help(
                     "Keep the first clear candidate, then skip new candidates with overlapping "
-                    "clearance volumes. Uses the selected shape and domain; "
+                    "clearance volumes. Surface profiles use conservative enclosing boxes or "
+                    "XY rectangles; other profiles use the selected shape and domain. "
                     "touching volumes are allowed. No resampling or fixed retained-count promise.");
-                if (!choice.mesh_bounds)
+                if (!choice.uses_mesh())
                     field("Clearance radius (m)", "clearance_radius", collision_settings_.radius,
-                          "Sphere or XY circle radius, 0.001 to 100 m. Independent of template "
-                          "scale.");
-                else
+                          choice.xy
+                              ? "XY circle radius, 0.005 to 100 m. Independent of template scale."
+                              : "Sphere radius, 0.001 to 100 m. Independent of template scale.");
+                else {
+                    ImGui::BeginDisabled(choice.uses_surfaces());
                     field("Bounds padding (m)", "clearance_padding", collision_settings_.padding,
-                          "Add 0 to 100 m on every side of the transformed Mesh bounds.");
+                          "Add 0 to 100 m on every side of the transformed Mesh bounds. "
+                          "Retained but inactive for Mesh surfaces.");
+                    ImGui::EndDisabled();
+                }
                 field("Clearance offset X (m)", "clearance_x", collision_settings_.offset[0],
                       "World-space offset from each candidate origin, +/-1000 m.");
                 field("Clearance offset Y (m)", "clearance_y", collision_settings_.offset[1],
                       "World-space offset, +/-1000 m. Use 0 on every axis to test the unshifted "
-                      "Mesh bounds. The sphere default raises its center by 0.5 m.");
+                      "Mesh geometry. The sphere default raises its center by 0.5 m.");
                 ImGui::BeginDisabled(choice.xy);
                 field("Clearance offset Z (m)", "clearance_z", collision_settings_.offset[2],
                       "World-space offset from each candidate origin, +/-1000 m.");
@@ -513,6 +524,9 @@ class FoliagePlacement {
                                    state.at("message").get<std::string>().c_str(),
                                    state.at("checked_count").get<unsigned>(),
                                    state.at("retained_count").get<unsigned>());
+                ImGui::TextWrapped("Shape queries: %u / %u",
+                                   state.at("shape_query_count").get<unsigned>(),
+                                   state.at("shape_query_limit").get<unsigned>());
                 if (button("Cancel clearance", "Cancel preparation without creating objects."))
                     collision_task_.cancel();
                 FORGE_UI_PROBE("foliage:cancel");
