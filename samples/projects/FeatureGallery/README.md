@@ -3519,3 +3519,25 @@ The scene uses ordinary saved objects, camera and light and exports without
 project C++ code.
 
 ![Saved panel plants using bounds and actual static Mesh surface clearance](../../../manual/images/foliage-mesh-surfaces-game.png)
+
+
+## Frozen Edit wind clearance
+
+Open `Scenes/270-foliage-edit-wind.scene.json` and press **Play → Game**. The
+amber group keeps both unchecked wind-bent plants; the green group retains only
+the clear upper plant. The unchecked lower plant bends into its obstacle.
+Both groups reuse `Assets/Foliage/SurfacePanels.mesh.json`. Frequency is 0 so the
+comparison stays still; the ordinary Wind component remains editable.
+
+Stop Play and select **Blade template - frozen Edit wind**. Open **Tools > Foliage
+placement...**, choose **Use selected Mesh Renderer**, then **Reject collisions**
+and **Template Mesh surfaces (Edit wind)**. Zero clearance offsets test the
+unshifted 0.5-second Edit sample. The XY Edit wind profile projects that sample
+onto X/Y. Radius and padding are inactive; **Separate new plants** compares
+conservative sampled bounds. Future animation can still produce contact.
+
+The scene contains saved Mesh objects, camera and light. Save and export with the
+matching runtime kit; no project C++ module is needed. See the
+[frozen Edit wind workflow and limits](../../../manual/editor/foliage.md#check-frozen-edit-wind).
+
+![One checked green plant beside two unchecked amber wind-bent plants](../../../manual/images/foliage-edit-wind-game.png)

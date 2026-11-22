@@ -85,8 +85,9 @@ void xy_controls(float scale, bool compact, const std::filesystem::path& scratch
         }
         frame();
     };
-    for (unsigned profile : {2u, 3u, 4u, 5u}) {
-        const bool surfaces = profile >= 4, xy = profile != 4;
+    for (unsigned profile : {2u, 3u, 4u, 5u, 6u, 7u}) {
+        const auto& choice = foliage_clearance_choices()[profile];
+        const bool surfaces = choice.uses_surfaces(), xy = choice.xy;
         input.choose("foliage:clearance_profile", profile);
         if (profile == 4)
             input.type("foliage:clearance_z", "0");
@@ -133,6 +134,34 @@ void xy_controls(float scale, bool compact, const std::filesystem::path& scratch
         check(scene.undo() && scene.document() == before && scene.redo() &&
                   scene.document() == placed && scene.undo() && scene.document() == before,
               "Actual XY placement lost atomic history");
+    }
+    if (scale == 1.f && !compact) {
+        const Json wind{{"enabled", true},  {"amplitude", 2}, {"height", .5},    {"direction_x", 1},
+                        {"direction_z", 0}, {"frequency", 0}, {"wavelength", 8}, {"phase", 90}};
+        authoring_command(scene, "property.set",
+                          {{"entity", source},
+                           {"component", "forge.mesh_renderer"},
+                           {"field", "wind"},
+                           {"value", wind}});
+        const auto wind_scene = scene.document();
+        input.choose("foliage:clearance_profile", 4);
+        input.click("foliage:check");
+        settle();
+        check(owner.problems.size() == 1 && scene.document() == wind_scene,
+              "Static surface controls silently admitted a wind-enabled template");
+        input.choose("foliage:clearance_profile", 6);
+        input.click("foliage:check");
+        settle();
+        check(owner.problems.size() == 0 && panel.collision_task().state().at("state") == "ready" &&
+                  scene.document() == wind_scene,
+              "Edit wind controls failed to admit wind or clear the static-profile diagnostic");
+        input.click("foliage:place");
+        settle();
+        const auto placed = scene.document();
+        check(scene.undo() && scene.document() == wind_scene && scene.redo() &&
+                  scene.document() == placed && scene.undo() && scene.document() == wind_scene &&
+                  scene.undo() && scene.document() == before,
+              "Actual Edit wind placement lost renderer intent or atomic history");
     }
     input.choose("foliage:clearance_profile", 3);
     check(test::ui_targets.at("foliage:clearance_padding").enabled,
@@ -620,11 +649,14 @@ enum class CaptureMode {
     SphereClearance,
     MeshBounds,
     XYBounds,
-    MeshSurfaces
+    MeshSurfaces,
+    EditWindSurfaces
 };
 void capture(const std::filesystem::path& output, const std::filesystem::path& gallery = {},
              CaptureMode mode = CaptureMode::Terrain) {
-    const bool surfaces = mode == CaptureMode::MeshSurfaces, xy = mode == CaptureMode::XYBounds,
+    const bool edit_wind = mode == CaptureMode::EditWindSurfaces,
+               surfaces = mode == CaptureMode::MeshSurfaces || edit_wind,
+               xy = mode == CaptureMode::XYBounds,
                bounds = mode == CaptureMode::MeshBounds || xy || surfaces,
                clearance = bounds || mode == CaptureMode::SphereClearance,
                mesh_surface = mode == CaptureMode::MeshSurface;
@@ -632,7 +664,8 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
     if (!SDL_Init(SDL_INIT_VIDEO))
         throw std::runtime_error(SDL_GetError());
     {
-        const float height = surfaces    ? 1700
+        const float height = edit_wind   ? 1900
+                             : surfaces  ? 1700
                              : xy        ? 2200
                              : clearance ? 2050
                                          : (gallery.empty() ? 1100 : (mesh_surface ? 1480 : 1420));
@@ -650,7 +683,8 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
             std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
             project = std::make_unique<SceneDocument>(scene);
             project->open_project(root);
-            project->open_scene(surfaces       ? "Scenes/269-foliage-mesh-surfaces.scene.json"
+            project->open_scene(edit_wind      ? "Scenes/270-foliage-edit-wind.scene.json"
+                                : surfaces     ? "Scenes/269-foliage-mesh-surfaces.scene.json"
                                 : xy           ? "Scenes/268-foliage-xy-clearance.scene.json"
                                 : bounds       ? "Scenes/267-foliage-mesh-bounds.scene.json"
                                 : mesh_surface ? "Scenes/200-mesh-surface-foliage.scene.json"
@@ -695,8 +729,8 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
                 input.type("foliage:x", "2");
                 input.type("foliage:y", "0");
                 input.type("foliage:z", "0");
-                input.type("foliage:count", "2");
-                input.type("foliage:radius", ".01");
+                input.type("foliage:count", edit_wind ? "64" : "2");
+                input.type("foliage:radius", edit_wind ? "1.5" : ".01");
                 input.type("foliage:spacing", "0");
                 input.type("foliage:scale_min", "1");
                 input.type("foliage:scale_max", "1");
@@ -730,14 +764,17 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
                 if (!surfaces)
                     input.click("foliage:separate_new");
                 if (bounds) {
-                    input.choose("foliage:clearance_profile", surfaces ? 4 : xy ? 3 : 1);
+                    input.choose("foliage:clearance_profile", edit_wind  ? 6
+                                                              : surfaces ? 4
+                                                              : xy       ? 3
+                                                                         : 1);
                     if (!surfaces)
                         input.type("foliage:clearance_padding", ".05");
                     input.type("foliage:clearance_y", "0");
                 }
             }
             input.click("foliage:check");
-            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(35);
             while (panel.collision_task().busy()) {
                 check(std::chrono::steady_clock::now() < deadline,
                       "Clearance controls capture stalled");
@@ -761,6 +798,10 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
             if (clearance) {
                 check(panel.collision_task().state().at("state") == "ready",
                       "Clearance capture preparation failed");
+                if (edit_wind)
+                    check(panel.collision_task().state().at("retained_count") > 0 &&
+                              panel.collision_task().state().at("retained_count") < 64,
+                          "Edit wind capture did not check an actual native-contact subset");
                 for (const char* key :
                      {"foliage:collision", "foliage:separate_new", "foliage:clearance_profile",
                       bounds ? "foliage:clearance_padding" : "foliage:clearance_radius",
@@ -776,7 +817,8 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
                           "Clearance capture clipped a required control");
                 }
             }
-            capture.save(output / (surfaces       ? "foliage-mesh-surfaces-controls.png"
+            capture.save(output / (edit_wind      ? "foliage-edit-wind-controls.png"
+                                   : surfaces     ? "foliage-mesh-surfaces-controls.png"
                                    : xy           ? "foliage-xy-clearance-controls.png"
                                    : bounds       ? "foliage-mesh-bounds-controls.png"
                                    : mesh_surface ? "mesh-foliage-controls.png"
@@ -800,6 +842,8 @@ int main(int argc, char** argv) {
             capture(argv[3], argv[2], CaptureMode::XYBounds);
         else if (argc == 4 && std::string_view(argv[1]) == "--capture-mesh-surfaces")
             capture(argv[3], argv[2], CaptureMode::MeshSurfaces);
+        else if (argc == 4 && std::string_view(argv[1]) == "--capture-edit-wind")
+            capture(argv[3], argv[2], CaptureMode::EditWindSurfaces);
         else if (argc == 4 && std::string_view(argv[1]) == "--capture-mesh-gallery")
             capture(argv[3], argv[2], CaptureMode::MeshSurface);
         else if (argc == 2)

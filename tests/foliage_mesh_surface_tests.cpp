@@ -3,10 +3,12 @@
 #include "editable_mesh_document.hpp"
 #include "foliage_collision.hpp"
 #include "mesh_scatter_authoring.hpp"
+#include "model_instance_pose.hpp"
 #include "runtime_package.hpp"
 #include "spatial_document.hpp"
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <forge/engine_assets.hpp>
 #include <forge/mesh_resource.hpp>
 #include <forge/project.hpp>
@@ -582,13 +584,313 @@ void native_mesh_target(const std::filesystem::path& scratch) {
     other.join();
     check(wrong_thread, "Triangle query bypassed its native owner-thread boundary");
 }
-void author_gallery(const std::filesystem::path& project) {
+void frozen_wind_baseline(const std::filesystem::path& scratch) {
+    const auto root = std::filesystem::absolute(scratch) / AssetId::generate().str();
+    std::filesystem::create_directories(root / "Assets");
+    auto lease = std::make_shared<ProjectLease>(root);
+    AssetCatalog(root).save(AssetCatalog::project_index(root));
+    ProjectSettings(root).save(ProjectSettings::defaults("Frozen Edit wind clearance"));
+    const auto asset = publish_panels(lease, "Assets/WindPanels.mesh.json");
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto create = [&] {
+        return authoring_command(scene, "entity.create", {{"recipe", "primitive.0"}})
+            .at("selected")
+            .get<std::string>();
+    };
+    const auto prototype = create();
+    authoring_command(scene, "property.set",
+                      {{"entity", prototype},
+                       {"component", "forge.mesh_renderer"},
+                       {"field", "mesh"},
+                       {"value", asset}});
+    const Json wind{{"enabled", true},  {"amplitude", 2},  {"height", .5},    {"direction_x", 1},
+                    {"direction_z", 0}, {"frequency", .5}, {"wavelength", 8}, {"phase", 180}};
+    authoring_command(scene, "property.set",
+                      {{"entity", prototype},
+                       {"component", "forge.mesh_renderer"},
+                       {"field", "wind"},
+                       {"value", wind}});
+    std::vector<std::string> targets;
+    for (const bool xy : {false, true}) {
+        const auto target = create();
+        targets.push_back(target);
+        for (const char* type : {xy ? "forge.physics_body_2d" : "forge.physics_body",
+                                 xy ? "forge.box_collider_2d" : "forge.box_collider"})
+            authoring_command(scene, "component.add", {{"entity", target}, {"component", type}});
+        authoring_command(scene, "transform.scale",
+                          {{"entity", target}, {"value", {{"x", .2}, {"y", .2}, {"z", .2}}}});
+        authoring_command(scene, "transform.position",
+                          {{"entity", target}, {"value", {{"x", 1.5}, {"y", .4}, {"z", 0}}}});
+        authoring_command(scene, "property.set",
+                          {{"entity", target},
+                           {"component", xy ? "forge.physics_body_2d" : "forge.physics_body"},
+                           {"field", "motion"},
+                           {"value", 0}});
+    }
+    const auto before = scene.document();
+    RuntimeWorld world({}, {}, std::nullopt, root, false);
+    world.scene.restore_snapshot(scene.snapshot());
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (!world.prepare_physics_assets()) {
+        check(std::chrono::steady_clock::now() < deadline, "Frozen wind native targets stalled");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    world.physics()->synchronize(0);
+    const auto resources = world.engine.services().resources();
+    const auto token = resources->request(RuntimeResourceKind::Mesh, asset);
+    ResourceLease<MeshAsset> mesh;
+    while (!(mesh = resources->mesh(token))) {
+        resources->synchronize();
+        check(std::chrono::steady_clock::now() < deadline, "Frozen wind Mesh admission stalled");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    const auto geometry = prepare_mesh_pose_geometry(mesh->mesh);
+    RenderMesh draw;
+    draw.entity = EntityId::parse(prototype);
+    draw.renderer = scene.entity(prototype).get<MeshRenderer>();
+    draw.world = affine_transform(LocalTransform{});
+    const RenderScene static_scene;
+    const ModelSceneIndex index(static_scene);
+    const auto pose = prepare_mesh_instance_pose(mesh.get(), geometry, draw, index);
+    const auto initial_pose =
+        prepare_mesh_instance_pose(mesh.get(), geometry, draw, index, mesh_pose_payload_limit, 0);
+    check(std::abs(initial_pose.wind.displacement[0]) < 1e-9,
+          "The clock witness does not distinguish initial time from the ordinary Edit sample");
+    check(pose.wind.enabled && pose.wind.displacement[0] == 2,
+          "The ordinary Edit pose did not retain the independently chosen wind displacement");
+    const auto bounds = mesh_instance_bounds(pose, {0, 0, 0});
+    std::vector<FoliageTriangle> triangles;
+    (void)foliage_template_bounds(mesh.get(), &triangles);
+    bool plain3d = false, wind3d = false, plainxy = false, windxy = false;
+    for (const auto& local : triangles) {
+        FoliageTriangle plain, displaced;
+        std::array<Double2, 3> plain_xy, displaced_xy;
+        for (unsigned i = 0; i < 3; ++i) {
+            plain[i] = pose.world.point(local[i]);
+            displaced[i] = wind_point(pose.wind, plain[i]);
+            plain_xy[i] = {plain[i][0], plain[i][1]};
+            displaced_xy[i] = {displaced[i][0], displaced[i][1]};
+            for (unsigned axis = 0; axis < 3; ++axis)
+                check(bounds.minimum[axis] <= displaced[i][axis] &&
+                          bounds.maximum[axis] >= displaced[i][axis],
+                      "Ordinary pose bounds fail to enclose a sampled wind vertex");
+        }
+        plain3d |= world.physics()->overlap_triangle_any(plain);
+        wind3d |= world.physics()->overlap_triangle_any(displaced);
+        plainxy |= world.physics()->overlap_triangle_any_2d(plain_xy);
+        windxy |= world.physics()->overlap_triangle_any_2d(displaced_xy);
+    }
+    check(!plain3d && wind3d && !plainxy && windxy,
+          "The independently positioned obstacle does not distinguish static and frozen wind "
+          "surfaces");
+    resources->release(token);
+    detail::MeshScatterSettings settings;
+    settings.count = 2;
+    settings.radius = .01;
+    settings.spacing = 0;
+    settings.scale_min = settings.scale_max = 1;
+    settings.yaw_min = settings.yaw_max = 0;
+    auto arguments = detail::mesh_scatter_arguments(prototype, settings, "Wind candidates");
+    arguments["world_heights"] = {0., 10.};
+    for (const auto profile :
+         {FoliageClearanceProfile::MeshSurfaces, FoliageClearanceProfile::MeshSurfacesXY}) {
+        FoliageCollisionSettings config;
+        config.profile = profile;
+        FoliageCollisionPreparation task;
+        bool rejected = false;
+        try {
+            (void)task.start(lease, scene, arguments, config);
+        } catch (const AuthoringError& error) {
+            rejected = error.code == "unsupported_template";
+        }
+        check(rejected && scene.document() == before,
+              "An existing static surface profile silently changed its wind admission");
+    }
+    const auto prepare = [&](const Json& candidate_arguments, FoliageCollisionSettings config) {
+        const auto unchanged = scene.document();
+        const auto revision = scene.revision();
+        FoliageCollisionPreparation task;
+        const auto started = task.start(lease, scene, candidate_arguments, config);
+        check(task.start(lease, scene, candidate_arguments, config).at("operation") ==
+                  started.at("operation"),
+              "Frozen wind preparation lost exact pending retries");
+        const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(35);
+        unsigned previous = 0;
+        while (task.busy()) {
+            task.poll(scene, root);
+            const auto state = task.state();
+            const auto count = state.at("shape_query_count").get<unsigned>();
+            check(count >= previous && count - previous <= 16 && scene.revision() == revision,
+                  "Frozen wind queries exceeded their poll budget or published partial objects");
+            previous = count;
+            check(std::chrono::steady_clock::now() < limit, "Frozen wind preparation stalled");
+            if (state.at("state") == "preparing")
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        const auto ready = task.read(scene, root);
+        check(ready.at("state") == "ready", ready.dump().c_str());
+        check(scene.document() == unchanged, "Frozen wind preparation changed Scene intent");
+        return ready.at("result");
+    };
+    for (const auto profile : {FoliageClearanceProfile::MeshEditWindSurfaces,
+                               FoliageClearanceProfile::MeshEditWindSurfacesXY}) {
+        FoliageCollisionSettings config;
+        config.profile = profile;
+        config.offset = {};
+        config.padding = 100;
+        config.radius = .001;
+        const auto result = prepare(arguments, config);
+        check(result.at("arguments").at("placement_mask") == Json::array({false, true}) &&
+                  result.at("surface_triangle_count") == 4 && result.at("shape_query_count") > 2 &&
+                  result.at("physics_tick") == 0 && result.at("settings").at("padding") == 100 &&
+                  scene.document() == before,
+              "Frozen wind profile lost actual contact, saved height, inactive settings or "
+              "read-only intent");
+        const auto applied = authoring_command(scene, "mesh.scatter", result.at("arguments"));
+        const auto created = applied.at("created");
+        check(created.size() == 1 &&
+                  scene.entity(created[0].get<std::string>()).get<MeshRenderer>().wind ==
+                      draw.renderer.wind,
+              "Frozen wind placement did not copy the ordinary renderer's wind values");
+        const auto after = scene.document();
+        check(scene.undo() && scene.document() == before && scene.redo() &&
+                  scene.document() == after && scene.undo() && scene.document() == before,
+              "Frozen wind placement lost ordinary atomic Scene history");
+    }
+    for (const auto& target : targets)
+        authoring_command(scene, "transform.position",
+                          {{"entity", target}, {"value", {{"x", 3.1}, {"y", .4}, {"z", 0}}}});
+    for (const bool xy : {false, true}) {
+        FoliageCollisionSettings config;
+        config.profile = xy ? FoliageClearanceProfile::MeshEditWindSurfacesXY
+                            : FoliageClearanceProfile::MeshEditWindSurfaces;
+        config.offset = {1, 0, xy ? 500. : 0.};
+        const auto shifted = prepare(arguments, config);
+        check(shifted.at("arguments").at("placement_mask") == Json::array({false, true}),
+              "Clearance offset changed the original wind phase or XY consumed offset.z");
+    }
+    auto transformed_wind = wind;
+    transformed_wind["direction_x"] = .6;
+    transformed_wind["direction_z"] = .8;
+    authoring_command(scene, "property.set",
+                      {{"entity", prototype},
+                       {"component", "forge.mesh_renderer"},
+                       {"field", "wind"},
+                       {"value", transformed_wind}});
+    authoring_command(scene, "transform.local",
+                      {{"entity", prototype},
+                       {"translation", {{"x", 90}, {"y", 80}, {"z", 70}}},
+                       {"rotation", detail::encode(rotation_from_euler({25, 35, 10}))},
+                       {"scale", {{"x", -1.2}, {"y", 1.6}, {"z", .8}}}});
+    settings.count = 32;
+    settings.radius = 2.5;
+    settings.scale_min = .75;
+    settings.scale_max = 1.25;
+    settings.yaw_min = -120;
+    settings.yaw_max = 120;
+    arguments = detail::mesh_scatter_arguments(prototype, settings, "Wind transform oracle");
+    arguments["world_heights"] = Json::array();
+    arguments["world_normals"] = Json::array();
+    for (unsigned i = 0; i < settings.count; ++i) {
+        arguments["world_heights"].push_back(double(i % 3));
+        arguments["world_normals"].push_back({{"x", 0}, {"y", .8}, {"z", .6}});
+    }
+    for (const bool xy : {false, true}) {
+        FoliageCollisionSettings config;
+        config.profile = xy ? FoliageClearanceProfile::MeshEditWindSurfacesXY
+                            : FoliageClearanceProfile::MeshEditWindSurfaces;
+        config.offset = {.3, .1, -.2};
+        const auto prepared = prepare(arguments, config);
+        const auto unchanged = scene.document();
+        const auto created = authoring_command(scene, "mesh.scatter", arguments).at("created");
+        {
+            RuntimeWorld oracle({}, {}, std::nullopt, root, false);
+            oracle.scene.restore_snapshot(scene.snapshot());
+            const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(35);
+            while (!oracle.prepare_physics_assets()) {
+                check(std::chrono::steady_clock::now() < limit, "Saved wind pose oracle stalled");
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            oracle.physics()->synchronize(0);
+            const auto rendered = extract_render_scene(oracle.simulation.presentation(1));
+            const ModelSceneIndex saved_index(rendered);
+            for (unsigned i = 0; i < settings.count; ++i) {
+                const auto selected =
+                    std::find_if(rendered.meshes.begin(), rendered.meshes.end(),
+                                 [&](const auto& item) { return item.entity.str() == created[i]; });
+                check(selected != rendered.meshes.end(), "Saved wind oracle lost a plant");
+                const auto saved_pose =
+                    prepare_mesh_instance_pose(mesh.get(), geometry, *selected, saved_index);
+                bool hit = false;
+                for (const auto& local : triangles) {
+                    FoliageTriangle triangle;
+                    for (unsigned corner = 0; corner < 3; ++corner) {
+                        triangle[corner] =
+                            wind_point(saved_pose.wind, saved_pose.world.point(local[corner]));
+                        for (unsigned axis = 0; axis < 3; ++axis)
+                            triangle[corner][axis] += config.offset[axis];
+                    }
+                    hit |= xy ? oracle.physics()->overlap_triangle_any_2d(
+                                    {{{triangle[0][0], triangle[0][1]},
+                                      {triangle[1][0], triangle[1][1]},
+                                      {triangle[2][0], triangle[2][1]}}})
+                              : oracle.physics()->overlap_triangle_any(triangle);
+                }
+                check(
+                    prepared.at("arguments").at("placement_mask")[i] == !hit,
+                    "Wind clearance differs from saved mirrored/yawed/scaled/sloped native poses");
+            }
+        }
+        check(scene.undo() && scene.document() == unchanged,
+              "Wind oracle did not restore Scene intent");
+        auto pair_settings = settings;
+        pair_settings.count = 2;
+        pair_settings.radius = .01;
+        pair_settings.scale_min = pair_settings.scale_max = 1;
+        pair_settings.yaw_min = pair_settings.yaw_max = 0;
+        auto pair =
+            detail::mesh_scatter_arguments(prototype, pair_settings, "Separated wind plants");
+        pair["world_heights"] = {100., 100.};
+        config.mask = 0;
+        config.avoid_new_overlaps = true;
+        const auto separated = prepare(pair, config);
+        check(separated.at("arguments").at("placement_mask") == Json::array({true, false}) &&
+                  separated.at("new_overlap_count") == 1,
+              "Frozen wind separation did not use the sampled conservative bounds");
+        pair_settings.count = 1;
+        auto dab = detail::mesh_scatter_arguments(prototype, pair_settings, "Wind stroke");
+        dab["world_heights"] = {100.};
+        dab.erase("entity");
+        dab.erase("name");
+        const Json stroke{
+            {"entity", prototype}, {"name", "Wind stroke"}, {"dabs", Json::array({dab, dab})}};
+        const auto across_dabs = prepare(stroke, config);
+        check(across_dabs.at("retained_dab_indices") == Json::array({0}) &&
+                  across_dabs.at("original_dab_count") == 2 &&
+                  across_dabs.at("new_overlap_count") == 1,
+              "Sampled wind separation lost original ordering across brush dabs");
+    }
+    std::cout << "Actual native3D/XY contacts distinguish static panels from their ordinary frozen "
+                 "Edit wind pose\n";
+}
+void author_gallery(const std::filesystem::path& project, bool edit_wind = false) {
     const auto root = std::filesystem::absolute(project);
-    constexpr auto destination = "Scenes/269-foliage-mesh-surfaces.scene.json";
+    const auto destination = edit_wind ? "Scenes/270-foliage-edit-wind.scene.json"
+                                       : "Scenes/269-foliage-mesh-surfaces.scene.json";
     check(!std::filesystem::exists(root / destination), "Surface Gallery already exists");
     std::filesystem::create_directories(root / "Assets/Foliage");
     auto lease = std::make_shared<ProjectLease>(root);
-    const auto mesh = publish_panels(lease, "Assets/Foliage/SurfacePanels.mesh.json");
+    AssetId mesh;
+    if (edit_wind) {
+        const auto catalog = AssetCatalog::open_project(root);
+        for (const auto& [id, record] : catalog.records())
+            if (record.source == "Assets/Foliage/SurfacePanels.mesh.json" &&
+                record.type == MeshAsset::type)
+                mesh = id;
+        check(bool(mesh), "Wind Gallery requires the existing shared panel Mesh");
+    } else
+        mesh = publish_panels(lease, "Assets/Foliage/SurfacePanels.mesh.json");
     EngineContext engine;
     Scene scene(engine.world());
     Json original;
@@ -604,15 +906,18 @@ void author_gallery(const std::filesystem::path& project) {
     for (auto& row : source["entities"]) {
         auto& components = row["components"];
         if (components.contains("forge.camera")) {
-            components["forge.local_translation"] = {{"x", 0}, {"y", 7}, {"z", 12}};
+            components["forge.local_translation"] = {
+                {"x", 0}, {"y", edit_wind ? 8 : 7}, {"z", edit_wind ? 16 : 12}};
             components["forge.local_rotation"] = detail::encode(rotation_from_euler({28, 180, 0}));
         }
         if (components.contains("forge.light"))
             components["forge.local_rotation"] = detail::encode(rotation_from_euler({28, 180, 0}));
         if (row.at("name").get<std::string>().starts_with("Blade template")) {
             prototype = row.at("id");
-            row["name"] = "Blade template - static separated panels";
-            components["forge.local_translation"] = {{"x", -10}, {"y", -4}, {"z", 0}};
+            row["name"] = edit_wind ? "Blade template - frozen Edit wind"
+                                    : "Blade template - static separated panels";
+            components["forge.local_translation"] = {
+                {"x", edit_wind ? 0 : -10}, {"y", -4}, {"z", 0}};
             components["forge.local_scale"] = {{"x", 1}, {"y", 1}, {"z", 1}};
             components["forge.mesh_renderer"]["mesh"] = mesh;
             colors = components["forge.mesh_renderer"]["material_parameters"];
@@ -620,15 +925,32 @@ void author_gallery(const std::filesystem::path& project) {
     }
     check(!prototype.empty(), "Surface Gallery template missing");
     scene.reset(source);
+    if (edit_wind) {
+        const Json wind{{"enabled", true},  {"amplitude", 2}, {"height", .5},    {"direction_x", 1},
+                        {"direction_z", 0}, {"frequency", 0}, {"wavelength", 8}, {"phase", 0}};
+        authoring_command(scene, "property.set",
+                          {{"entity", prototype},
+                           {"component", "forge.mesh_renderer"},
+                           {"field", "wind"},
+                           {"value", wind}});
+    }
     for (unsigned patch = 0; patch < 2; ++patch) {
         const double x = patch ? 2 : -6;
         const auto obstacle =
-            authoring_command(scene, "entity.create",
-                              {{"recipe", "primitive.0"},
-                               {"name", patch ? "Surface gap obstacle" : "Bounds gap obstacle"}})
+            authoring_command(
+                scene, "entity.create",
+                {{"recipe", "primitive.0"},
+                 {"name", edit_wind ? (patch ? "Edit wind contact obstacle"
+                                             : "Unchecked wind contact obstacle")
+                                    : (patch ? "Surface gap obstacle" : "Bounds gap obstacle")}})
                 .at("selected");
-        authoring_command(scene, "transform.position",
-                          {{"entity", obstacle}, {"value", {{"x", x + 2}, {"y", 0}, {"z", 0}}}});
+        authoring_command(
+            scene, "transform.position",
+            {{"entity", obstacle},
+             {"value", {{"x", x + (edit_wind ? 1.5 : 2)}, {"y", edit_wind ? .4 : 0}, {"z", 0}}}});
+        if (edit_wind)
+            authoring_command(scene, "transform.scale",
+                              {{"entity", obstacle}, {"value", {{"x", .4}, {"y", .4}, {"z", .4}}}});
         for (const char* type : {"forge.physics_body", "forge.box_collider"})
             authoring_command(scene, "component.add", {{"entity", obstacle}, {"component", type}});
         authoring_command(scene, "property.set",
@@ -654,11 +976,19 @@ void author_gallery(const std::filesystem::path& project) {
         settings.scale_min = settings.scale_max = 1;
         settings.yaw_min = settings.yaw_max = 0;
         auto arguments = detail::mesh_scatter_arguments(
-            prototype, settings, patch ? "Surface-clear panels" : "Bounds-clear panels");
+            prototype, settings,
+            edit_wind ? (patch ? "Edit-wind-clear panels" : "Unchecked wind panels")
+                      : (patch ? "Surface-clear panels" : "Bounds-clear panels"));
         arguments["world_heights"] = {0., 3.};
+        if (edit_wind && !patch) {
+            const auto result = authoring_command(scene, "mesh.scatter", arguments);
+            check(result.at("created").size() == 2, "Unchecked Wind Gallery lost its saved pair");
+            continue;
+        }
         FoliageCollisionSettings config;
-        config.profile =
-            patch ? FoliageClearanceProfile::MeshSurfaces : FoliageClearanceProfile::MeshBounds;
+        config.profile = edit_wind ? FoliageClearanceProfile::MeshEditWindSurfaces
+                         : patch   ? FoliageClearanceProfile::MeshSurfaces
+                                   : FoliageClearanceProfile::MeshBounds;
         config.offset = {};
         FoliageCollisionPreparation task;
         task.start(lease, scene, arguments, config);
@@ -669,7 +999,9 @@ void author_gallery(const std::filesystem::path& project) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         const auto ready = task.read(scene, root);
-        check(ready.at("state") == "ready" && ready.at("retained_count") == (patch ? 2 : 1),
+        check(ready.at("state") == "ready" && ready.at("retained_count") == (edit_wind ? 1
+                                                                             : patch   ? 2
+                                                                                       : 1),
               ready.dump().c_str());
         apply_authoring(scene,
                         Json::array({{{"operation", "mesh.scatter"},
@@ -682,11 +1014,20 @@ void author_gallery(const std::filesystem::path& project) {
     catalog.save(AssetCatalog::project_index(root));
     const std::array roots{scene.asset_id()};
     prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
-    std::cout << "Surface Gallery: bounds1 vs surfaces2 ordinary saved objects\n";
+    std::cout << (edit_wind ? "Wind Gallery: unchecked2 vs frozen-wind-clear1 saved objects\n"
+                            : "Surface Gallery: bounds1 vs surfaces2 ordinary saved objects\n");
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 3 && std::string_view(argv[1]) == "--wind-baseline") {
+            frozen_wind_baseline(argv[2]);
+            return 0;
+        }
+        if (argc == 3 && std::string_view(argv[1]) == "--author-wind-gallery") {
+            author_gallery(argv[2], true);
+            return 0;
+        }
         if (argc == 3 && std::string_view(argv[1]) == "--author-gallery") {
             author_gallery(argv[2]);
             return 0;

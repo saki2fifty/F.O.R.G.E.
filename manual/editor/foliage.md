@@ -199,7 +199,7 @@ The left patch uses root spheres; the right uses conservative template Mesh boun
 
 1. Open a project, choose your template and set the layout. Surface projection, slope filters and slope alignment can stay enabled.
 2. Enable **Reject collisions**. Objects to avoid need enabled Physics Bodies and colliders in the selected clearance domain; a visible Mesh alone does not block placement. Save and publish any Collision asset edits first.
-3. Choose **Clearance shape**. **World sphere** uses **Clearance radius (m)** from 0.001 to 100; its size does not follow the template. **Template Mesh bounds** encloses the static Mesh at each candidate's rotation, scale and slope alignment, then adds **Bounds padding (m)** from 0 to 100 on every side. **Template Mesh surfaces** checks the actual static triangles against 3D colliders. The corresponding **(XY)** choices check XY bodies with a circle, projected rectangle or projected triangles. The XY circle radius is 0.005 to 100 meters. Surface profiles disable padding and ignore the retained radius setting.
+3. Choose **Clearance shape**. **World sphere** uses **Clearance radius (m)** from 0.001 to 100; its size does not follow the template. **Template Mesh bounds** encloses the static Mesh at each candidate's rotation, scale and slope alignment, then adds **Bounds padding (m)** from 0 to 100 on every side. **Template Mesh surfaces** checks the actual static triangles against 3D colliders. The corresponding **(XY)** choices check XY bodies with a circle, projected rectangle or projected triangles. The XY circle radius is 0.005 to 100 meters. **Template Mesh surfaces (Edit wind)** and **Template Mesh surfaces (XY, Edit wind)** sample the template's frozen wind shape. Surface profiles disable padding and ignore the retained radius setting.
 4. Set **Clearance offset X (m)**, **Y (m)** and **Z (m)**. Each offset is -1000 to 1000 meters along world axes. The default (0, 0.5, 0) raises a sphere above the plant's base. For Mesh bounds or surfaces, set all three to 0 to test the unshifted geometry; other offsets move the whole clearance geometry. XY profiles use only X and Y; Z stays stored but is disabled and ignored.
 5. Set **Collision layer mask** to the unsigned combination of the layer bits you want to avoid. The default 4294967295 selects every layer; 0 selects none. Enable **Include sensors** when sensor volumes should also exclude candidates.
 6. The template and selected projection surface are ignored automatically. To ignore another collider, select its object in Hierarchy and click **Ignore selected object**. Up to 14 additional objects are allowed. Children are separate objects. **Clear ignored objects** removes these additional exclusions.
@@ -285,8 +285,9 @@ signed scale, seeded variation and slope alignment as Mesh bounds.
 
 Every static LOD contributes, up to 4,096 triangles in total. The same 8 MiB,
 16,384-vertex, 49,152-index and 32-part Mesh limits apply. Source triangles must
-have area; line/point Mesh parts, enabled Wind, skinning and morph targets are
-unavailable. Publish Mesh edits and check the layout again to use them.
+have area. Line/point Mesh parts, skinning and morph targets are unavailable.
+The two static surface choices require disabled Wind; use an Edit wind choice
+for the frozen wind shape. Publish Mesh edits and check the layout again to use them.
 
 These modes test contact with triangle surfaces. A collider wholly inside a
 closed plant Mesh can miss every surface. Use an enclosing bounds profile when
@@ -323,6 +324,46 @@ your geometry. Query origins must fit +/-1 billion meters per axis in 3D and +/-
 meters per queried axis in XY.
 Tool choices and exclusions are session-only. Later collider changes do not move
 already placed objects.
+
+### Check frozen Edit wind
+
+Open **Gallery 270 — Foliage Edit wind** and press **Play → Game**. The amber
+group keeps both unchecked plants, including one bent into its obstacle. The
+green group keeps only the clear upper plant. Frequency is 0 to hold this
+comparison still; the independent template appears below the groups.
+
+![Saved wind-bent panels, with one checked green plant and two unchecked amber plants](../images/foliage-edit-wind-game.png)
+
+Use **Template Mesh surfaces (Edit wind)** or **Template Mesh surfaces (XY, Edit
+wind)** when your template has **Mesh Renderer → Wind** enabled. These choices
+check the same 0.5-second wind sample shown in Edit, evaluated at each new plant's
+world origin. They keep the ordinary static Mesh, scale, yaw, slope, collision
+filter, query-budget and Scene history workflows described above.
+
+1. Stop Play. Select the template and configure **Inspector → Mesh Renderer → Wind**. Use an admitted static triangle Mesh and publish geometry changes before checking.
+2. Open **Tools > Foliage placement...**, choose **Use selected Mesh Renderer**, set the layout, then enable **Reject collisions**.
+3. Choose the **Edit wind** clearance shape for your collider domain. Set all clearance offsets to 0 to test the unshifted sampled shape. Radius and padding remain inactive.
+4. Choose **Check layout**, then **Place foliage** when the retained subset is suitable. Save the Scene. The placed objects keep their ordinary Wind settings and animate during Play and export.
+
+![Foliage placement with Edit wind surface clearance and a checked layout retaining 58 of 64 candidates](../images/foliage-edit-wind-controls.png)
+
+The checked subset fits the frozen wind shape. Bounds padding remains inactive
+for triangle surface clearance.
+
+The sample uses each candidate's original world X/Z position for the wave phase.
+Moving the disk or changing its seed can change the bend even when the template
+looks still. Clearance offsets shift the geometry after wind sampling, so they
+do not change its phase. XY projects the sampled shape onto X/Y; original world
+Z can affect wind phase, while **Clearance offset Z (m)** remains disabled and
+ignored. Disabled Wind or zero amplitude uses the static shape in these profiles.
+
+**Separate new plants** compares conservative bounds around each sampled shape.
+It can reject empty space. This is one frozen contact sample, so a later phase,
+full wind cycle or moving obstacle can still intersect the plants. It does not
+change colliders or promise clearance throughout gameplay. Skinning, morphs and
+closed-volume containment remain unavailable. World sphere/circle profiles keep
+their independent radius behavior; the older Mesh bounds/static surface choices
+still require disabled Wind.
 
 ## Add wind
 

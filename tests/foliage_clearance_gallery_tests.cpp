@@ -1,8 +1,10 @@
 #include "foliage_collision.hpp"
 #include "mesh_scatter_authoring.hpp"
+#include "model_instance_pose.hpp"
 #include "render_bounds.hpp"
 #include "runtime_package.hpp"
 #include "terrain_foliage_authoring.hpp"
+#include <algorithm>
 #include <cmath>
 #include <forge/game_content.hpp>
 #include <forge/mesh_resource.hpp>
@@ -21,8 +23,9 @@ constexpr auto stroke_path = "Scenes/257-foliage-brush-clearance.scene.json";
 constexpr auto bounds_path = "Scenes/267-foliage-mesh-bounds.scene.json";
 constexpr auto xy_path = "Scenes/268-foliage-xy-clearance.scene.json";
 constexpr auto surfaces_path = "Scenes/269-foliage-mesh-surfaces.scene.json";
+constexpr auto wind_path = "Scenes/270-foliage-edit-wind.scene.json";
 constexpr double separated_radius = .4;
-enum class Gallery { Sphere, Separated, Stroke, MeshBounds, XY, Surfaces };
+enum class Gallery { Sphere, Separated, Stroke, MeshBounds, XY, Surfaces, EditWind };
 void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
@@ -186,7 +189,8 @@ void exercise(const std::filesystem::path& root, AssetId id, Gallery mode = Gall
     }
     world.physics()->synchronize(0);
     const auto source = world.scene.effective_document();
-    if (mode == Gallery::Surfaces) {
+    if (mode == Gallery::Surfaces || mode == Gallery::EditWind) {
+        const bool wind = mode == Gallery::EditWind;
         AssetId asset;
         for (const auto& row : source.at("entities"))
             if (row.at("name").get<std::string>().starts_with("Blade template"))
@@ -203,23 +207,43 @@ void exercise(const std::filesystem::path& root, AssetId id, Gallery mode = Gall
         std::vector<FoliageTriangle> triangles;
         const auto bounds = foliage_template_bounds(mesh.get(), &triangles);
         check(triangles.size() == 4, "Surface Gallery no longer has four separated triangles");
-        unsigned boxes = 0, surfaces = 0, empty_bounds_contacts = 0;
+        const auto rendered = extract_render_scene(world.simulation.presentation(1));
+        const ModelSceneIndex model_index(rendered);
+        const auto geometry = wind ? prepare_mesh_pose_geometry(mesh->mesh) : MeshPoseGeometry{};
+        unsigned boxes = 0, surfaces = 0, empty_bounds_contacts = 0, wind_contacts = 0;
         for (const auto& row : source.at("entities")) {
             const auto name = row.at("name").get<std::string>();
-            const bool surface = name.starts_with("Surface-clear panels ");
-            if (!surface && !name.starts_with("Bounds-clear panels "))
+            const bool surface =
+                name.starts_with(wind ? "Edit-wind-clear panels " : "Surface-clear panels ");
+            if (!surface &&
+                !name.starts_with(wind ? "Unchecked wind panels " : "Bounds-clear panels "))
                 continue;
             surface ? ++surfaces : ++boxes;
             AffineTransform frame;
             for (unsigned i = 0; i < 12; ++i)
                 frame.m[i] = row.at("world_affine")[i].get<double>();
+            MeshWindSample sample;
+            if (wind) {
+                const auto draw = std::find_if(
+                    rendered.meshes.begin(), rendered.meshes.end(),
+                    [&](const auto& item) { return item.entity.str() == row.at("id"); });
+                check(draw != rendered.meshes.end() && draw->renderer.wind.enabled &&
+                          draw->renderer.wind.frequency == 0,
+                      "Wind Gallery lost its ordinary constant-pose renderer values");
+                sample = prepare_mesh_instance_pose(mesh.get(), geometry, *draw, model_index).wind;
+            }
+            bool triangle_contact = false;
             for (const auto& local : triangles) {
                 FoliageTriangle triangle;
                 for (unsigned i = 0; i < 3; ++i)
-                    triangle[i] = frame.point(local[i]);
-                check(!world.physics()->overlap_triangle_any(triangle),
-                      "Saved Surface Gallery panels contact a native obstacle");
+                    triangle[i] = wind_point(sample, frame.point(local[i]));
+                triangle_contact |= world.physics()->overlap_triangle_any(triangle);
             }
+            check((wind && !surface) || !triangle_contact,
+                  "Saved clear Gallery panels contact a native obstacle");
+            wind_contacts += triangle_contact;
+            if (wind)
+                continue;
             const auto box = transform_bounds(bounds, frame);
             PhysicsOverlap query;
             query.shape = PhysicsOverlap::Shape::Box;
@@ -233,8 +257,12 @@ void exercise(const std::filesystem::path& root, AssetId id, Gallery mode = Gall
             empty_bounds_contacts += contact;
         }
         resources->release(token);
-        const auto rendered = extract_render_scene(world.simulation.presentation(1));
-        check(boxes == 1 && surfaces == 2 && empty_bounds_contacts == 1 &&
+        check(boxes == (wind ? 2u : 1u) && surfaces == (wind ? 1u : 2u) &&
+                  (wind ? wind_contacts == 1 : empty_bounds_contacts == 1) &&
+                  std::count_if(source.at("entities").begin(), source.at("entities").end(),
+                                [](const Json& row) {
+                                    return row.at("components").contains("forge.physics_body");
+                                }) == 2 &&
                   rendered.meshes.size() == 6 && rendered.cameras.size() == 1 &&
                   !rendered.lights.empty() && world.physics()->status().at("tick") == 0,
               "Surface Gallery lost its saved comparison, camera, light or native semantics");
@@ -367,19 +395,22 @@ int main(int argc, char** argv) {
         const bool xy_only = argc == 4 && std::string_view(argv[3]) == "--xy";
         const bool bounds_only = argc == 4 && std::string_view(argv[3]) == "--bounds";
         const bool surfaces_only = argc == 4 && std::string_view(argv[3]) == "--surfaces";
-        check(argc == 3 || bounds_only || xy_only || surfaces_only,
+        const bool wind_only = argc == 4 && std::string_view(argv[3]) == "--edit-wind";
+        check(argc == 3 || bounds_only || xy_only || surfaces_only || wind_only,
               "Need Gallery and scratch paths");
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "Gallery";
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
-        if (bounds_only || xy_only || surfaces_only) {
-            const auto mode = surfaces_only ? Gallery::Surfaces
-                              : xy_only     ? Gallery::XY
-                                            : Gallery::MeshBounds;
-            const auto id = read(root / (surfaces_only ? surfaces_path
-                                         : xy_only     ? xy_path
-                                                       : bounds_path))
+        if (bounds_only || xy_only || surfaces_only || wind_only) {
+            const auto mode = wind_only       ? Gallery::EditWind
+                              : surfaces_only ? Gallery::Surfaces
+                              : xy_only       ? Gallery::XY
+                                              : Gallery::MeshBounds;
+            const auto id = read(root / (wind_only       ? wind_path
+                                         : surfaces_only ? surfaces_path
+                                         : xy_only       ? xy_path
+                                                         : bounds_path))
                                 .at("asset_id")
                                 .get<AssetId>();
             exercise(root, id, mode);

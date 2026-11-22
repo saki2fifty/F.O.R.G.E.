@@ -29,6 +29,22 @@ for prefix, count in (('Bounds-clear panels ', 1), ('Surface-clear panels ', 2))
     assert len(plants) == count
     assert all(row['components']['forge.mesh_renderer']['mesh'] == panels['asset_id'] for row in plants)
 
+# Frozen Edit wind placements preserve shared geometry and ordinary renderer values.
+wind_foliage_path = 'Scenes/270-foliage-edit-wind.scene.json'
+wind_foliage = json.loads((project_root / wind_foliage_path).read_bytes())
+assert wind_foliage['asset_id'] == by_source[wind_foliage_path]['id'] == '714e9434-8c21-4530-ac20-8098f9ea3c5a'
+wind_nodes = wind_foliage['entities']
+assert sum('forge.camera' in row['components'] for row in wind_nodes) == 1
+assert sum('forge.light' in row['components'] for row in wind_nodes) == 1
+assert sum('forge.physics_body' in row['components'] for row in wind_nodes) == 2
+for prefix, count in (('Unchecked wind panels ', 2), ('Edit-wind-clear panels ', 1)):
+    plants = [row for row in wind_nodes if row['name'].startswith(prefix)]
+    assert len(plants) == count
+    for plant in plants:
+        renderer = plant['components']['forge.mesh_renderer']
+        assert renderer['mesh'] == panels['asset_id']
+        assert renderer['wind']['enabled'] and renderer['wind']['frequency'] == 0
+
 # XY clearance saves the ordinary Mesh placements used by both runtime domains.
 xy_foliage_path = 'Scenes/268-foliage-xy-clearance.scene.json'
 xy_foliage = json.loads((project_root / xy_foliage_path).read_bytes())

@@ -333,7 +333,9 @@ int main(int argc, char** argv) {
         const bool xy_clearance =
             terrain && std::string_view(argv[3]) == "Scenes/268-foliage-xy-clearance.scene.json";
         const bool surface_clearance =
-            terrain && std::string_view(argv[3]) == "Scenes/269-foliage-mesh-surfaces.scene.json";
+            terrain &&
+            (std::string_view(argv[3]) == "Scenes/269-foliage-mesh-surfaces.scene.json" ||
+             std::string_view(argv[3]) == "Scenes/270-foliage-edit-wind.scene.json");
         const bool mesh_bounds =
             xy_clearance ||
             (terrain && std::string_view(argv[3]) == "Scenes/267-foliage-mesh-bounds.scene.json");

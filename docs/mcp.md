@@ -144,6 +144,17 @@ wind and skin/morph deformation are unsupported. This is surface contact, not
 closed-volume containment. Radius/padding remain validated retained settings but
 are inactive for these two profiles. `avoid_new_overlaps` uses conservative
 enclosing boxes/XY rectangles between new plants in surface mode.
+`mesh-edit-wind-surfaces-v1` and `mesh-edit-wind-surfaces-xy-v1` instead admit
+ordinary renderer Wind and sample its frozen0.5s Edit pose through the shared
+instance-pose/wind/bounds owner. The same all-LOD4096triangle and Mesh resource
+limits apply. Wind samples each candidate's original world X/Z origin before
+clearance offsets; XY then projects the sampled shape, so originalZ may affect
+phase while offset.z remains unused. Disabled/zero-amplitude wind is static.
+Radius/padding stay inactive, pair separation uses conservative sampled bounds,
+and saved objects retain their ordinary renderer Wind. No whole-cycle/live-pose/
+future-motion, skin/morph or closed containment claim is made. The four static
+Mesh profiles preserve their enabled-Wind rejection; sphere/circle keep their
+independent radius behavior.
 At most16 shape-query requests run per poll and8192 per task, including conservative
 sphere/circle envelope probes and individual triangle queries. Counts include
 zero-mask validated requests. Status exposes `shape_query_count`,

@@ -181,7 +181,8 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     properties = collision_tool['inputSchema']['properties']
     assert properties['profile']['enum'] == ['world-sphere-v1', 'mesh-bounds-v1',
                                              'world-circle-xy-v1', 'mesh-bounds-xy-v1',
-                                             'mesh-surfaces-v1', 'mesh-surfaces-xy-v1']
+                                             'mesh-surfaces-v1', 'mesh-surfaces-xy-v1',
+                                             'mesh-edit-wind-surfaces-v1', 'mesh-edit-wind-surfaces-xy-v1']
     assert properties['padding']['minimum'] == 0 and properties['padding']['maximum'] == 100
     for key, values in (('profile', ['unavailable', 1, None]),
                         ('padding', [-1, 101, '0', None])):
@@ -249,6 +250,46 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == cleared_scene
     assert mutate('forge_history_redo')['ok']
     assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == cleared_scene
+    original_wind = next(row for row in cleared_scene['entities'] if row['id'] == prototype)[
+        'components']['forge.mesh_renderer']['wind']
+    edited_wind = dict(original_wind, enabled=True, amplitude=2, height=.5, frequency=0, phase=90)
+    assert mutate('forge_property_set', arguments=dict(entity=prototype,
+        component='forge.mesh_renderer', field='wind', value=edited_wind))['ok']
+    wind_scene = read('forge_scene_read')
+    failed(client.tool('forge_foliage_collision_start', target=discover()['result']['target'],
+                       arguments=selected['arguments'], profile='mesh-surfaces-v1'),
+           'unsupported_template')
+    assert read('forge_scene_read') == wind_scene
+    for profile in ('mesh-edit-wind-surfaces-v1', 'mesh-edit-wind-surfaces-xy-v1'):
+        request = dict(arguments=selected['arguments'], surface=surface, profile=profile,
+                       mask=0, radius=.001, padding=100, offset=dict(x=0, y=0, z=0))
+        wind_state = read('forge_foliage_collision_start', **request)
+        assert read('forge_foliage_collision_start', **request)['operation'] == wind_state['operation']
+        deadline = time.monotonic() + 15
+        while wind_state['state'] in ('preparing', 'querying'):
+            assert time.monotonic() < deadline, wind_state
+            wind_state = read('forge_foliage_collision_read', operation=wind_state['operation'])
+            time.sleep(.01)
+        assert wind_state['state'] == 'ready' and read('forge_scene_read') == wind_scene, wind_state
+        result = wind_state['result']
+        assert result['surface_triangle_count'] == 12 and result['physics_tick'] == 0
+        assert result['arguments'] == bounds_result['arguments']
+        assert result['settings']['profile'] == profile and result['settings']['padding'] == 100
+        state = discover()
+        applied = client.tool('forge_mesh_scatter', target=state['result']['target'],
+            expected_revision=result['scene_revision'], sequence=state['next_sequence'],
+            arguments=result['arguments'])
+        assert applied['ok'], applied
+        created = applied['result']['results'][0]['created']
+        placed = read('forge_scene_read')
+        assert all(row['components']['forge.mesh_renderer']['wind'] == edited_wind
+                   for row in placed['entities'] if row['id'] in created)
+        assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == wind_scene
+        assert mutate('forge_history_redo')['ok'] and read('forge_scene_read') == placed
+        assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == wind_scene
+    assert mutate('forge_property_set', arguments=dict(entity=prototype,
+        component='forge.mesh_renderer', field='wind', value=original_wind))['ok']
+    assert read('forge_scene_read') == cleared_scene
     xy_obstacle = create('XY clearance obstacle')
     for component in ('forge.physics_body_2d', 'forge.box_collider_2d'):
         assert mutate('forge_component_add', arguments=dict(entity=xy_obstacle, component=component))['ok']

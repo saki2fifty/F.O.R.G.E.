@@ -1,5 +1,16 @@
 # 2026-11-22
 
+Two opt-in Mesh surface clearance profiles sample the ordinary frozen 0.5-second
+Edit wind shape through the shared instance-pose owner, in native 3D or projected
+XY. Existing six profiles and defaults are preserved. Clearance offsets apply
+after wind; new plants retain ordinary renderer Wind. UI and automation/MCP
+share profile metadata, preparation budgets, Scene validation and history.
+Gallery270 reuses the editable two-panel Mesh to compare unchecked and
+wind-checked placements. Native source-hidden export, software Scene/Game and
+authentic controls/Game captures cover the saved scene. This single sample does
+not guarantee clearance through future motion, skinning, morphs or closed-volume
+containment. No installed SDK or asset identity changes are required.
+
 Static template Mesh surface clearance checks up to4096 all-LOD triangles against
 existing native3D or XY colliders. The six shared profile choices preserve old
 defaults; native controls and automation/MCP use the same preparation owner.

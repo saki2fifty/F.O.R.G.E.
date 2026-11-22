@@ -4598,3 +4598,26 @@ Controls SHA256: `050adf18d85e648a953e5b00a54f13805f6dd533dccdcf08edb15bcd50d40e
 Game SHA256: `74fcc6784c1f22bfd9fd7f7c503e01db1b8ab3880ec77e15e5ef474a0f2a283d`.
 These images do not establish Windows, physical GPU/input/DPI or graphical
 standalone EXE acceptance.
+
+
+## Frozen Edit wind clearance controls and Game view
+
+Canonical files: `manual/images/foliage-edit-wind-controls.png` (720×1900) and
+`manual/images/foliage-edit-wind-game.png` (640×360). The native panel shows
+**Template Mesh surfaces (Edit wind)**, disabled padding and a checked layout
+retaining 58 of 64 candidates. Gallery270's green group keeps one clear plant;
+the amber group retains two unchecked plants, including one touching its obstacle.
+The independent template appears below. Frequency is 0 for a stable comparison.
+
+Source: working tree based on e6930e87d1223eeaaabd3b4e299c0f510e0503bc with frozen
+Edit wind surface clearance. Native build449/capture456 produced the original
+controls. Graphics build450/run455 produced the source-hidden relocated Game
+image through the production FrameRenderer on software Vulkan/lavapipe. Native
+export and four exact authored/relocated Scene/Game display pairs passed.
+
+Both images were personally reviewed at original dimensions without retouch.
+Game PPM-to-PNG encoding preserves exact RGB bytes. Local technical provenance
+binds producers, binaries, executions and Gallery inputs. Controls SHA256:
+`c3e159f65ab2332c8a07644292f83ac501bd2fbead99a6f9c2ceaa21428dee18`. Game SHA256:
+`ff2be5960352a6e601ed022387572d99749981cbcbaa418e9d88ef3cccecb1c3`. These captures do not establish Windows, physical GPU,
+input, DPI or graphical standalone EXE acceptance.

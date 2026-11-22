@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**270-foliage-edit-wind** compares unchecked wind-bent panels in amber with
+placements checked using **Template Mesh surfaces (Edit wind)** in green. The
+unchecked lower plant touches its obstacle; the checked group keeps the clear
+upper plant. Both groups share **Assets/Foliage/SurfacePanels.mesh.json** and keep
+ordinary Mesh Renderer Wind. Frequency is 0 so the contact comparison stays still.
+Camera and light are included. Save and export with the matching runtime kit;
+no project C++ module is required. See [frozen Edit wind clearance](../editor/foliage.md).
+
 **269-foliage-mesh-surfaces** compares saved placements using enclosing Mesh
 bounds in the amber group and static triangle surfaces in the green group. The
 amber group retains one two-panel plant; the green group retains two because

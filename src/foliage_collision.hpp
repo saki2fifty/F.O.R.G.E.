@@ -22,17 +22,22 @@ enum class FoliageClearanceProfile {
     CircleXY,
     MeshBoundsXY,
     MeshSurfaces,
-    MeshSurfacesXY
+    MeshSurfacesXY,
+    MeshEditWindSurfaces,
+    MeshEditWindSurfacesXY
 };
 enum class FoliageClearanceGeometry { Radius, Bounds, Surfaces };
+enum class FoliageClearanceDeformation { Static, EditWind };
 struct FoliageClearanceChoice {
     FoliageClearanceProfile profile;
     const char* key;
     const char* label;
     FoliageClearanceGeometry geometry;
     bool xy;
+    FoliageClearanceDeformation deformation = FoliageClearanceDeformation::Static;
     bool uses_mesh() const { return geometry != FoliageClearanceGeometry::Radius; }
     bool uses_surfaces() const { return geometry == FoliageClearanceGeometry::Surfaces; }
+    bool samples_edit_wind() const { return deformation == FoliageClearanceDeformation::EditWind; }
 };
 std::span<const FoliageClearanceChoice> foliage_clearance_choices();
 const FoliageClearanceChoice& foliage_clearance_choice(FoliageClearanceProfile);

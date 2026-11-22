@@ -253,7 +253,8 @@ Radius/padding remain range-validated and fingerprinted but inactive in surface
 mode. Offset shifts emitted geometry. New-plant separation deliberately uses the
 existing conservative ordered box/rectangle test, not a triangle-pair kernel.
 Closed-volume containment is not tested: an obstacle wholly inside a closed
-template can miss all triangles. Wind/skin/morph sampling remains unsupported.
+template can miss all triangles. These two static profiles do not sample Wind,
+skinning or morphs; the explicit Edit wind profiles below sample renderer Wind.
 
 The task charges each envelope/triangle request, including validated zero-mask
 requests, against16 per poll and8192 per request. A pending candidate retains
@@ -261,6 +262,30 @@ envelope/triangle cursors across polls. `shape_query_count`, `shape_query_limit`
 and `surface_triangle_count` expose progress; ready results retain the counts.
 Request budget/deadline failure destroys the private world without a partial
 authoring result. Ordinary scatter/stroke remains the only Scene publication owner.
+
+The additive `mesh-edit-wind-surfaces-v1` and
+`mesh-edit-wind-surfaces-xy-v1` profiles use the same surface task with an explicit
+Edit-wind deformation policy. The previous six enum ordinals/keys/defaults remain;
+the four previous Mesh profiles still reject enabled Wind and radius profiles
+retain their independent behavior. Skin/morph/source-degenerate admission stays
+with the same resource reader.
+
+Preparation uses `prepare_mesh_pose_geometry` once for the admitted resource and
+`prepare_mesh_instance_pose` at its ordinary0.5s Edit default for each existing
+candidate frame. The captured private Scene supplies the typed MeshRenderer;
+`mesh_instance_bounds` supplies conservative wind-expanded bounds relative to
+that candidate's origin. Only the existing frame and copied MeshWindSample are
+retained after releasing the resource lease. Lazy `wind_point` deformation precedes
+clearance offsets and XY projection. Original worldZ may affect the wave phase;
+offset.z is ignored only by XY projection. No new JSON parser, clock, wind field,
+mutable geometry authority or body population is introduced.
+
+The shape/query budgets, captured revisions, stale checks, pending retries,
+original-order mask and ordinary scatter/stroke publication/history remain shared.
+New-plant separation uses conservative sampled bounds, including across dabs.
+This is a frozen authoring contact sample, not a whole-cycle or future-motion
+promise; physical colliders remain unchanged. Disabled/zero-amplitude wind is
+static in the opt-in profiles. Skin/morph and closed containment remain unsupported.
 
 The XY profiles preserve the ordinary XZ scatter/stroke layout, world heights,
 yaw/template rotation, signed scale and slope alignment. They change only query

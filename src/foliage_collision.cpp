@@ -3,6 +3,7 @@
 #include "authored_component.hpp"
 #include "collision_selection.hpp"
 #include "mesh_scatter_authoring.hpp"
+#include "model_instance_pose.hpp"
 #include "physics_query_filter.hpp"
 #include "render_bounds.hpp"
 #include "spatial_document.hpp"
@@ -32,7 +33,13 @@ std::span<const FoliageClearanceChoice> foliage_clearance_choices() {
         {FoliageClearanceProfile::MeshSurfaces, "mesh-surfaces-v1", "Template Mesh surfaces",
          FoliageClearanceGeometry::Surfaces, false},
         {FoliageClearanceProfile::MeshSurfacesXY, "mesh-surfaces-xy-v1",
-         "Template Mesh surfaces (XY)", FoliageClearanceGeometry::Surfaces, true}};
+         "Template Mesh surfaces (XY)", FoliageClearanceGeometry::Surfaces, true},
+        {FoliageClearanceProfile::MeshEditWindSurfaces, "mesh-edit-wind-surfaces-v1",
+         "Template Mesh surfaces (Edit wind)", FoliageClearanceGeometry::Surfaces, false,
+         FoliageClearanceDeformation::EditWind},
+        {FoliageClearanceProfile::MeshEditWindSurfacesXY, "mesh-edit-wind-surfaces-xy-v1",
+         "Template Mesh surfaces (XY, Edit wind)", FoliageClearanceGeometry::Surfaces, true,
+         FoliageClearanceDeformation::EditWind}};
     return choices;
 }
 const FoliageClearanceChoice& foliage_clearance_choice(FoliageClearanceProfile profile) {
@@ -276,6 +283,7 @@ struct FoliageCollisionPreparation::Impl {
         // sequence is ready. Neither is a persistent geometry or placement owner.
         std::vector<LocalTransform> placements;
         std::vector<AffineTransform> frames;
+        std::vector<MeshWindSample> wind_samples;
         std::vector<FoliageTriangle> surfaces;
         std::variant<std::vector<PhysicsOverlap>, std::vector<PhysicsOverlap2D>> boxes;
         std::variant<std::vector<std::array<PhysicsOverlap, 4>>,
@@ -390,8 +398,11 @@ Json FoliageCollisionPreparation::start(std::shared_ptr<const ProjectLease> leas
             if (row.at("id") == next->arguments.at("entity")) {
                 const auto& components = row.at("components");
                 const auto& renderer = components.at("forge.mesh_renderer");
-                require(!renderer.contains("wind") || !renderer.at("wind").value("enabled", false),
-                        "unsupported_template", "Mesh bounds clearance does not sample wind");
+                require(choice.samples_edit_wind() || !renderer.contains("wind") ||
+                            !renderer.at("wind").value("enabled", false),
+                        "unsupported_template",
+                        "This Mesh clearance profile does not sample wind; "
+                        "choose a Mesh surface Edit wind profile");
                 prototype = detail::read_local(components);
                 next->prototype_mesh = renderer.at("mesh").get<AssetId>();
             }
@@ -517,6 +528,18 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
                 const auto& choice = foliage_clearance_choice(work.config.profile);
                 const auto local = foliage_template_bounds(
                     mesh.get(), choice.uses_surfaces() ? &work.surfaces : nullptr);
+                MeshPoseGeometry pose_geometry;
+                RenderMesh sampled_template;
+                const RenderScene static_scene;
+                const ModelSceneIndex model_index(static_scene);
+                if (choice.samples_edit_wind()) {
+                    pose_geometry = prepare_mesh_pose_geometry(mesh->mesh);
+                    const auto prototype = work.arguments.at("entity").get<std::string>();
+                    sampled_template.entity = EntityId::parse(prototype);
+                    sampled_template.renderer =
+                        work.world->scene.entity(prototype).get<MeshRenderer>();
+                    work.wind_samples.resize(work.placements.size());
+                }
                 if (choice.uses_surfaces()) {
                     work.frames.resize(work.placements.size());
                     work.envelope_counts.resize(work.placements.size());
@@ -538,7 +561,14 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
                                 continue;
                             }
                             const auto frame = affine_transform(work.placements[index]);
-                            const auto bounds = transform_bounds(local, frame);
+                            auto bounds = transform_bounds(local, frame);
+                            if (choice.samples_edit_wind()) {
+                                sampled_template.world = frame;
+                                const auto pose = prepare_mesh_instance_pose(
+                                    mesh.get(), pose_geometry, sampled_template, model_index);
+                                bounds = mesh_instance_bounds(pose, frame.point({0, 0, 0}));
+                                work.wind_samples[index] = pose.wind;
+                            }
                             boxes.push_back(bounds_query<Query>(bounds, box_config));
                             if (choice.uses_surfaces()) {
                                 const auto& limits = choice.xy
@@ -641,6 +671,9 @@ void FoliageCollisionPreparation::poll(const Scene& scene, const std::filesystem
                             FoliageTriangle triangle;
                             for (unsigned corner = 0; corner < 3; ++corner) {
                                 triangle[corner] = work.frames[index].point(local[corner]);
+                                if (choice.samples_edit_wind())
+                                    triangle[corner] =
+                                        wind_point(work.wind_samples[index], triangle[corner]);
                                 for (unsigned axis = 0; axis < 3; ++axis)
                                     triangle[corner][axis] += work.config.offset[axis];
                             }

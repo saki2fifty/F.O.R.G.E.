@@ -385,14 +385,22 @@ class FoliagePlacement {
                         "or XY placement tool.");
                 help("Template Mesh clearance follows saved template rotation, signed scale, "
                      "seeded variation and slope alignment. Every static LOD is included. "
-                     "Wind, skin and morph deformation are unavailable. Up to 8 MiB of Mesh "
+                     "Bounds and static surface profiles require disabled template wind. "
+                     "Edit wind surface profiles use the ordinary frozen 0.5 s Edit pose. "
+                     "Skin and morph deformation are unavailable. Up to 8 MiB of Mesh "
                      "data, 16384 vertices, 49152 indices and 32 parts.");
                 if (choice.uses_surfaces())
                     ImGui::TextWrapped(
-                        "Surface contact: up to 4096 static triangles against native colliders. "
+                        "Surface contact: up to 4096 template triangles against native colliders. "
                         "An obstacle wholly inside a closed Mesh can miss its surfaces. Radius "
                         "and padding are inactive. Separate new plants uses enclosing bounds, "
                         "which can reject empty space. Up to 8192 shape queries per request.");
+                if (choice.samples_edit_wind())
+                    ImGui::TextWrapped(
+                        "Edit wind snapshot: samples the template's Wind at 0.5 s, matching Edit. "
+                        "Clearance offsets shift the sampled shape without changing its wave "
+                        "phase. New plants keep their ordinary Wind settings and animate in "
+                        "Play. This snapshot does not check a full wind cycle or future motion.");
                 ImGui::Checkbox("Separate new plants", &collision_settings_.avoid_new_overlaps);
                 FORGE_UI_PROBE("foliage:separate_new");
                 help(
